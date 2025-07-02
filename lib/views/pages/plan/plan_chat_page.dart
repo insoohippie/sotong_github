@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../viewmodels/plan/plan_chat_viewmodel.dart';
+import '../../widgets/texts/header_text.dart';
+import '../../widgets/texts/paragraph_text.dart';
+import '../../widgets/inputs/custom_dropdown.dart';
 
 class PlanChatPage extends StatelessWidget {
   const PlanChatPage({super.key});
@@ -25,15 +28,10 @@ class PlanChatPage extends StatelessWidget {
             const SizedBox(height: 20),
 
             const ChatBubble(text: '이 플랜의 목적은 무엇인가요?'),
-            DropdownButton<String>(
+            CustomDropdown(
               value: vm.planPurpose.isEmpty ? null : vm.planPurpose,
-              hint: const Text('플랜 목적 선택', style: TextStyle(fontFamily: 'Pretendard')),
-              items: ['여행', '비상금', '저축', '기타']
-                  .map((e) => DropdownMenuItem(
-                value: e,
-                child: Text(e, style: const TextStyle(fontFamily: 'Pretendard')),
-              ))
-                  .toList(),
+              items: ['여행', '비상금', '저축', '기타'],
+              hintText: '플랜 목적 선택',
               onChanged: (value) {
                 if (value != null) vm.setPlanPurpose(value);
               },
@@ -54,10 +52,12 @@ class PlanChatPage extends StatelessWidget {
                   ? () {
                 final plan = vm.createPlan();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(
-                    '플랜 저장 완료: ${plan.planName}, ${plan.goalAmount}원',
-                    style: const TextStyle(fontFamily: 'Pretendard'),
-                  )),
+                  SnackBar(
+                    content: Text(
+                      '플랜 저장 완료: ${plan.planName}, ${plan.goalAmount}원',
+                      style: const TextStyle(fontFamily: 'Pretendard'),
+                    ),
+                  ),
                 );
                 vm.clear();
               }
@@ -95,7 +95,7 @@ class ChatBubble extends StatelessWidget {
           color: isBot ? Colors.grey[200] : Colors.blue[100],
           borderRadius: BorderRadius.circular(12),
         ),
-        child: ParagraphText(text: text), // ← Pretendard 스타일 적용
+        child: ParagraphText(text: text),
       ),
     );
   }

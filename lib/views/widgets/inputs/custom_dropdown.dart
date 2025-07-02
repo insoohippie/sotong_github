@@ -18,10 +18,16 @@ class CustomDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
       value: value,
-      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
       onChanged: onChanged,
+      items: items
+          .map((item) => DropdownMenuItem(
+        value: item,
+        child: Text(item, style: const TextStyle(fontFamily: 'Pretendard')),
+      ))
+          .toList(),
       decoration: InputDecoration(
         hintText: hintText,
+        hintStyle: const TextStyle(fontFamily: 'Pretendard'),
         filled: true,
         fillColor: Colors.grey[100],
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
