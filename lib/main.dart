@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/viewmodels/plan/plan_chat_viewmodel.dart';
+import 'package:sotong_local/view_model/plan/plan_chat_viewmodel.dart';
 import 'route.dart';
 
 void main() {
