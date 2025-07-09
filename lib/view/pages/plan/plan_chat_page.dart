@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../component/inputs/custom_dropdown.dart';
+import '../../../component/texts/header_text.dart';
+import '../../../component/texts/paragraph_text.dart';
 import '../../../view_model/plan/plan_chat_viewmodel.dart';
-import '../../widgets/texts/header_text.dart';
-import '../../widgets/texts/paragraph_text.dart';
-import '../../widgets/inputs/custom_dropdown.dart';
 
 class PlanChatPage extends StatelessWidget {
   const PlanChatPage({super.key});
