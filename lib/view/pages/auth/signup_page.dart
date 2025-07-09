@@ -8,6 +8,8 @@ import 'package:sotong_local/component/texts/paragraph_text.dart';
 
 import '../../../component/appbars/custom_app_bar.dart';
 import '../../../component/inputs/custom_text_field.dart';
+import '../../../component/inputs/dual_option_selector.dart';
+import '../../../component/inputs/wheel_date_picker.dart';
 import '../../../component/texts/multi_color_text.dart';
 import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
@@ -63,7 +65,7 @@ class SignUpPage extends StatelessWidget {
                 }
               },
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -86,7 +88,7 @@ class SignUpPage extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              vm.emailError!,
+              '• ${vm.emailError}',
               style: AppTextStyles.errorText,
             ),
           )
@@ -94,7 +96,7 @@ class SignUpPage extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              '중복 확인 완료',
+              '• 중복 확인 완료',
               style: AppTextStyles.infoText,
             ),
           ),
@@ -111,8 +113,22 @@ class SignUpPage extends StatelessWidget {
         CustomTextField(
           controller: vm.passwordController,
           hintText: '8자리 이상의 숫자, 특수문자, 대문자',
+          obscureText: !vm.isPasswordVisible,
           onChanged: (_) => vm.notifyListeners(),
+          suffix: IconButton(
+            icon: Icon(
+              vm.isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+              color: Colors.grey,
+            ),
+            onPressed: vm.togglePasswordVisibility,
+          ),
         ),
+        SizedBox(height: AppSpacing.itemSpacing),
+        if (!vm.isPasswordValid && vm.passwordController.text.isNotEmpty)
+          ...vm.passwordErrors.map((msg) => Text(
+            '• $msg',
+            style: AppTextStyles.errorText,
+          )),
       ],
     );
   }
@@ -123,112 +139,32 @@ class SignUpPage extends StatelessWidget {
       children: [
         HeaderText(text: '아래 정보만 입력하면'),
         HeaderText(text: '회원가입 완료!'),
-        const SizedBox(height: 24),
+        SizedBox(height: AppSpacing.sectionSpacing),
         ParagraphText(text: '이름'),
-        const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: vm.emailController.text.isEmpty
-                ? const Color(0xFFEDEDED)
-                : const Color(0xFFEDF4FF),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: TextFormField(
-            controller: vm.nameController,
-            decoration: const InputDecoration(
-              hintText: '이름 입력',
-              border: InputBorder.none,
-            ),
-            onChanged: (_) => vm.notifyListeners(),
-          ),
+        SizedBox(height: AppSpacing.itemSpacing),
+        CustomTextField(
+          controller: vm.nameController,
+          hintText: '이름 입력',
+          onChanged: (_) => vm.notifyListeners(),
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.fieldSpacing),
         ParagraphText(text: '생년월일'),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () => showWheelDatePicker(context, vm),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: vm.birthdayController.text.isEmpty
-                  ? Colors.grey[200]
-                  : Colors.blue[50],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              vm.birthdayController.text.isEmpty
-                  ? '생년월일을 선택하세요'
-                  : vm.birthdayController.text,
-            ),
-          ),
+        SizedBox(height: AppSpacing.itemSpacing),
+        WheelDateSelector(
+          selectedDate: vm.birthdayController.text,
+          hintText: '생년월일을 선택하세요',
+          onDateSelected: vm.setBirthdayFromCupertino,
         ),
-        const SizedBox(height: 16),
+        SizedBox(height: AppSpacing.fieldSpacing),
         ParagraphText(text: '성별'),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _genderButton(vm, '남자'),
-            const SizedBox(width: 16),
-            _genderButton(vm, '여자'),
-          ],
+        SizedBox(height: AppSpacing.itemSpacing),
+        DualOptionSelector(
+          selectedOption: vm.gender,
+          option1: '남자',
+          option2: '여자',
+          onSelected: vm.setGender,
         ),
-        const SizedBox(height: 24),
       ],
-    );
-  }
-
-  Widget _genderButton(SignupViewModel vm, String gender) {
-    final isSelected = vm.gender == gender;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => vm.setGender(gender),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.blue[50] : Colors.grey[200],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Center(
-            child: Text(
-              gender,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.black : Colors.grey[600],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-  Future<void> showWheelDatePicker(BuildContext context, SignupViewModel vm) async {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) {
-        return SizedBox(
-          height: 250,
-          child: Column(
-            children: [
-              Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.date,
-                  initialDateTime: DateTime(2000, 1, 1),
-                  minimumYear: 1900,
-                  maximumDate: DateTime.now(),
-                  onDateTimeChanged: (DateTime date) {
-                    vm.setBirthdayFromCupertino(date);
-                  },
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('확인'),
-              )
-            ],
-          ),
-        );
-      },
     );
   }
 }

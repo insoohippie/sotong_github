@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -10,6 +11,7 @@ class CustomTextField extends StatelessWidget {
   final TextInputType? keyboardType;
   final bool obscureText;
   final double height;
+  final Widget? suffix;
 
   const CustomTextField({
     Key? key,
@@ -21,14 +23,15 @@ class CustomTextField extends StatelessWidget {
     this.keyboardType,
     this.obscureText = false,
     this.height = 60.0,
+    this.suffix,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final Color bgColor = backgroundColor ??
         (controller.text.isEmpty
-            ? const Color(0xFFEDEDED)
-            : const Color(0xFFEDF4FF));
+            ? AppColors.greyBackground
+            : AppColors.lightBlue);
 
     return Container(
       height: height,
@@ -48,6 +51,7 @@ class CustomTextField extends StatelessWidget {
           hintText: hintText,
           hintStyle: AppTextStyles.paragraph.copyWith(color: Colors.grey),
           border: InputBorder.none,
+          suffixIcon: suffix,
         ),
         onChanged: onChanged,
         keyboardType: keyboardType,

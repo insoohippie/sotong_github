@@ -12,12 +12,23 @@ class AuthDataSource {
   final FirebaseStorage _storage = FirebaseStorage.instance;
 
   // 로그인
-  Future<User?> signInWithEmail(String email, String password) async {
-    final result = await _auth.signInWithEmailAndPassword(
-      email: email,
-      password: password,
-    );
-    return result.user;
+  Future<bool> loginWithFirestore(String email, String password) async {
+    final snapshot = await _firestore
+        .collection('users')
+        .where('id', isEqualTo: email)
+        .limit(1)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      throw Exception('존재하지 않는 이메일입니다.');
+    }
+
+    final storedPassword = snapshot.docs.first['pw'];
+    if (storedPassword != password) {
+      throw Exception('비밀번호가 일치하지 않습니다.');
+    }
+
+    return true;
   }
 
   // 회원가입
@@ -30,14 +41,6 @@ class AuthDataSource {
     final uid = userCredential.user?.uid;
     if (uid != null) {
       info.userID = uid;
-
-      // 프로필 이미지 업로드
-      if (profileImage != null) {
-        final ref = _storage.ref().child('user_profiles/$uid.jpg');
-        await ref.putFile(profileImage);
-        final url = await ref.getDownloadURL();
-        info.profileImg = url;
-      }
 
       await _firestore.collection('users').doc(uid).set(info.toMap());
       return userCredential.user;

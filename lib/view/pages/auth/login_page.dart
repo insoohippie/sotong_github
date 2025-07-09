@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../component/appbars/custom_app_bar.dart';
+import '../../../component/buttons/custom_button.dart';
+import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/texts/header_text.dart';
 import '../../../component/texts/multi_color_text.dart';
+import '../../../theme/app_spacing.dart';
 import '../../../theme/app_text_styles.dart';
 import '../../../view_model/auth/login_view_model.dart';
 
@@ -14,78 +18,103 @@ class EmailLoginPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Stack(
-        children: [
-          if (vm.isLoading)
-            const Center(child: CircularProgressIndicator()),
-
-          SafeArea(
-            child: SingleChildScrollView(
-              reverse: true,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(46, 48, 46, 0),
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 60),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 20),
                     MultiColorText(
                       baseStyle: AppTextStyles.header,
                       parts: const [
-                        TextPart('재미있게 ', Color(0xFF231F1F), bold: true),
-                        TextPart('소통', Color(0xFF0062FF), bold: true),
-                        TextPart('하며\n', Color(0xFF231F1F), bold: true),
-                        TextPart('소비 통제', Color(0xFF0062FF), bold: true),
-                        TextPart(' 하자!', Color(0xFF231F1F), bold: true),
+                        TextPart('재미있게 ', Color(0xFF231F1F)),
+                        TextPart('소통', Color(0xFF0062FF)),
+                        TextPart('하며\n', Color(0xFF231F1F)),
+                        TextPart('소비 통제', Color(0xFF0062FF)),
+                        TextPart(' 하자!', Color(0xFF231F1F)),
                       ],
                     ),
-                    const SizedBox(height: 40),
-                    HeaderText(text: 'Sign in'),
                     const SizedBox(height: 20),
-                    TextFormField(
+                    const SizedBox(height: AppSpacing.fieldSpacing),
+                    CustomTextField(
                       controller: vm.emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        border: OutlineInputBorder(),
-                      ),
+                      hintText: '아이디 입력',
+                      onChanged: (_) => vm.notifyListeners(),
+                      keyboardType: TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 20),
-                    TextFormField(
+                    CustomTextField(
                       controller: vm.passwordController,
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        border: OutlineInputBorder(),
-                      ),
+                      hintText: '비밀번호 입력',
+                      onChanged: (_) => vm.notifyListeners(),
                       obscureText: true,
                     ),
-                    const SizedBox(height: 30),
-                    if (vm.errorMessage != null)
-                      Text(
-                        vm.errorMessage!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FloatingActionButton(
-                        onPressed: vm.isLoading
-                            ? null
-                            : () async {
-                          final user = await vm.login();
-                          //print(vm.errorMessage);
-                          if (user != null) {
-                            Navigator.of(context).pushReplacementNamed('/home');
-                          }
-                        },
-                        backgroundColor: Colors.white,
-                        elevation: 2,
-                        child: const Icon(Icons.arrow_forward, color: Colors.black),
-                      ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        // 에러 메시지 (왼쪽 정렬)
+                        if (vm.errorMessage != null)
+                          Text(
+                            '• ${vm.errorMessage}',
+                            style: AppTextStyles.errorText,
+                          )
+                        else
+                          const SizedBox(), // 에러 없을 때 공간 유지
+
+                        // 회원가입 버튼 (오른쪽 정렬)
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, '/signup');
+                          },
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size(0, 0),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text(
+                            '회원가입',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF0062FF),
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 30),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
+
+            // 로그인 버튼 + 로딩 인디케이터
+            vm.isLoading
+                ? const SizedBox(
+              height: 48,
+              child: Center(child: CircularProgressIndicator()),
+            )
+                : CustomButton(
+              text: '로그인',
+              onPressed: () async {
+                final success = await vm.login();  // ← ViewModel에서 true/false 리턴
+
+                if (success) {
+                  Navigator.pushReplacementNamed(context, '/home');  // 성공 시 홈으로 이동
+                }
+                // 실패 시 에러 메시지는 ViewModel에서 처리되고 화면에 표시됨
+              },
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
       ),
     );
   }

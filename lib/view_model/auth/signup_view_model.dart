@@ -27,6 +27,8 @@ class SignupViewModel extends ChangeNotifier {
   String? emailError;
   bool isLoading = false;
   bool isEmailChecked = false;
+  bool isPasswordVisible = false;
+
 
   /// 이전 단계로 이동
   void previousStep() {
@@ -49,34 +51,11 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 이메일 유효성 판단
+  // 아이디 유효성 판단
+  // 6자 이상으로 바꾸기?
   bool get isEmailFormatValid =>
       emailController.text.isNotEmpty &&
           RegExp(r'\S+@\S+\.\S+').hasMatch(emailController.text);
-  //비밀번호 유효성 판단
-  bool get isPasswordValid {
-    final password = passwordController.text;
-    final hasMinLength = password.length >= 8;
-    final hasUppercase = RegExp(r'[A-Z]').hasMatch(password);
-    final hasNumber = RegExp(r'\d').hasMatch(password);
-    final hasSpecialChar = RegExp(r'[!@#\$&*~%^()_\-+=\[\]{}|\\:;"\<>,.?/]').hasMatch(password);
-
-    return hasMinLength && hasUppercase && hasSpecialChar && hasNumber;
-    }
-
-  // 현재 스텝에서 다음 버튼 활성화 조건
-  bool get isCurrentStepValid {
-    switch (currentStep) {
-      case SignupStep.email:
-        return isEmailFormatValid;
-      case SignupStep.password:
-        return passwordController.text.length >= 6;
-      case SignupStep.userInfo:
-        return nameController.text.isNotEmpty &&
-            birthdayController.text.isNotEmpty &&
-            gender != null;
-    }
-  }
 
   // 이메일 중복 확인
   Future<void> checkEmailDuplication() async {
@@ -95,6 +74,56 @@ class SignupViewModel extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  //비밀번호 유효성 판단
+  bool get isPasswordValid {
+    final password = passwordController.text;
+    final hasMinLength = password.length >= 8;
+    final hasUppercase = RegExp(r'[A-Z]').hasMatch(password);
+    final hasNumber = RegExp(r'\d').hasMatch(password);
+    final hasSpecialChar = RegExp(r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''').hasMatch(password);
+    return hasMinLength && hasUppercase && hasSpecialChar && hasNumber;
+    }
+
+  List<String> get passwordErrors {
+    final password = passwordController.text;
+    List<String> errors = [];
+
+    if (password.length < 8) {
+      errors.add('8자 이상이어야 해요.');
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(password)) {
+      errors.add('대문자를 하나 이상 포함해야 해요.');
+    }
+    if (!RegExp(r'\d').hasMatch(password)) {
+      errors.add('숫자를 하나 이상 포함해야 해요.');
+    }
+    if (!RegExp(r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''').hasMatch(password)) {
+      errors.add('특수문자를 하나 이상 포함해야 해요.');
+    }
+
+    return errors;
+  }
+
+  void togglePasswordVisibility() {
+    isPasswordVisible = !isPasswordVisible;
+    notifyListeners();
+  }
+
+
+  // 현재 스텝에서 다음 버튼 활성화 조건
+  bool get isCurrentStepValid {
+    switch (currentStep) {
+      case SignupStep.email:
+        return isEmailFormatValid;
+      case SignupStep.password:
+        return isPasswordValid;
+      case SignupStep.userInfo:
+        return nameController.text.isNotEmpty &&
+            birthdayController.text.isNotEmpty &&
+            gender != null;
+    }
   }
 
   // 날짜 선택

@@ -9,8 +9,8 @@ class AuthRepository {
 
   AuthRepository(this._dataSource);
 
-  Future<User?> login(String email, String password) {
-    return _dataSource.signInWithEmail(email, password);
+  Future<bool> login(String email, String password) {
+    return _dataSource.loginWithFirestore(email, password);
   }
 
   Future<void> signUp(SignUpInfo info, File? profileImage) {
@@ -20,4 +20,6 @@ class AuthRepository {
   Future<bool> isEmailAlreadyExists(String email) {
     return _dataSource.isEmailAlreadyExists(email);
   }
+
+
 }
