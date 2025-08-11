@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../../../services/saving_calculator.dart';
-import '../../../../theme/app_colors.dart';
+
+import '../../../../component/theme/app_colors.dart';
+import '../../../../view_model/services/saving_calculator.dart';
 
 class AmountGuideWidget extends StatelessWidget {
   final double amount;

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_spacing.dart';
-import '../../theme/app_text_styles.dart';
+
+import '../theme/app_spacing.dart';
+import '../theme/app_text_styles.dart';
 
 class DualOptionSelector extends StatelessWidget {
   final String? selectedOption;

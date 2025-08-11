@@ -4,8 +4,8 @@ import '../../../component/appbars/custom_app_bar_title_subtitle.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/buttons/small_rounded_button.dart';
 import '../../../component/texts/paragraph_text.dart';
-import '../../../theme/app_colors.dart';
-import '../../../theme/app_spacing.dart';
+import '../../../component/theme/app_colors.dart';
+import '../../../component/theme/app_spacing.dart';
 import '../../../view_model/record/record_view_model.dart';
 import '../../../component/inputs/spending_input_entry.dart';
 

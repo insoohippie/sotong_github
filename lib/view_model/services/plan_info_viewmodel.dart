@@ -1,4 +1,6 @@
-import '../model/plan_info.dart';
+
+
+import '../../model/plan_info.dart';
 
 class PlanInfoViewModel {
   final PlanInfo planInfo;

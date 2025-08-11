@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
-import '../../theme/app_text_styles.dart'; // 텍스트 스타일 있다면
 
 class SelectableEmojiSelector extends StatelessWidget {
   final String label;

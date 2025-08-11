@@ -5,8 +5,8 @@ import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/texts/header_text.dart';
 import '../../../component/texts/multi_color_text.dart';
-import '../../../theme/app_spacing.dart';
-import '../../../theme/app_text_styles.dart';
+import '../../../component/theme/app_spacing.dart';
+import '../../../component/theme/app_text_styles.dart';
 import '../../../view_model/auth/login_view_model.dart';
 
 class EmailLoginPage extends StatelessWidget {

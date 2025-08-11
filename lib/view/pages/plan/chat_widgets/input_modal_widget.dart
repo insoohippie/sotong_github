@@ -3,6 +3,7 @@ import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../model/entry.dart';
+
 class InputModalWidget extends StatefulWidget {
   final bool isOpen;
   final VoidCallback onClose;
@@ -325,7 +326,11 @@ class _InputModalWidgetState extends State<InputModalWidget> {
               ),
               contentPadding: const EdgeInsets.all(12),
             ),
-            onChanged: (value) => updateItem(item.idx, 'category', value),
+            onChanged: (value) {
+              updateItem(item.idx, 'category', value);
+              // 실시간 총합 업데이트를 위해 setState 호출
+              setState(() {});
+            },
           ),
           const SizedBox(height: 8),
           // 금액 입력 필드 - Builder 제거
@@ -346,6 +351,9 @@ class _InputModalWidgetState extends State<InputModalWidget> {
               final unformatted = _unformatNumber(value);
               final amount = double.tryParse(unformatted) ?? 0;
               updateItem(item.idx, 'amount', amount);
+
+              // 실시간 총합 업데이트를 위해 setState 호출
+              setState(() {});
 
               // 포커스 유지하면서 포맷팅 적용
               final controller = _amountControllers[item.idx];

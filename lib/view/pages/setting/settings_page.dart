@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../component/theme/app_border_radius.dart';
 import '../../../view_model/setting/setting_view_model.dart';
-import '../../../theme/app_border_radius.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({Key? key}) : super(key: key);

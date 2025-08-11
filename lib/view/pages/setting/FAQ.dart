@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../component/theme/app_colors.dart';
 import '../../../model/faq_item.dart';
-import '../../../theme/app_colors.dart';
 
 class FAQPage extends StatefulWidget {
   const FAQPage({Key? key}) : super(key: key);

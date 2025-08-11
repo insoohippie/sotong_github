@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:sotong_local/theme/app_colors.dart';
-import 'package:sotong_local/theme/app_spacing.dart';
-import 'package:sotong_local/theme/app_text_styles.dart';
 
 import '../../../component/texts/subtext.dart';
+import '../../../component/theme/app_colors.dart';
 
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
@@ -355,9 +353,7 @@ class _ReportPageState extends State<ReportPage> {
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
-                            SubText(
-                              text: '${insight['description']}',
-                            ),
+                            SubText(text: '${insight['description']}'),
                           ],
                         ),
                       ),

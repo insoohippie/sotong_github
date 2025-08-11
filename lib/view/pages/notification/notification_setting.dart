@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
+import '../../../component/theme/app_border_radius.dart';
 import '../../../model/alarm.dart';
 import '../../../view_model/setting/alarm_view_model.dart';
-import '../../../theme/app_border_radius.dart';
 
 class NotificationSettingPage extends StatefulWidget {
   const NotificationSettingPage({Key? key}) : super(key: key);

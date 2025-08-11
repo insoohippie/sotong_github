@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 import '../texts/paragraph_text.dart';
+import '../theme/app_colors.dart';
 
 class CustomDualButton extends StatelessWidget {
   final String leftLabel;

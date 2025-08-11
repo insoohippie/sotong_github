@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/theme/app_colors.dart';
 import 'package:sotong_local/view_model/auth/signup_view_model.dart';
 import 'package:sotong_local/view_model/communication/communication_view_model.dart';
 import 'package:sotong_local/view_model/notification/notification_view_model.dart';
@@ -9,6 +8,7 @@ import 'package:sotong_local/view_model/plan/chat_plan_viewmodel.dart';
 import 'package:sotong_local/view_model/record/record_view_model.dart';
 import 'package:sotong_local/view_model/setting/alarm_view_model.dart';
 import 'package:sotong_local/view_model/setting/setting_view_model.dart';
+import 'component/theme/app_colors.dart';
 import 'view_model/auth/login_view_model.dart';
 import 'repository/auth_repository.dart';
 import 'data_source/auth_data_source.dart';
@@ -51,7 +51,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/signup_success',
+        initialRoute: '/home_tab_navigator',
         routes: appRoutes,
       ),
     );

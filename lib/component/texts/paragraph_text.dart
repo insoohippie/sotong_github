@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_text_styles.dart';
+import '../theme/app_text_styles.dart';
+
 
 class ParagraphText extends StatelessWidget {
   final String text;

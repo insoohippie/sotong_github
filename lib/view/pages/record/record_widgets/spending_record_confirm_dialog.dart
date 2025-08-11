@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/theme/app_colors.dart';
-import 'package:sotong_local/theme/app_spacing.dart';
+
+import '../../../../component/theme/app_colors.dart';
 
 class SpendingRecordConfirmDialog extends StatelessWidget {
   final DateTime selectedDate;

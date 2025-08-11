@@ -1,5 +1,5 @@
-import '../model/entry.dart';
-import '../model/ref_data.dart';
+import '../../model/entry.dart';
+import '../../model/ref_data.dart';
 
 class RefDataViewModel {
   final RefData refData;

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 
-import '../../theme/app_spacing.dart';
+import '../theme/app_spacing.dart';
+
 
 class CustomAppBar extends StatelessWidget {
   final String title;

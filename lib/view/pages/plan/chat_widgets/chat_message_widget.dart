@@ -164,19 +164,29 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
             const SizedBox(width: 8),
           ],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: isBot ? Color(0xFFF4F4F4) : Color(0xFF0062FF),
-                borderRadius: BorderRadius.circular(16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.75,
               ),
-              child: Text(
-                _displayText,
-                style: TextStyle(
-                  color: isBot ? Color(0xFF333333) : Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  height: 1.4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: isBot
+                      ? const Color(0xFFF4F4F4)
+                      : const Color(0xFF0062FF),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  _displayText,
+                  style: TextStyle(
+                    color: isBot ? const Color(0xFF333333) : Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
                 ),
               ),
             ),

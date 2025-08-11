@@ -22,23 +22,31 @@ import 'view/pages/auth/login_page.dart';
 
 final Map<String, WidgetBuilder> appRoutes = {
   '/login': (_) => const EmailLoginPage(),
-  '/home_tab_navigator': (_) => const HomeTabNavigator(),
-  '/home': (_) => const HomePage(),
+
   '/signup': (_) => const SignUpPage(),
   '/signup_success': (_) => const SignupSuccessPage(),
+
   '/plan_chat': (_) => const ChatPlanPage(),
   '/plan_success': (_) => const PlanSuccessPage(),
+
+  '/home_tab_navigator': (_) => const HomeTabNavigator(),
+  '/home': (_) => const HomePage(),
+
   '/record_spending': (_) => const RecordSpendingPage(),
   '/record_diary': (_) => const RecordDiaryPage(),
   '/today_spending': (_) => const TodaySpendingPage(),
+
   '/setting': (_) => const SettingsPage(),
   '/edit_income': (_) => const EditIncomePage(),
   '/edit_fixed_cost': (_) => const EditFixedCostPage(),
   '/edit_saving_target': (_) => const EditSavingTargetPage(),
   '/edit_daily_limit': (_) => const EditDailyLimitPage(),
   '/faq': (_) => const FAQPage(),
+
   '/notification': (_) => const NotificationPage(),
+
   '/report': (_) => const ReportPage(),
+
   '/communication': (_) => const CommunicationPage(),
   '/communication_logs': (_) => const CommunicationLogsPage(),
 };

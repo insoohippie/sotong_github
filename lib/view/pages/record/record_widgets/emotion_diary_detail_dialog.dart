@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/theme/app_colors.dart';
-import 'package:sotong_local/theme/app_spacing.dart';
 import 'package:sotong_local/model/emotion_spending_diary.dart';
 import 'package:lottie/lottie.dart';
+
+import '../../../../component/theme/app_colors.dart';
 
 class EmotionDiaryDetailDialog extends StatelessWidget {
   final EmotionSpendingDiary diary;

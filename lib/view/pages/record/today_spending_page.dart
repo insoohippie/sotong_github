@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/theme/app_colors.dart';
-import 'package:sotong_local/theme/app_spacing.dart';
-import 'package:sotong_local/theme/app_text_styles.dart';
 import 'package:sotong_local/component/inputs/custom_number_field.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
 import 'package:sotong_local/component/buttons/select_button.dart';

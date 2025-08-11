@@ -7,8 +7,7 @@ import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_area.dart';
 import '../../../component/inputs/selectable_emoji_selector.dart';
 import '../../../component/texts/paragraph_text.dart';
-import '../../../theme/app_colors.dart';
-import '../../../theme/app_spacing.dart';
+import '../../../component/theme/app_spacing.dart';
 import '../../../view_model/record/record_view_model.dart';
 
 class RecordDiaryPage extends StatefulWidget {
@@ -41,7 +40,11 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
 
     await Future.delayed(const Duration(seconds: 2)); // 완료 애니메이션 표시 시간
     if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(context, '/home_tab_navigator', (route) => false);
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/home_tab_navigator',
+        (route) => false,
+      );
     }
   }
 

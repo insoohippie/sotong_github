@@ -1,18 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../../../view_model/plan/enums/chat_step.dart';
+import '../../../view_model/services/saving_calculator.dart';
 import './chat_widgets/amount_guide_widget.dart';
 import './chat_widgets/chat_bottom_input_area.dart';
 import './chat_widgets/chat_message_widget.dart';
 import './chat_widgets/input_modal_widget.dart';
 import './chat_widgets/summary_section_widget.dart';
-import '../../../enums/chat_step.dart';
 import '../../../model/chat_message.dart';
 import '../../../model/entry.dart';
-import '../../../services/saving_calculator.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import 'chat_widgets/typing_indicator_widget.dart';
-import 'plan_edit_page.dart';
 
 class ChatPlanPage extends StatefulWidget {
   const ChatPlanPage({Key? key}) : super(key: key);
@@ -44,10 +43,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     );
 
     _bottomSlideAnimation =
-        Tween<Offset>(
-          begin: const Offset(0, 1),
-          end: Offset.zero,
-        ).animate(
+        Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero).animate(
           CurvedAnimation(
             parent: _bottomSlideController,
             curve: Curves.easeOut,
@@ -119,9 +115,15 @@ class _ChatPlanPageState extends State<ChatPlanPage>
         ChatStep.planName,
         ChatStep.purpose,
         ChatStep.purposeCustom,
+        ChatStep.targetAmount,
         ChatStep.currentAsset,
+        ChatStep.currentAssetConfirm,
+        ChatStep.monthlyIncome,
+        ChatStep.monthlyFixedCost,
+        ChatStep.dailySpending,
         ChatStep.summary,
         ChatStep.autoService,
+        ChatStep.complete,
       ].contains(step);
     }
 
@@ -141,21 +143,27 @@ class _ChatPlanPageState extends State<ChatPlanPage>
       resizeToAvoidBottomInset: true,
       body: Consumer<ChatPlanViewModel>(
         builder: (context, viewModel, child) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _scrollToBottom(),
+          );
 
           bool animDone = false;
-          if (viewModel.messages.isNotEmpty && shouldWaitForAnimation(viewModel.currentStep)) {
+          if (viewModel.messages.isNotEmpty &&
+              shouldWaitForAnimation(viewModel.currentStep)) {
             final lastBotMsg = viewModel.messages.lastWhere(
-                  (m) => m.type == MessageType.bot,
+              (m) => m.type == MessageType.bot,
               orElse: () => viewModel.messages.last,
             );
-            animDone = lastBotMsg.type == MessageType.bot &&
+            animDone =
+                lastBotMsg.type == MessageType.bot &&
                 ChatMessageWidget.completedMessageIds.contains(lastBotMsg.id);
           }
 
           final messages = viewModel.messages;
-          final lastIsUser = messages.isNotEmpty && messages.last.type == MessageType.user;
-          final lastIsBot = messages.isNotEmpty && messages.last.type == MessageType.bot;
+          final lastIsUser =
+              messages.isNotEmpty && messages.last.type == MessageType.user;
+          final lastIsBot =
+              messages.isNotEmpty && messages.last.type == MessageType.bot;
 
           return Stack(
             children: [
@@ -186,9 +194,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                   Expanded(
                     child: Container(
-                      margin: EdgeInsets.only(
-                        bottom: 200,
-                      ),
+                      margin: EdgeInsets.only(bottom: 200),
                       child: ListView(
                         controller: _scrollController,
                         padding: const EdgeInsets.all(16),
@@ -197,8 +203,12 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                             final idx = entry.key;
                             final message = entry.value;
                             final isLast = idx == viewModel.messages.length - 1;
-                            final shouldWait = shouldWaitForAnimation(viewModel.currentStep);
-                            if (isLast && shouldWait && message.type == MessageType.bot) {
+                            final shouldWait = shouldWaitForAnimation(
+                              viewModel.currentStep,
+                            );
+                            if (isLast &&
+                                shouldWait &&
+                                message.type == MessageType.bot) {
                               return ChatMessageWidget(
                                 message: message,
                                 onComplete: onboardingAnimDoneCallback,
@@ -215,14 +225,32 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                           if (viewModel.isTyping) const TypingIndicatorWidget(),
 
                           if (_inputController.text.isNotEmpty &&
-                              double.tryParse(_unformatNumber(_inputController.text)) != null &&
-                              ((viewModel.currentStep == ChatStep.targetAmount &&
-                                  double.parse(_unformatNumber(_inputController.text)) > 0) ||
-                                  (viewModel.currentStep == ChatStep.currentAssetConfirm &&
-                                      double.parse(_unformatNumber(_inputController.text)) != 0)))
+                              double.tryParse(
+                                    _unformatNumber(_inputController.text),
+                                  ) !=
+                                  null &&
+                              ((viewModel.currentStep ==
+                                          ChatStep.targetAmount &&
+                                      double.parse(
+                                            _unformatNumber(
+                                              _inputController.text,
+                                            ),
+                                          ) >
+                                          0) ||
+                                  (viewModel.currentStep ==
+                                          ChatStep.currentAssetConfirm &&
+                                      double.parse(
+                                            _unformatNumber(
+                                              _inputController.text,
+                                            ),
+                                          ) !=
+                                          0)))
                             AmountGuideWidget(
-                              amount: double.parse(_unformatNumber(_inputController.text)),
-                              type: viewModel.currentStep == ChatStep.targetAmount
+                              amount: double.parse(
+                                _unformatNumber(_inputController.text),
+                              ),
+                              type:
+                                  viewModel.currentStep == ChatStep.targetAmount
                                   ? '목표금액'
                                   : '보유금액',
                             ),
@@ -246,9 +274,12 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     position: _bottomSlideAnimation,
                     child: ChatBottomInputArea(
                       animDone: animDone,
-                      showIncomeModal: () => setState(() => _showIncomeModal = true),
-                      showFixedCostModal: () => setState(() => _showFixedCostModal = true),
-                      showDailySpendingModal: () => setState(() => _showDailySpendingModal = true),
+                      showIncomeModal: () =>
+                          setState(() => _showIncomeModal = true),
+                      showFixedCostModal: () =>
+                          setState(() => _showFixedCostModal = true),
+                      showDailySpendingModal: () =>
+                          setState(() => _showDailySpendingModal = true),
                       inputController: _inputController,
                       isFormatting: _isFormatting,
                       onInputChanged: (value) {
@@ -260,7 +291,9 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                             _isFormatting = true;
                             _inputController.value = TextEditingValue(
                               text: formatted,
-                              selection: TextSelection.collapsed(offset: formatted.length),
+                              selection: TextSelection.collapsed(
+                                offset: formatted.length,
+                              ),
                             );
                             _isFormatting = false;
                           }
@@ -277,110 +310,108 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   ),
                 ),
 
-              // Positioned(
-              //   bottom: 0,
-              //   left: 0,
-              //   right: 0,
-              //   child: SlideTransition(
-              //     position: _bottomSlideAnimation,
-              //     child: ConstrainedBox(
-              //       constraints: const BoxConstraints(
-              //         maxHeight: 300,
-              //       ),
-              //       child: ChatBottomInputArea(
-              //         animDone: animDone,
-              //         showIncomeModal: () => setState(() => _showIncomeModal = true),
-              //         showFixedCostModal: () => setState(() => _showFixedCostModal = true),
-              //         showDailySpendingModal: () => setState(() => _showDailySpendingModal = true),
-              //         inputController: _inputController,
-              //         isFormatting: _isFormatting,
-              //         onInputChanged: (value) {
-              //           // ...
-              //         },
-              //         onSubmit: _handleSubmit,
-              //         lastIsBot: lastIsBot,
-              //         onDisappear: () {
-              //           _bottomSlideController.reverse();
-              //           setState(() => _showBottomArea = false);
-              //         },
-              //       ),
-              //     ),
-              //   ),
-              // ),
-
               if (viewModel.currentStep == ChatStep.monthlyIncome ||
                   viewModel.currentStep == ChatStep.monthlyFixedCost ||
-                  viewModel.currentStep == ChatStep.dailySpending)
-                ...[
-                  InputModalWidget(
-                    isOpen: _showIncomeModal,
-                    onClose: () => setState(() => _showIncomeModal = false),
-                    title: '월 수입 입력하기',
-                    placeholder: '수입 카테고리',
-                    type: EntryType.fixed,
-                    onComplete: (items, total) async {
-                      final viewModel = Provider.of<ChatPlanViewModel>(context, listen: false);
-                      viewModel.updateRefData(fixedIncomes: items);
-                      final name = viewModel.planInfo.planName != null &&
-                          viewModel.planInfo.planName!.isNotEmpty
-                          ? viewModel.planInfo.planName
-                          : '회원';
-                      final itemLines = items.map((e) => '${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원').join('\n');
-                      await viewModel.addBotMessageWithTyping(
-                        '$name님의 월 수입은 총 ${SavingPlanCalculator.formatAmount(total)}원입니다.\n아래는 월 수입처 내역입니다.\n$itemLines',
-                        awaitTyping: true,
-                      );
-                      await viewModel.addBotMessageWithTyping('이제 고정소비를 입력해주세요!');
-                      viewModel.nextStep();
-                    },
-                  ),
-                  InputModalWidget(
-                    isOpen: _showFixedCostModal,
-                    onClose: () => setState(() => _showFixedCostModal = false),
-                    title: '고정 소비 입력하기',
-                    placeholder: '고정 지출 항목',
-                    type: EntryType.fixed,
-                    onComplete: (items, total) async {
-                      final viewModel = Provider.of<ChatPlanViewModel>(context, listen: false);
-                      viewModel.updateRefData(fixedConsumptions: items);
-                      final name = viewModel.planInfo.planName != null &&
-                          viewModel.planInfo.planName!.isNotEmpty
-                          ? viewModel.planInfo.planName
-                          : '회원';
-                      final itemLines = items.map((e) => '${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원').join('\n');
-                      await viewModel.addBotMessageWithTyping(
-                        '$name님의 고정 소비는 총 ${SavingPlanCalculator.formatAmount(total)}원입니다.\n아래는 고정소비처 내역입니다.\n$itemLines',
-                        awaitTyping: true,
-                      );
-                      await Future.delayed(const Duration(milliseconds: 400));
-                      await viewModel.addBotMessageWithTyping('이제 하루 소비 한도 금액을 입력해주세요!');
-                      viewModel.nextStep();
-                    },
-                  ),
-                  InputModalWidget(
-                    isOpen: _showDailySpendingModal,
-                    onClose: () => setState(() => _showDailySpendingModal = false),
-                    title: '하루 소비 한도 금액',
-                    placeholder: '소비 항목',
-                    type: EntryType.daily,
-                    onComplete: (items, total) async {
-                      final viewModel = Provider.of<ChatPlanViewModel>(context, listen: false);
-                      viewModel.updateRefData(dailyConsumptions: items);
-                      final name = viewModel.planInfo.planName != null &&
-                          viewModel.planInfo.planName!.isNotEmpty
-                          ? viewModel.planInfo.planName
-                          : '회원';
-                      final itemLines = items.map((e) => '${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원').join('\n');
-                      await viewModel.addBotMessageWithTyping(
-                        '$name님의 하루 소비 한도 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원입니다.\n아래는 하루소비처 내역입니다.\n$itemLines',
-                        awaitTyping: true,
-                      );
-                      await Future.delayed(const Duration(milliseconds: 400));
-                      await viewModel.addBotMessageWithTyping('입력이 완료되었습니다!');
-                      viewModel.nextStep();
-                    },
-                  ),
-                ],
+                  viewModel.currentStep == ChatStep.dailySpending) ...[
+                InputModalWidget(
+                  isOpen: _showIncomeModal,
+                  onClose: () => setState(() => _showIncomeModal = false),
+                  title: '월 수입 입력하기',
+                  placeholder: '수입 카테고리',
+                  type: EntryType.fixed,
+                  onComplete: (items, total) async {
+                    final viewModel = Provider.of<ChatPlanViewModel>(
+                      context,
+                      listen: false,
+                    );
+                    viewModel.updateRefData(fixedIncomes: items);
+                    final name =
+                        viewModel.planInfo.planName != null &&
+                            viewModel.planInfo.planName!.isNotEmpty
+                        ? viewModel.planInfo.planName
+                        : '회원';
+                    final itemLines = items
+                        .map(
+                          (e) =>
+                              '${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원',
+                        )
+                        .join('\n');
+                    await viewModel.addBotMessageWithTyping(
+                      '$name님의 월 수입은 총 ${SavingPlanCalculator.formatAmount(total)}원입니다.\n아래는 월 수입처 내역입니다.\n$itemLines',
+                      awaitTyping: true,
+                    );
+                    await viewModel.addBotMessageWithTyping('이제 고정소비를 입력해주세요!');
+                    viewModel.nextStep();
+                  },
+                ),
+                InputModalWidget(
+                  isOpen: _showFixedCostModal,
+                  onClose: () => setState(() => _showFixedCostModal = false),
+                  title: '고정 소비 입력하기',
+                  placeholder: '고정 지출 항목',
+                  type: EntryType.fixed,
+                  onComplete: (items, total) async {
+                    final viewModel = Provider.of<ChatPlanViewModel>(
+                      context,
+                      listen: false,
+                    );
+                    viewModel.updateRefData(fixedConsumptions: items);
+                    final name =
+                        viewModel.planInfo.planName != null &&
+                            viewModel.planInfo.planName!.isNotEmpty
+                        ? viewModel.planInfo.planName
+                        : '회원';
+                    final itemLines = items
+                        .map(
+                          (e) =>
+                              '${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원',
+                        )
+                        .join('\n');
+                    await viewModel.addBotMessageWithTyping(
+                      '$name님의 고정 소비는 총 ${SavingPlanCalculator.formatAmount(total)}원입니다.\n아래는 고정소비처 내역입니다.\n$itemLines',
+                      awaitTyping: true,
+                    );
+                    await Future.delayed(const Duration(milliseconds: 400));
+                    await viewModel.addBotMessageWithTyping(
+                      '이제 하루 소비 한도 금액을 입력해주세요!',
+                    );
+                    viewModel.nextStep();
+                  },
+                ),
+                InputModalWidget(
+                  isOpen: _showDailySpendingModal,
+                  onClose: () =>
+                      setState(() => _showDailySpendingModal = false),
+                  title: '하루 소비 한도 금액',
+                  placeholder: '소비 항목',
+                  type: EntryType.daily,
+                  onComplete: (items, total) async {
+                    final viewModel = Provider.of<ChatPlanViewModel>(
+                      context,
+                      listen: false,
+                    );
+                    viewModel.updateRefData(dailyConsumptions: items);
+                    final name =
+                        viewModel.planInfo.planName != null &&
+                            viewModel.planInfo.planName!.isNotEmpty
+                        ? viewModel.planInfo.planName
+                        : '회원';
+                    final itemLines = items
+                        .map(
+                          (e) =>
+                              '${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원',
+                        )
+                        .join('\n');
+                    await viewModel.addBotMessageWithTyping(
+                      '$name님의 하루 소비 한도 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원입니다.\n아래는 하루소비처 내역입니다.\n$itemLines',
+                      awaitTyping: true,
+                    );
+                    await Future.delayed(const Duration(milliseconds: 400));
+                    await viewModel.addBotMessageWithTyping('입력이 완료되었습니다!');
+                    viewModel.nextStep();
+                  },
+                ),
+              ],
             ],
           );
         },

@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/theme/app_colors.dart';
-import 'package:sotong_local/theme/app_spacing.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
 import 'package:sotong_local/component/texts/subtext.dart';
+
+import '../../../component/theme/app_colors.dart';
+import '../../../component/theme/app_spacing.dart';
 
 class CommunicationLogsPage extends StatefulWidget {
   const CommunicationLogsPage({super.key});

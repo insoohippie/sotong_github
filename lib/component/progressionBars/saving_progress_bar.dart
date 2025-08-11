@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_colors.dart';
 import '../texts/subtext.dart';
+import '../theme/app_colors.dart';
 
 class BubbleSavingProgressBar extends StatelessWidget {
   final double currentRate;

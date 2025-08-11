@@ -6,8 +6,9 @@
 
 // calculator의 역할과 사용되는 곳 분석해서 어떻게 제거할 것인지 정리
 
-import '../model/plan_info.dart';
-import '../model/saving_calculation_result.dart';
+
+import '../../model/plan_info.dart';
+import '../../model/saving_calculation_result.dart';
 
 class SavingPlanCalculator {
   final PlanInfo planInfo;

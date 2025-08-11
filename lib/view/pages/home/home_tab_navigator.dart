@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/theme/app_colors.dart';
-import 'package:sotong_local/route.dart'; // <-- appRoutes 가져오기
+import 'package:sotong_local/route.dart';
+
+import '../../../component/theme/app_colors.dart'; // <-- appRoutes 가져오기
 
 class HomeTabNavigator extends StatefulWidget {
   const HomeTabNavigator({super.key});
@@ -14,11 +15,7 @@ class _HomeTabNavigatorState extends State<HomeTabNavigator> {
   int _currentIndex = 1;
 
   // appRoutes 키 기반으로 탭 라우트 구성
-  final List<String> _tabRoutes = [
-    '/report',
-    '/home',
-    '/communication',
-  ];
+  final List<String> _tabRoutes = ['/report', '/home', '/communication'];
 
   @override
   void initState() {

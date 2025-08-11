@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../model/entry.dart';
 import '../../model/plan_info.dart';
 import '../../model/ref_data.dart';
-import '../../services/plan_info_viewmodel.dart';
-
-// 수정 페이지의 viewModel
-// view컨트롤러가 다른데...
+import '../services/plan_info_viewmodel.dart';
 
 class PlanEditViewModel extends ChangeNotifier {
   late TextEditingController planNameController;
@@ -65,11 +63,12 @@ class PlanEditViewModel extends ChangeNotifier {
       selectedPurpose = null;
     }
 
+    final formatter = NumberFormat('#,###');
     targetAmountController = TextEditingController(
-      text: initialPlan.targetAmount!.toStringAsFixed(0),
+      text: formatter.format((initialPlan.targetAmount ?? 0).toInt()),
     );
     currentAssetController = TextEditingController(
-      text: initialPlan.currentAsset!.toStringAsFixed(0),
+      text: formatter.format((initialPlan.currentAsset ?? 0).toInt()),
     );
 
     notifyListeners();
@@ -114,8 +113,10 @@ class PlanEditViewModel extends ChangeNotifier {
     // planInfo 객체를 직접 업데이트
     planInfo.planName = planNameController.text;
     planInfo.purpose = selectedPurpose ?? '';
-    planInfo.targetAmount = double.tryParse(targetAmountController.text) ?? 0;
-    planInfo.currentAsset = double.tryParse(currentAssetController.text) ?? 0;
+    planInfo.targetAmount =
+        double.tryParse(targetAmountController.text.replaceAll(',', '')) ?? 0;
+    planInfo.currentAsset =
+        double.tryParse(currentAssetController.text.replaceAll(',', '')) ?? 0;
 
     // RefData도 함께 업데이트
     planInfo.fixedIncomeSum = monthlyIncome;
@@ -140,8 +141,10 @@ class PlanEditViewModel extends ChangeNotifier {
   bool isValidForm() {
     return planNameController.text.isNotEmpty &&
         selectedPurpose != null &&
-        double.tryParse(targetAmountController.text) != null &&
-        double.tryParse(currentAssetController.text) != null;
+        double.tryParse(targetAmountController.text.replaceAll(',', '')) !=
+            null &&
+        double.tryParse(currentAssetController.text.replaceAll(',', '')) !=
+            null;
   }
 
   // Get validation error message
@@ -152,12 +155,39 @@ class PlanEditViewModel extends ChangeNotifier {
     if (selectedPurpose == null) {
       return '플랜 목적을 선택해주세요';
     }
-    if (double.tryParse(targetAmountController.text) == null) {
+    final targetParsed = double.tryParse(
+      targetAmountController.text.replaceAll(',', ''),
+    );
+    if (targetParsed == null) {
       return '목표 금액을 올바르게 입력해주세요';
     }
-    if (double.tryParse(currentAssetController.text) == null) {
+    final assetParsed = double.tryParse(
+      currentAssetController.text.replaceAll(',', ''),
+    );
+    if (assetParsed == null) {
       return '보유 자산을 올바르게 입력해주세요';
     }
+    return null;
+  }
+
+  String? applyEdits() {
+    // 1) 검증
+    final err = getValidationError();
+    if (err != null) return err;
+
+    // 2) 업데이트
+    planInfo.planName = planNameController.text;
+    planInfo.purpose = selectedPurpose ?? '';
+    planInfo.targetAmount =
+        double.tryParse(targetAmountController.text.replaceAll(',', '')) ?? 0;
+    planInfo.currentAsset =
+        double.tryParse(currentAssetController.text.replaceAll(',', '')) ?? 0;
+
+    planInfo.fixedIncomeSum = monthlyIncome;
+    planInfo.fixedConsumptionSum = monthlyFixedCost;
+    planInfo.dailyConsumptionSum = dailySpendingLimit;
+
+    // null 이면 성공
     return null;
   }
 

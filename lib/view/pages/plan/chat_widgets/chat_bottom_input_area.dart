@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../view_model/plan/enums/chat_step.dart';
 import './purpose_selector_widget.dart';
-import '../../../../../enums/chat_step.dart';
 import '../../../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../../component/buttons/custom_button.dart';
 import '../../../../component/buttons/custom_dual_button.dart';
@@ -160,6 +160,17 @@ class ChatBottomInputArea extends StatelessWidget {
               },
             ),
 
+          if (currentStep == ChatStep.complete && animDone)
+            CustomButton(
+              text: '홈으로 이동',
+              onPressed: () {
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/home_tab_navigator',
+                  (route) => false,
+                );
+              },
+            ),
+
           if (currentStep == ChatStep.purpose && animDone)
             PurposeSelectorWidget(
               options: viewModel.purposeOptions,
@@ -183,6 +194,8 @@ class ChatBottomInputArea extends StatelessWidget {
                         ? '목표 금액을 입력하세요'
                         : currentStep == ChatStep.currentAssetConfirm
                         ? '보유 금액을 입력하세요'
+                        : currentStep == ChatStep.purposeCustom
+                        ? '목적을 입력하세요'
                         : '메시지를 입력하세요',
                     keyboardType: currentStep == ChatStep.targetAmount
                         ? TextInputType.number
@@ -192,20 +205,18 @@ class ChatBottomInputArea extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 CustomButton(
-                  text: currentStep == ChatStep.planName
-                      ? '이 이름으로 플랜 만들래요!'
-                      : currentStep == ChatStep.targetAmount
-                      ? '제 목표 금액이에요!'
-                      : currentStep == ChatStep.currentAssetConfirm
-                      ? '현재 자산은 이만큼이에요!'
-                      : '입력 완료!',
-                  onPressed: isTextInputStep
+                  text: _getButtonText(currentStep, inputController.text),
+                  onPressed:
+                      isTextInputStep &&
+                          _isValidInput(currentStep, inputController.text)
                       ? () {
                           onDisappear();
                           onSubmit();
                         }
                       : () {},
-                  enabled: isTextInputStep,
+                  enabled:
+                      isTextInputStep &&
+                      _isValidInput(currentStep, inputController.text),
                 ),
               ],
             ),
@@ -219,6 +230,53 @@ class ChatBottomInputArea extends StatelessWidget {
       ChatStep.planName,
       ChatStep.targetAmount,
       ChatStep.currentAssetConfirm,
+      ChatStep.purposeCustom,
     ].contains(step);
+  }
+
+  String _getButtonText(ChatStep step, String inputText) {
+    final isEmpty = inputText.trim().isEmpty;
+    if (isEmpty) {
+      return step == ChatStep.planName
+          ? '플랜 이름을 입력해주세요!'
+          : step == ChatStep.targetAmount
+          ? '목표 금액을 입력해주세요!'
+          : step == ChatStep.currentAssetConfirm
+          ? '보유 금액을 입력해주세요!'
+          : step == ChatStep.purposeCustom
+          ? '목적을 입력해주세요!'
+          : '입력해주세요!';
+    }
+    return step == ChatStep.planName
+        ? '이 이름으로 플랜 만들래요!'
+        : step == ChatStep.targetAmount
+        ? '제 목표 금액이에요!'
+        : step == ChatStep.currentAssetConfirm
+        ? '현재 자산은 이만큼이에요!'
+        : step == ChatStep.purposeCustom
+        ? '이 목적으로 설정할게요!'
+        : '입력 완료!';
+  }
+
+  bool _isValidInput(ChatStep step, String inputText) {
+    final trimmedText = inputText.trim();
+
+    if (trimmedText.isEmpty) return false;
+
+    switch (step) {
+      case ChatStep.planName:
+      case ChatStep.purposeCustom:
+        return trimmedText.length >= 2;
+      case ChatStep.targetAmount:
+        final amountStr = trimmedText.replaceAll(',', '');
+        final amount = double.tryParse(amountStr);
+        return amount != null && amount > 0;
+      case ChatStep.currentAssetConfirm:
+        final assetStr = trimmedText.replaceAll(',', '');
+        final assetAmount = double.tryParse(assetStr);
+        return assetAmount != null;
+      default:
+        return true;
+    }
   }
 }

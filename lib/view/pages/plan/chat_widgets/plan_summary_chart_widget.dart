@@ -3,7 +3,7 @@ import 'dart:async';
 
 import '../../../../model/plan_info.dart';
 import '../../../../model/saving_calculation_result.dart';
-import '../../../../services/saving_calculator.dart';
+import '../../../../view_model/services/saving_calculator.dart';
 
 class PlanSummaryChartWidget extends StatefulWidget {
   final PlanInfo planInfo;
@@ -230,7 +230,7 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            '📊 한눈에 보는 플랜 요약',
+            '한눈에 보는 플랜 요약',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,

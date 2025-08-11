@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/theme/app_colors.dart';
-import 'package:sotong_local/theme/app_spacing.dart';
-import 'package:sotong_local/theme/app_text_styles.dart';
-import 'package:sotong_local/component/widgets/emotion_calendar_widget.dart';
-import 'package:sotong_local/component/widgets/emotion_diary_detail_dialog.dart';
-import 'package:sotong_local/component/widgets/spending_record_confirm_dialog.dart';
+import 'package:sotong_local/view/pages/record/record_widgets/emotion_calendar_widget.dart';
 import 'package:sotong_local/model/emotion_spending_diary.dart';
 import 'package:sotong_local/view/pages/communication/communication_logs_page.dart';
 import 'package:sotong_local/view_model/communication/communication_view_model.dart';
 import 'package:provider/provider.dart';
-import 'dart:async'; // Added for Timer
+import 'dart:async';
+
+import '../../../component/theme/app_colors.dart';
+import '../record/record_widgets/emotion_diary_detail_dialog.dart';
+import '../record/record_widgets/spending_record_confirm_dialog.dart'; // Added for Timer
 
 class CommunicationPage extends StatefulWidget {
   const CommunicationPage({super.key});

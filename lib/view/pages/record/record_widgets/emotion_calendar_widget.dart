@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../model/emotion_spending_diary.dart';
-import '../../../theme/app_colors.dart';
+import '../../../../../model/emotion_spending_diary.dart';
+import '../../../../component/theme/app_colors.dart';
 
 class EmotionCalendarWidget extends StatefulWidget {
   final Map<DateTime, EmotionSpendingDiary> diaryEntries;

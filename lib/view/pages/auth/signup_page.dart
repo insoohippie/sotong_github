@@ -12,8 +12,8 @@ import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/inputs/dual_option_selector.dart';
 import '../../../component/inputs/wheel_date_picker.dart';
 import '../../../component/texts/multi_color_text.dart';
-import '../../../theme/app_spacing.dart';
-import '../../../theme/app_text_styles.dart';
+import '../../../component/theme/app_spacing.dart';
+import '../../../component/theme/app_text_styles.dart';
 import '../../../view_model/auth/signup_view_model.dart';
 import '../../../component/buttons/custom_button.dart';
 

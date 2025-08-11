@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
-import 'package:sotong_local/theme/app_colors.dart';
 import '../../../component/appbars/custom_app_bar_home.dart';
 import '../../../component/buttons/small_rounded_button.dart';
 import '../../../component/containers/rounded_info_container.dart';
 import '../../../component/progressionBars/saving_progress_bar.dart';
 import '../../../component/texts/multi_color_text.dart';
 import '../../../component/texts/subtext.dart';
-import '../../../theme/app_spacing.dart';
-import '../../../theme/app_text_styles.dart';
+import '../../../component/theme/app_colors.dart';
+import '../../../component/theme/app_spacing.dart';
+import '../../../component/theme/app_text_styles.dart';
 import '../../../view_model/auth/signup_view_model.dart';
 import '../../../view_model/communication/communication_view_model.dart';
 
@@ -84,14 +84,19 @@ class _HomePageState extends State<HomePage> {
                 Navigator.of(context).pushNamed('/notification');
               },
               onSettings: () {
-                Navigator.of(context, rootNavigator: true).pushNamed('/setting');
+                Navigator.of(
+                  context,
+                  rootNavigator: true,
+                ).pushNamed('/setting');
               },
             ),
 
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
@@ -100,7 +105,10 @@ class _HomePageState extends State<HomePage> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 4,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.planTagBackground,
                                 borderRadius: BorderRadius.circular(8),
@@ -139,6 +147,16 @@ class _HomePageState extends State<HomePage> {
                               currentRate: currentRate,
                               baseRate: baseRate,
                             ),
+                            SizedBox(height: AppSpacing.fieldSpacing),
+                            SmallRoundedButton(
+                              text: "플랜 수정하기",
+                              onPressed: () {
+                                Navigator.of(
+                                  context,
+                                  rootNavigator: true,
+                                ).pushNamed('/plan_chat');
+                              },
+                            ),
                           ],
                         ),
                       ),
@@ -162,11 +180,16 @@ class _HomePageState extends State<HomePage> {
                                     Material(
                                       color: Colors.transparent,
                                       child: InkWell(
-                                        borderRadius: BorderRadius.circular(100),
+                                        borderRadius: BorderRadius.circular(
+                                          100,
+                                        ),
                                         onTap: () => _changeDate(-1),
                                         child: const Padding(
                                           padding: EdgeInsets.all(8.0),
-                                          child: Icon(Icons.chevron_left, size: 24),
+                                          child: Icon(
+                                            Icons.chevron_left,
+                                            size: 24,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -174,11 +197,16 @@ class _HomePageState extends State<HomePage> {
                                     Material(
                                       color: Colors.transparent,
                                       child: InkWell(
-                                        borderRadius: BorderRadius.circular(100),
+                                        borderRadius: BorderRadius.circular(
+                                          100,
+                                        ),
                                         onTap: () => _changeDate(1),
                                         child: const Padding(
                                           padding: EdgeInsets.all(8.0),
-                                          child: Icon(Icons.chevron_right, size: 24),
+                                          child: Icon(
+                                            Icons.chevron_right,
+                                            size: 24,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -195,7 +223,10 @@ class _HomePageState extends State<HomePage> {
                                   SmallRoundedButton(
                                     text: "소비 기록하러 가기",
                                     onPressed: () {
-                                      Navigator.of(context, rootNavigator: true).pushNamed('/record_spending');
+                                      Navigator.of(
+                                        context,
+                                        rootNavigator: true,
+                                      ).pushNamed('/record_spending');
                                     },
                                   ),
                                   SubText(
@@ -207,16 +238,29 @@ class _HomePageState extends State<HomePage> {
                                     color: Colors.transparent,
                                     child: InkWell(
                                       onTap: () {
-                                        Navigator.of(context, rootNavigator: true).pushNamed('/today_spending');
+                                        Navigator.of(
+                                          context,
+                                          rootNavigator: true,
+                                        ).pushNamed('/today_spending');
                                       },
                                       borderRadius: BorderRadius.circular(12),
                                       child: Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 8.0,
+                                        ),
                                         child: MultiColorText(
                                           baseStyle: AppTextStyles.paragraph,
                                           parts: [
-                                            TextPart('$todaySpending ', AppColors.primary, bold: true),
-                                            TextPart('/ $fixedSpending', AppColors.text, bold: true),
+                                            TextPart(
+                                              '$todaySpending ',
+                                              AppColors.primary,
+                                              bold: true,
+                                            ),
+                                            TextPart(
+                                              '/ $fixedSpending',
+                                              AppColors.text,
+                                              bold: true,
+                                            ),
                                           ],
                                         ),
                                       ),

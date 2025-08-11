@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/theme/app_colors.dart';
-import 'package:sotong_local/theme/app_spacing.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 
 import '../../../component/texts/subtext.dart';
+import '../../../component/theme/app_spacing.dart';
 
 class CommunicationInsightPage extends StatelessWidget {
   const CommunicationInsightPage({super.key});
@@ -138,9 +137,7 @@ class CommunicationInsightPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              SubText(
-                text: '${description}',
-              ),
+              SubText(text: '${description}'),
             ],
           ),
         ),

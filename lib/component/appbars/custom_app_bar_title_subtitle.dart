@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 import 'package:sotong_local/component/texts/subtext.dart';
-import '../../theme/app_spacing.dart';
+
+import '../theme/app_spacing.dart';
 
 class CustomAppBarTitleSubtitle extends StatelessWidget {
   final String title;
