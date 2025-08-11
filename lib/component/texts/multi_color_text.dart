@@ -14,6 +14,7 @@ class MultiColorText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return RichText(
+      textAlign: TextAlign.start,
       text: TextSpan(
         style: baseStyle,
         children: parts.map((part) {

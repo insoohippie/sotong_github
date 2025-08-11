@@ -29,8 +29,9 @@ class DualOptionSelector extends StatelessWidget {
 
   Widget _buildOption(String option) {
     final bool isSelected = selectedOption == option;
-    final Color bgColor =
-    isSelected ? const Color(0xFFEDF4FF) : const Color(0xFFEDEDED);
+    final Color bgColor = isSelected
+        ? const Color(0xFFEDF4FF)
+        : const Color(0xFFEDEDED);
     final Color textColor = isSelected ? Colors.black : Colors.grey;
 
     return Expanded(
@@ -46,9 +47,7 @@ class DualOptionSelector extends StatelessWidget {
           child: Center(
             child: Text(
               option,
-              style: AppTextStyles.paragraph.copyWith(
-                color: textColor,
-              ),
+              style: AppTextStyles.paragraph.copyWith(color: textColor),
             ),
           ),
         ),

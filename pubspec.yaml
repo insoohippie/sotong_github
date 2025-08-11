@@ -41,6 +41,9 @@ dependencies:
   firebase_storage: ^12.4.8
   firebase_analytics: ^11.5.1
   image_picker: ^1.1.2
+  intl: ^0.20.2
+  lottie: ^3.3.1
+  flutter_keyboard_visibility: ^5.4.1
 
 
 dev_dependencies:
@@ -86,3 +89,6 @@ flutter:
           weight: 800
         - asset: assets/fonts/Pretendard-Black.ttf
           weight: 900
+
+  assets:
+    - assets/animations/

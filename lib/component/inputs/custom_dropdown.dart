@@ -10,30 +10,51 @@ class CustomDropdown extends StatelessWidget {
     super.key,
     required this.value,
     required this.items,
-    required this.onChanged,
     required this.hintText,
+    required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      onChanged: onChanged,
-      items: items
-          .map((item) => DropdownMenuItem(
-        value: item,
-        child: Text(item, style: const TextStyle(fontFamily: 'Pretendard')),
-      ))
-          .toList(),
-      decoration: InputDecoration(
-        hintText: hintText,
-        hintStyle: const TextStyle(fontFamily: 'Pretendard'),
-        filled: true,
-        fillColor: Colors.grey[100],
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        border: OutlineInputBorder(
+    return GestureDetector(
+      onTap: () async {
+        final picked = await showModalBottomSheet<String>(
+          context: context,
+          builder: (context) => ListView(
+            padding: const EdgeInsets.all(16),
+            children: items.map((item) {
+              return ListTile(
+                title: Text(item),
+                onTap: () => Navigator.pop(context, item),
+              );
+            }).toList(),
+          ),
+        );
+
+        if (picked != null) {
+          onChanged(picked);
+        }
+      },
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              value ?? hintText,
+              style: TextStyle(
+                fontSize: 14,
+                color: value == null ? Colors.grey : Colors.black,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down),
+          ],
         ),
       ),
     );

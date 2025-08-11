@@ -1,4 +1,3 @@
-
 class SignUpInfo {
   String userID;
   String email;
@@ -7,8 +6,7 @@ class SignUpInfo {
   String gender;
   String birthday;
   String profileImg;
-  String planID; // 플랜 설정할 때 값 올리기
-
+  String planID;
 
   SignUpInfo({
     this.userID = '',
@@ -18,7 +16,7 @@ class SignUpInfo {
     this.gender = '',
     this.birthday = '',
     this.profileImg = '',
-    this.planID = ''
+    this.planID = '',
   });
 
   Map<String, dynamic> toMap() {

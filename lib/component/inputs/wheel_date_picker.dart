@@ -19,8 +19,9 @@ class WheelDateSelector extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isEmpty = selectedDate.isEmpty;
-    final Color bgColor =
-    isEmpty ? const Color(0xFFEDEDED) : const Color(0xFFEDF4FF);
+    final Color bgColor = isEmpty
+        ? const Color(0xFFEDEDED)
+        : const Color(0xFFEDF4FF);
 
     return GestureDetector(
       onTap: () => _showWheelDatePicker(context),
@@ -69,7 +70,7 @@ class WheelDateSelector extends StatelessWidget {
                   Navigator.pop(context);
                 },
                 child: const Text('확인'),
-              )
+              ),
             ],
           ),
         );

@@ -9,6 +9,7 @@ enum SignupStep { email, password, userInfo }
 
 class SignupViewModel extends ChangeNotifier {
   final AuthRepository _repo;
+
   SignupViewModel(this._repo);
 
   // 스텝
@@ -21,6 +22,7 @@ class SignupViewModel extends ChangeNotifier {
   final birthdayController = TextEditingController();
   String? gender;
   File? profileImage;
+  SignUpInfo? signUpInfo;
 
   final ImagePicker _picker = ImagePicker();
   DateTime? selectedBirthday;
@@ -29,8 +31,7 @@ class SignupViewModel extends ChangeNotifier {
   bool isEmailChecked = false;
   bool isPasswordVisible = false;
 
-
-  /// 이전 단계로 이동
+  // 이전 단계로 이동
   void previousStep() {
     if (currentStep == SignupStep.password) {
       currentStep = SignupStep.email;
@@ -40,7 +41,7 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 다음 단계로 이동
+  // 다음 단계로 이동
   Future<void> nextStep() async {
     if (currentStep == SignupStep.email) {
       await checkEmailDuplication();
@@ -51,11 +52,11 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 아이디 유효성 판단
+  // 이메일 유효성 판단
   // 6자 이상으로 바꾸기?
   bool get isEmailFormatValid =>
       emailController.text.isNotEmpty &&
-          RegExp(r'\S+@\S+\.\S+').hasMatch(emailController.text);
+      RegExp(r'\S+@\S+\.\S+').hasMatch(emailController.text);
 
   // 이메일 중복 확인
   Future<void> checkEmailDuplication() async {
@@ -82,9 +83,11 @@ class SignupViewModel extends ChangeNotifier {
     final hasMinLength = password.length >= 8;
     final hasUppercase = RegExp(r'[A-Z]').hasMatch(password);
     final hasNumber = RegExp(r'\d').hasMatch(password);
-    final hasSpecialChar = RegExp(r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''').hasMatch(password);
+    final hasSpecialChar = RegExp(
+      r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''',
+    ).hasMatch(password);
     return hasMinLength && hasUppercase && hasSpecialChar && hasNumber;
-    }
+  }
 
   List<String> get passwordErrors {
     final password = passwordController.text;
@@ -99,7 +102,9 @@ class SignupViewModel extends ChangeNotifier {
     if (!RegExp(r'\d').hasMatch(password)) {
       errors.add('숫자를 하나 이상 포함해야 해요.');
     }
-    if (!RegExp(r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''').hasMatch(password)) {
+    if (!RegExp(
+      r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''',
+    ).hasMatch(password)) {
       errors.add('특수문자를 하나 이상 포함해야 해요.');
     }
 
@@ -111,6 +116,17 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void reset() {
+    currentStep = SignupStep.email;
+    emailController.clear();
+    passwordController.clear();
+    nameController.clear();
+    gender = '';
+    birthdayController.text = '';
+    isEmailChecked = false;
+    signUpInfo = null;
+    notifyListeners();
+  }
 
   // 현재 스텝에서 다음 버튼 활성화 조건
   bool get isCurrentStepValid {
@@ -137,7 +153,7 @@ class SignupViewModel extends ChangeNotifier {
     if (pickedDate != null) {
       selectedBirthday = pickedDate;
       birthdayController.text =
-      "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+          "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
       notifyListeners();
     }
   }
@@ -145,7 +161,7 @@ class SignupViewModel extends ChangeNotifier {
   void setBirthdayFromCupertino(DateTime pickedDate) {
     selectedBirthday = pickedDate;
     birthdayController.text =
-    "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+        "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
     notifyListeners();
   }
 
@@ -170,7 +186,7 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final userInfo = SignUpInfo(
+      signUpInfo = SignUpInfo(
         email: emailController.text.trim(),
         password: passwordController.text.trim(),
         name: nameController.text.trim(),
@@ -178,7 +194,7 @@ class SignupViewModel extends ChangeNotifier {
         gender: gender ?? '',
       );
 
-      await _repo.signUp(userInfo, profileImage);
+      await _repo.signUp(signUpInfo!, profileImage);
       return true;
     } catch (e) {
       print('회원가입 실패: $e');
@@ -189,4 +205,3 @@ class SignupViewModel extends ChangeNotifier {
     }
   }
 }
-

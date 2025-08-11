@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
+import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
 
 import '../../../component/appbars/custom_app_bar.dart';
 import '../../../component/inputs/custom_text_field.dart';
@@ -16,8 +17,22 @@ import '../../../theme/app_text_styles.dart';
 import '../../../view_model/auth/signup_view_model.dart';
 import '../../../component/buttons/custom_button.dart';
 
-class SignUpPage extends StatelessWidget {
+class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
+
+  @override
+  State<SignUpPage> createState() => _SignUpPageState();
+}
+
+class _SignUpPageState extends State<SignUpPage> {
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      final vm = context.read<SignupViewModel>();
+      vm.reset(); // 진입 시 스텝 초기화
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,17 +51,22 @@ class SignUpPage extends StatelessWidget {
                 } else {
                   vm.previousStep();
                 }
-              }
+              },
             ),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
                 child: Column(
                   children: [
                     //이메일 입력, 비밀번호 입력, 유저정보 입력을 스텝으로 진행
-                    if (vm.currentStep == SignupStep.email) _buildEmailField(vm),
-                    if (vm.currentStep == SignupStep.password) _buildPasswordField(vm),
-                    if (vm.currentStep == SignupStep.userInfo) _buildUserInfoField(context, vm),
+                    if (vm.currentStep == SignupStep.email)
+                      _buildEmailField(vm),
+                    if (vm.currentStep == SignupStep.password)
+                      _buildPasswordField(vm),
+                    if (vm.currentStep == SignupStep.userInfo)
+                      _buildUserInfoField(context, vm),
                   ],
                 ),
               ),
@@ -58,14 +78,14 @@ class SignUpPage extends StatelessWidget {
                 if (vm.currentStep == SignupStep.userInfo && vm.canSubmit) {
                   final success = await vm.submit();
                   if (success && context.mounted) {
-                    Navigator.pushReplacementNamed(context, '/login');
+                    Navigator.pushNamed(context, '/signup_success');
                   }
                 } else {
                   await vm.nextStep();
                 }
               },
             ),
-            const SizedBox(height: 40),
+            SizedBox(height: AppSpacing.itemSpacing),
           ],
         ),
       ),
@@ -87,18 +107,12 @@ class SignUpPage extends StatelessWidget {
         if (vm.emailError != null)
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(
-              '• ${vm.emailError}',
-              style: AppTextStyles.errorText,
-            ),
+            child: Text('• ${vm.emailError}', style: AppTextStyles.errorText),
           )
         else if (vm.isEmailChecked)
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(
-              '• 중복 확인 완료',
-              style: AppTextStyles.infoText,
-            ),
+            child: Text('• 중복 확인 완료', style: AppTextStyles.infoText),
           ),
       ],
     );
@@ -125,10 +139,9 @@ class SignUpPage extends StatelessWidget {
         ),
         SizedBox(height: AppSpacing.itemSpacing),
         if (!vm.isPasswordValid && vm.passwordController.text.isNotEmpty)
-          ...vm.passwordErrors.map((msg) => Text(
-            '• $msg',
-            style: AppTextStyles.errorText,
-          )),
+          ...vm.passwordErrors.map(
+            (msg) => Text('• $msg', style: AppTextStyles.errorText),
+          ),
       ],
     );
   }

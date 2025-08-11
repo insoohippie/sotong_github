@@ -20,6 +20,4 @@ class AuthRepository {
   Future<bool> isEmailAlreadyExists(String email) {
     return _dataSource.isEmailAlreadyExists(email);
   }
-
-
 }

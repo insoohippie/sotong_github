@@ -1,0 +1,18 @@
+enum ChatStep {
+  greeting,
+  onboarding1,
+  onboarding2,
+  onboarding3,
+  planName,
+  purpose,
+  purposeCustom,
+  targetAmount,
+  currentAsset,
+  currentAssetConfirm,
+  monthlyIncome,
+  monthlyFixedCost,
+  dailySpending,
+  summary,
+  autoService,
+  complete,
+}

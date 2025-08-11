@@ -37,5 +37,3 @@ class AppTextStyles {
     color: Colors.red,
   );
 }
-
-

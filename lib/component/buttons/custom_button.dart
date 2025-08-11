@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/app_spacing.dart'; // ← 스페이싱 임포트 추가
+import '../../theme/app_spacing.dart';
+import '../texts/paragraph_text.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
@@ -29,7 +30,11 @@ class CustomButton extends StatelessWidget {
           ),
           textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
-        child: Text(text),
+        child: ParagraphText(
+          text: text,
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

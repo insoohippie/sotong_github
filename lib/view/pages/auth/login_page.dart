@@ -24,7 +24,9 @@ class EmailLoginPage extends StatelessWidget {
             const SizedBox(height: 60),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -66,7 +68,6 @@ class EmailLoginPage extends StatelessWidget {
                           )
                         else
                           const SizedBox(), // 에러 없을 때 공간 유지
-
                         // 회원가입 버튼 (오른쪽 정렬)
                         TextButton(
                           onPressed: () {
@@ -98,20 +99,24 @@ class EmailLoginPage extends StatelessWidget {
             // 로그인 버튼 + 로딩 인디케이터
             vm.isLoading
                 ? const SizedBox(
-              height: 48,
-              child: Center(child: CircularProgressIndicator()),
-            )
+                    height: 48,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
                 : CustomButton(
-              text: '로그인',
-              onPressed: () async {
-                final success = await vm.login();  // ← ViewModel에서 true/false 리턴
+                    text: '로그인',
+                    onPressed: () async {
+                      final success = await vm
+                          .login(); // ← ViewModel에서 true/false 리턴
 
-                if (success) {
-                  Navigator.pushReplacementNamed(context, '/home');  // 성공 시 홈으로 이동
-                }
-                // 실패 시 에러 메시지는 ViewModel에서 처리되고 화면에 표시됨
-              },
-            ),
+                      if (success) {
+                        Navigator.pushReplacementNamed(
+                          context,
+                          '/home_tab_navigator',
+                        ); // 성공 시 홈으로 이동
+                      }
+                      // 실패 시 에러 메시지는 ViewModel에서 처리되고 화면에 표시됨
+                    },
+                  ),
             const SizedBox(height: 40),
           ],
         ),

@@ -28,7 +28,8 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color bgColor = backgroundColor ??
+    final Color bgColor =
+        backgroundColor ??
         (controller.text.isEmpty
             ? AppColors.greyBackground
             : AppColors.lightBlue);

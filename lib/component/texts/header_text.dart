@@ -5,18 +5,23 @@ import '../../theme/app_text_styles.dart';
 class HeaderText extends StatelessWidget {
   final String text;
   final Color? color;
+  final FontWeight? fontWeight;
 
   const HeaderText({
     super.key,
     required this.text,
     this.color,
+    this.fontWeight,
   });
 
   @override
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: AppTextStyles.header.copyWith(color: color),
+      style: AppTextStyles.header.copyWith(
+        color: color,
+        fontWeight: fontWeight,
+      ),
     );
   }
 }
