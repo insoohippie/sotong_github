@@ -100,7 +100,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
   bool _isChatInputEnabled(ChatStep step) {
     return step == ChatStep.planName ||
         step == ChatStep.targetAmount ||
-        step == ChatStep.currentAssetConfirm ||
         step == ChatStep.purposeCustom;
   }
 
@@ -116,8 +115,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
         ChatStep.purpose,
         ChatStep.purposeCustom,
         ChatStep.targetAmount,
-        ChatStep.currentAsset,
-        ChatStep.currentAssetConfirm,
         ChatStep.monthlyIncome,
         ChatStep.monthlyFixedCost,
         ChatStep.dailySpending,
@@ -236,15 +233,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                                               _inputController.text,
                                             ),
                                           ) >
-                                          0) ||
-                                  (viewModel.currentStep ==
-                                          ChatStep.currentAssetConfirm &&
-                                      double.parse(
-                                            _unformatNumber(
-                                              _inputController.text,
-                                            ),
-                                          ) !=
-                                          0)))
+                                          0) ))
                             AmountGuideWidget(
                               amount: double.parse(
                                 _unformatNumber(_inputController.text),
@@ -386,11 +375,19 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   placeholder: '소비 항목',
                   type: EntryType.daily,
                   onComplete: (items, total) async {
+                    print('=== 하루 소비 모달 onComplete 시작 ===');
+                    print('items: $items');
+                    print('total: $total');
+                    
                     final viewModel = Provider.of<ChatPlanViewModel>(
                       context,
                       listen: false,
                     );
+                    
+                    print('updateRefData 호출 전');
                     viewModel.updateRefData(dailyConsumptions: items);
+                    print('updateRefData 호출 후');
+                    
                     final name =
                         viewModel.planInfo.planName != null &&
                             viewModel.planInfo.planName!.isNotEmpty
@@ -402,13 +399,23 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                               '${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원',
                         )
                         .join('\n');
+                        
+                    print('첫 번째 메시지 추가 시작');
                     await viewModel.addBotMessageWithTyping(
                       '$name님의 하루 소비 한도 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원입니다.\n아래는 하루소비처 내역입니다.\n$itemLines',
                       awaitTyping: true,
                     );
+                    print('첫 번째 메시지 추가 완료');
+                    
                     await Future.delayed(const Duration(milliseconds: 400));
+                    
+                    print('두 번째 메시지 추가 시작');
                     await viewModel.addBotMessageWithTyping('입력이 완료되었습니다!');
-                    viewModel.nextStep();
+                    print('두 번째 메시지 추가 완료');
+                    
+                    print('nextStep() 호출 시작');
+                    await viewModel.nextStep();
+                    print('nextStep() 호출 완료');
                   },
                 ),
               ],

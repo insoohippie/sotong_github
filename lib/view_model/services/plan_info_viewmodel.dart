@@ -1,5 +1,6 @@
 
 
+
 import '../../model/plan_info.dart';
 
 class PlanInfoViewModel {
@@ -50,4 +51,4 @@ class PlanInfoViewModel {
   void updateStartDate(DateTime date) {
     planInfo.startDate = date;
   }
-}
+} 

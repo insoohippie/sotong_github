@@ -101,19 +101,7 @@ class ChatBottomInputArea extends StatelessWidget {
               },
             ),
 
-          if (currentStep == ChatStep.currentAsset && animDone)
-            CustomDualButton(
-              leftLabel: '없어요',
-              rightLabel: '있어요',
-              onLeftPressed: () {
-                viewModel.handleUserResponse('없어요');
-                onDisappear();
-              },
-              onRightPressed: () {
-                viewModel.handleUserResponse('있어요');
-                onDisappear();
-              },
-            ),
+
 
           if (currentStep == ChatStep.monthlyIncome)
             CustomButton(
@@ -192,8 +180,6 @@ class ChatBottomInputArea extends StatelessWidget {
                         ? '플랜 이름을 입력하세요'
                         : currentStep == ChatStep.targetAmount
                         ? '목표 금액을 입력하세요'
-                        : currentStep == ChatStep.currentAssetConfirm
-                        ? '보유 금액을 입력하세요'
                         : currentStep == ChatStep.purposeCustom
                         ? '목적을 입력하세요'
                         : '메시지를 입력하세요',
@@ -229,7 +215,6 @@ class ChatBottomInputArea extends StatelessWidget {
     return [
       ChatStep.planName,
       ChatStep.targetAmount,
-      ChatStep.currentAssetConfirm,
       ChatStep.purposeCustom,
     ].contains(step);
   }
@@ -241,8 +226,6 @@ class ChatBottomInputArea extends StatelessWidget {
           ? '플랜 이름을 입력해주세요!'
           : step == ChatStep.targetAmount
           ? '목표 금액을 입력해주세요!'
-          : step == ChatStep.currentAssetConfirm
-          ? '보유 금액을 입력해주세요!'
           : step == ChatStep.purposeCustom
           ? '목적을 입력해주세요!'
           : '입력해주세요!';
@@ -251,8 +234,6 @@ class ChatBottomInputArea extends StatelessWidget {
         ? '이 이름으로 플랜 만들래요!'
         : step == ChatStep.targetAmount
         ? '제 목표 금액이에요!'
-        : step == ChatStep.currentAssetConfirm
-        ? '현재 자산은 이만큼이에요!'
         : step == ChatStep.purposeCustom
         ? '이 목적으로 설정할게요!'
         : '입력 완료!';
@@ -271,10 +252,6 @@ class ChatBottomInputArea extends StatelessWidget {
         final amountStr = trimmedText.replaceAll(',', '');
         final amount = double.tryParse(amountStr);
         return amount != null && amount > 0;
-      case ChatStep.currentAssetConfirm:
-        final assetStr = trimmedText.replaceAll(',', '');
-        final assetAmount = double.tryParse(assetStr);
-        return assetAmount != null;
       default:
         return true;
     }

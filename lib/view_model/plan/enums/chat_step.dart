@@ -7,8 +7,6 @@ enum ChatStep {
   purpose,
   purposeCustom,
   targetAmount,
-  currentAsset,
-  currentAssetConfirm,
   monthlyIncome,
   monthlyFixedCost,
   dailySpending,

@@ -5,7 +5,7 @@ class PlanInfo {
   String? purpose;
   double? targetAmount; // 목표 금액
   double currentAmount; // 저축 금액
-  double? currentAsset; // 기존 자산
+  double currentAsset; // 기존 자산 (기본값 0.0)
   DateTime? startDate;
   bool? autoService; // 자동 서비스 활성화 여부
 
@@ -45,7 +45,7 @@ class PlanInfo {
     this.purpose,
     this.targetAmount,
     this.currentAmount = 0,
-    this.currentAsset,
+    this.currentAsset = 0.0, // 기본값 0.0 설정
     this.autoService,
 
     this.fixedIncomeSum,

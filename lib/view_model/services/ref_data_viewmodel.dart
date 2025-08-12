@@ -1,3 +1,7 @@
+
+
+
+
 import '../../model/entry.dart';
 import '../../model/ref_data.dart';
 
@@ -5,6 +9,7 @@ class RefDataViewModel {
   final RefData refData;
 
   RefDataViewModel(this.refData);
+
 
   void updateRefData({
     List<Entry>? fixedIncomes,
@@ -18,22 +23,14 @@ class RefDataViewModel {
     List<Entry>? variableConsumptionList,
   }) {
     if (fixedIncomes != null) refData.fixedIncomes = fixedIncomes;
-    if (fixedConsumptions != null)
-      refData.fixedConsumptions = fixedConsumptions;
-    if (dailyConsumptions != null)
-      refData.dailyConsumptions = dailyConsumptions;
-    if (variableConsumptions != null)
-      refData.variableConsumptions = variableConsumptions;
-    if (installmentIncomes != null)
-      refData.installmentIncomes = installmentIncomes;
-    if (installmentConsumptions != null)
-      refData.installmentConsumptions = installmentConsumptions;
-    if (additionalIncomeList != null)
-      refData.additionalIncomeList = additionalIncomeList;
-    if (additionalConsumptionList != null)
-      refData.additionalConsumptionList = additionalConsumptionList;
-    if (variableConsumptionList != null)
-      refData.variableConsumptionList = variableConsumptionList;
+    if (fixedConsumptions != null) refData.fixedConsumptions = fixedConsumptions;
+    if (dailyConsumptions != null) refData.dailyConsumptions = dailyConsumptions;
+    if (variableConsumptions != null) refData.variableConsumptions = variableConsumptions;
+    if (installmentIncomes != null) refData.installmentIncomes = installmentIncomes;
+    if (installmentConsumptions != null) refData.installmentConsumptions = installmentConsumptions;
+    if (additionalIncomeList != null) refData.additionalIncomeList = additionalIncomeList;
+    if (additionalConsumptionList != null) refData.additionalConsumptionList = additionalConsumptionList;
+    if (variableConsumptionList != null) refData.variableConsumptionList = variableConsumptionList;
   }
 
   // toMap 메서드
@@ -42,116 +39,97 @@ class RefDataViewModel {
   };
 
   Map<String, dynamic> fixedConsumptionsToMap() => {
-    'fixedConsumptions': refData.fixedConsumptions
-        .map((e) => e.toMap())
-        .toList(),
+    'fixedConsumptions': refData.fixedConsumptions.map((e) => e.toMap()).toList(),
   };
 
   Map<String, dynamic> dailyConsumptionsToMap() => {
-    'dailyConsumptions': refData.dailyConsumptions
-        .map((e) => e.toMap())
-        .toList(),
+    'dailyConsumptions': refData.dailyConsumptions.map((e) => e.toMap()).toList(),
   };
 
   Map<String, dynamic> variableConsumptionsToMap() => {
-    'variableConsumptions': refData.variableConsumptions
-        .map((e) => e.toMap())
-        .toList(),
+    'variableConsumptions': refData.variableConsumptions.map((e) => e.toMap()).toList(),
   };
 
   Map<String, dynamic> installmentIncomesToMap() => {
-    'installmentIncomes': refData.installmentIncomes
-        .map((e) => e.toMap())
-        .toList(),
+    'installmentIncomes': refData.installmentIncomes.map((e) => e.toMap()).toList(),
   };
 
   Map<String, dynamic> installmentConsumptionsToMap() => {
-    'installmentConsumptions': refData.installmentConsumptions
-        .map((e) => e.toMap())
-        .toList(),
+    'installmentConsumptions': refData.installmentConsumptions.map((e) => e.toMap()).toList(),
   };
 
   Map<String, dynamic> additionalIncomeListToMap() => {
-    'additionalIncomeList': refData.additionalIncomeList
-        .map((e) => e.toMap())
-        .toList(),
+    'additionalIncomeList': refData.additionalIncomeList.map((e) => e.toMap()).toList(),
   };
 
   Map<String, dynamic> additionalConsumptionListToMap() => {
-    'additionalConsumptionList': refData.additionalConsumptionList
-        .map((e) => e.toMap())
-        .toList(),
+    'additionalConsumptionList': refData.additionalConsumptionList.map((e) => e.toMap()).toList(),
   };
 
   Map<String, dynamic> variableConsumptionListToMap() => {
-    'variableConsumptionList': refData.variableConsumptionList
-        .map((e) => e.toMap())
-        .toList(),
+    'variableConsumptionList': refData.variableConsumptionList.map((e) => e.toMap()).toList(),
   };
 
   // fromMap 메서드 (static)
   static List<Entry> fromFixedIncomesMap(Map<String, dynamic> map) {
     return (map['fixedIncomes'] as List<dynamic>?)
-            ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-            .toList() ??
+        ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
+        .toList() ??
         [];
   }
 
   static List<Entry> fromFixedConsumptionsMap(Map<String, dynamic> map) {
     return (map['fixedConsumptions'] as List<dynamic>?)
-            ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-            .toList() ??
+        ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
+        .toList() ??
         [];
   }
 
   static List<Entry> fromDailyConsumptionsMap(Map<String, dynamic> map) {
     return (map['dailyConsumptions'] as List<dynamic>?)
-            ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-            .toList() ??
+        ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
+        .toList() ??
         [];
   }
 
   static List<Entry> fromVariableConsumptionsMap(Map<String, dynamic> map) {
     return (map['variableConsumptions'] as List<dynamic>?)
-            ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-            .toList() ??
+        ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
+        .toList() ??
         [];
   }
 
   static List<Entry> fromInstallmentIncomesMap(Map<String, dynamic> map) {
     return (map['installmentIncomes'] as List<dynamic>?)
-            ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-            .toList() ??
-        [];
+        ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
+        .toList() ?? [];
   }
 
   static List<Entry> fromInstallmentConsumptionsMap(Map<String, dynamic> map) {
     return (map['installmentConsumptions'] as List<dynamic>?)
-            ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-            .toList() ??
+        ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
+        .toList() ??
         [];
   }
 
   static List<Entry> fromAdditionalIncomeListMap(Map<String, dynamic> map) {
     return (map['additionalIncomeList'] as List<dynamic>?)
-            ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-            .toList() ??
+        ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
+        .toList() ??
         [];
   }
 
-  static List<Entry> fromAdditionalConsumptionListMap(
-    Map<String, dynamic> map,
-  ) {
+  static List<Entry> fromAdditionalConsumptionListMap(Map<String, dynamic> map) {
     return (map['additionalConsumptionList'] as List<dynamic>?)
-            ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-            .toList() ??
+        ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
+        .toList() ??
         [];
   }
 
   static List<Entry> fromVariableConsumptionListMap(Map<String, dynamic> map) {
     return (map['variableConsumptionList'] as List<dynamic>?)
-            ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-            .toList() ??
+        ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
+        .toList() ??
         [];
   }
 
@@ -160,8 +138,7 @@ class RefDataViewModel {
     int total = 0;
     for (var entry in refData.installmentConsumptions) {
       if (entry.dateTime == null) continue;
-      if (entry.dateTime!.isAfter(date) ||
-          entry.dateTime!.isAtSameMomentAs(date)) {
+      if (entry.dateTime!.isAfter(date) || entry.dateTime!.isAtSameMomentAs(date)) {
         final days = endDate.difference(entry.dateTime!).inDays;
         if (days > 0) {
           total += (entry.amount / days).floor();
@@ -175,8 +152,7 @@ class RefDataViewModel {
     int total = 0;
     for (var entry in refData.additionalIncomeList) {
       if (entry.dateTime == null) continue;
-      if (entry.dateTime!.isAfter(date) ||
-          entry.dateTime!.isAtSameMomentAs(date)) {
+      if (entry.dateTime!.isAfter(date) || entry.dateTime!.isAtSameMomentAs(date)) {
         final days = endDate.difference(entry.dateTime!).inDays;
         if (days > 0) {
           total += (entry.amount / days).floor();
@@ -227,6 +203,5 @@ class RefDataViewModel {
   // }
 
   // Entry 리스트 합계 구하는 메서드
-  double sum(List<Entry> entries) =>
-      entries.fold(0, (sum, e) => sum + e.amount);
-}
+  double sum(List<Entry> entries) => entries.fold(0, (sum, e) => sum + e.amount);
+} 

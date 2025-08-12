@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+
 import '../../model/chat_message.dart';
 import '../../model/entry.dart';
 import '../../model/plan_info.dart';
@@ -9,65 +11,55 @@ import '../services/ref_data_viewmodel.dart';
 import '../services/saving_calculator.dart';
 import 'enums/chat_step.dart';
 
+
 // 기본 회원가입 창의 viewmodel
 
 class ChatPlanViewModel extends ChangeNotifier {
+
   // 플랜 정보
   PlanInfo _planInfo = PlanInfo();
-
   PlanInfo get planInfo => _planInfo;
 
   // 참조 데이터 (월 수입, 고정 소비, 하루 소비 한도)
   RefData _refData = RefData();
-
   RefData get refData => _refData;
 
   // 계산 결과
   SavingCalculationResult? _calculationResult;
-
   SavingCalculationResult? get calculationResult => _calculationResult;
 
   // 현재 단계
   ChatStep _currentStep = ChatStep.onboarding1;
-
   ChatStep get currentStep => _currentStep;
 
   // 메시지 목록
   List<ChatMessage> _messages = [];
-
   List<ChatMessage> get messages => _messages;
 
   // 타이핑 상태
   bool _isTyping = false;
-
   bool get isTyping => _isTyping;
 
   // 버튼 클릭 상태 (onboarding 단계에서만 사용)
   bool _buttonClicked = false;
-
   bool get buttonClicked => _buttonClicked;
 
   // 목적 옵션들
   List<String> get purposeOptions => [
-    '여행자금',
-    '자취 준비',
-    '부모님 선물',
-    '결혼 준비',
-    '학자금',
-    '이직준비',
-    '긴급자금',
-    '기타',
-  ];
+        '여행자금',
+        '자취 준비',
+        '부모님 선물',
+        '결혼 준비',
+        '학자금',
+        '이직준비',
+        '긴급자금',
+        '기타',
+      ];
 
-  late final RefDataViewModel _refDataVM = RefDataViewModel(
-    _refData,
-  ); // refData 관리하는 viewmodel
-  late final PlanInfoViewModel _planInfoVM = PlanInfoViewModel(
-    _planInfo,
-  ); // PlanInfo 관리하는 viewmodel
-  late final SavingPlanCalculator _calculationVM = SavingPlanCalculator(
-    planInfo: _planInfo,
-  ); // saving_cal result 관리 하는 viewmodel
+  late final RefDataViewModel _refDataVM = RefDataViewModel(_refData); // refData 관리하는 viewmodel
+  late final PlanInfoViewModel _planInfoVM = PlanInfoViewModel(_planInfo); // PlanInfo 관리하는 viewmodel
+  late final SavingPlanCalculator _calculationVM = SavingPlanCalculator(planInfo: _planInfo); // saving_cal result 관리 하는 viewmodel
+
 
   void addMessage(String content, MessageType type, {bool isTyping = false}) {
     final newMessage = ChatMessage(
@@ -82,11 +74,8 @@ class ChatPlanViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addBotMessageWithTyping(
-    String content, {
-    int delay = 1000,
-    bool awaitTyping = false,
-  }) async {
+  Future<void> addBotMessageWithTyping(String content,
+      {int delay = 1000, bool awaitTyping = false}) async {
     _isTyping = true;
     notifyListeners();
     final trimmed = content.trim();
@@ -114,8 +103,13 @@ class ChatPlanViewModel extends ChangeNotifier {
     double? dailyConsumptionSum,
     double? variableConsumptionSum,
   }) {
-    _planInfoVM.updatePlanInfo(
-      // 위임 호출
+    print('=== updatePlanInfo 호출 ===');
+    print('fixedIncomeSum: $fixedIncomeSum');
+    print('fixedConsumptionSum: $fixedConsumptionSum');
+    print('dailyConsumptionSum: $dailyConsumptionSum');
+    print('targetAmount: $targetAmount');
+    
+    _planInfoVM.updatePlanInfo( // 위임 호출
       planName: planName,
       purpose: purpose,
       targetAmount: targetAmount,
@@ -123,19 +117,28 @@ class ChatPlanViewModel extends ChangeNotifier {
       autoService: autoService,
     );
     if (fixedIncomeSum != null) _planInfo.fixedIncomeSum = fixedIncomeSum;
-    if (fixedConsumptionSum != null)
-      _planInfo.fixedConsumptionSum = fixedConsumptionSum;
-    if (dailyConsumptionSum != null)
-      _planInfo.dailyConsumptionSum = dailyConsumptionSum;
-    if (variableConsumptionSum != null)
-      _planInfo.variableConsumptionSum = variableConsumptionSum;
+    if (fixedConsumptionSum != null) _planInfo.fixedConsumptionSum = fixedConsumptionSum;
+    if (dailyConsumptionSum != null) _planInfo.dailyConsumptionSum = dailyConsumptionSum;
+    if (variableConsumptionSum != null) _planInfo.variableConsumptionSum = variableConsumptionSum;
     if (autoService != null) _planInfo.autoService = autoService;
-    if (_planInfo.fixedIncomeSum != null &&
-        _planInfo.fixedConsumptionSum != null &&
-        _planInfo.targetAmount != null &&
-        _planInfo.dailyConsumptionSum != null) {
+    
+    print('업데이트 후 planInfo:');
+    print('fixedIncomeSum: ${_planInfo.fixedIncomeSum}');
+    print('fixedConsumptionSum: ${_planInfo.fixedConsumptionSum}');
+    print('dailyConsumptionSum: ${_planInfo.dailyConsumptionSum}');
+    print('targetAmount: ${_planInfo.targetAmount}');
+    
+    if (_planInfo.fixedIncomeSum != null && _planInfo.fixedConsumptionSum != null &&
+        _planInfo.targetAmount != null && _planInfo.dailyConsumptionSum != null) {
+      print('모든 필요 데이터가 있음. calculate() 호출');
       calculate();
-    } // planInfo가 바뀔 때마다 자동 계산
+    } else {
+      print('필요 데이터 부족. calculate() 호출하지 않음');
+      print('fixedIncomeSum null? ${_planInfo.fixedIncomeSum == null}');
+      print('fixedConsumptionSum null? ${_planInfo.fixedConsumptionSum == null}');
+      print('targetAmount null? ${_planInfo.targetAmount == null}');
+      print('dailyConsumptionSum null? ${_planInfo.dailyConsumptionSum == null}');
+    }// planInfo가 바뀔 때마다 자동 계산
 
     notifyListeners();
   }
@@ -151,6 +154,11 @@ class ChatPlanViewModel extends ChangeNotifier {
     List<Entry>? additionalConsumptionList,
     List<Entry>? variableConsumptionList,
   }) {
+    print('=== updateRefData 호출 ===');
+    print('fixedIncomes: $fixedIncomes');
+    print('fixedConsumptions: $fixedConsumptions');
+    print('dailyConsumptions: $dailyConsumptions');
+    
     _refDataVM.updateRefData(
       fixedIncomes: fixedIncomes,
       fixedConsumptions: fixedConsumptions,
@@ -164,42 +172,71 @@ class ChatPlanViewModel extends ChangeNotifier {
     );
 
     // sum 계산 (refDataViewModel의 sum 메서드 사용)
-    double? fixedIncomeSum = fixedIncomes != null
-        ? _refDataVM.sum(fixedIncomes)
-        : null;
-    double? fixedConsumptionSum = fixedConsumptions != null
-        ? _refDataVM.sum(fixedConsumptions)
-        : null;
-    double? dailyConsumptionSum = dailyConsumptions != null
-        ? _refDataVM.sum(dailyConsumptions)
-        : null;
-    double? variableConsumptionSum = variableConsumptions != null
-        ? _refDataVM.sum(variableConsumptions)
-        : null;
+    double? fixedIncomeSum = fixedIncomes != null ? _refDataVM.sum(fixedIncomes) : null;
+    double? fixedConsumptionSum = fixedConsumptions != null ? _refDataVM.sum(fixedConsumptions) : null;
+    double? dailyConsumptionSum = dailyConsumptions != null ? _refDataVM.sum(dailyConsumptions) : null;
+    double? variableConsumptionSum = variableConsumptions != null ? _refDataVM.sum(variableConsumptions) : null;
+
+    print('계산된 합계:');
+    print('fixedIncomeSum: $fixedIncomeSum');
+    print('fixedConsumptionSum: $fixedConsumptionSum');
+    print('dailyConsumptionSum: $dailyConsumptionSum');
+    print('variableConsumptionSum: $variableConsumptionSum');
 
     // 하나라도 값이 있으면 updatePlanInfo 호출
-    if (fixedIncomeSum != null ||
-        fixedConsumptionSum != null ||
-        dailyConsumptionSum != null ||
-        variableConsumptionSum != null) {
+    if (fixedIncomeSum != null || fixedConsumptionSum != null || dailyConsumptionSum != null || variableConsumptionSum != null) {
+      print('updatePlanInfo 호출');
       updatePlanInfo(
         fixedIncomeSum: fixedIncomeSum,
         fixedConsumptionSum: fixedConsumptionSum,
         dailyConsumptionSum: dailyConsumptionSum,
         variableConsumptionSum: variableConsumptionSum,
       );
+    } else {
+      print('합계가 모두 null이므로 updatePlanInfo 호출하지 않음');
     }
 
     notifyListeners();
   }
 
-  void nextStep() {
+  Future<void> nextStep() async {
     final steps = ChatStep.values;
     final currentIndex = steps.indexOf(_currentStep);
+    
+    print('=== nextStep() 호출됨 ===');
+    print('현재 단계: $_currentStep');
+    print('현재 인덱스: $currentIndex');
+    print('다음 인덱스: ${currentIndex + 1}');
 
     if (currentIndex < steps.length - 1) {
       _currentStep = steps[currentIndex + 1];
+      print('새로운 단계: $_currentStep');
       notifyListeners();
+      
+      // summary 단계로 이동했을 때 자동으로 summary 메시지 표시
+      if (_currentStep == ChatStep.summary) {
+        print('=== Summary 단계 진입 ===');
+        print('planInfo: $_planInfo');
+        print('refData: $_refData');
+        
+        final calc = calculate();
+        print('계산 결과: $calc');
+        print('_calculationResult: $_calculationResult');
+        
+        if (calc != null && calc.dailyNetSaving > 0) {
+          print('정상적인 저축 계획');
+          await addBotMessageWithTyping(
+            '플랜이 완성되었습니다! 계산 결과를 확인해보세요.\n모든 내용이 맞다면 "다음 단계로" 버튼을 눌러주세요.',
+          );
+        } else {
+          print('저축 불가능한 상황 또는 계산 실패');
+          await addBotMessageWithTyping(
+            '죄송합니다. 입력하신 정보로는 저축이 어려운 상황입니다.\n플랜을 다시 검토해보시겠어요?',
+          );
+        }
+      }
+    } else {
+      print('마지막 단계에 도달함');
     }
   }
 
@@ -257,9 +294,8 @@ class ChatPlanViewModel extends ChangeNotifier {
       case ChatStep.greeting:
         if (response == '좋아요! 시작할게요') {
           await addBotMessageWithTyping(
-            '먼저 이 플랜에 이름을 붙여볼게요!\n예: 🏝여름휴가 프로젝트 / 🎓학자금 모으기 등',
-          );
-          nextStep();
+              '먼저 이 플랜에 이름을 붙여볼게요!\n예: 🏝여름휴가 프로젝트 / 🎓학자금 모으기 등');
+          await nextStep();
         } else {
           // 잘못된 입력 시 안내 메시지
           await addBotMessageWithTyping('"네, 좋아요!" 버튼을 눌러주세요.');
@@ -272,8 +308,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           testPrint();
           notifyListeners();
           await addBotMessageWithTyping(
-            '이 플랜의 목적은 무엇인가요?\n아래 카드 중 하나를 선택해주세요.',
-          );
+              '이 플랜의 목적은 무엇인가요?\n아래 카드 중 하나를 선택해주세요.');
           _currentStep = ChatStep.purpose; // nextStep() 대신 직접 설정
           notifyListeners();
         } else {
@@ -322,59 +357,11 @@ class ChatPlanViewModel extends ChangeNotifier {
           testPrint();
           notifyListeners();
           await addBotMessageWithTyping(
-            '현재 가지고 계신 자산이 있으신가요?\n(예: 통장 잔고 등)\n\n�� 소통 tip! 혹시 빚이 있으시다면 \'-\'를 붙이고 금액을 입력해주세요.',
-          );
-          _currentStep = ChatStep.currentAsset; // nextStep() 대신 직접 설정
-          notifyListeners();
-        } else {
-          await addBotMessageWithTyping('올바른 목표 금액을 입력해주세요. (예: 1000000)');
-        }
-        break;
-
-      case ChatStep.currentAsset:
-        if (response == '있어요') {
-          await addBotMessageWithTyping('지금 보유 중인 금액을 입력해주세요.');
-          _currentStep = ChatStep.currentAssetConfirm;
-          notifyListeners();
-        } else if (response == '없어요') {
-          updatePlanInfo(currentAsset: 0);
-          testPrint();
-          notifyListeners();
-          await addBotMessageWithTyping(
-            '월 수입을 입력해주세요!\n수입원이 여러 개라면 합산해주시고,\n불규칙하다면 최근 3개월 평균으로 입력해주세요.',
-          );
-          _currentStep = ChatStep.monthlyIncome;
-          notifyListeners();
-        } else {
-          await addBotMessageWithTyping('채팅 입력이 아닌 "있어요" 혹은 "없어요" 버튼을 눌러주세요.');
-        }
-        break;
-
-      case ChatStep.currentAssetConfirm:
-        final assetStr = response.replaceAll(',', '').trim();
-        final assetAmount = double.tryParse(assetStr);
-        if (assetAmount != null) {
-          updatePlanInfo(currentAsset: assetAmount);
-          testPrint();
-          notifyListeners();
-          if (assetAmount < 0) {
-            await addBotMessageWithTyping(
-              '보유한 빚은 ${assetAmount.abs().toStringAsFixed(0)}원이에요!',
-            );
-          } else {
-            await addBotMessageWithTyping(
-              '현재 보유금액은 ${assetAmount.toStringAsFixed(0)}원이에요!',
-            );
-          }
-          await addBotMessageWithTyping(
-            '월 수입을 입력해주세요!\n수입원이 여러 개라면 합산해주시고,\n불규칙하다면 최근 3개월 평균으로 입력해주세요.',
-          );
+              '월 수입을 입력해주세요!\n수입원이 여러 개라면 합산해주시고,\n불규칙하다면 최근 3개월 평균으로 입력해주세요.');
           _currentStep = ChatStep.monthlyIncome; // nextStep() 대신 직접 설정
           notifyListeners();
         } else {
-          await addBotMessageWithTyping(
-            '올바른 보유 금액을 입력해주세요. (예: 500000 또는 -300000)',
-          );
+          await addBotMessageWithTyping('올바른 목표 금액을 입력해주세요. (예: 1000000)');
         }
         break;
 
@@ -411,7 +398,7 @@ class ChatPlanViewModel extends ChangeNotifier {
         print(calculationResult);
         if (response == '다음 단계로') {
           await addBotMessageWithTyping('마지막으로, 소통 자동등록 서비스를 활성화해드릴까요?');
-          nextStep();
+          await nextStep();
         } else {
           await addBotMessageWithTyping('"다음 단계로" 버튼을 눌러주세요.');
         }
@@ -422,7 +409,8 @@ class ChatPlanViewModel extends ChangeNotifier {
           updatePlanInfo(autoService: true);
           testPrint();
           notifyListeners();
-          await addBotMessageWithTyping('완료되었습니다! 이제 플랜을 수정하거나 확인할 수 있습니다.');
+          await addBotMessageWithTyping(
+              '완료되었습니다! 이제 플랜을 수정하거나 확인할 수 있습니다.');
           _currentStep = ChatStep.complete;
           notifyListeners();
         } else {
@@ -436,7 +424,13 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   SavingCalculationResult? calculate() {
+    print('=== calculate() 호출 ===');
+    print('계산 전 _calculationResult: $_calculationResult');
     _calculationResult = _calculationVM.calculate(); // 위임 호출
+    print('계산 후 _calculationResult: $_calculationResult');
+    if (_calculationResult != null) {
+      print('dailyNetSaving: ${_calculationResult!.dailyNetSaving}');
+    }
     // notifyListeners(); // 중복이므로 제거
     return _calculationResult;
   }
