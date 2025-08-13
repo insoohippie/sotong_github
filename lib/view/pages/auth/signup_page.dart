@@ -85,7 +85,7 @@ class _SignUpPageState extends State<SignUpPage> {
                 }
               },
             ),
-            SizedBox(height: AppSpacing.itemSpacing),
+            SizedBox(height: AppSpacing.bottomSpacing),
           ],
         ),
       ),

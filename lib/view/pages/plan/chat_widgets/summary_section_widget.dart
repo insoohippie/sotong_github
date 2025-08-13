@@ -75,6 +75,7 @@ Widget _buildSummaryChart(BuildContext context, ChatPlanViewModel viewModel) {
       PlanSummaryChartWidget(
         planInfo: viewModel.planInfo,
         calculation: viewModel.calculationResult!,
+        userName: viewModel.userName,
         onEdit: () async {
           final updatedPlan = await Navigator.of(context).push(
             MaterialPageRoute(

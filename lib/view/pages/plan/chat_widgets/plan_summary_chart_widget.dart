@@ -12,12 +12,14 @@ class PlanSummaryChartWidget extends StatefulWidget {
   final PlanInfo planInfo;
   final SavingCalculationResult? calculation;
   final VoidCallback? onEdit;
+  final String userName;
 
   const PlanSummaryChartWidget({
     Key? key,
     required this.planInfo,
     required this.calculation,
     this.onEdit,
+    required this.userName,
   }) : super(key: key);
 
   @override
@@ -39,10 +41,7 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final planName =
-        (ModalRoute.of(context)?.settings.arguments as Map?)?['planName'] ?? // 수정 필요
-            '회원';
-    final name = planName is String && planName.isNotEmpty ? planName : '회원';
+    final name = widget.userName.isNotEmpty ? widget.userName : '회원';
     final now = DateTime.now();
     final goalDate = widget.calculation?.goalDateTime ?? DateTime.now();
     final duration = goalDate.difference(now);

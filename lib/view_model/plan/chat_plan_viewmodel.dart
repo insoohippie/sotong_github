@@ -291,7 +291,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.onboarding2;
           notifyListeners(); // 즉시 UI 업데이트
           await addBotMessageWithTyping(
-            '🔍 소통은 [○○]님의 재정 상황을 바탕으로,\n하루에 쓸 수 있는 금액과 목표 달성까지 걸리는 시간을 계산해드려요.\n\n계획만 세우는 게 아니라, 목표 달성까지 함께 가는 재정 파트너예요. 💙',
+            '🔍 소통은 $_userName님의 재정 상황을 바탕으로,\n하루에 쓸 수 있는 금액과 목표 달성까지 걸리는 시간을 계산해드려요.\n\n계획만 세우는 게 아니라, 목표 달성까지 함께 가는 재정 파트너예요. 💙',
             delay: 500,
           );
           _buttonClicked = false; // 메시지 완료 후 버튼 상태 리셋
@@ -305,7 +305,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.onboarding3;
           notifyListeners(); // 즉시 UI 업데이트
           await addBotMessageWithTyping(
-            '그럼 이제 [○○]님만의 목표를 향한 플랜을\n저와 함께 하나씩 만들어볼까요? 🚀\n\n현재 상황과 목표만 알려주시면,\n가장 현실적인 계획을 제안해드릴게요! 🤝',
+            '그럼 이제 $_userName님만의 목표를 향한 플랜을\n저와 함께 하나씩 만들어볼까요? 🚀\n\n현재 상황과 목표만 알려주시면,\n가장 현실적인 계획을 제안해드릴게요! 🤝',
             delay: 500,
           );
           _buttonClicked = false; // 메시지 완료 후 버튼 상태 리셋
@@ -319,7 +319,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.planName;
           notifyListeners(); // 즉시 UI 업데이트
           await addBotMessageWithTyping(
-            '[○○]님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n\n플랜에 이름을 붙여주세요.\n예: 🏝 세계여행 프로젝트 / 🎓 학자금 모으기',
+            '$_userName님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n\n플랜에 이름을 붙여주세요.\n예: 🏝 세계여행 프로젝트 / 🎓 학자금 모으기',
             delay: 500,
           );
           _buttonClicked = false; // 메시지 완료 후 버튼 상태 리셋
@@ -330,7 +330,7 @@ class ChatPlanViewModel extends ChangeNotifier {
       case ChatStep.greeting:
         if (response == '좋아요! 시작할게요') {
           await addBotMessageWithTyping(
-            '[○○]님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n플랜에 이름을 붙여주세요.\n예: 🏝 세계여행 프로젝트 / 🎓 학자금 모으기',
+            '$_userName님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n플랜에 이름을 붙여주세요.\n예: 🏝 세계여행 프로젝트 / 🎓 학자금 모으기',
           );
           await nextStep();
         } else {
@@ -434,6 +434,7 @@ class ChatPlanViewModel extends ChangeNotifier {
         // 일단 modelview에서는 calculate 이뤄지지 않음
         print(planInfo);
         print(refData);
+        print(userName);
         print(calculationResult);
         if (response == '다음 단계로') {
           await addBotMessageWithTyping('마지막으로, 소통 자동등록 서비스를 활성화해드릴까요?');

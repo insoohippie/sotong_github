@@ -77,7 +77,7 @@ class PurposeSelectorWidget extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF00368C),
+                      color: Colors.black,
                     ),
                     textAlign: TextAlign.center,
                     maxLines: 2,

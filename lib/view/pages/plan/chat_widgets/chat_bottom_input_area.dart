@@ -38,6 +38,9 @@ class ChatBottomInputArea extends StatelessWidget {
     final viewModel = context.watch<ChatPlanViewModel>();
     final currentStep = viewModel.currentStep;
 
+    final calc = viewModel.calculationResult;
+    final hasNoSaving = calc != null && calc.dailyNetSaving <= 0;
+
     final isTextInputStep =
         animDone &&
         !viewModel.isTyping &&
@@ -133,6 +136,7 @@ class ChatBottomInputArea extends StatelessWidget {
           if (currentStep == ChatStep.summary && animDone)
             CustomButton(
               text: '다음 단계로',
+              enabled: !hasNoSaving,
               onPressed: () {
                 viewModel.handleUserResponse('다음 단계로');
                 onDisappear();
@@ -150,10 +154,10 @@ class ChatBottomInputArea extends StatelessWidget {
 
           if (currentStep == ChatStep.complete && animDone)
             CustomButton(
-              text: '홈으로 이동',
+              text: '다음으로 이동',
               onPressed: () {
                 Navigator.of(context).pushNamedAndRemoveUntil(
-                  '/home_tab_navigator',
+                  '/plan_success',
                   (route) => false,
                 );
               },
