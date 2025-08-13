@@ -194,7 +194,7 @@ class SignupViewModel extends ChangeNotifier {
         gender: gender ?? '',
       );
 
-      await _repo.signUp(signUpInfo!, profileImage);
+      await _repo.signUp(signUpInfo!);
       return true;
     } catch (e) {
       print('회원가입 실패: $e');

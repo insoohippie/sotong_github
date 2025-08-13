@@ -21,7 +21,7 @@ class InputModalWidget extends StatefulWidget {
     required this.title,
     required this.onComplete,
     required this.type,
-    this.placeholder = "카테고리명",
+    this.placeholder = "수입 카테고리 (예: 급여)",
     this.hintText = "예: 월급, 아르바이트, 용돈 등",
     this.initialEntries,
   }) : super(key: key);
@@ -202,11 +202,11 @@ class _InputModalWidgetState extends State<InputModalWidget> {
   // 상세 설명 텍스트 생성
   String getDetailDescription() {
     if (widget.title.contains('월 수입')) {
-      return '💰 <b>월 수입</b>이란?\n한 달 동안 내가 벌어들이는 <b>총 금액</b>입니다. 급여, 부수입, 용돈 등 모두 포함돼요.\n\n예시: 직장 월급, 아르바이트 수입, 콘텐츠 수익, 가족 용돈, 중고 거래 수입\n\n💡 <b>소통 tip!</b>\n수입이 매달 다르다면 최근 3개월 <b>평균 금액</b>을 입력해주세요.';
+      return '🪙 <b>월 수입이란?</b>\n한 달 동안 들어오는 총 수입이에요.\n급여, 아르바이트·프리랜스 수입, 사업수입, 용돈/가족지원, 이자·배당, 중고거래 등 모두 포함됩니다.\n불규칙하면 최근 3개월 평균 금액으로 입력해주세요.\n\n✍️ <b>입력 가이드</b>\n여러 건이면 항목을 나눠서 각각 입력 (예: 급여 / 용돈 / 배당금)\n세후 기준 권장(통장에 실제 들어온 금액)\n금액은 원 단위로 입력\n\n🧾 <b>예시 카테고리</b>\n급여 / 아르바이트 / 프리랜스\n용돈·가족지원 / 이자 / 배당 / 임대수입\n보너스 / 상여 / 기타수입';
     } else if (widget.title.contains('고정 소비')) {
-      return '💰 <b>고정 소비</b>란?\n매달 정기적으로 나가는 <b>생활 필수 비용</b>입니다. 수입이 없어도 꼭 나가는 <b>지출</b>이에요.\n\n예시: 월세, 핸드폰 요금, 정기권, 보험료, 대출 상환금\n\n💡 <b>소통 tip!</b>\n예적금이나 투자금은 고정 소비가 아닌 <b>저축 항목</b>으로 따로 분류돼요.';
+      return '💰 <b>고정 소비란?</b>\n매달 정기적으로 나가는 생활 필수 비용이에요.\n수입이 없어도 꼭 지출되는 금액을 말해요.\n예: 월세, 관리비, 휴대폰 요금, 교통 정기권, 보험료, 대출 상환금 등\n\n💡 <b>소통 tip!</b>\n예·적금이나 투자금은 고정 소비가 아닌 저축 항목으로 따로 입력해주세요.\n여러 건이 있다면 항목을 나눠서 각각 입력하면, 이후 관리가 더 편해집니다.';
     } else if (widget.title.contains('하루 소비 한도')) {
-      return '💰 <b>하루 소비 한도 금액</b>이란?\n하루 동안 사용할 수 있도록 설정한 <b>최대 지출 금액</b>입니다.\n\n예시: 커피값, 점심값, 편의점 음식, 외식비, 택시비\n\n💡 <b>소통 tip!</b>\n플랜 기간과 목표 금액에 따라 자동 계산되며, 예정된 소비가 많을수록 줄어들 수 있어요.';
+      return '💰 <b>하루 소비 한도 금액이란?</b>\n하루에 소비할 금액을 미리 정해두는 기준 금액이에요.\n이 금액을 바탕으로 하루 지출을 관리하게 됩니다.\n너무 과도하게 설정하면 전체 플랜 기간 동안 유지하기 어려울 수 있으니,\n목표 달성에 무리가 없도록 적절하게 배치해보세요.\n\n💡 <b>예시:</b> 커피값, 점심값, 편의점 간식, 외식비, 택시비 등';
     }
     return '';
   }
@@ -221,6 +221,18 @@ class _InputModalWidgetState extends State<InputModalWidget> {
       return '하루소비처 ${index + 1}';
     }
     return '항목 ${index + 1}';
+  }
+
+  // 카테고리 라벨 생성
+  String getCategoryLabel() {
+    if (widget.title.contains('월 수입')) {
+      return '수입 카테고리';
+    } else if (widget.title.contains('고정 소비')) {
+      return '고정 지출 항목';
+    } else if (widget.title.contains('하루 소비 한도')) {
+      return '소비 항목';
+    }
+    return '카테고리';
   }
 
   // Rich Text 생성
@@ -278,6 +290,9 @@ class _InputModalWidgetState extends State<InputModalWidget> {
 
   // 공통 입력 항목 위젯 추출
   Widget buildInputItem(Entry item, int index) {
+    final categoryController = _categoryControllers[item.idx];
+    final amountController = _amountControllers[item.idx];
+
     return Container(
       key: ValueKey('item_container_${item.idx}'),
       // 컨테이너에 고유 키 추가
@@ -312,61 +327,101 @@ class _InputModalWidgetState extends State<InputModalWidget> {
                 ),
             ],
           ),
-          const SizedBox(height: 4),
-          // 카테고리 입력 필드 - Builder 제거
-          TextField(
-            key: ValueKey('category_${item.idx}'),
-            controller: _categoryControllers[item.idx],
-            focusNode: _categoryFocusNodes[item.idx],
-            decoration: InputDecoration(
-              hintText: widget.placeholder,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-              ),
-              contentPadding: const EdgeInsets.all(12),
+          const SizedBox(height: 12),
+          // 카테고리 제목
+          Text(
+            getCategoryLabel(),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF374151),
             ),
-            onChanged: (value) {
-              updateItem(item.idx, 'category', value);
-              // 실시간 총합 업데이트를 위해 setState 호출
-              setState(() {});
-            },
           ),
-          const SizedBox(height: 8),
-          // 금액 입력 필드 - Builder 제거
-          TextField(
-            key: ValueKey('amount_${item.idx}'),
-            controller: _amountControllers[item.idx],
-            focusNode: _amountFocusNodes[item.idx],
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              hintText: '금액',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-              ),
-              contentPadding: const EdgeInsets.all(12),
+          const SizedBox(height: 4),
+          // 카테고리 입력 필드 - 색상 변경 로직 적용
+          Container(
+            decoration: BoxDecoration(
+              color: categoryController?.text.isEmpty == true
+                  ? const Color(0xFFEDEDED)
+                  : const Color(0xFFEDF4FF),
+              borderRadius: BorderRadius.circular(8),
             ),
-            onChanged: (value) {
-              final unformatted = _unformatNumber(value);
-              final amount = double.tryParse(unformatted) ?? 0;
-              updateItem(item.idx, 'amount', amount);
+            child: TextField(
+              key: ValueKey('category_${item.idx}'),
+              controller: categoryController,
+              focusNode: _categoryFocusNodes[item.idx],
+              decoration: InputDecoration(
+                hintText: widget.placeholder,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+                filled: true,
+                fillColor: Colors.transparent,
+              ),
+              onChanged: (value) {
+                updateItem(item.idx, 'category', value);
+                // 실시간 총합 업데이트를 위해 setState 호출
+                setState(() {});
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          // 금액 제목
+          Text(
+            '금액',
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF374151),
+            ),
+          ),
+          const SizedBox(height: 4),
+          // 금액 입력 필드 - 색상 변경 로직 적용
+          Container(
+            decoration: BoxDecoration(
+              color: amountController?.text.isEmpty == true
+                  ? const Color(0xFFEDEDED)
+                  : const Color(0xFFEDF4FF),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: TextField(
+              key: ValueKey('amount_${item.idx}'),
+              controller: amountController,
+              focusNode: _amountFocusNodes[item.idx],
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: '금액 (예: 3,000,000)',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                ),
+                contentPadding: const EdgeInsets.all(12),
+                filled: true,
+                fillColor: Colors.transparent,
+              ),
+              onChanged: (value) {
+                final unformatted = _unformatNumber(value);
+                final amount = double.tryParse(unformatted) ?? 0;
+                updateItem(item.idx, 'amount', amount);
 
-              // 실시간 총합 업데이트를 위해 setState 호출
-              setState(() {});
+                // 실시간 총합 업데이트를 위해 setState 호출
+                setState(() {});
 
-              // 포커스 유지하면서 포맷팅 적용
-              final controller = _amountControllers[item.idx];
-              if (controller != null) {
-                final formattedText = _formatNumber(unformatted);
-                controller.value = TextEditingValue(
-                  text: formattedText,
-                  selection: TextSelection.collapsed(
-                    offset: formattedText.length,
-                  ),
-                );
-              }
-            },
+                // 포커스 유지하면서 포맷팅 적용
+                final controller = _amountControllers[item.idx];
+                if (controller != null) {
+                  final formattedText = _formatNumber(unformatted);
+                  controller.value = TextEditingValue(
+                    text: formattedText,
+                    selection: TextSelection.collapsed(
+                      offset: formattedText.length,
+                    ),
+                  );
+                }
+              },
+            ),
           ),
         ],
       ),
@@ -442,12 +497,12 @@ class _InputModalWidgetState extends State<InputModalWidget> {
         child: Container(
           margin: const EdgeInsets.all(16),
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.8,
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
             maxWidth: MediaQuery.of(context).size.width * 0.9,
           ),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -466,7 +521,7 @@ class _InputModalWidgetState extends State<InputModalWidget> {
                     ),
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         widget.title,
@@ -474,10 +529,6 @@ class _InputModalWidgetState extends State<InputModalWidget> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
-                      ),
-                      GestureDetector(
-                        onTap: widget.onClose,
-                        child: const Icon(Icons.close, size: 20),
                       ),
                     ],
                   ),
@@ -521,6 +572,10 @@ class _InputModalWidgetState extends State<InputModalWidget> {
                 decoration: const BoxDecoration(
                   color: Color(0xFFF9FAFB),
                   border: Border(top: BorderSide(color: Color(0xFFF0F0F0))),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(20),
+                    bottomRight: Radius.circular(20),
+                  ),
                 ),
                 child: Column(
                   children: [

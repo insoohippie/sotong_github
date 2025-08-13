@@ -5,7 +5,7 @@ class PlanInfo {
   String? purpose;
   double? targetAmount; // 목표 금액
   double currentAmount; // 저축 금액
-  double currentAsset; // 기존 자산 (기본값 0.0)
+  double currentAsset; // 기존 자산
   DateTime? startDate;
   bool? autoService; // 자동 서비스 활성화 여부
 
@@ -45,9 +45,8 @@ class PlanInfo {
     this.purpose,
     this.targetAmount,
     this.currentAmount = 0,
-    this.currentAsset = 0.0, // 기본값 0.0 설정
+    this.currentAsset = 0,
     this.autoService,
-
     this.fixedIncomeSum,
     this.fixedConsumptionSum,
     this.dailyConsumptionSum,
@@ -71,6 +70,55 @@ class PlanInfo {
   }) : startDate = planStartDate ?? DateTime.now();
    */
 
+  // ✅ Firestore 저장용
+  Map<String, dynamic> toMap() {
+    final map = <String, dynamic>{
+      'planName': planName,
+      'purpose': purpose,
+      'targetAmount': targetAmount,
+      'currentAmount': currentAmount,
+      'currentAsset': currentAsset,
+      'startDate': startDate?.toIso8601String(),
+      'autoService': autoService,
+      'fixedIncomeSum': fixedIncomeSum,
+      'fixedConsumptionSum': fixedConsumptionSum,
+      'dailyConsumptionSum': dailyConsumptionSum,
+      'variableConsumptionSum': variableConsumptionSum,
+    };
+
+    return map;
+  }
+
+  // ✅ Firestore 로드용(옵션)
+  factory PlanInfo.fromMap(Map<String, dynamic> map) {
+    return PlanInfo(
+      planName: map['planName'] as String?,
+      purpose: map['purpose'] as String?,
+      targetAmount: (map['targetAmount'] as num?)?.toDouble(),
+      currentAmount: (map['currentAmount'] as num?)?.toDouble() ?? 0,
+      currentAsset: (map['currentAsset'] as num?)?.toDouble() ?? 0,
+      autoService: map['autoService'] as bool?,
+      fixedIncomeSum: (map['fixedIncomeSum'] as num?)?.toDouble(),
+      fixedConsumptionSum: (map['fixedConsumptionSum'] as num?)?.toDouble(),
+      dailyConsumptionSum: (map['dailyConsumptionSum'] as num?)?.toDouble(),
+      variableConsumptionSum: (map['variableConsumptionSum'] as num?)?.toDouble(),
+      planStartDate: _parseDate(map['startDate']),
+    );
+  }
+
+  static DateTime? _parseDate(dynamic v) {
+    if (v == null) return null;
+    if (v is String) return DateTime.tryParse(v);
+    // Firestore Timestamp로 온 경우 대응
+    try {
+      // ignore: avoid_dynamic_calls
+      return (v as dynamic).toDate() as DateTime;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
   String toString() {
     return '''
     PlanInfo(

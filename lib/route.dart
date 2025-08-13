@@ -5,6 +5,7 @@ import 'package:sotong_local/view/pages/communication/communication_logs_page.da
 import 'package:sotong_local/view/pages/communication/communication_page.dart';
 import 'package:sotong_local/view/pages/home/home_page.dart';
 import 'package:sotong_local/view/pages/home/home_tab_navigator.dart';
+import 'package:sotong_local/view/pages/logo_splash_page.dart';
 import 'package:sotong_local/view/pages/notification/notification_page.dart';
 import 'package:sotong_local/view/pages/plan/chat_plan_page.dart';
 import 'package:sotong_local/view/pages/plan/plan_success_page.dart';
@@ -21,6 +22,8 @@ import 'package:sotong_local/view/pages/setting/settings_page.dart';
 import 'view/pages/auth/login_page.dart';
 
 final Map<String, WidgetBuilder> appRoutes = {
+  '/logo_splash': (_) => const LogoSplashPage(),
+
   '/login': (_) => const EmailLoginPage(),
 
   '/signup': (_) => const SignUpPage(),
