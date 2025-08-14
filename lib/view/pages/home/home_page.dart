@@ -11,9 +11,10 @@ import '../../../component/texts/subtext.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
-import '../../../view_model/auth/signup_view_model.dart';
 import '../../../view_model/communication/communication_view_model.dart';
 import '../../../view_model/home/home_viewmodel.dart';
+import '../../../view_model/services/saving_calculator.dart';
+import 'home_widgets/plan_name_edit_widget.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -27,9 +28,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      context.read<HomeViewModel>().load();
-    });
+    Future.microtask(() => context.read<HomeViewModel>().load());
   }
 
   DateTime _selectedDate = DateTime.now();
@@ -66,19 +65,30 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<SignupViewModel>();
-    final userName = vm.signUpInfo?.name ?? '사용자';
+    final vm = context.watch<HomeViewModel>();
 
-    final planName = '집 사자!';
-    final goalSavingTime = '25일 : 09시 : 32분 : 16초';
-    final currentSaving = '345,132';
-    final savingPerSec = '0.11';
-    final currentRate = 0.52;
-    final baseRate = 0.50;
+    // 로딩/에러 처리
+    if (vm.isLoading) {
+      return const Scaffold(
+        body: SafeArea(child: Center(child: CircularProgressIndicator())),
+      );
+    }
+    if (vm.error != null) {
+      return Scaffold(
+        body: SafeArea(child: Center(child: Text('오류: ${vm.error}'))),
+      );
+    }
+
+    final userName = vm.name;                                    // ✔ 사용자명
+    final planName = vm.planTitle;                               // ✔ 플랜명
+    final savingPerSec = vm.perSecondSaving;                     // ✔ 1초당 저축
+    final currentRate = vm.progressRatio;                        // ✔ 진행율(저축비중)
+    final baseRate = 0.50;                                       // 수정 필요
+    final fixedSpending = vm.dailyLimitText;                     // ✔ 하루 소비한도
+
+    // (오늘 지출 동작은 기존 CommunicationViewModel 로직 유지)
     final displayDate = _formatDate(_selectedDate);
     final todaySpending = _getSpendingForDate(_selectedDate);
-    final fixedSpending = '7,000원';
-
     final bool hasSpendingRecord = todaySpending != '0원';
 
     return Scaffold(
@@ -86,19 +96,12 @@ class _HomePageState extends State<HomePage> {
       body: SafeArea(
         child: Column(
           children: [
-            // ✅ CustomAppBarHome 내부 수정 필요함 (IconButton 또는 InkWell로 구성되었는지 확인)
+            // 상단 앱바 (예시)
             CustomAppBarHome(
-              text: '$userName 님',
+              text: '${vm.name} 님',
               unreadCount: 3,
-              onNotifications: () {
-                Navigator.of(context).pushNamed('/notification');
-              },
-              onSettings: () {
-                Navigator.of(
-                  context,
-                  rootNavigator: true,
-                ).pushNamed('/setting');
-              },
+              onNotifications: () => Navigator.pushNamed(context, '/notification'),
+              onSettings: () => Navigator.of(context, rootNavigator: true).pushNamed('/setting'),
             ),
 
             Expanded(
@@ -137,38 +140,40 @@ class _HomePageState extends State<HomePage> {
                                   color: Colors.transparent,
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(20),
-                                    onTap: () {
-                                      Navigator.of(context, rootNavigator: true)
-                                          .pushNamed('/plan_chat');
+                                    onTap: () async {
+                                      await showPlanNameEditSheet(context);
                                     },
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8.0),
-                                      child: Icon(
-                                        Icons.edit,
-                                        size: 20,
-                                        color: AppColors.primary,
-                                      ),
+                                    child: const Icon(
+                                      Icons.edit,
+                                      size: 20,
+                                      color: AppColors.primary,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
                             SizedBox(height: AppSpacing.fieldSpacing),
-                            ParagraphText(
-                              text: '목표 금액까지\n',
-                              fontWeight: FontWeight.bold,
-                            ),
-                            ParagraphText(
-                              text: '$goalSavingTime',
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
+                            // 목표까지 남은 시간 (1초마다 갱신)
+                            ParagraphText(text: '목표 금액까지', fontWeight: FontWeight.bold),
+                            ValueListenableBuilder<int>(
+                              valueListenable: vm.secondTick,
+                              builder: (_, __, ___) => ParagraphText(
+                                text: vm.liveCountdownText,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             SizedBox(height: AppSpacing.sectionSpacing2),
                             Center(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  HeaderText(text: '$currentSaving원'),
+                                  ValueListenableBuilder<int>(
+                                    valueListenable: vm.secondTick,
+                                    builder: (_, __, ___) => HeaderText(
+                                      text: vm.liveSavedAmountText, // 예: "345,132원"
+                                    ),
+                                  ),
                                   SubText(
                                     text: '1초씩 $savingPerSec원이 증가해요',
                                     fontWeight: FontWeight.bold,

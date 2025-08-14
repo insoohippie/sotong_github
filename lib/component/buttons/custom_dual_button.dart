@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import '../texts/paragraph_text.dart';
 import '../theme/app_colors.dart';
 
+// CustomDualButton에 옵션 추가
 class CustomDualButton extends StatelessWidget {
   final String leftLabel;
   final String rightLabel;
-  final VoidCallback onLeftPressed;
-  final VoidCallback onRightPressed;
+  final VoidCallback? onLeftPressed;
+  final VoidCallback? onRightPressed;
+  final bool leftEnabled;
+  final bool rightEnabled;
 
   const CustomDualButton({
     super.key,
@@ -14,30 +17,26 @@ class CustomDualButton extends StatelessWidget {
     required this.rightLabel,
     required this.onLeftPressed,
     required this.onRightPressed,
+    this.leftEnabled = true,
+    this.rightEnabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // 왼쪽 버튼 - 회색
         Expanded(
           child: Container(
             margin: const EdgeInsets.only(right: 4),
-            height: 60, // CustomButton과 동일한 높이
+            height: 60,
             child: ElevatedButton(
-              onPressed: onLeftPressed,
+              onPressed: leftEnabled ? onLeftPressed : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.disabled,
+                backgroundColor: leftEnabled ? AppColors.disabled : AppColors.disabled.withOpacity(0.6),
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 60),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               child: ParagraphText(
                 text: leftLabel,
@@ -47,26 +46,18 @@ class CustomDualButton extends StatelessWidget {
             ),
           ),
         ),
-
-        // 오른쪽 버튼 - 파란색
         Expanded(
           child: Container(
             margin: const EdgeInsets.only(left: 4),
-            height: 60, // CustomButton과 동일한 높이
+            height: 60,
             child: ElevatedButton(
-              onPressed: onRightPressed,
+              onPressed: rightEnabled ? onRightPressed : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                // 파란 버튼
+                backgroundColor: rightEnabled ? AppColors.primary : AppColors.disabled,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(double.infinity, 60),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                textStyle: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               child: ParagraphText(
                 text: rightLabel,
