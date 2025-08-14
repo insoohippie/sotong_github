@@ -7,15 +7,15 @@ import '../../../component/texts/multi_color_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
-import '../../../view_model/auth/signup_view_model.dart';
+import '../../../view_model/plan/chat_plan_viewmodel.dart';
 
 class PlanSuccessPage extends StatelessWidget {
   const PlanSuccessPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<SignupViewModel>();
-    final userName = vm.signUpInfo?.name ?? '사용자';
+    final vm = context.watch<ChatPlanViewModel>();
+    final userName = vm.userName ?? '사용자';
 
     final List<TextPart> messageHeaderParts = [
       TextPart('$userName', AppColors.primary, bold: true),

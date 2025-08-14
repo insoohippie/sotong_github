@@ -135,6 +135,12 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
     final mediaQuery = MediaQuery.of(context);
     final statusBarHeight = mediaQuery.padding.top;
+    final screenHeight = mediaQuery.size.height;
+
+    final bottomPadding = screenHeight * 0.20; // 20% 비율만큼 아래 패딩 주기
+
+    // 말고 다른 방법
+    // 각 상황(버튼만, 텍스트입력+버튼, 카테고리 카드)에 맞는 패딩을 계산해서 컨테이너와 딱 맞도록 주기
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -191,7 +197,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                   Expanded(
                     child: Container(
-                      margin: EdgeInsets.only(bottom: 200),
+                      margin: EdgeInsets.only(bottom: bottomPadding),
                       child: ListView(
                         controller: _scrollController,
                         padding: const EdgeInsets.all(16),

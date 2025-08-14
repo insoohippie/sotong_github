@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:sotong_local/view_model/home/home_viewmodel.dart';
 
 import 'component/theme/app_colors.dart';
 import 'firebase_options.dart';
@@ -61,6 +62,12 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<ChatPlanViewModel>(
           create: (ctx) => ChatPlanViewModel(
+            ctx.read<AuthRepository>(),
+            ctx.read<PlanRepository>(),
+          ),
+        ),
+        ChangeNotifierProvider<HomeViewModel>(
+          create: (ctx) => HomeViewModel(
             ctx.read<AuthRepository>(),
             ctx.read<PlanRepository>(),
           ),

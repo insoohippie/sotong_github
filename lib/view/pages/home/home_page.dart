@@ -13,6 +13,7 @@ import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
 import '../../../view_model/auth/signup_view_model.dart';
 import '../../../view_model/communication/communication_view_model.dart';
+import '../../../view_model/home/home_viewmodel.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -22,6 +23,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      context.read<HomeViewModel>().load();
+    });
+  }
+
   DateTime _selectedDate = DateTime.now();
 
   String _formatDate(DateTime date) {
