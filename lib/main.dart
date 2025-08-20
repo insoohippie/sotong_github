@@ -88,7 +88,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/login',
+        initialRoute: '/signup_success',
         routes: appRoutes,
       ),
     );

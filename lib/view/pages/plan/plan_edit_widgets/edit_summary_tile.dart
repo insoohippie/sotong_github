@@ -9,9 +9,8 @@ class EditSummaryTile extends StatelessWidget {
   final String label;
   final double total;
   final VoidCallback onEdit;
-  final String? unit; // 기본 '원'
-  final String? subtitle; // 선택 설명 텍스트
-  final bool tappable; // 타일 전체 탭 가능 여부
+  final String? unit;       // 기본 '원'
+  final String? subtitle;   // 선택 설명 텍스트
 
   const EditSummaryTile({
     Key? key,
@@ -20,55 +19,62 @@ class EditSummaryTile extends StatelessWidget {
     required this.onEdit,
     this.unit,
     this.subtitle,
-    this.tappable = true,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final formattedTotal = NumberFormat('#,###').format(total.toInt());
 
-    final content = Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.lightBlue,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
+    return Padding(
+      // MinimalField와 동일: 위아래 6px 패딩
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          // 라벨(SubText)
+          SubText(
+            text: label,
+            fontWeight: FontWeight.bold,
+            color: AppColors.subText,
+          ),
+          // MinimalField와 동일: 라벨 아래 8px 간격
+          const SizedBox(height: 8),
+
+          // 본문 컨테이너(높이 60, 좌우 패딩 20, 모서리 12)
+          Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            decoration: BoxDecoration(
+              color: AppColors.lightBlue,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SubText(text: label, fontWeight: FontWeight.w600), // 컨테이너 밖으로
                 ParagraphText(
                   text: '$formattedTotal${unit ?? '원'}',
-                  fontWeight: FontWeight.bold,
                   color: Colors.black,
+                ),
+                TextButton(
+                  onPressed: onEdit,
+                  child: const Text(
+                    '세부 수정',
+                    style: TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          TextButton(
-            onPressed: onEdit,
-            child: const Text(
-              '세부 수정',
-              style: TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
+          SizedBox(height: 16),
+          Divider(height: 2, color:AppColors.greyBackground, )
+
         ],
       ),
     );
-
-    return tappable
-        ? InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: onEdit,
-            child: content,
-          )
-        : content;
   }
 }

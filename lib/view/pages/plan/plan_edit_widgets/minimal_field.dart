@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:sotong_local/component/texts/header_text.dart';
+import 'package:sotong_local/component/texts/section_title.dart';
 
 import '../../../../component/inputs/custom_text_field.dart';
+import '../../../../component/texts/paragraph_text.dart';
 import '../../../../component/texts/subtext.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_text_styles.dart';
@@ -44,7 +47,7 @@ class MinimalField extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SubText(text: label, fontWeight: FontWeight.w600),
+          SubText(text: label, fontWeight: FontWeight.bold,color: AppColors.subText,),
           const SizedBox(height: 8),
 
           if (dropdownOptions != null)
@@ -96,6 +99,8 @@ class MinimalField extends StatelessWidget {
                 if (onChanged != null) onChanged!(controller!.text);
               },
             ),
+          SizedBox(height: 16),
+          Divider(height: 2, color:AppColors.greyBackground, )
         ],
       ),
     );

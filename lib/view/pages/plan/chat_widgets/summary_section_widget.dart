@@ -4,7 +4,7 @@ import '../plan_edit_page.dart';
 import '../../../../view_model/plan/chat_plan_viewmodel.dart';
 
 Widget buildSummarySection(BuildContext context, ChatPlanViewModel viewModel) {
-  final calc = viewModel.calculate();
+  final calc = viewModel.calculationResult ?? viewModel.calculate();
   final hasNoSaving = calc != null && calc.dailyNetSaving <= 0;
 
   if (hasNoSaving) {
@@ -47,10 +47,7 @@ Widget _buildNoSavingWarning(
               targetAmount: updatedPlan.targetAmount,
               currentAsset: updatedPlan.currentAsset,
             );
-            final newCalc = viewModel.calculate();
-            if (newCalc != null && newCalc.dailyNetSaving > 0) {
-              viewModel.handleUserResponse('다음 단계로');
-            }
+            viewModel.calculate();
           }
         },
         style: ElevatedButton.styleFrom(
@@ -92,6 +89,7 @@ Widget _buildSummaryChart(BuildContext context, ChatPlanViewModel viewModel) {
               targetAmount: updatedPlan.targetAmount,
               currentAsset: updatedPlan.currentAsset,
             );
+            viewModel.calculate();
           }
         },
       ),

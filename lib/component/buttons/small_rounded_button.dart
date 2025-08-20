@@ -23,7 +23,7 @@ class SmallRoundedButton extends StatelessWidget {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon, size: 16, color: textColor),
-      label: SubText(text: text, color: textColor),
+      label: SubText(text: text, color: textColor, fontWeight: FontWeight.bold,),
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),

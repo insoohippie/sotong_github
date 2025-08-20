@@ -10,6 +10,7 @@ enum ChatStep {
   monthlyIncome,
   monthlyFixedCost,
   dailySpending,
+  summaryIntro,
   summary,
   autoService,
   complete,

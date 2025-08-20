@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:async';
-
 import '../../../../model/chat_message.dart';
+// 요약 카드 위젯을 메시지로 쓰고 싶다면 임포트
+import '../../../../view_model/plan/chat_plan_viewmodel.dart';
+import 'summary_section_widget.dart';
 
 class ChatMessageWidget extends StatefulWidget {
   final ChatMessage message;
   final VoidCallback? onComplete;
-  final VoidCallback? onTextUpdate; // 텍스트 업데이트 시 호출될 콜백
+  final VoidCallback? onTextUpdate;
 
   const ChatMessageWidget({
     Key? key,
@@ -18,7 +21,6 @@ class ChatMessageWidget extends StatefulWidget {
   @override
   State<ChatMessageWidget> createState() => _ChatMessageWidgetState();
 
-  // 공개 static getter 추가
   static Set<String> get completedMessageIds =>
       _ChatMessageWidgetState._completedMessageIds;
 }
@@ -30,12 +32,26 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
   late AnimationController _animationController;
   Timer? _typingTimer;
 
-  // 메시지별로 애니메이션 완료 여부를 기억하는 static Set
   static final Set<String> _completedMessageIds = <String>{};
 
   @override
   void initState() {
     super.initState();
+
+    // summary는 애니메이션/로딩 불필요
+    if (widget.message.type == MessageType.summary) {
+      _displayText = widget.message.content; // 필요 없지만 일관성 유지
+      _isComplete = true;
+      _completedMessageIds.add(widget.message.id);
+      // 요약도 등장 시점 스크롤 보정이 필요하면 onComplete 콜백 호출
+      if (widget.onComplete != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          widget.onComplete!();
+        });
+      }
+      return; // ← 더 이상 진행하지 않음
+    }
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 500),
       vsync: this,
@@ -44,8 +60,6 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
     if (_completedMessageIds.contains(widget.message.id)) {
       _displayText = widget.message.content;
       _isComplete = true;
-
-      // ✅ onComplete 강제 호출
       if (widget.onComplete != null) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           widget.onComplete!();
@@ -62,8 +76,16 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
   @override
   void didUpdateWidget(covariant ChatMessageWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 메시지 id가 바뀌었을 때만 동작
+
     if (widget.message.id != oldWidget.message.id) {
+      if (widget.message.type == MessageType.summary) {
+        _displayText = widget.message.content;
+        _isComplete = true;
+        _completedMessageIds.add(widget.message.id);
+        setState(() {});
+        return;
+      }
+
       if (_completedMessageIds.contains(widget.message.id)) {
         setState(() {
           _displayText = widget.message.content;
@@ -94,44 +116,18 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
 
     _typingTimer?.cancel();
     _typingTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
-      if (currentIndex < text.length) {
+      if (currentIndex < text.runes.length) {
         setState(() {
-          try {
-            // UTF-16 안전한 방법으로 텍스트 처리
-            if (currentIndex + 1 <= text.length) {
-              // 문자열을 문자 단위로 분할하여 안전하게 처리
-              final runes = text.runes.toList();
-              if (currentIndex < runes.length) {
-                final partialRunes = runes.take(currentIndex + 1).toList();
-                _displayText = String.fromCharCodes(partialRunes);
-              } else {
-                _displayText = text;
-              }
-            } else {
-              _displayText = text;
-            }
-          } catch (e) {
-            // 에러 발생 시 전체 텍스트 표시
-            _displayText = text;
-            _isComplete = true;
-            _completedMessageIds.add(widget.message.id);
-            if (widget.onComplete != null) widget.onComplete!();
-            timer.cancel();
-            return;
-          }
+          final runes = text.runes.toList();
+          final partialRunes = runes.take(currentIndex + 1).toList();
+          _displayText = String.fromCharCodes(partialRunes);
         });
-        // 텍스트 업데이트 시 스크롤 콜백 호출
-        if (widget.onTextUpdate != null) {
-          widget.onTextUpdate!();
-        }
+        widget.onTextUpdate?.call();
         currentIndex++;
       } else {
-        setState(() {
-          _isComplete = true;
-        });
-        // 애니메이션이 끝난 메시지 id를 static Set에 저장
+        setState(() => _isComplete = true);
         _completedMessageIds.add(widget.message.id);
-        if (widget.onComplete != null) widget.onComplete!();
+        widget.onComplete?.call();
         timer.cancel();
       }
     });
@@ -139,26 +135,46 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.message.type == MessageType.summary) {
+      final viewModel = context.watch<ChatPlanViewModel>();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: buildSummarySection(context, viewModel),
+      );
+    }
+
+    // ② 기존 bot/user 말풍선
     final isBot = widget.message.type == MessageType.bot;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Row(
-        mainAxisAlignment: isBot
-            ? MainAxisAlignment.start
-            : MainAxisAlignment.end,
+        mainAxisAlignment: isBot ? MainAxisAlignment.start : MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isBot) ...[
             Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: Color(0xFFBFD8FF),
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFBFD8FF),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white, // 흰색 보더
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: const Center(
-                child: Text('🧾', style: TextStyle(fontSize: 14)),
+              clipBehavior: Clip.antiAlias,
+              child: Image.asset(
+                'assets/images/bot_profile.png',
+                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(width: 8),
@@ -169,15 +185,17 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
                 maxWidth: MediaQuery.of(context).size.width * 0.75,
               ),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: isBot
-                      ? const Color(0xFFF4F4F4)
-                      : const Color(0xFF0062FF),
+                  color: isBot ? const Color(0xFFF4F4F4) : const Color(0xFF0062FF),
                   borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.2), // 은은한 그림자
+                      blurRadius: 6,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
                 ),
                 child: Text(
                   _displayText,

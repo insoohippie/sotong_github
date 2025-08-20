@@ -14,8 +14,7 @@ class ChatMessage {
   });
 
   bool get isBot => type == MessageType.bot;
-
   bool get isUser => type == MessageType.user;
 }
 
-enum MessageType { bot, user }
+enum MessageType { bot, user, summary }

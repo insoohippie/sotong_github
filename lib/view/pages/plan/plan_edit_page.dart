@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:sotong_local/view/pages/plan/plan_edit_widgets/edit_summary_tile.dart';
 import 'package:sotong_local/view/pages/plan/plan_edit_widgets/minimal_field.dart';
 
+import '../../../component/appbars/custom_app_bar.dart';
 import '../../../component/containers/rounded_info_container.dart';
 import '../../../component/texts/section_title.dart';
 import '../../../component/theme/app_colors.dart';
@@ -111,9 +112,8 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
               return Column(
                 children: [
-                  CustomAppBarTitleSubtitle(
+                  CustomAppBar(
                     title: '플랜 정보 수정',
-                    subtitle: '플랜 정보를 수정해주세요',
                     onBack: () => Navigator.pop(context),
                   ),
                   Expanded(
@@ -125,47 +125,6 @@ class _PlanEditPageState extends State<PlanEditPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
 
                         children: [
-                          // const SectionTitle(title: '기본 정보', icon: Icons.info_outline),
-                          // RoundedInfoContainer(
-                          //   // 필요시 색상/라운드값 조정 가능]
-                          //   // borderRadius: 16,
-                          //   // padding: 24,
-                          //   child: Column(
-                          //     crossAxisAlignment: CrossAxisAlignment.start,
-                          //     children: [
-                          //
-                          //       const SizedBox(height: 12),
-                          //
-                          //       MinimalField(
-                          //         label: '플랜 이름',
-                          //         controller: viewModel.planNameController,
-                          //         hint: '예: 여름휴가 프로젝트',
-                          //         onChanged: (_) => setState(() {}),
-                          //       ),
-                          //       const SizedBox(height: 12),
-                          //
-                          //       MinimalField(
-                          //         label: '플랜 목적',
-                          //         dropdownOptions: viewModel.purposeOptions,
-                          //         selectedValue: viewModel.selectedPurpose,
-                          //         onDropdownChanged: (val) => viewModel.updateSelectedPurpose(val),
-                          //       ),
-                          //       const SizedBox(height: 12),
-                          //
-                          //       MinimalField(
-                          //         label: '목표 금액',
-                          //         controller: viewModel.targetAmountController,
-                          //         isNumber: true,
-                          //         hint: '예: 1000000',
-                          //         onChanged: (_) => setState(() {}),
-                          //       ),
-                          //     ],
-                          //   ),
-                          // ),
-                          SectionTitle(
-                            title: '기본 정보',
-                            icon: Icons.info_outline,
-                          ),
                           MinimalField(
                             label: '플랜 이름',
                             controller: viewModel.planNameController,
@@ -194,11 +153,6 @@ class _PlanEditPageState extends State<PlanEditPage> {
                             isNumber: true,
                             hint: '예: 500000',
                             onChanged: (_) => setState(() {}),
-                          ),
-
-                          SectionTitle(
-                            title: '월별 정보',
-                            icon: Icons.calendar_today,
                           ),
                           EditSummaryTile(
                             label: '월 수입',

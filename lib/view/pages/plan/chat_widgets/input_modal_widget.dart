@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:intl/intl.dart';
+import 'package:sotong_local/component/appbars/custom_app_bar.dart';
+import 'package:sotong_local/component/buttons/custom_button.dart';
+import 'package:sotong_local/component/containers/rounded_info_container.dart';
 
+import '../../../../component/buttons/small_rounded_button.dart';
+import '../../../../component/inputs/custom_number_field.dart';
+import '../../../../component/inputs/custom_text_field.dart';
+import '../../../../component/texts/header_text.dart';
+import '../../../../component/texts/paragraph_text.dart';
+import '../../../../component/texts/subtext.dart';
+import '../../../../component/theme/app_colors.dart';
 import '../../../../model/entry.dart';
 
 class InputModalWidget extends StatefulWidget {
@@ -21,8 +31,8 @@ class InputModalWidget extends StatefulWidget {
     required this.title,
     required this.onComplete,
     required this.type,
-    this.placeholder = "수입 카테고리 (예: 급여)",
-    this.hintText = "예: 월급, 아르바이트, 용돈 등",
+    this.placeholder = '수입 카테고리 (예: 급여)',
+    this.hintText = '예: 월급, 아르바이트, 용돈 등',
     this.initialEntries,
   }) : super(key: key);
 
@@ -31,57 +41,77 @@ class InputModalWidget extends StatefulWidget {
 }
 
 class _InputModalWidgetState extends State<InputModalWidget> {
+  // ────────────────────────────────────────────────────────────────────────────
+  // State
+  // ────────────────────────────────────────────────────────────────────────────
   List<Entry> items = [];
   String error = '';
 
-  // 각 폼 컨트롤러
   final Map<int, TextEditingController> _amountControllers = {};
   final Map<int, TextEditingController> _categoryControllers = {};
   final Map<int, FocusNode> _categoryFocusNodes = {};
   final Map<int, FocusNode> _amountFocusNodes = {};
 
-  // 키보드 감지는 플러그인만 사용
   late KeyboardVisibilityController _keyboardVisibilityController;
   bool _isKeyboardVisible = false;
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // Lifecycle
+  // ────────────────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-
-    // 키보드 상태 감지 - 플러그인만 사용
     _keyboardVisibilityController = KeyboardVisibilityController();
-    _checkInitialKeyboardState();
+    _initKeyboardVisibility();
+    _initItems(widget.initialEntries);
+  }
 
-    _keyboardVisibilityController.onChange.listen((bool visible) {
-      setState(() {
-        _isKeyboardVisible = visible;
-      });
+  Future<void> _initKeyboardVisibility() async {
+    _isKeyboardVisible = await _keyboardVisibilityController.isVisible;
+    setState(() {});
+    _keyboardVisibilityController.onChange.listen((visible) {
+      setState(() => _isKeyboardVisible = visible);
     });
+  }
 
-    // 기존 데이터 초기화
-    if (widget.initialEntries != null && widget.initialEntries!.isNotEmpty) {
-      items = List.from(widget.initialEntries!);
+  void _initItems(List<Entry>? initial) {
+    if (initial != null && initial.isNotEmpty) {
+      items = List<Entry>.from(initial);
       for (final item in items) {
         _initializeControllers(item.idx, item.category, item.amount);
       }
     } else {
-      items = [
-        Entry(
-          idx: DateTime.now().millisecondsSinceEpoch,
-          amount: 0,
-          category: '',
-          type: widget.type,
-        ),
-      ];
-      final firstItem = items.first;
-      _initializeControllers(
-        firstItem.idx,
-        firstItem.category,
-        firstItem.amount,
+      final seed = Entry(
+        idx: DateTime.now().millisecondsSinceEpoch,
+        amount: 0,
+        category: '',
+        type: widget.type,
       );
+      items = [seed];
+      _initializeControllers(seed.idx, seed.category, seed.amount);
     }
   }
 
+  String _unformat(String v) => v.replaceAll(',', '');
+  String _format(String v) {
+    if (v.isEmpty) return '';
+    final n = int.tryParse(_unformat(v));
+    if (n == null) return '';
+    return NumberFormat('#,###').format(n);
+  }
+
+  @override
+  void dispose() {
+    for (final c in _amountControllers.values) c.dispose();
+    for (final c in _categoryControllers.values) c.dispose();
+    for (final f in _categoryFocusNodes.values) f.dispose();
+    for (final f in _amountFocusNodes.values) f.dispose();
+    super.dispose();
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Utils
+  // ────────────────────────────────────────────────────────────────────────────
   void _initializeControllers(int idx, String category, double amount) {
     _categoryControllers[idx] = TextEditingController(text: category);
     _amountControllers[idx] = TextEditingController(
@@ -91,70 +121,45 @@ class _InputModalWidgetState extends State<InputModalWidget> {
     _amountFocusNodes[idx] = FocusNode();
   }
 
-  Future<void> _checkInitialKeyboardState() async {
-    bool isVisible = await _keyboardVisibilityController.isVisible;
-    setState(() {
-      _isKeyboardVisible = isVisible;
-    });
-  }
-
-  @override
-  void dispose() {
-    for (final controller in _amountControllers.values) {
-      controller.dispose();
-    }
-    for (final controller in _categoryControllers.values) {
-      controller.dispose();
-    }
-    for (final focusNode in _categoryFocusNodes.values) {
-      focusNode.dispose();
-    }
-    for (final focusNode in _amountFocusNodes.values) {
-      focusNode.dispose();
-    }
-    super.dispose();
-  }
-
-  String _unformatNumber(String value) {
-    return value.replaceAll(',', '');
-  }
+  String _unformatNumber(String value) => value.replaceAll(',', '');
 
   String _formatNumber(String value) {
     if (value.isEmpty) return '';
-    final number = int.tryParse(_unformatNumber(value));
-    if (number == null) return '';
-    return NumberFormat('#,###').format(number);
+    final n = int.tryParse(_unformatNumber(value));
+    if (n == null) return '';
+    return NumberFormat('#,###').format(n);
   }
 
+  double getTotalAmount() =>
+      items.fold<double>(0, (sum, item) => sum + item.amount);
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Mutations
+  // ────────────────────────────────────────────────────────────────────────────
   void addItem() {
     final newIdx = DateTime.now().millisecondsSinceEpoch + items.length;
-
     setState(() {
       items.add(Entry(idx: newIdx, amount: 0, category: '', type: widget.type));
       _initializeControllers(newIdx, '', 0);
+      if (error.isNotEmpty) error = '';
     });
   }
 
   void updateItem(int idx, String field, dynamic value) {
-    final index = items.indexWhere((item) => item.idx == idx);
-    if (index != -1) {
-      if (field == 'category') {
-        items[index].category = value;
-      } else if (field == 'amount') {
-        items[index].amount = value;
-      }
+    final i = items.indexWhere((e) => e.idx == idx);
+    if (i == -1) return;
 
-      if (error.isNotEmpty) {
-        setState(() {
-          error = '';
-        });
-      }
+    if (field == 'category') {
+      items[i].category = value as String;
+    } else if (field == 'amount') {
+      items[i].amount = value as double;
     }
+    if (error.isNotEmpty) setState(() => error = '');
   }
 
   void removeItem(int idx) {
     setState(() {
-      items.removeWhere((item) => item.idx == idx);
+      items.removeWhere((e) => e.idx == idx);
       _categoryControllers[idx]?.dispose();
       _amountControllers[idx]?.dispose();
       _categoryFocusNodes[idx]?.dispose();
@@ -163,87 +168,80 @@ class _InputModalWidgetState extends State<InputModalWidget> {
       _amountControllers.remove(idx);
       _categoryFocusNodes.remove(idx);
       _amountFocusNodes.remove(idx);
+      if (error.isNotEmpty) error = '';
     });
   }
 
-  double getTotalAmount() {
-    return items.fold(0, (sum, item) => sum + item.amount);
-  }
-
   void handleComplete() {
-    final validItems = items
-        .where((item) => item.category.isNotEmpty && item.amount > 0)
-        .toList();
-    final hasEmptyCategory = items.any(
-      (item) => item.amount > 0 && item.category.trim().isEmpty,
-    );
+    final validItems =
+    items.where((e) => e.category.isNotEmpty && e.amount > 0).toList();
+    final hasEmptyCategory =
+    items.any((e) => e.amount > 0 && e.category.trim().isEmpty);
 
     if (hasEmptyCategory) {
-      setState(() {
-        error = '카테고리명을 정확히 입력해주세요.';
-      });
+      setState(() => error = '카테고리명을 정확히 입력해주세요.');
       return;
     }
-
     if (validItems.isEmpty) {
-      setState(() {
-        error = '최소 하나의 항목을 입력해주세요.';
-      });
+      setState(() => error = '최소 하나의 항목을 입력해주세요.');
       return;
     }
 
     widget.onComplete(validItems, getTotalAmount());
     widget.onClose();
-    setState(() {
-      error = '';
-    });
+    setState(() => error = '');
   }
 
-  // 상세 설명 텍스트 생성
+  // ────────────────────────────────────────────────────────────────────────────
+  // Labels / Description
+  // ────────────────────────────────────────────────────────────────────────────
   String getDetailDescription() {
     if (widget.title.contains('월 수입')) {
-      return '🪙 <b>월 수입이란?</b>\n한 달 동안 들어오는 총 수입이에요.\n급여, 아르바이트·프리랜스 수입, 사업수입, 용돈/가족지원, 이자·배당, 중고거래 등 모두 포함됩니다.\n불규칙하면 최근 3개월 평균 금액으로 입력해주세요.\n\n✍️ <b>입력 가이드</b>\n여러 건이면 항목을 나눠서 각각 입력 (예: 급여 / 용돈 / 배당금)\n세후 기준 권장(통장에 실제 들어온 금액)\n금액은 원 단위로 입력\n\n🧾 <b>예시 카테고리</b>\n급여 / 아르바이트 / 프리랜스\n용돈·가족지원 / 이자 / 배당 / 임대수입\n보너스 / 상여 / 기타수입';
-    } else if (widget.title.contains('고정 소비')) {
-      return '💰 <b>고정 소비란?</b>\n매달 정기적으로 나가는 생활 필수 비용이에요.\n수입이 없어도 꼭 지출되는 금액을 말해요.\n예: 월세, 관리비, 휴대폰 요금, 교통 정기권, 보험료, 대출 상환금 등\n\n💡 <b>소통 tip!</b>\n예·적금이나 투자금은 고정 소비가 아닌 저축 항목으로 따로 입력해주세요.\n여러 건이 있다면 항목을 나눠서 각각 입력하면, 이후 관리가 더 편해집니다.';
+      return '💡 <b>월 수입이란?</b>\n'
+          '- 매달 반복적으로 들어오는 모든 수입을 말해요.\n'
+          '- 매달 금액이 일정하지 않다면 최근 3개월 평균으로 입력해 주세요.\n\n'
+          '✍ <b>입력 가이드</b>\n'
+          '- 수입이 여러 가지라면 항목별로 나눠 입력하세요 (예: 월급 / 용돈 / 배당금)\n'
+          '- 실제 통장에 들어온 금액(세후 기준)을 적는 걸 권장합니다';}
+    else if (widget.title.contains('고정 소비')) {
+      return '💡 <b>고정 소비란?</b>\n'
+          '월세, 관리비, 통신비, 보험료, 대출 상환금처럼\n'
+          '매달 자동으로 지출되는 고정비용을 말해요. \n'
+          '빠질 수 없는 생활비를 입력해주시면 됩니다.\n\n'
+          '✍ <b>입력 가이드</b>\n'
+          '- 필수적으로 매달 지출되는 항목만 입력하세요 (예: 월세 / 통신비 / 보험료)\n'
+          '- 적금과 같은 저축은 고정소비로 생각하지 않아요';
     } else if (widget.title.contains('하루 소비 한도')) {
-      return '💰 <b>하루 소비 한도 금액이란?</b>\n하루에 소비할 금액을 미리 정해두는 기준 금액이에요.\n이 금액을 바탕으로 하루 지출을 관리하게 됩니다.\n너무 과도하게 설정하면 전체 플랜 기간 동안 유지하기 어려울 수 있으니,\n목표 달성에 무리가 없도록 적절하게 배치해보세요.\n\n💡 <b>예시:</b> 커피값, 점심값, 편의점 간식, 외식비, 택시비 등';
+      return '💡 <b>하루 사용할 금액이란?</b>\n'
+          '저와 함께 정하는 하루 지출 기준이에요.  \n'
+          '식비, 교통비, 카페 비용처럼 매일 쓰는 생활비를 기준으로 정해주시면 됩니다.  \n'
+          '이 금액을 바탕으로 절약 플랜을 계산할 거예요.\n\n'
+          '✍ <b>입력 가이드</b>\n'
+          '- 하루 평균으로 쓰는 생활비를 입력하세요 (예: 식비 / 교통비 / 카페 비용)\n'
+          '- 너무 빡빡하지 않게, 지킬 수 있는 수준에서 정하는 게 좋아요\n'
+          '- 금액은 원 단위로 입력해 주세요';
     }
     return '';
   }
 
-  // 항목 라벨 생성
   String getItemLabel(int index) {
-    if (widget.title.contains('월 수입')) {
-      return '월 수입처 ${index + 1}';
-    } else if (widget.title.contains('고정 소비')) {
-      return '고정소비처 ${index + 1}';
-    } else if (widget.title.contains('하루 소비 한도')) {
-      return '하루소비처 ${index + 1}';
-    }
+    if (widget.title.contains('월 수입')) return '월 수입처 ${index + 1}';
+    if (widget.title.contains('고정 소비')) return '고정소비처 ${index + 1}';
+    if (widget.title.contains('하루 소비 한도')) return '하루소비처 ${index + 1}';
     return '항목 ${index + 1}';
   }
 
-  // 카테고리 라벨 생성
   String getCategoryLabel() {
-    if (widget.title.contains('월 수입')) {
-      return '수입 카테고리';
-    } else if (widget.title.contains('고정 소비')) {
-      return '고정 지출 항목';
-    } else if (widget.title.contains('하루 소비 한도')) {
-      return '소비 항목';
-    }
+    if (widget.title.contains('월 수입')) return '수입 카테고리';
+    if (widget.title.contains('고정 소비')) return '고정 지출 항목';
+    if (widget.title.contains('하루 소비 한도')) return '소비 항목';
     return '카테고리';
   }
 
-  // Rich Text 생성
   Widget buildDescriptionRich() {
     final raw = getDetailDescription();
-
     if (raw.isEmpty) {
-      return const Text(
-        '',
-        style: TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
-      );
+      return const Text('', style: TextStyle(fontSize: 14, color: Color(0xFF4B5563)));
     }
 
     final spans = <TextSpan>[];
@@ -251,176 +249,118 @@ class _InputModalWidgetState extends State<InputModalWidget> {
     int last = 0;
 
     try {
-      for (final match in regex.allMatches(raw)) {
-        if (match.start > last) {
-          final text = raw.substring(last, match.start);
-          if (text.isNotEmpty) {
-            spans.add(TextSpan(text: text));
-          }
-        }
-        final boldText = match.group(1) ?? '';
+      for (final m in regex.allMatches(raw)) {
+        if (m.start > last) spans.add(TextSpan(text: raw.substring(last, m.start)));
+        final boldText = m.group(1) ?? '';
         if (boldText.isNotEmpty) {
-          spans.add(
-            TextSpan(
-              text: boldText,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          );
+          spans.add(TextSpan(text: boldText, style: const TextStyle( fontWeight: FontWeight.bold)));
         }
-        last = match.end;
+        last = m.end;
       }
-      if (last < raw.length) {
-        final remainingText = raw.substring(last);
-        if (remainingText.isNotEmpty) {
-          spans.add(TextSpan(text: remainingText));
-        }
-      }
-    } catch (e) {
-      return Text(
-        raw,
-        style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
-      );
+      if (last < raw.length) spans.add(TextSpan(text: raw.substring(last)));
+    } catch (_) {
+      return Text(raw, style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563)));
     }
 
-    return Text.rich(
-      TextSpan(children: spans),
-      style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563)),
-    );
+    return Text.rich(TextSpan(children: spans), style: const TextStyle(fontSize: 14, color:Colors.black,));
   }
 
-  // 공통 입력 항목 위젯 추출
+  // ────────────────────────────────────────────────────────────────────────────
+  // Item Widget
+  // ────────────────────────────────────────────────────────────────────────────
   Widget buildInputItem(Entry item, int index) {
-    final categoryController = _categoryControllers[item.idx];
-    final amountController = _amountControllers[item.idx];
+    final categoryController = _categoryControllers[item.idx]!;
+    final amountController = _amountControllers[item.idx]!;
 
     return Container(
       key: ValueKey('item_container_${item.idx}'),
-      // 컨테이너에 고유 키 추가
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Color(0xFFF9FAFB),
+        color: const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                getItemLabel(index),
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF6B7280),
-                ),
+              SubText(
+                text: '카테고리명',
+                fontWeight: FontWeight.bold,
+                color: AppColors.subText,
               ),
-              if (items.length > 1)
-                GestureDetector(
-                  onTap: () => removeItem(item.idx),
+              const SizedBox(height: 6),
+
+              // 카테고리 입력 (CustomTextField 스타일 적용)
+              CustomTextField(
+                controller: categoryController!,
+                hintText: widget.placeholder,
+                borderRadius: 8,
+                height: 56,
+                onChanged: (v) {
+                  updateItem(item.idx, 'category', v);
+                  setState(() {});
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // 금액 라벨
+              const SubText(
+                text: '금액',
+                fontWeight: FontWeight.bold,
+                color: AppColors.subText,
+              ),
+              const SizedBox(height: 6),
+
+              CustomTextField(
+                controller: amountController!,
+                hintText: '금액 (예: 3,000,000)',
+                keyboardType: TextInputType.number,
+                borderRadius: 8,
+                height: 56,
+                onChanged: (value) {
+                  final un = _unformat(value);
+
+                  final amt = double.tryParse(un) ?? 0;
+                  updateItem(item.idx, 'amount', amt);
+
+                  final formatted = _format(un);
+                  if (formatted != value) {
+                    amountController!.value = TextEditingValue(
+                      text: formatted,
+                      selection: TextSelection.collapsed(offset: formatted.length),
+                    );
+                  }
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
+          // X 버튼 (오른쪽 상단)
+          Positioned(
+            right: -8,
+            top: -8,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => removeItem(item.idx),
+                customBorder: const CircleBorder(),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: const BoxDecoration(
+                    color: Colors.transparent,
+                    shape: BoxShape.circle,
+                  ),
                   child: const Icon(
                     Icons.close,
-                    size: 16,
+                    size: 18,
                     color: Color(0xFF6B7280),
                   ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          // 카테고리 제목
-          Text(
-            getCategoryLabel(),
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF374151),
-            ),
-          ),
-          const SizedBox(height: 4),
-          // 카테고리 입력 필드 - 색상 변경 로직 적용
-          Container(
-            decoration: BoxDecoration(
-              color: categoryController?.text.isEmpty == true
-                  ? const Color(0xFFEDEDED)
-                  : const Color(0xFFEDF4FF),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: TextField(
-              key: ValueKey('category_${item.idx}'),
-              controller: categoryController,
-              focusNode: _categoryFocusNodes[item.idx],
-              decoration: InputDecoration(
-                hintText: widget.placeholder,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                ),
-                contentPadding: const EdgeInsets.all(12),
-                filled: true,
-                fillColor: Colors.transparent,
               ),
-              onChanged: (value) {
-                updateItem(item.idx, 'category', value);
-                // 실시간 총합 업데이트를 위해 setState 호출
-                setState(() {});
-              },
-            ),
-          ),
-          const SizedBox(height: 12),
-          // 금액 제목
-          Text(
-            '금액',
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF374151),
-            ),
-          ),
-          const SizedBox(height: 4),
-          // 금액 입력 필드 - 색상 변경 로직 적용
-          Container(
-            decoration: BoxDecoration(
-              color: amountController?.text.isEmpty == true
-                  ? const Color(0xFFEDEDED)
-                  : const Color(0xFFEDF4FF),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: TextField(
-              key: ValueKey('amount_${item.idx}'),
-              controller: amountController,
-              focusNode: _amountFocusNodes[item.idx],
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: '금액 (예: 3,000,000)',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
-                ),
-                contentPadding: const EdgeInsets.all(12),
-                filled: true,
-                fillColor: Colors.transparent,
-              ),
-              onChanged: (value) {
-                final unformatted = _unformatNumber(value);
-                final amount = double.tryParse(unformatted) ?? 0;
-                updateItem(item.idx, 'amount', amount);
-
-                // 실시간 총합 업데이트를 위해 setState 호출
-                setState(() {});
-
-                // 포커스 유지하면서 포맷팅 적용
-                final controller = _amountControllers[item.idx];
-                if (controller != null) {
-                  final formattedText = _formatNumber(unformatted);
-                  controller.value = TextEditingValue(
-                    text: formattedText,
-                    selection: TextSelection.collapsed(
-                      offset: formattedText.length,
-                    ),
-                  );
-                }
-              },
             ),
           ),
         ],
@@ -428,58 +368,119 @@ class _InputModalWidgetState extends State<InputModalWidget> {
     );
   }
 
-  // 공통 콘텐츠 위젯 추출
+  // ────────────────────────────────────────────────────────────────────────────
+  // Content / Header / Footer
+  // ────────────────────────────────────────────────────────────────────────────
   Widget buildContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // 에러 메시지
           if (error.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Color(0xFFFEF2F2),
-                border: Border.all(color: Color(0xFFFECACA)),
+                color: const Color(0xFFFEF2F2),
+                border: Border.all(color: const Color(0xFFFECACA)),
                 borderRadius: BorderRadius.circular(12),
               ),
+              child: Text(error, style: const TextStyle(color: Color(0xFFDC2626), fontSize: 14)),
+            ),
+          ...items.asMap().entries.map((e) => buildInputItem(e.value, e.key)),
+          SmallRoundedButton(
+            text: '항목 추가',
+            onPressed: addItem,
+            icon: Icons.add,
+            backgroundColor: Colors.white,
+            textColor: AppColors.subText,
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget buildHeader() {
+    return Visibility(
+      visible: !_isKeyboardVisible,
+      // child: CustomAppBar(title: widget.title),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0xFFF0F0F0))),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildDetailBox() {
+    return Visibility(
+      visible: !_isKeyboardVisible,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: buildDescriptionRich(),
+        ),
+      ),
+    );
+  }
+
+  Widget buildFooter() {
+    final total = getTotalAmount();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9FAFB),
+        border: Border(top: BorderSide(color: Color(0xFFF0F0F0))),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(20), bottomRight: Radius.circular(20),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('총합:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(
+                '${NumberFormat('#,###').format(total.toInt())}원',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0062FF)),
+              ),
+            ],
+          ),
+          if (widget.title.contains('하루 소비 한도'))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
               child: Text(
-                error,
-                style: const TextStyle(color: Color(0xFFDC2626), fontSize: 14),
+                '한달 소비 한도 금액: ${NumberFormat('#,###').format(total * 30)}원',
+                style: const TextStyle(fontSize: 14, color: Color(0xFF3B82F6)),
               ),
             ),
-          // 입력 항목들
-          ...items.asMap().entries.map((entry) {
-            final index = entry.key;
-            final item = entry.value;
-            return buildInputItem(item, index);
-          }),
-          // 항목 추가 버튼
-          GestureDetector(
-            onTap: addItem,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: Color(0xFFD1D5DB),
-                  style: BorderStyle.solid,
-                  width: 2,
-                ),
-                borderRadius: BorderRadius.circular(12),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            // child: CustomButton(text: '완료', onPressed: handleComplete)
+            //
+            child: ElevatedButton(
+              onPressed: handleComplete,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0062FF),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add, size: 20, color: Color(0xFF6B7280)),
-                  SizedBox(width: 8),
-                  Text(
-                    '항목 추가',
-                    style: TextStyle(color: Color(0xFF6B7280), fontSize: 16),
-                  ),
-                ],
-              ),
+              child: ParagraphText(text: '완료',color: AppColors.whiteText, fontWeight: FontWeight.bold,),
             ),
           ),
         ],
@@ -487,154 +488,31 @@ class _InputModalWidgetState extends State<InputModalWidget> {
     );
   }
 
+  // ────────────────────────────────────────────────────────────────────────────
+  // Build
+  // ────────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     if (!widget.isOpen) return const SizedBox.shrink();
+
+    final maxH = MediaQuery.of(context).size.height * 0.9;
+    final maxW = MediaQuery.of(context).size.width * 0.9;
 
     return Material(
       color: Colors.black54,
       child: Center(
         child: Container(
           margin: const EdgeInsets.all(16),
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.9,
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-          ),
+          constraints: BoxConstraints(maxHeight: maxH, maxWidth: maxW),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header - Visibility로 조건부 표시 (위젯 트리 구조 유지)
-              Visibility(
-                visible: !_isKeyboardVisible,
-                maintainSize: false,
-                maintainAnimation: false,
-                maintainState: true,
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    border: Border(
-                      bottom: BorderSide(color: Color(0xFFF0F0F0)),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Detail Description - Visibility로 조건부 표시
-              Visibility(
-                visible: !_isKeyboardVisible,
-                maintainSize: false,
-                maintainAnimation: false,
-                maintainState: true,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Color(0xFFF9FAFB),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: const EdgeInsets.all(14),
-                    child: buildDescriptionRich(),
-                  ),
-                ),
-              ),
-
-              Visibility(
-                visible: !_isKeyboardVisible,
-                maintainSize: false,
-                maintainAnimation: false,
-                maintainState: true,
-                child: const SizedBox(height: 8),
-              ),
-
-              // Content - 단일 위젯으로 통일 (중복 제거)
+              buildHeader(),
+              buildDetailBox(),
+              if (!_isKeyboardVisible) const SizedBox(height: 8),
               Expanded(child: buildContent()),
-
-              // Footer - 항상 표시
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFFF9FAFB),
-                  border: Border(top: BorderSide(color: Color(0xFFF0F0F0))),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(20),
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          '총합:',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '${NumberFormat('#,###').format(getTotalAmount().toInt())}원',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF0062FF),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (widget.title.contains('하루 소비 한도'))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          '한달 소비 한도 금액: ${NumberFormat('#,###').format(getTotalAmount() * 30)}원',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF3B82F6),
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: handleComplete,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFF0062FF),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          '완료',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              buildFooter(),
             ],
           ),
         ),

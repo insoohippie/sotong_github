@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sotong_local/component/texts/paragraph_text.dart';
 import '../../../component/texts/header_text.dart';
 import '../theme/app_colors.dart';
 
@@ -16,12 +17,12 @@ class SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 24, bottom: 16),
+      padding: const EdgeInsets.only(top: 16, bottom: 16),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.primary, size: 20),
+          Icon(icon, color: AppColors.primary, size: 15),
           const SizedBox(width: 8),
-          HeaderText(text: title),
+          ParagraphText(text: title, fontWeight: FontWeight.bold,),
         ],
       ),
     );

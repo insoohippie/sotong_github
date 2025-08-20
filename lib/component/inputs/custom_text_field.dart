@@ -13,9 +13,13 @@ class CustomTextField extends StatelessWidget {
   final bool obscureText;
   final double height;
   final Widget? suffix;
+  final FocusNode? focusNode;
+  final Key? inputKey;
 
   const CustomTextField({
     Key? key,
+    this.focusNode,
+    this.inputKey,
     required this.controller,
     required this.hintText,
     this.onChanged,
@@ -44,6 +48,8 @@ class CustomTextField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       alignment: Alignment.center,
       child: TextFormField(
+        key: inputKey,
+        focusNode: focusNode,
         controller: controller,
         style: AppTextStyles.paragraph,
         textAlignVertical: TextAlignVertical.center,

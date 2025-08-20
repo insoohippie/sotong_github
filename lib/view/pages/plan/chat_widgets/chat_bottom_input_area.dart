@@ -133,6 +133,15 @@ class ChatBottomInputArea extends StatelessWidget {
               },
             ),
 
+          if (currentStep == ChatStep.summaryIntro && animDone)
+            CustomButton(
+              text: '좋아요! 요약해주세요!',
+              onPressed: () {
+                viewModel.handleUserResponse('좋아요! 요약해주세요!');
+                onDisappear();
+              },
+            ),
+
           if (currentStep == ChatStep.summary && animDone)
             CustomButton(
               text: '다음 단계로',

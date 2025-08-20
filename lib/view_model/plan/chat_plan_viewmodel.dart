@@ -277,65 +277,52 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   void handleUserResponse(String response) async {
-    // 사용자 메시지 추가
     final userMsg = response.trim();
-    if (userMsg.isNotEmpty) {
-      addMessage(userMsg, MessageType.user);
-    }
 
     switch (_currentStep) {
       case ChatStep.onboarding1:
         if (response == '소통에 대해 더 알아볼래요') {
-          _buttonClicked = true; // 버튼 클릭 상태 설정
+          _buttonClicked = true;
           notifyListeners();
+          addMessage(response, MessageType.user);
           _currentStep = ChatStep.onboarding2;
-          notifyListeners(); // 즉시 UI 업데이트
+          notifyListeners();
           await addBotMessageWithTyping(
             '🔍 소통은 $_userName님의 재정 상황을 바탕으로,\n하루에 쓸 수 있는 금액과 목표 달성까지 걸리는 시간을 계산해드려요.\n\n계획만 세우는 게 아니라, 목표 달성까지 함께 가는 재정 파트너예요. 💙',
             delay: 500,
           );
-          _buttonClicked = false; // 메시지 완료 후 버튼 상태 리셋
+          _buttonClicked = false;
           notifyListeners();
         }
         break;
       case ChatStep.onboarding2:
         if (response == '너무 신기해요!') {
-          _buttonClicked = true; // 버튼 클릭 상태 설정
+          _buttonClicked = true;
           notifyListeners();
+          addMessage(response, MessageType.user);
           _currentStep = ChatStep.onboarding3;
-          notifyListeners(); // 즉시 UI 업데이트
+          notifyListeners();
           await addBotMessageWithTyping(
             '그럼 이제 $_userName님만의 목표를 향한 플랜을\n저와 함께 하나씩 만들어볼까요? 🚀\n\n현재 상황과 목표만 알려주시면,\n가장 현실적인 계획을 제안해드릴게요! 🤝',
             delay: 500,
           );
-          _buttonClicked = false; // 메시지 완료 후 버튼 상태 리셋
+          _buttonClicked = false;
           notifyListeners();
         }
         break;
       case ChatStep.onboarding3:
         if (response == '좋아요, 시작할게요!') {
-          _buttonClicked = true; // 버튼 클릭 상태 설정
+          _buttonClicked = true;
+          addMessage(response, MessageType.user);
           notifyListeners();
           _currentStep = ChatStep.planName;
-          notifyListeners(); // 즉시 UI 업데이트
+          notifyListeners();
           await addBotMessageWithTyping(
             '$_userName님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n\n플랜에 이름을 붙여주세요.\n예: 🏝 세계여행 프로젝트 / 🎓 학자금 모으기',
             delay: 500,
           );
-          _buttonClicked = false; // 메시지 완료 후 버튼 상태 리셋
+          _buttonClicked = false;
           notifyListeners();
-        }
-        break;
-
-      case ChatStep.greeting:
-        if (response == '좋아요! 시작할게요') {
-          await addBotMessageWithTyping(
-            '$_userName님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n플랜에 이름을 붙여주세요.\n예: 🏝 세계여행 프로젝트 / 🎓 학자금 모으기',
-          );
-          await nextStep();
-        } else {
-          // 잘못된 입력 시 안내 메시지
-          await addBotMessageWithTyping('"네, 좋아요!" 버튼을 눌러주세요.');
         }
         break;
 
@@ -344,8 +331,11 @@ class ChatPlanViewModel extends ChangeNotifier {
           updatePlanInfo(planName: response);
           testPrint();
           notifyListeners();
+
+          addMessage('제 플랜 이름은 "$response"이에요!', MessageType.user);
+
           await addBotMessageWithTyping(
-            '좋아요! 이번 플랜의 성격과 가장 가까운 카드를 골라주세요.\n\n(이 정보는 맞춤 팁과 통계 분석에 사용돼요 📊)',
+            '좋아요! 이번 플랜의 성격과 가장 가까운 카드를 골라주세요.\n\n이 정보는 맞춤 팁과 통계 분석에 사용돼요 📊',
           );
           _currentStep = ChatStep.purpose; // nextStep() 대신 직접 설정
           notifyListeners();
@@ -365,9 +355,10 @@ class ChatPlanViewModel extends ChangeNotifier {
         else if (purposeOptions.contains(response)) {
           updatePlanInfo(purpose: response);
           testPrint();
+          addMessage('"$response"을/를 위해 플랜을 세우고 싶어요!', MessageType.user);
           notifyListeners();
           await addBotMessageWithTyping(_getTargetAmountMessage(response));
-          _currentStep = ChatStep.targetAmount; // nextStep() 대신 직접 설정
+          _currentStep = ChatStep.targetAmount;
           notifyListeners();
         } else {
           await addBotMessageWithTyping('아래 카드 중 하나를 선택해주세요.');
@@ -378,9 +369,10 @@ class ChatPlanViewModel extends ChangeNotifier {
         if (response.isNotEmpty && response.length >= 2) {
           updatePlanInfo(purpose: response);
           testPrint();
+          addMessage('"$response"을/를 위해 플랜을 세우고 싶어요!', MessageType.user);
           notifyListeners();
           await addBotMessageWithTyping(_getTargetAmountMessage('기타'));
-          _currentStep = ChatStep.targetAmount; // nextStep() 대신 직접 설정
+          _currentStep = ChatStep.targetAmount;
           notifyListeners();
         } else {
           await addBotMessageWithTyping('목적을 2글자 이상 입력해주세요.');
@@ -391,13 +383,16 @@ class ChatPlanViewModel extends ChangeNotifier {
         final amountStr = response.replaceAll(',', '').trim();
         final amount = double.tryParse(amountStr);
         if (amount != null && amount > 0) {
+          final formatted = SavingPlanCalculator.formatAmount(amount);
+          addMessage('목표 금액은 ${formatted}원이에요!', MessageType.user);
+
           updatePlanInfo(targetAmount: amount);
           testPrint();
           notifyListeners();
           await addBotMessageWithTyping(
-            '월 수입을 입력해주세요. 💰\n\n월에 들어오는 모든 수입을 적어주셔야 플랜을 정확하게 만들 수 있어요.\n(여러 건이면 각각 입력, 불규칙하면 최근 3개월 평균 권장)',
+            '그렇군요! 이제 ${userName}님의 월 수입이 얼마인지 알려주세요! 💰',
           );
-          _currentStep = ChatStep.monthlyIncome; // nextStep() 대신 직접 설정
+          _currentStep = ChatStep.monthlyIncome;
           notifyListeners();
         } else {
           await addBotMessageWithTyping('올바른 목표 금액을 입력해주세요. (예: 1000000)');
@@ -430,13 +425,30 @@ class ChatPlanViewModel extends ChangeNotifier {
         notifyListeners(); // 즉시 UI 업데이트
         break;
 
+      case ChatStep.summaryIntro:
+        if (response == '좋아요! 요약해주세요!') {
+          addMessage(response, MessageType.user);
+          _isTyping = true;
+          notifyListeners();
+
+          Future.delayed(const Duration(seconds: 3), () {
+            _isTyping = false;
+
+            addMessage('', MessageType.summary);
+            nextStep();
+          });
+        } else {
+          await addBotMessageWithTyping('"좋아요! 요약해주세요!" 버튼을 눌러주세요.');
+        }
+        break;
+
       case ChatStep.summary:
-        // 일단 modelview에서는 calculate 이뤄지지 않음
         print(planInfo);
         print(refData);
         print(userName);
         print(calculationResult);
         if (response == '다음 단계로') {
+          addMessage(response, MessageType.user);
           await addBotMessageWithTyping('마지막으로, 소통 자동등록 서비스를 활성화해드릴까요?');
           await nextStep();
         } else {
@@ -449,6 +461,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           updatePlanInfo(autoService: true);
           testPrint();
           notifyListeners();
+          addMessage(response, MessageType.user);
           await addBotMessageWithTyping('완료되었습니다! 이제 플랜을 수정하거나 확인할 수 있습니다.');
           _currentStep = ChatStep.complete;
           notifyListeners();
@@ -473,22 +486,6 @@ class ChatPlanViewModel extends ChangeNotifier {
     // notifyListeners(); // 중복이므로 제거
     return _calculationResult;
   }
-
-  /*
-  SavingCalculationResult? calculate() {
-    // 필요한 값이 모두 유효할 때만 계산
-    if (_planInfo.fixedIncomeSum > 0 &&
-        _planInfo.fixedConsumptionSum > 0 &&
-        _planInfo.targetAmount > 0 &&
-        _planInfo.dailyConsumptionSum > 0) {
-      final calculator = SavingPlanCalculator(planInfo: _planInfo);
-      _calculationResult = calculator.calculate();
-      notifyListeners(); // 결과가 갱신될 때 UI에 알림
-      return _calculationResult;
-    }
-    return null;
-  }
-   */
 
   Future<void> initializeChat() async {
     // 1) 이름 로드
@@ -526,6 +523,13 @@ class ChatPlanViewModel extends ChangeNotifier {
     } finally {
       _isSaving = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> waitForTypingToFinish() async {
+    // _isTyping이 false가 될 때까지 아주 잠깐씩 대기
+    while (_isTyping) {
+      await Future.delayed(const Duration(milliseconds: 50));
     }
   }
 
