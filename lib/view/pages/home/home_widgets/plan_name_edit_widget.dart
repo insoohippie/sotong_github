@@ -111,13 +111,6 @@ class _PlanNameEditSheetBodyState extends State<_PlanNameEditSheetBody> {
               ),
             ),
           ),
-          //
-          // const HeaderText(
-          //   text: '플랜 이름 수정',
-          //   fontWeight: FontWeight.bold,
-          // ),
-          // const SizedBox(height: 12),
-
           CustomTextField(
             controller: _controller,
             hintText: '예: 여름휴가 프로젝트',
@@ -151,9 +144,6 @@ class _PlanNameEditSheetBodyState extends State<_PlanNameEditSheetBody> {
               if (!mounted) return;
               if (ok) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('플랜 이름이 변경되었어요!')),
-                );
               } else {
                 setState(() => _error = vm.error ?? '이름 변경에 실패했어요.');
               }
@@ -161,6 +151,7 @@ class _PlanNameEditSheetBodyState extends State<_PlanNameEditSheetBody> {
             leftEnabled: !vm.isRenaming,
             rightEnabled: !vm.isRenaming && _isValid,
           ),
+          const SizedBox(height: 16),
         ],
       ),
     );

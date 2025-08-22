@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 class EmotionSpendingDiary {
   final DateTime date;
   final String emotion;
@@ -15,25 +17,23 @@ class EmotionSpendingDiary {
     required this.memo,
   });
 
-  Map<String, dynamic> toJson() {
-    return {
-      'date': date.toIso8601String(),
-      'emotion': emotion,
-      'emotionAnimation': emotionAnimation,
-      'spendingAmount': spendingAmount,
-      'spendingDescription': spendingDescription,
-      'memo': memo,
-    };
-  }
-
-  factory EmotionSpendingDiary.fromJson(Map<String, dynamic> json) {
+  factory EmotionSpendingDiary.fromMap(Map<String, dynamic> map) {
     return EmotionSpendingDiary(
-      date: DateTime.parse(json['date']),
-      emotion: json['emotion'],
-      emotionAnimation: json['emotionAnimation'],
-      spendingAmount: json['spendingAmount'].toDouble(),
-      spendingDescription: json['spendingDescription'],
-      memo: json['memo'],
+      date: (map['date'] as Timestamp).toDate(),
+      emotion: map['emotion'] ?? '',
+      emotionAnimation: map['emotionAnimation'] ?? '',
+      spendingAmount: (map['spendingAmount'] as num?)?.toDouble() ?? 0,
+      spendingDescription: map['spendingDescription'] ?? '',
+      memo: map['memo'] ?? '',
     );
   }
+
+  Map<String, dynamic> toMap() => {
+    'date': Timestamp.fromDate(date),
+    'emotion': emotion,
+    'emotionAnimation': emotionAnimation,
+    'spendingAmount': spendingAmount,
+    'spendingDescription': spendingDescription,
+    'memo': memo,
+  };
 }

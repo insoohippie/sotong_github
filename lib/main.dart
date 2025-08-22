@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
+import 'package:sotong_local/repository/communication_repository.dart';
 import 'package:sotong_local/view_model/home/home_viewmodel.dart';
 
 import 'component/theme/app_colors.dart';
@@ -52,6 +53,9 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthDataSource>(),
           ),
         ),
+        Provider<CommunicationRepository>(
+          create: (_) => CommunicationRepository(),
+        ),
 
         // 3) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
@@ -76,7 +80,11 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<SettingViewModel>(create: (_) => SettingViewModel()),
         ChangeNotifierProvider<AlarmViewModel>(create: (_) => AlarmViewModel()),
         ChangeNotifierProvider<NotificationViewModel>(create: (_) => NotificationViewModel()),
-        ChangeNotifierProvider<CommunicationViewModel>(create: (_) => CommunicationViewModel()),
+        ChangeNotifierProvider<CommunicationViewModel>(
+          create: (ctx) => CommunicationViewModel(
+            ctx.read<CommunicationRepository>(),
+          ),
+        ),
       ],
       child: MaterialApp(
         title: 'Sotong App',
@@ -88,7 +96,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/signup_success',
+        initialRoute: '/login',
         routes: appRoutes,
       ),
     );

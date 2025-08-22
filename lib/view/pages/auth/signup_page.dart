@@ -40,6 +40,9 @@ class _SignUpPageState extends State<SignUpPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      // ✅ 키보드 떠도 레이아웃 리사이즈 금지 (키보드가 화면을 덮는 방식)
+      resizeToAvoidBottomInset: false,
+
       body: SafeArea(
         child: Column(
           children: [
@@ -53,40 +56,52 @@ class _SignUpPageState extends State<SignUpPage> {
                 }
               },
             ),
+
+            // ✅ 스크롤 영역은 버튼 높이만큼 여유 공간 두기
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.screenPadding,
+                ).copyWith(
+                  bottom: 120, // 하단 버튼 높이(+여유)만큼
                 ),
                 child: Column(
                   children: [
-                    //이메일 입력, 비밀번호 입력, 유저정보 입력을 스텝으로 진행
-                    if (vm.currentStep == SignupStep.email)
-                      _buildEmailField(vm),
-                    if (vm.currentStep == SignupStep.password)
-                      _buildPasswordField(vm),
-                    if (vm.currentStep == SignupStep.userInfo)
-                      _buildUserInfoField(context, vm),
+                    if (vm.currentStep == SignupStep.email) _buildEmailField(vm),
+                    if (vm.currentStep == SignupStep.password) _buildPasswordField(vm),
+                    if (vm.currentStep == SignupStep.userInfo) _buildUserInfoField(context, vm),
                   ],
                 ),
               ),
             ),
-            CustomButton(
-              text: vm.currentStep == SignupStep.userInfo ? '회원가입 완료' : '다음',
-              enabled: vm.isCurrentStepValid,
-              onPressed: () async {
-                if (vm.currentStep == SignupStep.userInfo && vm.canSubmit) {
-                  final success = await vm.submit();
-                  if (success && context.mounted) {
-                    Navigator.pushNamed(context, '/signup_success');
-                  }
-                } else {
-                  await vm.nextStep();
-                }
-              },
-            ),
-            SizedBox(height: AppSpacing.bottomSpacing),
           ],
+        ),
+      ),
+
+      // ✅ 하단 고정 버튼 (키보드가 떠도 ‘가려지며’, 위로 올라오지 않음)
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            AppSpacing.bottomSpacing,
+            0,
+            AppSpacing.bottomSpacing,
+          ),
+          child: CustomButton(
+            text: vm.currentStep == SignupStep.userInfo ? '회원가입 완료' : '다음',
+            enabled: vm.isCurrentStepValid,
+            onPressed: () async {
+              if (vm.currentStep == SignupStep.userInfo && vm.canSubmit) {
+                final success = await vm.submit();
+                if (success && context.mounted) {
+                  Navigator.pushNamed(context, '/signup_success');
+                }
+              } else {
+                await vm.nextStep();
+              }
+            },
+          ),
         ),
       ),
     );

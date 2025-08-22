@@ -11,14 +11,14 @@ class AppTextStyles {
 
   static const paragraph = TextStyle(
     fontFamily: 'Pretendard',
-    fontSize: 16,
+    fontSize: 17,
     color: Colors.black,
     fontWeight: FontWeight.w500,
   );
 
   static const subtext = TextStyle(
     fontFamily: 'Pretendard',
-    fontSize: 12,
+    fontSize: 14,
     color: Color(0xFF9A9A9A),
     fontWeight: FontWeight.w400,
   );

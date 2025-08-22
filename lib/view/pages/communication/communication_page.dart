@@ -1,14 +1,15 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/emotion_calendar_widget.dart';
+import 'package:provider/provider.dart';
+
 import 'package:sotong_local/model/emotion_spending_diary.dart';
 import 'package:sotong_local/view/pages/communication/communication_logs_page.dart';
-import 'package:sotong_local/view_model/communication/communication_view_model.dart';
-import 'package:provider/provider.dart';
-import 'dart:async';
+import 'package:sotong_local/view/pages/record/record_widgets/emotion_calendar_widget.dart';
+import 'package:sotong_local/view/pages/record/record_widgets/emotion_diary_detail_dialog.dart';
+import 'package:sotong_local/view/pages/record/record_widgets/spending_record_confirm_dialog.dart';
 
 import '../../../component/theme/app_colors.dart';
-import '../record/record_widgets/emotion_diary_detail_dialog.dart';
-import '../record/record_widgets/spending_record_confirm_dialog.dart'; // Added for Timer
+import '../../../view_model/communication/communication_view_model.dart';
 
 class CommunicationPage extends StatefulWidget {
   const CommunicationPage({super.key});
@@ -18,10 +19,8 @@ class CommunicationPage extends StatefulWidget {
 }
 
 class _CommunicationPageState extends State<CommunicationPage> {
-  // CommunicationViewModel에서 데이터를 가져옴
-
-  // 감정 소비 패턴 데이터 (무한 스크롤을 위해 반복)
-  late List<Map<String, dynamic>> emotionInsights;
+  // 감정 소비 패턴 (샘플 텍스트) — 무한 스크롤용으로 반복
+  late final List<Map<String, dynamic>> emotionInsights;
   int currentInsightIndex = 0;
   late PageController _pageController;
   Timer? _timer;
@@ -31,7 +30,7 @@ class _CommunicationPageState extends State<CommunicationPage> {
     super.initState();
     _pageController = PageController();
 
-    // 원본 데이터
+    // 원본 데이터(샘플)
     final originalInsights = [
       {
         'title': '행복할 때 소비 증가',
@@ -53,11 +52,15 @@ class _CommunicationPageState extends State<CommunicationPage> {
       },
     ];
 
-    // 무한 스크롤을 위해 데이터를 여러 번 반복
     emotionInsights = [];
     for (int i = 0; i < 10; i++) {
       emotionInsights.addAll(originalInsights);
     }
+
+    // ✅ 이 달 데이터 로드
+    Future.microtask(() {
+      context.read<CommunicationViewModel>().loadMonth(DateTime.now());
+    });
 
     _startAutoSlide();
   }
@@ -83,27 +86,12 @@ class _CommunicationPageState extends State<CommunicationPage> {
   }
 
   void _handleDateTapped(DateTime date) {
-    final communicationViewModel = context.read<CommunicationViewModel>();
-    final entry = communicationViewModel.diaryEntries.firstWhere(
-      (entry) =>
-          entry.date.year == date.year &&
-          entry.date.month == date.month &&
-          entry.date.day == date.day,
-      orElse: () => EmotionSpendingDiary(
-        date: date,
-        emotion: '',
-        emotionAnimation: '',
-        spendingAmount: 0,
-        spendingDescription: '',
-        memo: '',
-      ),
-    );
+    final vm = context.read<CommunicationViewModel>();
+    final entry = vm.firstEntryFor(date); // ViewModel에서 해당 날짜 첫 엔트리(없으면 null)
 
-    if (entry.emotion.isNotEmpty) {
-      // 기록된 날짜 - 상세 정보 표시
+    if (entry != null) {
       _showDiaryDetailDialog(entry);
     } else {
-      // 기록되지 않은 날짜 - 소비 기록 확인
       _showSpendingRecordDialog(date);
     }
   }
@@ -131,6 +119,21 @@ class _CommunicationPageState extends State<CommunicationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final vm = context.watch<CommunicationViewModel>();
+
+    if (vm.isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(child: Center(child: CircularProgressIndicator())),
+      );
+    }
+    if (vm.error != null) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(child: Center(child: Text('오류: ${vm.error}'))),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -171,20 +174,13 @@ class _CommunicationPageState extends State<CommunicationPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 감정 달력과 소통일지 모아보기 공유 컨테이너
-                    _buildCalendarAndLogsContainer(),
+                    _buildCalendarAndLogsContainer(vm),
                     const SizedBox(height: 20),
-
-                    // 감정 소비 패턴 위젯 (레포트 스타일)
                     _buildEmotionSpendingPatternWidget(),
                     const SizedBox(height: 20),
-
-                    // 감정 소비 트렌드 위젯
                     _buildEmotionSpendingTrendWidget(),
                     const SizedBox(height: 20),
-
-                    // 이번 달 감정 요약 위젯
-                    _buildMonthlyEmotionSummaryWidget(),
+                    _buildMonthlyEmotionSummaryWidget(vm),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -196,7 +192,7 @@ class _CommunicationPageState extends State<CommunicationPage> {
     );
   }
 
-  Widget _buildCalendarAndLogsContainer() {
+  Widget _buildCalendarAndLogsContainer(CommunicationViewModel vm) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -241,23 +237,29 @@ class _CommunicationPageState extends State<CommunicationPage> {
             ],
           ),
           const SizedBox(height: 16),
+
           // 달력 위젯
           SizedBox(
             height: 385,
             child: Consumer<CommunicationViewModel>(
-              builder: (context, communicationViewModel, child) {
-                print(
-                  '달력 업데이트: ${communicationViewModel.diaryEntries.length}개 데이터',
-                );
+              builder: (context, vm, child) {
+                // byDay(Map<Date, List<Entry>>) -> Map<Date, Entry> (첫 항목만)
+                final mapForCalendar = <DateTime, EmotionSpendingDiary>{};
+                vm.byDay.forEach((day, list) {
+                  if (list.isNotEmpty) mapForCalendar[day] = list.first;
+                });
+
                 return EmotionCalendarWidget(
-                  diaryEntries: communicationViewModel.diaryEntriesMap,
-                  onDateSelected: (date) {},
+                  diaryEntries: mapForCalendar,
+                  onDateSelected: (_) {},
                   onDateTapped: _handleDateTapped,
                 );
               },
             ),
           ),
+
           const SizedBox(height: 16),
+
           // 소통일지 모아보기 링크
           GestureDetector(
             onTap: () {
@@ -347,7 +349,7 @@ class _CommunicationPageState extends State<CommunicationPage> {
             ),
           ),
           const SizedBox(height: 16),
-          Container(
+          SizedBox(
             height: 100,
             child: PageView.builder(
               controller: _pageController,
@@ -501,232 +503,221 @@ class _CommunicationPageState extends State<CommunicationPage> {
     );
   }
 
-  Widget _buildMonthlyEmotionSummaryWidget() {
-    return Consumer<CommunicationViewModel>(
-      builder: (context, communicationViewModel, child) {
-        // 이번 달 감정 데이터 분석
-        final currentMonth = DateTime.now().month;
-        final currentYear = DateTime.now().year;
+  Widget _buildMonthlyEmotionSummaryWidget(CommunicationViewModel vm) {
+    // 이번 달 감정 데이터 분석
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    final monthEnd = DateTime(now.year, now.month + 1, 1);
 
-        final monthlyEntries = communicationViewModel.diaryEntries
-            .where(
-              (entry) =>
-                  entry.date.year == currentYear &&
-                  entry.date.month == currentMonth,
-            )
-            .toList();
+    // 이번 달 모든 엔트리 평탄화
+    final monthlyEntries = vm.byDay.entries
+        .where((e) =>
+    !e.key.isBefore(monthStart) &&
+        e.key.isBefore(monthEnd)) // [monthStart, monthEnd)
+        .expand((e) => e.value)
+        .toList();
 
-        // 감정별 카운트
-        final happyCount = monthlyEntries
-            .where(
-              (e) =>
-                  e.emotion == '기쁨' || e.emotion == '행복' || e.emotion == '플렉스',
-            )
-            .length;
-        final normalCount = monthlyEntries
-            .where((e) => e.emotion == '혼란' || e.emotion == '피곤')
-            .length;
-        final gloomyCount = monthlyEntries
-            .where(
-              (e) =>
-                  e.emotion == '슬픔' || e.emotion == '우울' || e.emotion == '화남',
-            )
-            .length;
+    // 감정별 카운트
+    final happyCount = monthlyEntries
+        .where((e) => e.emotion == '기쁨' || e.emotion == '행복' || e.emotion == '플렉스')
+        .length;
+    final normalCount =
+        monthlyEntries.where((e) => e.emotion == '혼란' || e.emotion == '피곤').length;
+    final gloomyCount = monthlyEntries
+        .where((e) => e.emotion == '슬픔' || e.emotion == '우울' || e.emotion == '화남')
+        .length;
 
-        // 전체 감정 평가
-        String overallMessage = '';
-        if (happyCount > gloomyCount && happyCount > normalCount) {
-          overallMessage = '긍정적인 한 달을 보내고 계시네요';
-        } else if (gloomyCount > happyCount && gloomyCount > normalCount) {
-          overallMessage = '조금 힘든 한 달이었네요. 힘내세요!';
-        } else {
-          overallMessage = '안정적인 한 달을 보내고 계시네요';
-        }
+    String overallMessage;
+    if (happyCount > gloomyCount && happyCount > normalCount) {
+      overallMessage = '긍정적인 한 달을 보내고 계시네요';
+    } else if (gloomyCount > happyCount && gloomyCount > normalCount) {
+      overallMessage = '조금 힘든 한 달이었네요. 힘내세요!';
+    } else {
+      overallMessage = '안정적인 한 달을 보내고 계시네요';
+    }
 
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '이번 달 감정 요약',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 감정 카드들
+          Row(
             children: [
-              const Text(
-                '이번 달 감정 요약',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // 감정 카드들
-              Row(
-                children: [
-                  // 행복한 날 카드
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE6FAE6), // 연한 초록색
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+              // 행복한 날 카드
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE6FAE6),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
                       ),
-                      child: Column(
-                        children: [
-                          const Text('😊', style: TextStyle(fontSize: 32)),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '행복한 날',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${happyCount}일',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF4CAF50),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-
-                  // 평범한 날 카드
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F8F8), // 연한 회색
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
+                  child: Column(
+                    children: [
+                      const Text('😊', style: TextStyle(fontSize: 32)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '행복한 날',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
                       ),
-                      child: Column(
-                        children: [
-                          const Text('😐', style: TextStyle(fontSize: 32)),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '평범한 날',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${normalCount}일',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 4),
+                      Text(
+                        '$happyCount일',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF4CAF50),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-
-                  // 우울한 날 카드
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFE6E6), // 연한 빨간색
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 5,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          const Text('😢', style: TextStyle(fontSize: 32)),
-                          const SizedBox(height: 8),
-                          const Text(
-                            '우울한 날',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '${gloomyCount}일',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFFE57373),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // 결론 메시지
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.grey.withOpacity(0.3),
-                    width: 1,
+                    ],
                   ),
                 ),
-                child: Text(
-                  overallMessage,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+              ),
+              const SizedBox(width: 12),
+
+              // 평범한 날 카드
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F8F8),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Text('😐', style: TextStyle(fontSize: 32)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '평범한 날',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$normalCount일',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // 우울한 날 카드
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFE6E6),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 5,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      const Text('😢', style: TextStyle(fontSize: 32)),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '우울한 날',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$gloomyCount일',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFFE57373),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ],
           ),
-        );
-      },
+          const SizedBox(height: 20),
+
+          // 결론 메시지
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.grey.withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              overallMessage,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

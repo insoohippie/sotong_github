@@ -279,6 +279,12 @@ class _InputModalWidgetState extends State<InputModalWidget> {
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
         borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 6,
+          ),
+        ],
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -453,36 +459,42 @@ class _InputModalWidgetState extends State<InputModalWidget> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('총합:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              Text(
-                '${NumberFormat('#,###').format(total.toInt())}원',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF0062FF)),
-              ),
+              ParagraphText(text: '총합: ', fontWeight: FontWeight.bold),
+              ParagraphText(text: '${NumberFormat('#,###').format(total.toInt())}원',fontWeight: FontWeight.bold, color: AppColors.primary,),
             ],
           ),
           if (widget.title.contains('하루 소비 한도'))
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                '한달 소비 한도 금액: ${NumberFormat('#,###').format(total * 30)}원',
-                style: const TextStyle(fontSize: 14, color: Color(0xFF3B82F6)),
+              child: SubText(text: '한달 소비 한도 금액: ${NumberFormat('#,###').format(total * 30)}원',
+                fontWeight: FontWeight.bold, color: AppColors.primary,
+
               ),
             ),
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            // child: CustomButton(text: '완료', onPressed: handleComplete)
-            //
             child: ElevatedButton(
               onPressed: handleComplete,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF0062FF),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                minimumSize: const Size(double.infinity, 60),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-              child: ParagraphText(text: '완료',color: AppColors.whiteText, fontWeight: FontWeight.bold,),
+              child: const ParagraphText(
+                text: '완료',
+                color: AppColors.whiteText,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
+
         ],
       ),
     );

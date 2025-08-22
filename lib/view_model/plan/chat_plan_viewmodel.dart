@@ -288,7 +288,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.onboarding2;
           notifyListeners();
           await addBotMessageWithTyping(
-            '🔍 소통은 $_userName님의 재정 상황을 바탕으로,\n하루에 쓸 수 있는 금액과 목표 달성까지 걸리는 시간을 계산해드려요.\n\n계획만 세우는 게 아니라, 목표 달성까지 함께 가는 재정 파트너예요. 💙',
+            '🔍 소통은 $_userName님의 재정 상황을 바탕으로, 하루에 쓸 수 있는 금액과 목표 달성까지 걸리는 시간을 계산해드려요.\n\n계획만 세우는 게 아니라, 목표 달성까지 함께 가는 재정 파트너예요. 💙',
             delay: 500,
           );
           _buttonClicked = false;
@@ -303,7 +303,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.onboarding3;
           notifyListeners();
           await addBotMessageWithTyping(
-            '그럼 이제 $_userName님만의 목표를 향한 플랜을\n저와 함께 하나씩 만들어볼까요? 🚀\n\n현재 상황과 목표만 알려주시면,\n가장 현실적인 계획을 제안해드릴게요! 🤝',
+            '그럼 이제 $_userName님만의 목표를 향한 플랜을 저와 함께 하나씩 만들어볼까요? 🚀\n\n현재 상황과 목표만 알려주시면,\n가장 현실적인 계획을 제안해드릴게요! 🤝',
             delay: 500,
           );
           _buttonClicked = false;
@@ -347,7 +347,8 @@ class ChatPlanViewModel extends ChangeNotifier {
       case ChatStep.purpose:
         // "기타"를 선택한 경우
         if (response == '기타') {
-          await addBotMessageWithTyping('직접 목적을 입력해주세요!');
+          addMessage('제가 원하는 카드가 없어요!', MessageType.user);
+          await addBotMessageWithTyping('그럼 $userName님이 직접 플랜의 성격을 입력해주세요!');
           _currentStep = ChatStep.purposeCustom;
           notifyListeners();
         }
@@ -503,8 +504,8 @@ class ChatPlanViewModel extends ChangeNotifier {
     await addBotMessageWithTyping(
       '안녕하세요, $_userName님! 😊\n'
           '소통에 오신 걸 환영해요. 🎉\n'
-          '소통은 단순한 가계부가 아니라 당신만의 재정 파트너입니다.\n'
-          '하루 소비 계획부터 기록·피드백까지, 목표 달성을 함께 해드려요.',
+          '소통은 단순한 가계부가 아니라\n 당신만의 재정 파트너입니다.\n'
+          '하루 소비 계획부터 기록·피드백까지, \n목표 달성을 함께 해드려요.',
       delay: 500,
     );
   }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:sotong_local/component/theme/app_colors.dart';
 
 class PurposeSelectorWidget extends StatelessWidget {
   final List<String> options;
@@ -22,17 +22,6 @@ class PurposeSelectorWidget extends StatelessWidget {
     '기타': '💡',
   };
 
-  static const Map<String, Color> _backgroundColorMap = {
-    '여행자금': Color(0xFFE3F2FD),
-    '자취 준비': Color(0xFFFFF9C4),
-    '부모님 선물': Color(0xFFFFEBEE),
-    '결혼 준비': Color(0xFFEDE7F6),
-    '학자금': Color(0xFFE0F7FA),
-    '이직준비': Color(0xFFE0F2F1),
-    '긴급자금': Color(0xFFFFF3E0),
-    '기타': Color(0xFFF5F5F5),
-  };
-
   @override
   Widget build(BuildContext context) {
     return SizedBox(
@@ -45,8 +34,6 @@ class PurposeSelectorWidget extends StatelessWidget {
         itemBuilder: (context, index) {
           final purpose = options[index];
           final emoji = _emojiMap[purpose] ?? '💡';
-          final bgColor =
-              _backgroundColorMap[purpose] ?? const Color(0xFFE0E0E0);
 
           return GestureDetector(
             onTap: () => onSelect(purpose),
@@ -56,13 +43,13 @@ class PurposeSelectorWidget extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: bgColor,
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withOpacity(0.2), // ✅ 은은한 그림자
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
                       ),
                     ],
                   ),

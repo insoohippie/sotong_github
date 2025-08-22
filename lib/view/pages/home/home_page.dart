@@ -28,7 +28,10 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(() => context.read<HomeViewModel>().load());
+    Future.microtask(() {
+      context.read<HomeViewModel>().load();
+      context.read<CommunicationViewModel>().loadMonth(DateTime.now()); // ✅ 추가
+    });
   }
 
   DateTime _selectedDate = DateTime.now();
@@ -38,23 +41,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   String _getSpendingForDate(DateTime date) {
-    final communicationViewModel = context.read<CommunicationViewModel>();
-    final normalizedDate = DateTime(date.year, date.month, date.day);
-
-    try {
-      final entry = communicationViewModel.diaryEntries.firstWhere((entry) {
-        final entryNormalized = DateTime(
-          entry.date.year,
-          entry.date.month,
-          entry.date.day,
-        );
-        return entryNormalized.isAtSameMomentAs(normalizedDate);
-      });
-
-      return '${entry.spendingAmount.toStringAsFixed(0)}원';
-    } catch (e) {
-      return '0원';
-    }
+    final comm = context.read<CommunicationViewModel>();
+    final amount = comm.spendingFor(date);
+    return '${amount.toStringAsFixed(0)}원';
   }
 
   void _changeDate(int days) {
@@ -66,6 +55,9 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<HomeViewModel>();
+
+    final comm = context.watch<CommunicationViewModel>();
+    final entry = comm.firstEntryFor(_selectedDate);
 
     // 로딩/에러 처리
     if (vm.isLoading) {
@@ -186,20 +178,10 @@ class _HomePageState extends State<HomePage> {
                               currentRate: currentRate,
                               baseRate: baseRate,
                             ),
-                            SizedBox(height: AppSpacing.fieldSpacing),
-                            SmallRoundedButton(
-                              text: "플랜 수정하기",
-                              onPressed: () {
-                                Navigator.of(
-                                  context,
-                                  rootNavigator: true,
-                                ).pushNamed('/plan_chat');
-                              },
-                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.fieldSpacing),
                       RoundedInfoContainer(
                         backgroundColor: AppColors.greyBackground,
                         child: Column(
