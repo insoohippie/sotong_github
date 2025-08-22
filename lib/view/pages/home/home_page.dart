@@ -30,7 +30,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     Future.microtask(() {
       context.read<HomeViewModel>().load();
-      context.read<CommunicationViewModel>().loadMonth(DateTime.now()); // ✅ 추가
+      context.read<CommunicationViewModel>().loadMonth(DateTime.now()); 
     });
   }
 

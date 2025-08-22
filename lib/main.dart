@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/repository/communication_repository.dart';
-import 'package:sotong_local/view_model/home/home_viewmodel.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'component/theme/app_colors.dart';
 import 'firebase_options.dart';
@@ -25,6 +25,7 @@ import 'view_model/setting/setting_view_model.dart';
 import 'view_model/setting/alarm_view_model.dart';
 import 'view_model/notification/notification_view_model.dart';
 import 'view_model/communication/communication_view_model.dart';
+import 'view_model/home/home_viewmodel.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,7 +44,7 @@ class MyApp extends StatelessWidget {
         Provider<AuthDataSource>(create: (_) => AuthDataSource()),
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
 
-        // 2) Repositories (위 DataSource를 read 해서 생성)
+        // 2) Repositories
         Provider<AuthRepository>(
           create: (ctx) => AuthRepository(ctx.read<AuthDataSource>()),
         ),
@@ -53,9 +54,7 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthDataSource>(),
           ),
         ),
-        Provider<CommunicationRepository>(
-          create: (_) => CommunicationRepository(),
-        ),
+        // ✅ CommunicationRepository 제거 (해결 1 경로)
 
         // 3) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
@@ -80,10 +79,13 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<SettingViewModel>(create: (_) => SettingViewModel()),
         ChangeNotifierProvider<AlarmViewModel>(create: (_) => AlarmViewModel()),
         ChangeNotifierProvider<NotificationViewModel>(create: (_) => NotificationViewModel()),
+
+        // ✅ CommunicationViewModel을 Firebase 싱글톤으로 직접 주입
         ChangeNotifierProvider<CommunicationViewModel>(
-          create: (ctx) => CommunicationViewModel(
-            ctx.read<CommunicationRepository>(),
-          ),
+          create: (_) => CommunicationViewModel(
+            auth: FirebaseAuth.instance,
+            db: FirebaseFirestore.instance,
+          )..loadMonth(DateTime.now()), // 앱 시작 시 이번 달 구독
         ),
       ],
       child: MaterialApp(
