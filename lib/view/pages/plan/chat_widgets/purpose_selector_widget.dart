@@ -43,11 +43,11 @@ class PurposeSelectorWidget extends StatelessWidget {
                   width: 80,
                   height: 80,
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: AppColors.lightBlue,
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2), // ✅ 은은한 그림자
+                        color: Colors.black.withOpacity(0.2),
                         blurRadius: 6,
                         offset: const Offset(0, 3),
                       ),

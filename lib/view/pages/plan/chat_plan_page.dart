@@ -6,7 +6,7 @@ import '../../../view_model/services/saving_calculator.dart';
 import './chat_widgets/amount_guide_widget.dart';
 import './chat_widgets/chat_bottom_input_area.dart';
 import './chat_widgets/chat_message_widget.dart';
-import './chat_widgets/input_modal_widget.dart';
+import 'chat_widgets/input_modal/input_modal_widget.dart';
 import './chat_widgets/summary_section_widget.dart';
 import '../../../model/chat_message.dart';
 import '../../../model/entry.dart';
@@ -365,7 +365,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   isOpen: _showFixedCostModal,
                   onClose: () => setState(() => _showFixedCostModal = false),
                   title: '고정 소비 입력하기',
-                  placeholder: '고정 지출 항목',
+                  placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
                   onComplete: (items, total) async {
                     final vm = Provider.of<ChatPlanViewModel>(
@@ -397,8 +397,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   isOpen: _showDailySpendingModal,
                   onClose: () =>
                       setState(() => _showDailySpendingModal = false),
-                  title: '하루 소비 한도 금액',
-                  placeholder: '소비 항목',
+                  title: '하루 사용 금액',
+                  placeholder: '하루 소비 항목',
                   type: EntryType.daily,
                   onComplete: (items, total) async {
                     final vm = Provider.of<ChatPlanViewModel>(
