@@ -1,6 +1,9 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:sotong_local/component/buttons/small_rounded_button.dart';
 
+import '../buttons/custom_button.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
 class WheelDateSelector extends StatelessWidget {
@@ -51,9 +54,10 @@ class WheelDateSelector extends StatelessWidget {
       context: context,
       builder: (_) {
         return SizedBox(
-          height: 250,
+          height: 300,
           child: Column(
             children: [
+              const SizedBox(height: 40),
               Expanded(
                 child: CupertinoDatePicker(
                   mode: CupertinoDatePickerMode.date,
@@ -65,13 +69,19 @@ class WheelDateSelector extends StatelessWidget {
                   },
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  onDateSelected(tempPickedDate);
-                  Navigator.pop(context);
-                },
-                child: const Text('확인'),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0), // ✅ 양옆 패딩 추가
+                child: CustomButton(
+                  onPressed: () {
+                    onDateSelected(tempPickedDate);
+                    Navigator.pop(context);
+                  },
+                  text: '확인',
+                  height: 40,
+                ),
               ),
+              const SizedBox(height: 60),
             ],
           ),
         );

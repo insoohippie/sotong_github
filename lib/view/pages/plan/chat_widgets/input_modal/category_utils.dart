@@ -28,7 +28,7 @@ class CategoryPill extends StatelessWidget {
 
     final bool isPreset = matched.name.isNotEmpty;
     final IconData iconData = hasValue
-        ? (isPreset ? matched.icon : Icons.add_circle_outline_rounded)
+        ? (isPreset ? matched.icon : Icons.push_pin_rounded)
         : Icons.add_circle_outline_rounded;
 
     return InkWell(
@@ -168,30 +168,51 @@ Future<void> openCategorySheet(
 
                 const SizedBox(height: 16),
 
-                SizedBox(
-                  width: double.infinity,
-                  child: CustomTextField(
-                    controller: tempController!,
-                    hintText: '다른 카테고리 입력',
-                    onChanged: (v) => setModalState(() => temp = v),
-                    height: 50,
-                  ),
+                Row(
+                  children: [
+                    // 입력란
+                    Expanded(
+                      child: SizedBox(
+                        height: 50,
+                        child: CustomTextField(
+                          controller: tempController!,
+                          hintText: '다른 카테고리 입력',
+                          onChanged: (v) => setModalState(() => temp = v),
+                          height: 50,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    // 확인 버튼
+                    SizedBox(
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final result = temp.trim();
+                          controller.text = result;
+                          onSelected(result);
+                          Navigator.pop(ctx);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                        child: const Text(
+                          '확인',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                const SizedBox(height: 40),
 
-                const SizedBox(height: 16),
-
-                CustomDualButton(
-                  leftLabel: '취소',
-                  rightLabel: '확인',
-                  onLeftPressed: () => Navigator.pop(ctx),
-                  onRightPressed: () {
-                    final result = temp.trim();
-                    controller.text = result;
-                    onSelected(result);
-                    Navigator.pop(ctx);
-                  },
-                  height: 50,
-                ),
               ],
             ),
           );
