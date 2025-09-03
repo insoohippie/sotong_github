@@ -10,6 +10,7 @@ class CustomDualButton extends StatelessWidget {
   final VoidCallback? onRightPressed;
   final bool leftEnabled;
   final bool rightEnabled;
+  final double height;
 
   const CustomDualButton({
     super.key,
@@ -19,6 +20,7 @@ class CustomDualButton extends StatelessWidget {
     required this.onRightPressed,
     this.leftEnabled = true,
     this.rightEnabled = true,
+    this.height = 60,
   });
 
   @override
@@ -28,7 +30,7 @@ class CustomDualButton extends StatelessWidget {
         Expanded(
           child: Container(
             margin: const EdgeInsets.only(right: 4),
-            height: 60,
+            height: height,
             child: ElevatedButton(
               onPressed: leftEnabled ? onLeftPressed : null,
               style: ElevatedButton.styleFrom(
@@ -49,7 +51,7 @@ class CustomDualButton extends StatelessWidget {
         Expanded(
           child: Container(
             margin: const EdgeInsets.only(left: 4),
-            height: 60,
+            height: height,
             child: ElevatedButton(
               onPressed: rightEnabled ? onRightPressed : null,
               style: ElevatedButton.styleFrom(

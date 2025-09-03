@@ -335,52 +335,52 @@ class ChatPlanViewModel extends ChangeNotifier {
           addMessage('제 플랜 이름은 "$response"이에요!', MessageType.user);
 
           await addBotMessageWithTyping(
-            '좋아요! 이번 플랜의 성격과 가장 가까운 카드를 골라주세요.\n\n이 정보는 맞춤 팁과 통계 분석에 사용돼요 📊',
+            '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n원하시는 금액을 입력해주세요!''',
           );
-          _currentStep = ChatStep.purpose; // nextStep() 대신 직접 설정
+          _currentStep = ChatStep.targetAmount; // nextStep() 대신 직접 설정
           notifyListeners();
         } else {
           await addBotMessageWithTyping('플랜 이름을 2글자 이상 입력해주세요.');
         }
         break;
 
-      case ChatStep.purpose:
-        // "기타"를 선택한 경우
-        if (response == '기타') {
-          addMessage('제가 원하는 카드가 없어요!', MessageType.user);
-          await addBotMessageWithTyping('그럼 $userName님이 직접 플랜의 성격을 입력해주세요!');
-          _currentStep = ChatStep.purposeCustom;
-          notifyListeners();
-        }
-        // purposeOptions에 있는 값만 허용 (기타 제외)
-        else if (purposeOptions.contains(response)) {
-          updatePlanInfo(purpose: response);
-          testPrint();
-          addMessage('"$response"을/를 위해 플랜을 세우고 싶어요!', MessageType.user);
-          notifyListeners();
-          await addBotMessageWithTyping(_getTargetAmountMessage(response));
-          _currentStep = ChatStep.targetAmount;
-          notifyListeners();
-        } else {
-          await addBotMessageWithTyping('아래 카드 중 하나를 선택해주세요.');
-        }
-        break;
+      // case ChatStep.purpose:
+      //   // "기타"를 선택한 경우
+      //   if (response == '기타') {
+      //     addMessage('제가 원하는 카드가 없어요!', MessageType.user);
+      //     await addBotMessageWithTyping('그럼 $userName님이 직접 플랜의 성격을 입력해주세요!');
+      //     _currentStep = ChatStep.purposeCustom;
+      //     notifyListeners();
+      //   }
+      //   // purposeOptions에 있는 값만 허용 (기타 제외)
+      //   else if (purposeOptions.contains(response)) {
+      //     updatePlanInfo(purpose: response);
+      //     testPrint();
+      //     addMessage('"$response"을/를 위해 플랜을 세우고 싶어요!', MessageType.user);
+      //     notifyListeners();
+      //     await addBotMessageWithTyping(_getTargetAmountMessage(response));
+      //     _currentStep = ChatStep.targetAmount;
+      //     notifyListeners();
+      //   } else {
+      //     await addBotMessageWithTyping('아래 카드 중 하나를 선택해주세요.');
+      //   }
+      //   break;
+      //
+      // case ChatStep.purposeCustom:
+      //   if (response.isNotEmpty && response.length >= 2) {
+      //     updatePlanInfo(purpose: response);
+      //     testPrint();
+      //     addMessage('"$response"을/를 위해 플랜을 세우고 싶어요!', MessageType.user);
+      //     notifyListeners();
+      //     await addBotMessageWithTyping(_getTargetAmountMessage('기타'));
+      //     _currentStep = ChatStep.targetAmount;
+      //     notifyListeners();
+      //   } else {
+      //     await addBotMessageWithTyping('목적을 2글자 이상 입력해주세요.');
+      //   }
+      //   break;
 
-      case ChatStep.purposeCustom:
-        if (response.isNotEmpty && response.length >= 2) {
-          updatePlanInfo(purpose: response);
-          testPrint();
-          addMessage('"$response"을/를 위해 플랜을 세우고 싶어요!', MessageType.user);
-          notifyListeners();
-          await addBotMessageWithTyping(_getTargetAmountMessage('기타'));
-          _currentStep = ChatStep.targetAmount;
-          notifyListeners();
-        } else {
-          await addBotMessageWithTyping('목적을 2글자 이상 입력해주세요.');
-        }
-        break;
-
-      case ChatStep.targetAmount:
+      case ChatStep.targetAmount: {
         final amountStr = response.replaceAll(',', '').trim();
         final amount = double.tryParse(amountStr);
         if (amount != null && amount > 0) {
@@ -390,39 +390,88 @@ class ChatPlanViewModel extends ChangeNotifier {
           updatePlanInfo(targetAmount: amount);
           testPrint();
           notifyListeners();
+
           await addBotMessageWithTyping(
-            '좋아요! 기존의 저축 금액이 있다면, 입력해주세요.\n빚이 있다면 -를 붙여주세요',
+            '보유하고 계신 자산이 있으신가요? 😊',
           );
-          _currentStep = ChatStep.currentAsset;
+          _currentStep = ChatStep.currentAssetAsk;   // ← 여기!
           notifyListeners();
         } else {
           await addBotMessageWithTyping('올바른 목표 금액을 입력해주세요. (예: 1000000)');
         }
         break;
+      }
 
-      case ChatStep.currentAsset:
-        final assetStr = response.replaceAll(',', '').trim();
-        final asset = double.tryParse(assetStr);
-        if (asset != null) {
-          final formatted = SavingPlanCalculator.formatAmount(asset.abs());
-          if (asset >= 0) {
-            addMessage('현재 보유 자산은 ${formatted}원이에요!', MessageType.user);
-          } else {
-            addMessage('현재 빚은 ${formatted}원이에요!', MessageType.user);
-          }
+      case ChatStep.currentAssetAsk: {
+        final lower = response.trim().toLowerCase();
 
-          updatePlanInfo(currentAsset: asset);
+        if (lower == '없어요' || lower == '없음' || lower == '없다' || lower == 'no') {
+          addMessage('보유 자산 없이 진행할게요!', MessageType.user);
+          updatePlanInfo(currentAsset: 0);
           testPrint();
           notifyListeners();
+
+          await addBotMessageWithTyping('좋습니다! 이제 월 수입을 알려주세요. 💰');
+          _currentStep = ChatStep.monthlyIncome;
+          notifyListeners();
+        } else if (lower == '있어요' || lower == '있음' || lower == '있다' || lower == 'yes') {
+          addMessage('보유 자산이 있어요!', MessageType.user);
+          notifyListeners();
+
           await addBotMessageWithTyping(
-            '그렇군요! 이제 ${userName}님의 월 수입이 얼마인지 알려주세요! 💰',
+            '보유하고 계신 자산 금액을 입력해주세요.\n'
+                '빚이 있다면 마이너스(-) 를 포함해 입력하셔도 됩니다. (예: -5000000)',
           );
+          _currentStep = ChatStep.currentAsset; // 금액 입력 단계로
+          notifyListeners();
+        } else {
+          await addBotMessageWithTyping(
+            '“있어요” 또는 “없어요”로 답해주세요 🙂',
+          );
+        }
+        break;
+      }
+
+      case ChatStep.currentAsset: {
+        // ✅ "없어요" 처리
+        final lower = userMsg.toLowerCase();
+        final isNone = (lower == '없어요' || lower == '없음' || lower == '없다');
+
+        if (isNone) {
+          addMessage('보유 자산 없이 진행할게요!', MessageType.user);
+          updatePlanInfo(currentAsset: 0);
+          testPrint();
+          notifyListeners();
+
+          await addBotMessageWithTyping('좋습니다! 이제 월 수입을 알려주세요. 💰');
+          _currentStep = ChatStep.monthlyIncome;
+          notifyListeners();
+          break;
+        }
+
+        // ✅ 숫자(양수/0/음수) 파싱
+        final amountStr = response.replaceAll(',', '').trim();
+        final amount = double.tryParse(amountStr);
+        if (amount != null) {
+          final formatted = SavingPlanCalculator.formatAmount(amount.abs()) *
+              (amount.isNegative ? -1 : 1);
+          addMessage('보유 자산은 ${amount.isNegative ? "-" : ""}${SavingPlanCalculator.formatAmount(amount.abs())}원이에요!', MessageType.user);
+
+          updatePlanInfo(currentAsset: amount);
+          testPrint();
+          notifyListeners();
+
+          await addBotMessageWithTyping('확인했어요! 이제 월 수입을 알려주세요. 💰');
           _currentStep = ChatStep.monthlyIncome;
           notifyListeners();
         } else {
-          await addBotMessageWithTyping('올바른 금액을 입력해주세요. (예: 1000000 또는 -500000)');
+          await addBotMessageWithTyping(
+            '숫자로 입력해 주세요. (예: 5000000 / -3000000)\n'
+                '또는 "없어요"라고 입력하셔도 됩니다.',
+          );
         }
         break;
+      }
 
       case ChatStep.monthlyIncome:
         // 월 수입은 모달을 통해 입력받으므로 여기서는 처리하지 않음
@@ -558,33 +607,33 @@ class ChatPlanViewModel extends ChangeNotifier {
     }
   }
 
-  String _getTargetAmountMessage(String purpose) {
-    switch (purpose) {
-      case '여행자금':
-        return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 여행자금의 경우, 금액별 예시는 다음과 같아요.\n\n✈ 여행자금\n100만 → 🇰🇷 국내 여행 2~3회\n500만 → 🇪🇺 유럽 여행 2주\n1000만 → 🌏 워킹홀리데이 준비\n3000만 → 🌴 해외 1년살이\n\n원하시는 금액을 입력해주세요!''';
-
-      case '자취 준비':
-        return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 자취준비의 경우, 금액별 예시는 다음과 같아요.\n\n🏠 자취준비\n100만 → 🪑 가전·가구 일부 구입\n500만 → 🛋 원룸 보증금 + 생활 필수품\n1000만 → 🏢 오피스텔 보증금 + 가전 완비\n3000만 → 🏡 전세 자취방 입주\n\n원하시는 금액을 입력해주세요!''';
-
-      case '부모님 선물':
-        return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 부모님 선물의 경우, 금액별 예시는 다음과 같아요.\n\n🎁 부모님 선물\n100만 → 👔 명품 지갑·의류\n500만 → ⌚ 명품 시계\n1000만 → ✈ 해외 여행 경비\n3000만 → 🚗 차량 구입\n\n원하시는 금액을 입력해주세요!''';
-
-      case '결혼 준비':
-        return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 결혼준비의 경우, 금액별 예시는 다음과 같아요.\n\n💒 결혼준비\n100만 → 💍 예물 일부 준비\n500만 → 👗 웨딩 촬영 & 예복 대여\n1000만 → 🏨 예식장 계약금\n3000만 → 🏠 신혼집 전세금\n\n원하시는 금액을 입력해주세요!''';
-
-      case '학자금':
-        return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 학자금의 경우, 금액별 예시는 다음과 같아요.\n\n🎓 학자금\n100만 → 📚 한 학기 교재·재료비\n500만 → 🏫 1년 등록금 일부\n1000만 → 🏫 1년 등록금 + 생활비\n3000만 → 🎓 3~4년 학비 전액(학교·전형에 따라 상이)\n\n원하시는 금액을 입력해주세요!''';
-
-      case '이직준비':
-        return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 이직준비의 경우, 금액별 예시는 다음과 같아요.\n\n💼 이직준비\n100만 → 📖 자기계발(강의, 책)\n500만 → 💻 장비·교육비 투자\n1000만 → 🛫 단기 해외 연수\n3000만 → 🏢 창업/프리랜스 초기 자금\n\n원하시는 금액을 입력해주세요!''';
-
-      case '긴급자금':
-        return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 긴급자금의 경우, 금액별 예시는 다음과 같아요.\n\n🚨 긴급자금\n100만 → 🏥 간단한 의료비 대비\n500만 → 🛠 차량·가전 수리비 대비\n1000만 → 🏠 3~4개월 생활비\n3000만 → 📦 1년 생활비 + 비상금\n\n원하시는 금액을 입력해주세요!''';
-
-      default:
-        return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 기타 목적의 경우, 금액별 예시는 다음과 같아요.\n\n💡 기타\n100만 → 🎉 취미·소소한 프로젝트\n500만 → 🛠 개인 스킬업·자격증 과정\n1000만 → 🏖 장기 여행 또는 교육 과정\n3000만 → 🌏 해외 장기 체류·사업 준비\n\n원하시는 금액을 입력해주세요!''';
-    }
-  }
+  // String _getTargetAmountMessage(String purpose) {
+  //   switch (purpose) {
+  //     case '여행자금':
+  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 여행자금의 경우, 금액별 예시는 다음과 같아요.\n\n✈ 여행자금\n100만 → 🇰🇷 국내 여행 2~3회\n500만 → 🇪🇺 유럽 여행 2주\n1000만 → 🌏 워킹홀리데이 준비\n3000만 → 🌴 해외 1년살이\n\n원하시는 금액을 입력해주세요!''';
+  //
+  //     case '자취 준비':
+  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 자취준비의 경우, 금액별 예시는 다음과 같아요.\n\n🏠 자취준비\n100만 → 🪑 가전·가구 일부 구입\n500만 → 🛋 원룸 보증금 + 생활 필수품\n1000만 → 🏢 오피스텔 보증금 + 가전 완비\n3000만 → 🏡 전세 자취방 입주\n\n원하시는 금액을 입력해주세요!''';
+  //
+  //     case '부모님 선물':
+  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 부모님 선물의 경우, 금액별 예시는 다음과 같아요.\n\n🎁 부모님 선물\n100만 → 👔 명품 지갑·의류\n500만 → ⌚ 명품 시계\n1000만 → ✈ 해외 여행 경비\n3000만 → 🚗 차량 구입\n\n원하시는 금액을 입력해주세요!''';
+  //
+  //     case '결혼 준비':
+  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 결혼준비의 경우, 금액별 예시는 다음과 같아요.\n\n💒 결혼준비\n100만 → 💍 예물 일부 준비\n500만 → 👗 웨딩 촬영 & 예복 대여\n1000만 → 🏨 예식장 계약금\n3000만 → 🏠 신혼집 전세금\n\n원하시는 금액을 입력해주세요!''';
+  //
+  //     case '학자금':
+  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 학자금의 경우, 금액별 예시는 다음과 같아요.\n\n🎓 학자금\n100만 → 📚 한 학기 교재·재료비\n500만 → 🏫 1년 등록금 일부\n1000만 → 🏫 1년 등록금 + 생활비\n3000만 → 🎓 3~4년 학비 전액(학교·전형에 따라 상이)\n\n원하시는 금액을 입력해주세요!''';
+  //
+  //     case '이직준비':
+  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 이직준비의 경우, 금액별 예시는 다음과 같아요.\n\n💼 이직준비\n100만 → 📖 자기계발(강의, 책)\n500만 → 💻 장비·교육비 투자\n1000만 → 🛫 단기 해외 연수\n3000만 → 🏢 창업/프리랜스 초기 자금\n\n원하시는 금액을 입력해주세요!''';
+  //
+  //     case '긴급자금':
+  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 긴급자금의 경우, 금액별 예시는 다음과 같아요.\n\n🚨 긴급자금\n100만 → 🏥 간단한 의료비 대비\n500만 → 🛠 차량·가전 수리비 대비\n1000만 → 🏠 3~4개월 생활비\n3000만 → 📦 1년 생활비 + 비상금\n\n원하시는 금액을 입력해주세요!''';
+  //
+  //     default:
+  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 기타 목적의 경우, 금액별 예시는 다음과 같아요.\n\n💡 기타\n100만 → 🎉 취미·소소한 프로젝트\n500만 → 🛠 개인 스킬업·자격증 과정\n1000만 → 🏖 장기 여행 또는 교육 과정\n3000만 → 🌏 해외 장기 체류·사업 준비\n\n원하시는 금액을 입력해주세요!''';
+  //   }
+  // }
 
   void testPrint() {
     print('planInfo: $planInfo');

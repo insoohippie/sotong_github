@@ -141,7 +141,7 @@ class _SignUpPageState extends State<SignUpPage> {
         SizedBox(height: AppSpacing.fieldSpacing),
         CustomTextField(
           controller: vm.passwordController,
-          hintText: '8자리 이상의 숫자, 특수문자, 대문자',
+          hintText: '8자리 이상 숫자, 특수문자, 대문자',
           obscureText: !vm.isPasswordVisible,
           onChanged: (_) => vm.notifyListeners(),
           suffix: IconButton(
@@ -181,7 +181,10 @@ class _SignUpPageState extends State<SignUpPage> {
         WheelDateSelector(
           selectedDate: vm.birthdayController.text,
           hintText: '생년월일을 선택하세요',
-          onDateSelected: vm.setBirthdayFromCupertino,
+          onDateSelected: (value) {
+            FocusScope.of(context).unfocus();
+            vm.setBirthdayFromCupertino(value);
+          },
         ),
         SizedBox(height: AppSpacing.fieldSpacing),
         ParagraphText(text: '성별'),

@@ -8,7 +8,7 @@ import '../../../component/containers/rounded_info_container.dart';
 import '../../../component/texts/section_title.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
-import './chat_widgets/input_modal_widget.dart';
+import 'chat_widgets/input_modal/input_modal_widget.dart';
 import '../../../model/entry.dart';
 import '../../../model/plan_info.dart';
 import '../../../model/ref_data.dart';

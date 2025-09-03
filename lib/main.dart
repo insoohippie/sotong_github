@@ -3,8 +3,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:sotong_local/repository/communication_repository.dart';
 
 import 'component/theme/app_colors.dart';
+import 'data_source/communication_data_source.dart';
 import 'firebase_options.dart';
 import 'route.dart';
 
@@ -43,6 +45,7 @@ class MyApp extends StatelessWidget {
         // 1) DataSources
         Provider<AuthDataSource>(create: (_) => AuthDataSource()),
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
+        Provider<CommunicationDataSource>(create: (_) => CommunicationDataSource()),
 
         // 2) Repositories
         Provider<AuthRepository>(
@@ -54,7 +57,12 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthDataSource>(),
           ),
         ),
-        // ✅ CommunicationRepository 제거 (해결 1 경로)
+        Provider<CommunicationRepository>(
+          create: (ctx) => CommunicationRepository(
+            ctx.read<CommunicationDataSource>(),
+            ctx.read<AuthDataSource>(),
+          ),
+        ),
 
         // 3) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
@@ -75,18 +83,16 @@ class MyApp extends StatelessWidget {
             ctx.read<PlanRepository>(),
           ),
         ),
+        ChangeNotifierProvider<CommunicationViewModel>(
+          create: (ctx) => CommunicationViewModel(
+            ctx.read<CommunicationRepository>(),
+          )..loadMonth(DateTime.now()),
+        ),
         ChangeNotifierProvider<RecordViewModel>(create: (_) => RecordViewModel()),
         ChangeNotifierProvider<SettingViewModel>(create: (_) => SettingViewModel()),
         ChangeNotifierProvider<AlarmViewModel>(create: (_) => AlarmViewModel()),
         ChangeNotifierProvider<NotificationViewModel>(create: (_) => NotificationViewModel()),
 
-        // ✅ CommunicationViewModel을 Firebase 싱글톤으로 직접 주입
-        ChangeNotifierProvider<CommunicationViewModel>(
-          create: (_) => CommunicationViewModel(
-            auth: FirebaseAuth.instance,
-            db: FirebaseFirestore.instance,
-          )..loadMonth(DateTime.now()), // 앱 시작 시 이번 달 구독
-        ),
       ],
       child: MaterialApp(
         title: 'Sotong App',
@@ -98,7 +104,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/login',
+        initialRoute: '/logo_splash',
         routes: appRoutes,
       ),
     );

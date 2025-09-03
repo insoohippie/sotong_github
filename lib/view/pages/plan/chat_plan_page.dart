@@ -6,7 +6,7 @@ import '../../../view_model/services/saving_calculator.dart';
 import './chat_widgets/amount_guide_widget.dart';
 import './chat_widgets/chat_bottom_input_area.dart';
 import './chat_widgets/chat_message_widget.dart';
-import './chat_widgets/input_modal_widget.dart';
+import 'chat_widgets/input_modal/input_modal_widget.dart';
 import './chat_widgets/summary_section_widget.dart';
 import '../../../model/chat_message.dart';
 import '../../../model/entry.dart';
@@ -100,8 +100,9 @@ class _ChatPlanPageState extends State<ChatPlanPage>
   bool _isChatInputEnabled(ChatStep step) {
     return step == ChatStep.planName ||
         step == ChatStep.targetAmount ||
-        step == ChatStep.currentAsset ||
-        step == ChatStep.purposeCustom;
+    step == ChatStep.currentAsset
+    // || step == ChatStep.purposeCustom
+    ;
   }
 
   @override
@@ -113,10 +114,11 @@ class _ChatPlanPageState extends State<ChatPlanPage>
         ChatStep.onboarding3,
         ChatStep.greeting,
         ChatStep.planName,
-        ChatStep.purpose,
-        ChatStep.purposeCustom,
-        ChatStep.targetAmount,
+        // ChatStep.purpose,
+        // ChatStep.purposeCustom,
+        ChatStep.currentAssetAsk,
         ChatStep.currentAsset,
+        ChatStep.targetAmount,
         ChatStep.monthlyIncome,
         ChatStep.monthlyFixedCost,
         ChatStep.dailySpending,
@@ -193,6 +195,9 @@ class _ChatPlanPageState extends State<ChatPlanPage>
               ? lastBot.id
               : null;
 
+          final step = viewModel.currentStep;
+          final raw  = _inputController.text;
+
           return Stack(
             children: [
               Column(
@@ -252,25 +257,20 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                           if (viewModel.isTyping) const TypingIndicatorWidget(),
 
-                          if (_inputController.text.isNotEmpty &&
-                              double.tryParse(
-                                _unformatNumber(_inputController.text),
-                              ) !=
-                                  null &&
-                              ((viewModel.currentStep ==
-                                  ChatStep.targetAmount &&
-                                  double.parse(
-                                    _unformatNumber(_inputController.text),
-                                  ) >
-                                      0)))
+                          if (raw.isNotEmpty &&
+                              double.tryParse(_unformatNumber(raw)) != null &&
+                              (
+                                  // 목표금액: 양수만
+                                  (step == ChatStep.targetAmount &&
+                                      double.parse(_unformatNumber(raw)) > 0)
+                                      ||
+                                      // 보유자산: 음수/0/양수 모두 허용
+                                      (step == ChatStep.currentAsset)
+                              )
+                          )
                             AmountGuideWidget(
-                              amount: double.parse(
-                                _unformatNumber(_inputController.text),
-                              ),
-                              type: viewModel.currentStep ==
-                                  ChatStep.targetAmount
-                                  ? '목표금액'
-                                  : '보유금액',
+                              amount: double.parse(_unformatNumber(raw)),
+                              type: step == ChatStep.targetAmount ? '목표금액' : '보유금액',
                             ),
 
                           // summary는 ChatMessageWidget 내부에서 MessageType.summary로 렌더하도록 했으면 여기 주석 유지
@@ -302,21 +302,30 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       inputController: _inputController,
                       isFormatting: _isFormatting,
                       onInputChanged: (value) {
-                        if (viewModel.currentStep == ChatStep.targetAmount) {
+                        final step = viewModel.currentStep;
+
+                        if (step == ChatStep.currentAsset && value == '-') {
+                          setState(() {}); // UI만 갱신
+                          return;
+                        }
+
+                        // targetAmount / currentAsset만 천단위 포맷
+                        if (step == ChatStep.targetAmount || step == ChatStep.currentAsset) {
                           if (_isFormatting) return;
-                          final unformatted = _unformatNumber(value);
-                          final formatted = _formatNumber(unformatted);
+
+                          final unformatted = _unformatNumber(value);  // 쉼표만 제거 (마이너스는 유지)
+                          final formatted   = _formatNumber(unformatted);
+
                           if (value != formatted) {
                             _isFormatting = true;
                             _inputController.value = TextEditingValue(
                               text: formatted,
-                              selection: TextSelection.collapsed(
-                                offset: formatted.length,
-                              ),
+                              selection: TextSelection.collapsed(offset: formatted.length),
                             );
                             _isFormatting = false;
                           }
                         }
+
                         setState(() {});
                       },
                       onSubmit: _handleSubmit,
@@ -367,7 +376,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   isOpen: _showFixedCostModal,
                   onClose: () => setState(() => _showFixedCostModal = false),
                   title: '고정 소비 입력하기',
-                  placeholder: '고정 지출 항목',
+                  placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
                   onComplete: (items, total) async {
                     final vm = Provider.of<ChatPlanViewModel>(
@@ -399,8 +408,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   isOpen: _showDailySpendingModal,
                   onClose: () =>
                       setState(() => _showDailySpendingModal = false),
-                  title: '하루 소비 한도 금액',
-                  placeholder: '소비 항목',
+                  title: '하루 사용 금액',
+                  placeholder: '하루 소비 항목',
                   type: EntryType.daily,
                   onComplete: (items, total) async {
                     final vm = Provider.of<ChatPlanViewModel>(
