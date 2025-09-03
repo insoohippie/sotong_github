@@ -165,7 +165,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
+                    color: Colors.black.withOpacity(0.15),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -191,7 +191,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1), // 은은한 그림자
+                      color: Colors.black.withOpacity(0.2), // 은은한 그림자
                       blurRadius: 6,
                       offset: const Offset(0, 3),
                     ),

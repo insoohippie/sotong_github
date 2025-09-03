@@ -1,0 +1,247 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../component/appbars/custom_app_bar.dart';
+import '../../../component/buttons/custom_button.dart';
+import '../../../component/containers/rounded_info_container.dart';
+import '../../../component/texts/multi_color_text.dart';
+import '../../../component/theme/app_colors.dart';
+import '../../../component/theme/app_spacing.dart';
+import '../../../component/theme/app_text_styles.dart';
+
+import '../../../view_model/plan/chat_plan_viewmodel.dart';
+import '../../../view_model/services/saving_calculator.dart';
+import 'chat_widgets/plan_edit_back_button.dart'; // 금액 포맷용
+
+class PlanSuccessPage extends StatefulWidget {
+  const PlanSuccessPage({super.key});
+
+  @override
+  State<PlanSuccessPage> createState() => _PlanSuccessPageState();
+}
+
+class _PlanSuccessPageState extends State<PlanSuccessPage> {
+  bool _started = false;
+  bool _savingDone = false;
+  bool _saveOk = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_runSave);
+  }
+
+  Future<void> _runSave() async {
+    if (_started) return;
+    _started = true;
+
+    final vm = context.read<ChatPlanViewModel>();
+    final ok = await vm.savePlan();
+
+    if (!mounted) return;
+    setState(() {
+      _savingDone = true;
+      _saveOk = ok;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vm = context.watch<ChatPlanViewModel>();
+    final isLoading = vm.isSaving || !_savingDone;
+
+    // 로딩 중
+    if (isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Column(
+            children: [
+              CustomAppBar(title: '', onBack: () => Navigator.pop(context)),
+              const Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('플랜을 저장하는 중입니다...'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 저장 실패
+    if (!_saveOk) {
+      return Scaffold(
+        backgroundColor: Colors.white,
+        body: SafeArea(
+          child: Column(
+            children: [
+              PlanEditBackAppBar(),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding,
+                  ),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.error_outline, size: 56, color: Colors.red),
+                        const SizedBox(height: 12),
+                        const Text(
+                          '플랜 저장에 실패했어요.\n잠시 후 다시 시도해주세요.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 20),
+                        CustomButton(
+                          text: '다시 시도',
+                          onPressed: _runSave,
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/home_tab_navigator',
+                                  (route) => false,
+                            );
+                          },
+                          child: const Text('홈으로 이동'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // 저장 성공 → VM 데이터로 화면 구성
+    final userName = vm.userName.isNotEmpty ? vm.userName : '사용자';
+
+    final startDate = vm.planInfo.startDate ?? DateTime.now();
+    final calc = vm.calculationResult;
+    final goalDate = calc?.goalDateTime ?? startDate;
+
+    final dailyLimit = vm.planInfo.dailyConsumptionSum ?? 0;
+    final targetAmount = vm.planInfo.targetAmount ?? 0;
+
+    // 텍스트 파트 구성
+    final List<TextPart> messageHeaderParts = [
+      TextPart(userName, AppColors.primary, bold: true),
+      TextPart('님을 위한\n플랜이 생성되었어요! 🎉', AppColors.text),
+    ];
+
+    final List<TextPart> messageParagraphParts1 = [
+      TextPart('${startDate.year}년 ', AppColors.text),
+      TextPart('${startDate.month}월 ${startDate.day}일', AppColors.primary),
+      TextPart('부터\n${goalDate.year}년 ', AppColors.text),
+      TextPart('${goalDate.month}월 ${goalDate.day}일', AppColors.primary),
+      TextPart('까지\n\n', AppColors.text),
+      TextPart('하루 소비한도 금액은\n', AppColors.text, bold: true),
+      TextPart(
+        '${SavingPlanCalculator.formatAmount(dailyLimit)}원',
+        AppColors.primary,
+        bold: true,
+      ),
+      TextPart('입니다.', AppColors.text, bold: true),
+    ];
+
+    final List<TextPart> messageParagraphParts2 = [
+      TextPart(
+        '${goalDate.year}년 ${goalDate.month}월 ${goalDate.day}일에\n',
+        AppColors.text,
+      ),
+      TextPart(
+        '${SavingPlanCalculator.formatAmount(targetAmount)}원',
+        AppColors.primary,
+      ),
+      TextPart('이 모여요!', AppColors.text),
+    ];
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            CustomAppBar(title: '', onBack: () => Navigator.pop(context)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    MultiColorText(
+                      baseStyle: AppTextStyles.header,
+                      parts: messageHeaderParts,
+                    ),
+                    const SizedBox(height: 24),
+                    RoundedInfoContainer(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: MultiColorText(
+                              baseStyle: AppTextStyles.paragraph,
+                              parts: messageParagraphParts1,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.account_balance_wallet_outlined,
+                            size: 40,
+                            color: AppColors.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    RoundedInfoContainer(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: MultiColorText(
+                              baseStyle: AppTextStyles.paragraph,
+                              parts: messageParagraphParts2,
+                            ),
+                          ),
+                          const Icon(
+                            Icons.savings_outlined,
+                            size: 40,
+                            color: AppColors.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            CustomButton(
+              text: '다음',
+              onPressed: () {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/home_tab_navigator',
+                      (route) => false,
+                );
+              },
+            ),
+            const SizedBox(height: AppSpacing.bottomSpacing),
+          ],
+        ),
+      ),
+    );
+  }
+}
