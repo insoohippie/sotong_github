@@ -6,6 +6,7 @@
 
 class SavingCalculationResult {
   final double monthlySaving; // = fixedIncomeAmount, Info&Ref
+  final double monthlyNetSaving;
   final double dailySaving; // Ref
   final double savingRatio; // Info
   final double dailyNetSaving; // Ref
@@ -18,6 +19,7 @@ class SavingCalculationResult {
 
   SavingCalculationResult({
     this.monthlySaving = 0,
+    this.monthlyNetSaving = 0,
     this.dailySaving = 0,
     this.savingRatio = 0,
     this.dailyNetSaving = 0,
@@ -33,6 +35,7 @@ class SavingCalculationResult {
     return '''
     SavingCalculationResult(
       monthlySaving: ${monthlySaving.toStringAsFixed(2)}원,
+      monthlyNetSaving: ${monthlyNetSaving.toStringAsFixed(2)}원,
       dailySaving: ${dailySaving.toStringAsFixed(2)}원,
       savingRatio: ${(savingRatio * 100).toStringAsFixed(2)}%,
       dailyNetSaving: ${dailyNetSaving.toStringAsFixed(2)}원,

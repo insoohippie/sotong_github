@@ -193,10 +193,12 @@ class ChatBottomInputArea extends StatelessWidget {
                         ? '플랜 이름을 입력하세요'
                         : currentStep == ChatStep.targetAmount
                         ? '목표 금액을 입력하세요'
+                        : currentStep == ChatStep.currentAsset
+                        ? '보유 자산을 입력하세요 (예: 1000000 또는 -500000)'
                         : currentStep == ChatStep.purposeCustom
                         ? '목적을 입력하세요'
                         : '메시지를 입력하세요',
-                    keyboardType: currentStep == ChatStep.targetAmount
+                    keyboardType: (currentStep == ChatStep.targetAmount || currentStep == ChatStep.currentAsset)
                         ? TextInputType.number
                         : TextInputType.text,
                     onChanged: onInputChanged,
@@ -228,6 +230,7 @@ class ChatBottomInputArea extends StatelessWidget {
     return [
       ChatStep.planName,
       ChatStep.targetAmount,
+      ChatStep.currentAsset,
       ChatStep.purposeCustom,
     ].contains(step);
   }
@@ -239,6 +242,8 @@ class ChatBottomInputArea extends StatelessWidget {
           ? '플랜 이름을 입력해주세요!'
           : step == ChatStep.targetAmount
           ? '목표 금액을 입력해주세요!'
+          : step == ChatStep.currentAsset
+          ? '보유 자산을 입력해주세요!'
           : step == ChatStep.purposeCustom
           ? '목적을 입력해주세요!'
           : '입력해주세요!';
@@ -247,6 +252,8 @@ class ChatBottomInputArea extends StatelessWidget {
         ? '이 이름으로 플랜 만들래요!'
         : step == ChatStep.targetAmount
         ? '제 목표 금액이에요!'
+        : step == ChatStep.currentAsset
+        ? '제 보유 자산이에요!'
         : step == ChatStep.purposeCustom
         ? '이 목적으로 설정할게요!'
         : '입력 완료!';
@@ -265,6 +272,10 @@ class ChatBottomInputArea extends StatelessWidget {
         final amountStr = trimmedText.replaceAll(',', '');
         final amount = double.tryParse(amountStr);
         return amount != null && amount > 0;
+      case ChatStep.currentAsset:
+        final assetStr = trimmedText.replaceAll(',', '');
+        final asset = double.tryParse(assetStr);
+        return asset != null;
       default:
         return true;
     }

@@ -391,12 +391,36 @@ class ChatPlanViewModel extends ChangeNotifier {
           testPrint();
           notifyListeners();
           await addBotMessageWithTyping(
+            '좋아요! 기존의 저축 금액이 있다면, 입력해주세요.\n빚이 있다면 -를 붙여주세요',
+          );
+          _currentStep = ChatStep.currentAsset;
+          notifyListeners();
+        } else {
+          await addBotMessageWithTyping('올바른 목표 금액을 입력해주세요. (예: 1000000)');
+        }
+        break;
+
+      case ChatStep.currentAsset:
+        final assetStr = response.replaceAll(',', '').trim();
+        final asset = double.tryParse(assetStr);
+        if (asset != null) {
+          final formatted = SavingPlanCalculator.formatAmount(asset.abs());
+          if (asset >= 0) {
+            addMessage('현재 보유 자산은 ${formatted}원이에요!', MessageType.user);
+          } else {
+            addMessage('현재 빚은 ${formatted}원이에요!', MessageType.user);
+          }
+
+          updatePlanInfo(currentAsset: asset);
+          testPrint();
+          notifyListeners();
+          await addBotMessageWithTyping(
             '그렇군요! 이제 ${userName}님의 월 수입이 얼마인지 알려주세요! 💰',
           );
           _currentStep = ChatStep.monthlyIncome;
           notifyListeners();
         } else {
-          await addBotMessageWithTyping('올바른 목표 금액을 입력해주세요. (예: 1000000)');
+          await addBotMessageWithTyping('올바른 금액을 입력해주세요. (예: 1000000 또는 -500000)');
         }
         break;
 

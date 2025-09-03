@@ -100,6 +100,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
   bool _isChatInputEnabled(ChatStep step) {
     return step == ChatStep.planName ||
         step == ChatStep.targetAmount ||
+        step == ChatStep.currentAsset ||
         step == ChatStep.purposeCustom;
   }
 
@@ -115,6 +116,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
         ChatStep.purpose,
         ChatStep.purposeCustom,
         ChatStep.targetAmount,
+        ChatStep.currentAsset,
         ChatStep.monthlyIncome,
         ChatStep.monthlyFixedCost,
         ChatStep.dailySpending,

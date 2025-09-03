@@ -33,6 +33,7 @@ class SavingPlanCalculator {
     print('planStartDate: $planStartDate');
     
     final monthlySaving = monthlyIncome - monthlyFixedCost; // 월 저축 가능 금액
+    final monthlyNetSaving = monthlySaving - dailySpendingLimit*30 ;
     final dailySaving = monthlySaving / 30; // 일 저축 가능 금액
     final savingRatio = dailySaving == 0 ? 0.0 : 1 - (dailySpendingLimit / dailySaving);
 
@@ -46,13 +47,15 @@ class SavingPlanCalculator {
 
     print('계산 결과:');
     print('monthlySaving: $monthlySaving');
+    print('monthlyNetSaving: $monthlyNetSaving');
     print('dailySaving: $dailySaving');
     print('dailyNetSaving: $dailyNetSaving');
     print('requiredSaving: $requiredSaving');
     print('daysToGoal: $daysToGoal');
 
-    return SavingCalculationResult(
+    final result = SavingCalculationResult(
       monthlySaving: monthlySaving,
+      monthlyNetSaving: monthlyNetSaving,
       dailySaving: dailySaving,
       savingRatio: savingRatio,
       dailyNetSaving: dailyNetSaving,
@@ -62,6 +65,12 @@ class SavingPlanCalculator {
       goalDateTime: goalDateTime,
       savingPerSecond: savingPerSecond,
     );
+    
+    print('=== SavingCalculationResult 생성 후 확인 ===');
+    print('result.monthlyNetSaving: ${result.monthlyNetSaving}');
+    print('전달된 monthlyNetSaving 값: $monthlyNetSaving');
+    
+    return result;
   }
 
   static String formatAmount(double amount) {
