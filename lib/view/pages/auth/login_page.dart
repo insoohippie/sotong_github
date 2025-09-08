@@ -44,7 +44,7 @@ class EmailLoginPage extends StatelessWidget {
                     const SizedBox(height: AppSpacing.fieldSpacing),
                     CustomTextField(
                       controller: vm.emailController,
-                      hintText: '아이디 입력',
+                      hintText: '이메일 입력',
                       onChanged: (_) => vm.notifyListeners(),
                       keyboardType: TextInputType.emailAddress,
                     ),
@@ -55,7 +55,7 @@ class EmailLoginPage extends StatelessWidget {
                       onChanged: (_) => vm.notifyListeners(),
                       obscureText: true,
                     ),
-                    const SizedBox(height: 8),
+                                               const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,

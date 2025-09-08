@@ -7,7 +7,7 @@ import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../view_model/record/record_view_model.dart';
-import '../../../component/inputs/spending_input_entry.dart';
+import 'record_widgets/spending_input_entry.dart';
 
 class RecordSpendingPage extends StatefulWidget {
   const RecordSpendingPage({super.key});

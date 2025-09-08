@@ -19,7 +19,6 @@ class ChatPlanViewModel extends ChangeNotifier {
   final PlanRepository _planRepo;
   ChatPlanViewModel(this._authRepo, this._planRepo);
 
-
   String _userName = '회원';
   String get userName => _userName;
 
@@ -288,7 +287,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.onboarding2;
           notifyListeners();
           await addBotMessageWithTyping(
-            '🔍 소통은 $_userName님의 재정 상황을 바탕으로, 하루에 쓸 수 있는 금액과 목표 달성까지 걸리는 시간을 계산해드려요.\n\n계획만 세우는 게 아니라, 목표 달성까지 함께 가는 재정 파트너예요. 💙',
+            '🔍 소통은 $_userName님의 재정 상황을 바탕으로,\n하루에 쓸 수 있는 금액과 목표 달성까지 걸리는 시간을 계산해드려요.\n\n계획만 세우는 게 아니라, 목표 달성까지 함께 가는 재정 파트너예요. 💙',
             delay: 500,
           );
           _buttonClicked = false;
@@ -303,7 +302,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.onboarding3;
           notifyListeners();
           await addBotMessageWithTyping(
-            '그럼 이제 $_userName님만의 목표를 향한 플랜을 저와 함께 하나씩 만들어볼까요? 🚀\n\n현재 상황과 목표만 알려주시면,\n가장 현실적인 계획을 제안해드릴게요! 🤝',
+            '그럼 이제 $_userName님만의 목표를 향한 플랜을 \n저와 함께 하나씩 만들어볼까요? 🚀\n\n현재 상황과 목표만 알려주시면,\n가장 현실적인 계획을 제안해드릴게요! 🤝',
             delay: 500,
           );
           _buttonClicked = false;
@@ -380,98 +379,105 @@ class ChatPlanViewModel extends ChangeNotifier {
       //   }
       //   break;
 
-      case ChatStep.targetAmount: {
-        final amountStr = response.replaceAll(',', '').trim();
-        final amount = double.tryParse(amountStr);
-        if (amount != null && amount > 0) {
-          final formatted = SavingPlanCalculator.formatAmount(amount);
-          addMessage('목표 금액은 ${formatted}원이에요!', MessageType.user);
+      case ChatStep.targetAmount:
+        {
+          final amountStr = response.replaceAll(',', '').trim();
+          final amount = double.tryParse(amountStr);
+          if (amount != null && amount > 0) {
+            final formatted = SavingPlanCalculator.formatAmount(amount);
+            addMessage('목표 금액은 ${formatted}원이에요!', MessageType.user);
 
-          updatePlanInfo(targetAmount: amount);
-          testPrint();
-          notifyListeners();
+            updatePlanInfo(targetAmount: amount);
+            testPrint();
+            notifyListeners();
 
-          await addBotMessageWithTyping(
-            '보유하고 계신 자산이 있으신가요? 😊',
-          );
-          _currentStep = ChatStep.currentAssetAsk;   // ← 여기!
-          notifyListeners();
-        } else {
-          await addBotMessageWithTyping('올바른 목표 금액을 입력해주세요. (예: 1000000)');
-        }
-        break;
-      }
-
-      case ChatStep.currentAssetAsk: {
-        final lower = response.trim().toLowerCase();
-
-        if (lower == '없어요' || lower == '없음' || lower == '없다' || lower == 'no') {
-          addMessage('보유 자산 없이 진행할게요!', MessageType.user);
-          updatePlanInfo(currentAsset: 0);
-          testPrint();
-          notifyListeners();
-
-          await addBotMessageWithTyping('좋습니다! 이제 월 수입을 알려주세요. 💰');
-          _currentStep = ChatStep.monthlyIncome;
-          notifyListeners();
-        } else if (lower == '있어요' || lower == '있음' || lower == '있다' || lower == 'yes') {
-          addMessage('보유 자산이 있어요!', MessageType.user);
-          notifyListeners();
-
-          await addBotMessageWithTyping(
-            '보유하고 계신 자산 금액을 입력해주세요.\n'
-                '빚이 있다면 마이너스(-) 를 포함해 입력하셔도 됩니다. (예: -5000000)',
-          );
-          _currentStep = ChatStep.currentAsset; // 금액 입력 단계로
-          notifyListeners();
-        } else {
-          await addBotMessageWithTyping(
-            '“있어요” 또는 “없어요”로 답해주세요 🙂',
-          );
-        }
-        break;
-      }
-
-      case ChatStep.currentAsset: {
-        // ✅ "없어요" 처리
-        final lower = userMsg.toLowerCase();
-        final isNone = (lower == '없어요' || lower == '없음' || lower == '없다');
-
-        if (isNone) {
-          addMessage('보유 자산 없이 진행할게요!', MessageType.user);
-          updatePlanInfo(currentAsset: 0);
-          testPrint();
-          notifyListeners();
-
-          await addBotMessageWithTyping('좋습니다! 이제 월 수입을 알려주세요. 💰');
-          _currentStep = ChatStep.monthlyIncome;
-          notifyListeners();
+            await addBotMessageWithTyping('보유하고 계신 자산이 있으신가요? 😊');
+            _currentStep = ChatStep.currentAssetAsk; // ← 여기!
+            notifyListeners();
+          } else {
+            await addBotMessageWithTyping('올바른 목표 금액을 입력해주세요. (예: 1000000)');
+          }
           break;
         }
 
-        // ✅ 숫자(양수/0/음수) 파싱
-        final amountStr = response.replaceAll(',', '').trim();
-        final amount = double.tryParse(amountStr);
-        if (amount != null) {
-          final formatted = SavingPlanCalculator.formatAmount(amount.abs()) *
-              (amount.isNegative ? -1 : 1);
-          addMessage('보유 자산은 ${amount.isNegative ? "-" : ""}${SavingPlanCalculator.formatAmount(amount.abs())}원이에요!', MessageType.user);
+      case ChatStep.currentAssetAsk:
+        {
+          final lower = response.trim().toLowerCase();
 
-          updatePlanInfo(currentAsset: amount);
-          testPrint();
-          notifyListeners();
+          if (lower == '없어요' ||
+              lower == '없음' ||
+              lower == '없다' ||
+              lower == 'no') {
+            addMessage('보유 자산 없이 진행할게요!', MessageType.user);
+            updatePlanInfo(currentAsset: 0);
+            testPrint();
+            notifyListeners();
 
-          await addBotMessageWithTyping('확인했어요! 이제 월 수입을 알려주세요. 💰');
-          _currentStep = ChatStep.monthlyIncome;
-          notifyListeners();
-        } else {
-          await addBotMessageWithTyping(
-            '숫자로 입력해 주세요. (예: 5000000 / -3000000)\n'
-                '또는 "없어요"라고 입력하셔도 됩니다.',
-          );
+            await addBotMessageWithTyping('좋습니다! 이제 월 수입을 알려주세요. 💰');
+            _currentStep = ChatStep.monthlyIncome;
+            notifyListeners();
+          } else if (lower == '있어요' ||
+              lower == '있음' ||
+              lower == '있다' ||
+              lower == 'yes') {
+            addMessage('보유 자산이 있어요!', MessageType.user);
+            notifyListeners();
+
+            await addBotMessageWithTyping(
+              '보유하고 계신 자산 금액을 입력해주세요.\n'
+              '빚이 있다면 마이너스(-) 를 포함해 입력하셔도 됩니다. (예: -5000000)',
+            );
+            _currentStep = ChatStep.currentAsset; // 금액 입력 단계로
+            notifyListeners();
+          } else {
+            await addBotMessageWithTyping('“있어요” 또는 “없어요”로 답해주세요 🙂');
+          }
+          break;
         }
-        break;
-      }
+
+      case ChatStep.currentAsset:
+        {
+          final lower = userMsg.toLowerCase();
+          final isNone = (lower == '없어요' || lower == '없음' || lower == '없다');
+
+          if (isNone) {
+            addMessage('보유 자산 없이 진행할게요!', MessageType.user);
+            updatePlanInfo(currentAsset: 0);
+            testPrint();
+            notifyListeners();
+
+            await addBotMessageWithTyping('좋습니다! 이제 월 수입을 알려주세요. 💰');
+            _currentStep = ChatStep.monthlyIncome;
+            notifyListeners();
+            break;
+          }
+
+          final amountStr = response.replaceAll(',', '').trim();
+          final amount = double.tryParse(amountStr);
+          if (amount != null) {
+            final formatted =
+                SavingPlanCalculator.formatAmount(amount.abs()) *
+                (amount.isNegative ? -1 : 1);
+            addMessage(
+              '보유 자산은 ${amount.isNegative ? "-" : ""}${SavingPlanCalculator.formatAmount(amount.abs())}원이에요!',
+              MessageType.user,
+            );
+
+            updatePlanInfo(currentAsset: amount);
+            testPrint();
+            notifyListeners();
+
+            await addBotMessageWithTyping('확인했어요! 이제 월 수입을 알려주세요. 💰');
+            _currentStep = ChatStep.monthlyIncome;
+            notifyListeners();
+          } else {
+            await addBotMessageWithTyping(
+              '숫자로 입력해 주세요. (예: 5000000 / -3000000)\n'
+              '또는 "없어요"라고 입력하셔도 됩니다.',
+            );
+          }
+          break;
+        }
 
       case ChatStep.monthlyIncome:
         // 월 수입은 모달을 통해 입력받으므로 여기서는 처리하지 않음
@@ -523,7 +529,9 @@ class ChatPlanViewModel extends ChangeNotifier {
         print(calculationResult);
         if (response == '다음 단계로') {
           addMessage(response, MessageType.user);
-          await addBotMessageWithTyping('마지막으로, 소통 자동등록 서비스를 활성화해드릴까요?');
+          await addBotMessageWithTyping(
+            '📌소통 자동등록 서비스란?\n\n소비 입력을 깜빡한 날에도,\n오늘 기록한 일일소비로 자동 등록해드려요.\n물론, 언제든 수정할 수 있어요.\n\n👉 소통 자동등록 서비스를 활성화할까요?',
+          );
           await nextStep();
         } else {
           await addBotMessageWithTyping('"다음 단계로" 버튼을 눌러주세요.');
@@ -531,7 +539,7 @@ class ChatPlanViewModel extends ChangeNotifier {
         break;
 
       case ChatStep.autoService:
-        if (response == '네! 좋아요') {
+        if (response == '네, 좋아요!') {
           updatePlanInfo(autoService: true);
           testPrint();
           notifyListeners();
@@ -540,7 +548,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.complete;
           notifyListeners();
         } else {
-          await addBotMessageWithTyping('"네! 좋아요" 버튼을 눌러주세요.');
+          await addBotMessageWithTyping('"네, 좋아요!" 버튼을 눌러주세요.');
         }
         break;
 
@@ -576,9 +584,9 @@ class ChatPlanViewModel extends ChangeNotifier {
 
     await addBotMessageWithTyping(
       '안녕하세요, $_userName님! 😊\n'
-          '소통에 오신 걸 환영해요. 🎉\n'
-          '소통은 단순한 가계부가 아니라\n 당신만의 재정 파트너입니다.\n'
-          '하루 소비 계획부터 기록·피드백까지, \n목표 달성을 함께 해드려요.',
+      '소통에 오신 걸 환영해요. 🎉\n\n'
+      '소통은 단순한 가계부가 아니라\n 당신만의 재정 파트너입니다.\n\n'
+      '하루 소비 계획부터 기록·피드백까지, \n목표 달성을 함께 해드려요.',
       delay: 500,
     );
   }

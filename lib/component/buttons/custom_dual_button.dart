@@ -37,18 +37,21 @@ class CustomDualButton extends StatelessWidget {
                 onPressed: leftEnabled ? onLeftPressed : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: leftEnabled
-                      ? AppColors.disabled
+                      ? AppColors.primary
                       : AppColors.disabled.withOpacity(0.6),
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 60),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 child: ParagraphText(
                   text: leftLabel,
-                  color: Colors.black,
+                  color: Colors.white,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -61,18 +64,22 @@ class CustomDualButton extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: rightEnabled ? onRightPressed : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                  rightEnabled ? AppColors.primary : AppColors.disabled,
+                  backgroundColor: rightEnabled
+                      ? AppColors.disabled
+                      : AppColors.disabled,
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 60),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 child: ParagraphText(
                   text: rightLabel,
-                  color: Colors.white,
+                  color: Colors.black,
                   fontWeight: FontWeight.bold,
                 ),
               ),

@@ -360,7 +360,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     await vm.waitForTypingToFinish();
 
                     vm.addMessage(
-                      '월 수입은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!\n$itemLines\n',
+                      '월 수입은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!\n$itemLines',
                       MessageType.user,
                     );
 
@@ -393,7 +393,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     await vm.waitForTypingToFinish();
 
                     vm.addMessage(
-                      '매달 빠져나가는 고정 소비는 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!\n$itemLines\n',
+                      '매달 빠져나가는 고정 소비는 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!\n$itemLines',
                       MessageType.user,
                     );
 
@@ -426,12 +426,12 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     await vm.waitForTypingToFinish();
 
                     vm.addMessage(
-                      '하루 사용할 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n(30일 기준 월 약 ${SavingPlanCalculator.formatAmount(total * 30)}원)\n\n아래는 하루 소비 내역입니다.\n$itemLines\n',
+                      '하루 사용할 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n(30일 기준 월 약 ${SavingPlanCalculator.formatAmount(total * 30)}원)\n\n아래는 하루 소비 내역입니다.\n$itemLines',
                       MessageType.user,
                     );
 
                     await vm.addBotMessageWithTyping(
-                      '혹시 잘못 기입했거나 수정이 필요하다면, 나중에 다시 변경하실 수 있어요.\n\n🎯 이제 모든 입력이 끝났습니다.\n지금까지 입력해주신 내용을 바탕으로 저축 플랜을 계산해드릴게요!',
+                      '이제 모든 입력이 끝났습니다.\n지금까지 입력해주신 내용을 바탕으로 저축 플랜을 계산해드릴게요!',
                       awaitTyping: true,
                     );
 

@@ -1,29 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
-import '../../../../../component/buttons/custom_dual_button.dart';
-import '../../../../../component/inputs/custom_text_field.dart';
-import '../../../../../component/texts/subtext.dart';
+import '../../../../component/inputs/custom_text_field.dart';
+import '../../../../component/texts/paragraph_text.dart';
 
-/// 카테고리 선택용 원형 Pill
-class CategoryPill extends StatelessWidget {
+/// 오늘의 소비 입력에서만 쓰는 Large Pill (height=60, radius=12, ParagraphText)
+class DailyCategoryPill extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
   final VoidCallback onClear;
-  final double height;
 
-  const CategoryPill({
+  const DailyCategoryPill({
     Key? key,
     required this.text,
     required this.onTap,
     required this.onClear,
-    this.height = 50,
   }) : super(key: key);
+
+  static const double kHeight = 60;
+  static const double kRadius = 12;
 
   @override
   Widget build(BuildContext context) {
     final hasValue = text.trim().isNotEmpty;
 
-    final CatPreset matched = presets.firstWhere(
+    final CatPreset matched = dailyPresets.firstWhere(
           (p) => p.name == text.trim(),
       orElse: () => const CatPreset('', Icons.add_circle_outline_rounded),
     );
@@ -33,19 +33,18 @@ class CategoryPill extends StatelessWidget {
         ? (isPreset ? matched.icon : Icons.push_pin_rounded)
         : Icons.add_circle_outline_rounded;
 
-    // 높이에 비례한 아이콘 크기 (작아도 보기 좋게 14~22 사이로 클램프)
-    final double iconSize = (height * 0.36).clamp(14, 22);
+    final double iconSize = 18;
 
     return InkWell(
       onTap: onTap,
       onLongPress: onClear,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(kRadius),
       child: Container(
-        height: height,
+        height: kHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: hasValue ? AppColors.lightBlue : AppColors.greyBackground,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(kRadius),
         ),
         child: Row(
           children: [
@@ -54,11 +53,10 @@ class CategoryPill extends StatelessWidget {
               size: iconSize,
               color: hasValue ? AppColors.primary : AppColors.subText,
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Expanded(
-              child: SubText(
+              child: ParagraphText(
                 text: hasValue ? text : '입력',
-                fontWeight: FontWeight.bold,
                 color: hasValue ? Colors.black : AppColors.subText,
               ),
             ),
@@ -69,23 +67,30 @@ class CategoryPill extends StatelessWidget {
   }
 }
 
-/// 카테고리 프리셋 정의
+/// 오늘의 소비 프리셋
 class CatPreset {
   final String name;
   final IconData icon;
   const CatPreset(this.name, this.icon);
 }
 
-final List<CatPreset> presets = const [
+final List<CatPreset> dailyPresets = const [
   CatPreset('식비', Icons.restaurant_rounded),
   CatPreset('교통비', Icons.train_rounded),
   CatPreset('카페', Icons.local_cafe_rounded),
   CatPreset('취미', Icons.sports_esports_rounded),
+  CatPreset('식비', Icons.restaurant_rounded),
+  CatPreset('교통비', Icons.train_rounded),
+  CatPreset('카페', Icons.local_cafe_rounded),
+  CatPreset('취미', Icons.sports_esports_rounded),
+  CatPreset('식비', Icons.restaurant_rounded),
+  CatPreset('교통비', Icons.train_rounded),
+  CatPreset('카페', Icons.local_cafe_rounded),
 ];
 
-Future<void> openCategorySheet(
+/// 오늘의 소비 입력 전용 카테고리 시트
+Future<void> openDailyCategorySheet(
     BuildContext context,
-    int idx,
     TextEditingController controller,
     void Function(String) onSelected,
     ) async {
@@ -104,8 +109,8 @@ Future<void> openCategorySheet(
       return StatefulBuilder(
         builder: (context, setModalState) {
           tempController ??= TextEditingController(text: temp);
-
           final bottom = MediaQuery.of(ctx).viewInsets.bottom;
+
           return Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
             child: Column(
@@ -125,12 +130,13 @@ Future<void> openCategorySheet(
                 ),
                 const SizedBox(height: 16),
 
+                // 프리셋 칩
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: presets.map((p) {
+                    children: dailyPresets.map((p) {
                       final selected = temp == p.name;
                       return ChoiceChip(
                         showCheckmark: false,
@@ -161,10 +167,9 @@ Future<void> openCategorySheet(
                           color: selected ? Colors.white : const Color(0xFF111827),
                           fontWeight: FontWeight.w600,
                         ),
-                        shape: StadiumBorder(
-                          side: BorderSide(
-                            color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
-                          ),
+                        shape: const StadiumBorder(),
+                        side: BorderSide(
+                          color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
                         ),
                       );
                     }).toList(),
@@ -173,24 +178,23 @@ Future<void> openCategorySheet(
 
                 const SizedBox(height: 16),
 
+                // 입력 + 확인 (한 줄)
                 Row(
                   children: [
-                    // 입력란
                     Expanded(
                       child: SizedBox(
-                        height: 50,
+                        height: 60,
                         child: CustomTextField(
                           controller: tempController!,
                           hintText: '다른 카테고리 입력',
                           onChanged: (v) => setModalState(() => temp = v),
-                          height: 50,
+                          height: 60,
                         ),
                       ),
                     ),
                     const SizedBox(width: 10),
-                    // 확인 버튼
                     SizedBox(
-                      height: 50,
+                      height: 60,
                       child: ElevatedButton(
                         onPressed: () {
                           final result = temp.trim();
@@ -200,6 +204,7 @@ Future<void> openCategorySheet(
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
+                          minimumSize: const Size(80, 60),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -216,8 +221,8 @@ Future<void> openCategorySheet(
                     ),
                   ],
                 ),
-                const SizedBox(height: 40),
 
+                const SizedBox(height: 40),
               ],
             ),
           );
