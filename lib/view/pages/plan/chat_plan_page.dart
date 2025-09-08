@@ -313,7 +313,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                         if (step == ChatStep.targetAmount || step == ChatStep.currentAsset) {
                           if (_isFormatting) return;
 
-                          final unformatted = _unformatNumber(value);  // 쉼표만 제거 (마이너스는 유지)
+                          final unformatted = _unformatNumber(value);
                           final formatted   = _formatNumber(unformatted);
 
                           if (value != formatted) {
@@ -353,14 +353,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     vm.updateRefData(fixedIncomes: items);
 
                     final itemLines = items
-                        .map((e) =>
-                    '📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
-                        .join('\n');
+                        .map((e) => '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .join('');
 
                     await vm.waitForTypingToFinish();
 
                     vm.addMessage(
-                      '월 수입은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!\n$itemLines',
+                      '월 수입은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!$itemLines',
                       MessageType.user,
                     );
 
@@ -387,13 +386,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                     final itemLines = items
                         .map((e) =>
-                    '📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
-                        .join('\n');
+                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .join('');
 
                     await vm.waitForTypingToFinish();
 
                     vm.addMessage(
-                      '매달 빠져나가는 고정 소비는 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!\n$itemLines',
+                      '매달 빠져나가는 고정 소비는 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!$itemLines',
                       MessageType.user,
                     );
 
@@ -420,13 +419,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                     final itemLines = items
                         .map((e) =>
-                    '📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
-                        .join('\n');
+                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .join('');
 
                     await vm.waitForTypingToFinish();
 
                     vm.addMessage(
-                      '하루 사용할 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n(30일 기준 월 약 ${SavingPlanCalculator.formatAmount(total * 30)}원)\n\n아래는 하루 소비 내역입니다.\n$itemLines',
+                      '하루 사용할 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n(30일 기준 월 약 ${SavingPlanCalculator.formatAmount(total * 30)}원)\n\n아래는 하루 소비 내역입니다.$itemLines',
                       MessageType.user,
                     );
 

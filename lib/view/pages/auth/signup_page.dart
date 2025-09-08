@@ -179,7 +179,6 @@ class _SignUpPageState extends State<SignUpPage> {
           selectedDate: vm.birthdayController.text,
           hintText: '생년월일을 선택하세요',
           onDateSelected: (value) {
-            FocusScope.of(context).unfocus();
             vm.setBirthdayFromCupertino(value);
           },
         ),

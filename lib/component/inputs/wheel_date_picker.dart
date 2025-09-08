@@ -28,7 +28,10 @@ class WheelDateSelector extends StatelessWidget {
         : const Color(0xFFEDF4FF);
 
     return GestureDetector(
-      onTap: () => _showWheelDatePicker(context),
+      onTap: () {
+        FocusScope.of(context).requestFocus(FocusNode());
+        _showWheelDatePicker(context);
+      },
       child: Container(
         height: height,
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -71,7 +74,7 @@ class WheelDateSelector extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0), // ✅ 양옆 패딩 추가
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: CustomButton(
                   onPressed: () {
                     onDateSelected(tempPickedDate);
@@ -86,6 +89,10 @@ class WheelDateSelector extends StatelessWidget {
           ),
         );
       },
-    );
+    ).whenComplete(() {
+      Future.microtask(() {
+        FocusScope.of(context).requestFocus(FocusNode());
+      });
+    });
   }
 }

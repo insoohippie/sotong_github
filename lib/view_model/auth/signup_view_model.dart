@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../model/signup_info.dart';
+import '../../model/auth/signup_info.dart';
 import '../../repository/auth_repository.dart';
 
 enum SignupStep { email, password, userInfo }

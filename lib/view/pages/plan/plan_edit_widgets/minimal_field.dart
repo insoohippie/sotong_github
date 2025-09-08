@@ -35,9 +35,13 @@ class MinimalField extends StatelessWidget {
   String _unformat(String v) => v.replaceAll(',', '');
   String _format(String v) {
     if (v.isEmpty) return '';
-    final n = int.tryParse(_unformat(v));
+    final isNegative = v.startsWith('-');
+    final digits = _unformat(v).replaceAll('-', '');
+    if (digits.isEmpty) return isNegative ? '-' : '';
+    final n = int.tryParse(digits);
     if (n == null) return '';
-    return NumberFormat('#,###').format(n);
+    final formatted = NumberFormat('#,###').format(n);
+    return isNegative ? '-$formatted' : formatted;
   }
 
   @override
@@ -86,7 +90,17 @@ class MinimalField extends StatelessWidget {
                   : TextInputType.text,
               onChanged: (value) {
                 if (isNumber) {
-                  final formatted = _format(value);
+                  final raw = (label == "보유 자산")
+                      ? value.replaceAll(RegExp(r'[^0-9-]'), '')
+                      : value.replaceAll(RegExp(r'[^0-9]'), '');
+
+                  String sanitized = raw;
+                  if (label == "보유 자산") {
+                    final hasMinus = raw.startsWith('-');
+                    sanitized = raw.replaceAll('-', '');
+                    if (hasMinus) sanitized = '-$sanitized';
+                  }
+                  final formatted = _format(sanitized);
                   if (formatted != value) {
                     controller!.value = TextEditingValue(
                       text: formatted,

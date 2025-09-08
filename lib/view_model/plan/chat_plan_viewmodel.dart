@@ -52,18 +52,6 @@ class ChatPlanViewModel extends ChangeNotifier {
   bool _buttonClicked = false;
   bool get buttonClicked => _buttonClicked;
 
-  // 목적 옵션들
-  List<String> get purposeOptions => [
-    '여행자금',
-    '자취 준비',
-    '부모님 선물',
-    '결혼 준비',
-    '학자금',
-    '이직준비',
-    '긴급자금',
-    '기타',
-  ];
-
   late final RefDataViewModel _refDataVM = RefDataViewModel(
     _refData,
   ); // refData 관리하는 viewmodel
@@ -110,7 +98,6 @@ class ChatPlanViewModel extends ChangeNotifier {
 
   void updatePlanInfo({
     String? planName,
-    String? purpose,
     double? targetAmount,
     double? currentAsset,
     bool? autoService,
@@ -128,7 +115,6 @@ class ChatPlanViewModel extends ChangeNotifier {
     _planInfoVM.updatePlanInfo(
       // 위임 호출
       planName: planName,
-      purpose: purpose,
       targetAmount: targetAmount,
       currentAsset: currentAsset,
       autoService: autoService,
@@ -343,42 +329,6 @@ class ChatPlanViewModel extends ChangeNotifier {
         }
         break;
 
-      // case ChatStep.purpose:
-      //   // "기타"를 선택한 경우
-      //   if (response == '기타') {
-      //     addMessage('제가 원하는 카드가 없어요!', MessageType.user);
-      //     await addBotMessageWithTyping('그럼 $userName님이 직접 플랜의 성격을 입력해주세요!');
-      //     _currentStep = ChatStep.purposeCustom;
-      //     notifyListeners();
-      //   }
-      //   // purposeOptions에 있는 값만 허용 (기타 제외)
-      //   else if (purposeOptions.contains(response)) {
-      //     updatePlanInfo(purpose: response);
-      //     testPrint();
-      //     addMessage('"$response"을/를 위해 플랜을 세우고 싶어요!', MessageType.user);
-      //     notifyListeners();
-      //     await addBotMessageWithTyping(_getTargetAmountMessage(response));
-      //     _currentStep = ChatStep.targetAmount;
-      //     notifyListeners();
-      //   } else {
-      //     await addBotMessageWithTyping('아래 카드 중 하나를 선택해주세요.');
-      //   }
-      //   break;
-      //
-      // case ChatStep.purposeCustom:
-      //   if (response.isNotEmpty && response.length >= 2) {
-      //     updatePlanInfo(purpose: response);
-      //     testPrint();
-      //     addMessage('"$response"을/를 위해 플랜을 세우고 싶어요!', MessageType.user);
-      //     notifyListeners();
-      //     await addBotMessageWithTyping(_getTargetAmountMessage('기타'));
-      //     _currentStep = ChatStep.targetAmount;
-      //     notifyListeners();
-      //   } else {
-      //     await addBotMessageWithTyping('목적을 2글자 이상 입력해주세요.');
-      //   }
-      //   break;
-
       case ChatStep.targetAmount:
         {
           final amountStr = response.replaceAll(',', '').trim();
@@ -480,9 +430,6 @@ class ChatPlanViewModel extends ChangeNotifier {
         }
 
       case ChatStep.monthlyIncome:
-        // 월 수입은 모달을 통해 입력받으므로 여기서는 처리하지 않음
-        // 이 부분에서 플로우에 무슨 문제가 있는지 알아야 함
-        // 그래야 왜 Infinity 에러가 발생하는지 유추할 수 있음
         await addBotMessageWithTyping('"월 수입 입력하러가기" 버튼을 눌러주세요.');
         print("monthly Income");
         testPrint();
@@ -493,7 +440,7 @@ class ChatPlanViewModel extends ChangeNotifier {
         // 고정 소비는 모달을 통해 입력받으므로 여기서는 처리하지 않음
         await addBotMessageWithTyping('"고정 소비 입력하러가기" 버튼을 눌러주세요.');
         print("monthly FixedCost");
-        testPrint(); // 이 부분 실행이 안되는듯?
+        testPrint();
         notifyListeners(); // 즉시 UI 업데이트
         break;
 
@@ -614,34 +561,6 @@ class ChatPlanViewModel extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 50));
     }
   }
-
-  // String _getTargetAmountMessage(String purpose) {
-  //   switch (purpose) {
-  //     case '여행자금':
-  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 여행자금의 경우, 금액별 예시는 다음과 같아요.\n\n✈ 여행자금\n100만 → 🇰🇷 국내 여행 2~3회\n500만 → 🇪🇺 유럽 여행 2주\n1000만 → 🌏 워킹홀리데이 준비\n3000만 → 🌴 해외 1년살이\n\n원하시는 금액을 입력해주세요!''';
-  //
-  //     case '자취 준비':
-  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 자취준비의 경우, 금액별 예시는 다음과 같아요.\n\n🏠 자취준비\n100만 → 🪑 가전·가구 일부 구입\n500만 → 🛋 원룸 보증금 + 생활 필수품\n1000만 → 🏢 오피스텔 보증금 + 가전 완비\n3000만 → 🏡 전세 자취방 입주\n\n원하시는 금액을 입력해주세요!''';
-  //
-  //     case '부모님 선물':
-  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 부모님 선물의 경우, 금액별 예시는 다음과 같아요.\n\n🎁 부모님 선물\n100만 → 👔 명품 지갑·의류\n500만 → ⌚ 명품 시계\n1000만 → ✈ 해외 여행 경비\n3000만 → 🚗 차량 구입\n\n원하시는 금액을 입력해주세요!''';
-  //
-  //     case '결혼 준비':
-  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 결혼준비의 경우, 금액별 예시는 다음과 같아요.\n\n💒 결혼준비\n100만 → 💍 예물 일부 준비\n500만 → 👗 웨딩 촬영 & 예복 대여\n1000만 → 🏨 예식장 계약금\n3000만 → 🏠 신혼집 전세금\n\n원하시는 금액을 입력해주세요!''';
-  //
-  //     case '학자금':
-  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 학자금의 경우, 금액별 예시는 다음과 같아요.\n\n🎓 학자금\n100만 → 📚 한 학기 교재·재료비\n500만 → 🏫 1년 등록금 일부\n1000만 → 🏫 1년 등록금 + 생활비\n3000만 → 🎓 3~4년 학비 전액(학교·전형에 따라 상이)\n\n원하시는 금액을 입력해주세요!''';
-  //
-  //     case '이직준비':
-  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 이직준비의 경우, 금액별 예시는 다음과 같아요.\n\n💼 이직준비\n100만 → 📖 자기계발(강의, 책)\n500만 → 💻 장비·교육비 투자\n1000만 → 🛫 단기 해외 연수\n3000만 → 🏢 창업/프리랜스 초기 자금\n\n원하시는 금액을 입력해주세요!''';
-  //
-  //     case '긴급자금':
-  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 긴급자금의 경우, 금액별 예시는 다음과 같아요.\n\n🚨 긴급자금\n100만 → 🏥 간단한 의료비 대비\n500만 → 🛠 차량·가전 수리비 대비\n1000만 → 🏠 3~4개월 생활비\n3000만 → 📦 1년 생활비 + 비상금\n\n원하시는 금액을 입력해주세요!''';
-  //
-  //     default:
-  //       return '''좋아요! 이번 플랜의 목표 금액은 얼마로 할까요? 💰\n\n참고로 기타 목적의 경우, 금액별 예시는 다음과 같아요.\n\n💡 기타\n100만 → 🎉 취미·소소한 프로젝트\n500만 → 🛠 개인 스킬업·자격증 과정\n1000만 → 🏖 장기 여행 또는 교육 과정\n3000만 → 🌏 해외 장기 체류·사업 준비\n\n원하시는 금액을 입력해주세요!''';
-  //   }
-  // }
 
   void testPrint() {
     print('planInfo: $planInfo');

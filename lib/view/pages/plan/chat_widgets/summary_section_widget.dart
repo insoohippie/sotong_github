@@ -43,7 +43,7 @@ Widget _buildNoSavingWarning(
           if (updatedPlan != null) {
             viewModel.updatePlanInfo(
               planName: updatedPlan.planName,
-              purpose: updatedPlan.purpose,
+              // purpose: updatedPlan.purpose,
               targetAmount: updatedPlan.targetAmount,
               currentAsset: updatedPlan.currentAsset,
             );
@@ -85,7 +85,7 @@ Widget _buildSummaryChart(BuildContext context, ChatPlanViewModel viewModel) {
           if (updatedPlan != null) {
             viewModel.updatePlanInfo(
               planName: updatedPlan.planName,
-              purpose: updatedPlan.purpose,
+              // purpose: updatedPlan.purpose,
               targetAmount: updatedPlan.targetAmount,
               currentAsset: updatedPlan.currentAsset,
             );

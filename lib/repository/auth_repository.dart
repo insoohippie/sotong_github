@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data_source/auth_data_source.dart';
-import '../model/signup_info.dart';
+import '../model/auth/signup_info.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthRepository {

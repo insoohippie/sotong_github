@@ -133,20 +133,12 @@ class _PlanEditPageState extends State<PlanEditPage> {
                                 setState(() {}), // 기존 setState 유지 원하면
                           ),
                           MinimalField(
-                            label: '플랜 목적',
-                            dropdownOptions: viewModel.purposeOptions,
-                            selectedValue: viewModel.selectedPurpose,
-                            onDropdownChanged: (val) =>
-                                viewModel.updateSelectedPurpose(val),
-                          ),
-                          MinimalField(
                             label: '목표 금액',
                             controller: viewModel.targetAmountController,
                             isNumber: true,
                             hint: '예: 1000000',
                             onChanged: (_) => setState(() {}),
                           ),
-
                           MinimalField(
                             label: '보유 자산',
                             controller: viewModel.currentAssetController,
@@ -217,7 +209,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
     print('검증 통과, 업데이트된 플랜 생성 중...');
     final updated = viewModel.createUpdatedPlan(widget.initialPlan);
     print(
-      '업데이트된 플랜: ${updated.planName}, ${updated.purpose}, ${updated.targetAmount}',
+      '업데이트된 플랜: ${updated.planName}, ${updated.targetAmount}',
     );
 
     print('Navigator.pop 호출 중...');

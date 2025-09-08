@@ -10,22 +10,10 @@ class PlanEditViewModel extends ChangeNotifier {
   late TextEditingController planNameController;
   late TextEditingController targetAmountController;
   late TextEditingController currentAssetController;
-  String? selectedPurpose;
 
   late PlanInfo planInfo;
   late PlanInfoViewModel planInfoVM;
   late RefData refData;
-
-  final List<String> purposeOptions = [
-    '여행자금',
-    '자취 준비',
-    '부모님 선물',
-    '결혼 준비',
-    '학자금',
-    '이직준비',
-    '긴급자금',
-    '기타',
-  ];
 
   // Getters for calculated values
   double get monthlyIncome =>
@@ -49,19 +37,6 @@ class PlanEditViewModel extends ChangeNotifier {
     refData = initialRefData ?? RefData();
 
     planNameController = TextEditingController(text: initialPlan.planName);
-
-    // purposeOptions 리스트에 있는 값인지 확인
-    if (initialPlan.purpose!.isNotEmpty) {
-      if (purposeOptions.contains(initialPlan.purpose)) {
-        selectedPurpose = initialPlan.purpose;
-      } else {
-        // 기타로 입력한 값이면 리스트에 추가
-        purposeOptions.add(initialPlan.purpose!);
-        selectedPurpose = initialPlan.purpose;
-      }
-    } else {
-      selectedPurpose = null;
-    }
 
     final formatter = NumberFormat('#,###');
     targetAmountController = TextEditingController(
@@ -93,26 +68,15 @@ class PlanEditViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Update selected purpose
-  void updateSelectedPurpose(String? purpose) {
-    selectedPurpose = purpose;
-    if (purpose != null) {
-      planInfoVM.updatePurpose(purpose);
-    }
-    notifyListeners();
-  }
-
   // Create updated PlanInfo
   PlanInfo createUpdatedPlan(PlanInfo originalPlan) {
     print('createUpdatedPlan 호출됨');
-    print('현재 selectedPurpose: $selectedPurpose');
     print('현재 planNameController.text: ${planNameController.text}');
     print('현재 targetAmountController.text: ${targetAmountController.text}');
     print('현재 currentAssetController.text: ${currentAssetController.text}');
 
     // planInfo 객체를 직접 업데이트
     planInfo.planName = planNameController.text;
-    planInfo.purpose = selectedPurpose ?? '';
     planInfo.targetAmount =
         double.tryParse(targetAmountController.text.replaceAll(',', '')) ?? 0;
     planInfo.currentAsset =
@@ -125,7 +89,6 @@ class PlanEditViewModel extends ChangeNotifier {
 
     print('업데이트된 planInfo:');
     print('- planName: ${planInfo.planName}');
-    print('- purpose: ${planInfo.purpose}');
     print('- targetAmount: ${planInfo.targetAmount}');
     print('- currentAsset: ${planInfo.currentAsset}');
 
@@ -140,7 +103,6 @@ class PlanEditViewModel extends ChangeNotifier {
   // Validate form
   bool isValidForm() {
     return planNameController.text.isNotEmpty &&
-        selectedPurpose != null &&
         double.tryParse(targetAmountController.text.replaceAll(',', '')) !=
             null &&
         double.tryParse(currentAssetController.text.replaceAll(',', '')) !=
@@ -151,9 +113,6 @@ class PlanEditViewModel extends ChangeNotifier {
   String? getValidationError() {
     if (planNameController.text.isEmpty) {
       return '플랜 이름을 입력해주세요';
-    }
-    if (selectedPurpose == null) {
-      return '플랜 목적을 선택해주세요';
     }
     final targetParsed = double.tryParse(
       targetAmountController.text.replaceAll(',', ''),
@@ -177,7 +136,6 @@ class PlanEditViewModel extends ChangeNotifier {
 
     // 2) 업데이트
     planInfo.planName = planNameController.text;
-    planInfo.purpose = selectedPurpose ?? '';
     planInfo.targetAmount =
         double.tryParse(targetAmountController.text.replaceAll(',', '')) ?? 0;
     planInfo.currentAsset =

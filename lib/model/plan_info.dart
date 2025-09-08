@@ -2,7 +2,6 @@ import 'ref_data.dart';
 
 class PlanInfo {
   String? planName;
-  String? purpose;
   double? targetAmount; // 목표 금액
   double currentAmount; // 저축 금액
   double currentAsset; // 기존 자산
@@ -42,7 +41,6 @@ class PlanInfo {
 
   PlanInfo({
     this.planName,
-    this.purpose,
     this.targetAmount,
     this.currentAmount = 0,
     this.currentAsset = 0,
@@ -74,7 +72,6 @@ class PlanInfo {
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{
       'planName': planName,
-      'purpose': purpose,
       'targetAmount': targetAmount,
       'currentAmount': currentAmount,
       'currentAsset': currentAsset,
@@ -93,7 +90,6 @@ class PlanInfo {
   factory PlanInfo.fromMap(Map<String, dynamic> map) {
     return PlanInfo(
       planName: map['planName'] as String?,
-      purpose: map['purpose'] as String?,
       targetAmount: (map['targetAmount'] as num?)?.toDouble(),
       currentAmount: (map['currentAmount'] as num?)?.toDouble() ?? 0,
       currentAsset: (map['currentAsset'] as num?)?.toDouble() ?? 0,
@@ -123,7 +119,6 @@ class PlanInfo {
     return '''
     PlanInfo(
       planName: $planName,
-      purpose: $purpose,
       targetAmount: $targetAmount,
       currentAsset: $currentAsset,
       currentAmount: $currentAmount,
