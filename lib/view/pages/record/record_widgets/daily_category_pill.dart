@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:provider/provider.dart';
+
 import '../../../../component/inputs/custom_text_field.dart';
 import '../../../../component/texts/paragraph_text.dart';
+import '../../../../component/theme/app_colors.dart';
+import '../../../../view_model/record/daily_category_viewmodel.dart';
+import 'daily_category_manage_file.dart';
 
 /// 오늘의 소비 입력에서만 쓰는 Large Pill (height=60, radius=12, ParagraphText)
 class DailyCategoryPill extends StatelessWidget {
@@ -23,17 +27,10 @@ class DailyCategoryPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasValue = text.trim().isNotEmpty;
 
-    final CatPreset matched = dailyPresets.firstWhere(
-          (p) => p.name == text.trim(),
-      orElse: () => const CatPreset('', Icons.add_circle_outline_rounded),
-    );
-
-    final bool isPreset = matched.name.isNotEmpty;
-    final IconData iconData = hasValue
-        ? (isPreset ? matched.icon : Icons.push_pin_rounded)
-        : Icons.add_circle_outline_rounded;
-
-    final double iconSize = 18;
+    // ✅ 안전하게 nullable 로 조회
+    final vm = context.watch<DailyCategoryViewModel>();
+    final matched = vm.findByName(text.trim());
+    final String? emoji = matched?.emoji;
 
     return InkWell(
       onTap: onTap,
@@ -48,11 +45,14 @@ class DailyCategoryPill extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(
-              iconData,
-              size: iconSize,
-              color: hasValue ? AppColors.primary : AppColors.subText,
-            ),
+            if (hasValue && emoji != null && emoji.isNotEmpty)
+              Text(emoji, style: const TextStyle(fontSize: 18))
+            else
+              Icon(
+                hasValue ? Icons.push_pin_rounded : Icons.add_circle_outline_rounded,
+                size: 18,
+                color: hasValue ? AppColors.primary : AppColors.subText,
+              ),
             const SizedBox(width: 8),
             Expanded(
               child: ParagraphText(
@@ -67,28 +67,7 @@ class DailyCategoryPill extends StatelessWidget {
   }
 }
 
-/// 오늘의 소비 프리셋
-class CatPreset {
-  final String name;
-  final IconData icon;
-  const CatPreset(this.name, this.icon);
-}
-
-final List<CatPreset> dailyPresets = const [
-  CatPreset('식비', Icons.restaurant_rounded),
-  CatPreset('교통비', Icons.train_rounded),
-  CatPreset('카페', Icons.local_cafe_rounded),
-  CatPreset('취미', Icons.sports_esports_rounded),
-  CatPreset('식비', Icons.restaurant_rounded),
-  CatPreset('교통비', Icons.train_rounded),
-  CatPreset('카페', Icons.local_cafe_rounded),
-  CatPreset('취미', Icons.sports_esports_rounded),
-  CatPreset('식비', Icons.restaurant_rounded),
-  CatPreset('교통비', Icons.train_rounded),
-  CatPreset('카페', Icons.local_cafe_rounded),
-];
-
-/// 오늘의 소비 입력 전용 카테고리 시트
+/// 오늘의 소비 입력 전용 카테고리 시트 (뷰모델 기반)
 Future<void> openDailyCategorySheet(
     BuildContext context,
     TextEditingController controller,
@@ -108,6 +87,9 @@ Future<void> openDailyCategorySheet(
 
       return StatefulBuilder(
         builder: (context, setModalState) {
+          final vm = context.watch<DailyCategoryViewModel>();
+          final enabled = vm.enabledItems;
+
           tempController ??= TextEditingController(text: temp);
           final bottom = MediaQuery.of(ctx).viewInsets.bottom;
 
@@ -117,7 +99,7 @@ Future<void> openDailyCategorySheet(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 상단 바
+                // grab bar
                 Center(
                   child: Container(
                     width: 40,
@@ -128,7 +110,47 @@ Future<void> openDailyCategorySheet(
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
+
+                // 제목 + 관리 버튼
+                Row(
+                  children: [
+                    const Text(
+                      '카테고리 선택',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        foregroundColor: AppColors.primary,
+                      ),
+                      onPressed: () async {
+                        await Navigator.of(ctx).push(
+                          MaterialPageRoute(
+                            builder: (_) => const DailyCategoryManagePage(),
+                          ),
+                        );
+
+                        // 돌아오면 현재 선택값이 여전히 사용 가능한지 점검
+                        final stillExists = context
+                            .read<DailyCategoryViewModel>()
+                            .enabledItems
+                            .any((e) => e.name == temp);
+                        if (!stillExists) {
+                          setModalState(() {
+                            temp = '';
+                            tempController!.text = '';
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.settings_rounded, size: 18),
+                      label: const Text('카테고리 관리'),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 8),
 
                 // 프리셋 칩
                 Align(
@@ -136,18 +158,14 @@ Future<void> openDailyCategorySheet(
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: dailyPresets.map((p) {
+                    children: enabled.map((p) {
                       final selected = temp == p.name;
                       return ChoiceChip(
                         showCheckmark: false,
                         label: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              p.icon,
-                              size: 16,
-                              color: selected ? Colors.white : const Color(0xFF6B7280),
-                            ),
+                            Text(p.emoji, style: const TextStyle(fontSize: 16)),
                             const SizedBox(width: 6),
                             Text(p.name),
                           ],
@@ -178,7 +196,7 @@ Future<void> openDailyCategorySheet(
 
                 const SizedBox(height: 16),
 
-                // 입력 + 확인 (한 줄)
+                // 입력 + 확인
                 Row(
                   children: [
                     Expanded(

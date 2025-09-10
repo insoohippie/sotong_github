@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:sotong_local/repository/communication_repository.dart';
+import 'package:sotong_local/view_model/record/daily_category_viewmodel.dart';
 
 import 'component/theme/app_colors.dart';
 import 'data_source/communication_data_source.dart';
@@ -87,6 +88,9 @@ class MyApp extends StatelessWidget {
           create: (ctx) => CommunicationViewModel(
             ctx.read<CommunicationRepository>(),
           )..loadMonth(DateTime.now()),
+        ),
+        ChangeNotifierProvider<DailyCategoryViewModel>(
+          create: (_) => DailyCategoryViewModel(),
         ),
         ChangeNotifierProvider<RecordViewModel>(create: (_) => RecordViewModel()),
         ChangeNotifierProvider<SettingViewModel>(create: (_) => SettingViewModel()),

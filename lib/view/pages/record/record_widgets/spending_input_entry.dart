@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:sotong_local/view/pages/record/record_widgets/daily_category_pill.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart';
-import '../../../../component/inputs/custom_number_field.dart';
 import '../../../../component/inputs/custom_text_field.dart';
-import '../../plan/chat_widgets/input_modal/category_utils.dart';
-import 'daily_category_pill.dart';
 class SpendingInputEntry extends StatefulWidget {
   final Map<String, dynamic> entry;
   final List<String> categoryItems; // (호환성 유지용, 미사용)
@@ -85,9 +83,8 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                     child: DailyCategoryPill(
                       text: _categoryController.text,
                       onTap: () async {
-                        await openCategorySheet(
+                        await openDailyCategorySheet(
                           context,
-                          _idx,
                           _categoryController,
                               (val) {
                             setState(() {
