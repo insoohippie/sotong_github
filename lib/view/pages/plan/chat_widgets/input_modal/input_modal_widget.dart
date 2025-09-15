@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:intl/intl.dart';
+import 'package:sotong_local/component/appbars/custom_app_bar.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
 import 'package:sotong_local/component/texts/subtext.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
@@ -9,6 +10,7 @@ import 'package:sotong_local/model/entry.dart';
 import '../../../../../component/buttons/small_rounded_button.dart';
 import '../../../../../component/texts/header_text.dart';
 
+import '../../../../../component/theme/app_spacing.dart';
 import 'input_item_daily.dart';
 import 'input_item_basic.dart';
 import 'footer_daily.dart';
@@ -32,7 +34,7 @@ class InputModalWidget extends StatefulWidget {
     required this.title,
     required this.onComplete,
     required this.type,
-    this.placeholder = '수입 카테고리 (예: 급여)',
+    this.placeholder = '수입 카테고리',
     this.hintText = '예: 월급, 아르바이트, 용돈 등',
     this.initialEntries,
   }) : super(key: key);
@@ -191,51 +193,51 @@ class _InputModalWidgetState extends State<InputModalWidget> {
     setState(() => error = '');
   }
 
-  String getDetailDescription() {
-    if (widget.title.contains('월 수입')) {
-      return '💡 <b>월 수입이란?</b>\n'
-          '- 매달 반복적으로 들어오는 수입\n'
-          '- 금액이 일정치 않다면 최근 3개월 평균 입력\n\n'
-          '✍ <b>입력 가이드</b>\n'
-          '- 수입이 여러 가지라면 항목별로 입력\n'
-          '- 실제 통장에 들어온 세후 금액 기준으로 입력';
-    } else if (widget.title.contains('고정 소비')) {
-      return '💡 <b>고정 소비란?</b>\n'
-          '매달 빠짐없이 자동으로 지출되는 비용 \n\n'
-          '✍ <b>입력 가이드</b>\n'
-          '- 필수 지출 항목만 입력\n'
-          '- 저축·투자는 제외';
-    } else if (widget.title.contains('하루 사용 금액')) {
-      return '💡 <b>하루 사용 금액이란?</b>\n'
-          '- 평균적으로 매일 쓰는 생활비 기준\n\n'
-          '✍ <b>입력 가이드</b>\n'
-          '- 유지 가능한 수준에서 입력\n'
-          '- 원 단위로 입력';
-    }
-    return '';
-  }
+  // String getDetailDescription() {
+  //   if (widget.title.contains('월 수입')) {
+  //     return '💡 <b>월 수입이란?</b>\n'
+  //         '- 매달 반복적으로 들어오는 수입\n'
+  //         '- 금액이 일정치 않다면 최근 3개월 평균 입력\n\n'
+  //         '✍ <b>입력 가이드</b>\n'
+  //         '- 수입이 여러 가지라면 항목별로 입력\n'
+  //         '- 실제 통장에 들어온 세후 금액 기준으로 입력';
+  //   } else if (widget.title.contains('고정 소비')) {
+  //     return '💡 <b>고정 소비란?</b>\n'
+  //         '매달 빠짐없이 자동으로 지출되는 비용 \n\n'
+  //         '✍ <b>입력 가이드</b>\n'
+  //         '- 필수 지출 항목만 입력\n'
+  //         '- 저축·투자는 제외';
+  //   } else if (widget.title.contains('하루 사용 금액')) {
+  //     return '💡 <b>하루 사용 금액이란?</b>\n'
+  //         '- 평균적으로 매일 쓰는 생활비 기준\n\n'
+  //         '✍ <b>입력 가이드</b>\n'
+  //         '- 유지 가능한 수준에서 입력\n'
+  //         '- 원 단위로 입력';
+  //   }
+  //   return '';
+  // }
 
-  Widget buildDescriptionRich() {
-    final raw = getDetailDescription();
-    if (raw.isEmpty) return const SizedBox.shrink();
-    final spans = <TextSpan>[];
-    final regex = RegExp(r'<b>(.*?)</b>', dotAll: true);
-    int last = 0;
-    for (final m in regex.allMatches(raw)) {
-      if (m.start > last) spans.add(TextSpan(text: raw.substring(last, m.start)));
-      final boldText = m.group(1) ?? '';
-      spans.add(TextSpan(
-          text: boldText, style: const TextStyle(fontWeight: FontWeight.bold)));
-      last = m.end;
-    }
-    if (last < raw.length) spans.add(TextSpan(text: raw.substring(last)));
-    return Text.rich(TextSpan(children: spans),
-        style: const TextStyle(fontSize: 14, color: Colors.black));
-  }
+  // Widget buildDescriptionRich() {
+  //   final raw = getDetailDescription();
+  //   if (raw.isEmpty) return const SizedBox.shrink();
+  //   final spans = <TextSpan>[];
+  //   final regex = RegExp(r'<b>(.*?)</b>', dotAll: true);
+  //   int last = 0;
+  //   for (final m in regex.allMatches(raw)) {
+  //     if (m.start > last) spans.add(TextSpan(text: raw.substring(last, m.start)));
+  //     final boldText = m.group(1) ?? '';
+  //     spans.add(TextSpan(
+  //         text: boldText, style: const TextStyle(fontWeight: FontWeight.bold)));
+  //     last = m.end;
+  //   }
+  //   if (last < raw.length) spans.add(TextSpan(text: raw.substring(last)));
+  //   return Text.rich(TextSpan(children: spans),
+  //       style: const TextStyle(fontSize: 14, color: Colors.black));
+  // }
 
   Widget buildContent() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
       child: Column(
         children: [
           if (error.isNotEmpty)
@@ -244,7 +246,6 @@ class _InputModalWidgetState extends State<InputModalWidget> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: const Color(0xFFFEF2F2),
-                border: Border.all(color: const Color(0xFFFECACA)),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(error,
@@ -289,22 +290,47 @@ class _InputModalWidgetState extends State<InputModalWidget> {
   }
 
   Widget buildDetailBox() {
+    // 타입/타이틀에 따라 문구 바꿔서 쓰고 싶으면 여기서 분기해도 됨
+    String titleText = '변동 가능성이 있는\n소비를 입력해주세요';
+    String captionText = '지출 금액을 조절할 수 있는 항목(소비)를 의미해요.';
+
+    if (widget.title.contains('월 수입')) {
+      titleText = '월 수입을 입력해주세요';
+      captionText = '매달 반복적으로 들어오는 수입을 항목별로 입력해요.';
+    } else if (widget.title.contains('고정 소비')) {
+      titleText = '고정 소비를 입력해주세요';
+      captionText = '매달 빠짐없이 자동으로 지출되는 비용만 입력해요.';
+    } else if (widget.title.contains('하루 사용 금액')) {
+      titleText = '변동 가능성이 있는\n소비를 입력해주세요';
+      captionText = '매일 평균적으로 쓰는 생활비예요.';
+    }
+
     return Visibility(
       visible: !_isKeyboardVisible,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF9FAFB),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: buildDescriptionRich(),
-        ),
+      child: Column(
+          children: [
+            SizedBox(height: 40),
+            CustomAppBar(title:'', onBack: () => Navigator.of(context).pushReplacementNamed('/chat_plan'),),
+            // 타이틀/서브설명
+            Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  HeaderText(text: titleText),
+                  const SizedBox(height: 10),
+                  _CaptionWithDot(text: captionText),
+                ],
+              ),
+            ),
+          ]
       ),
     );
   }
+
+
 
   Widget buildFooter() {
     if (widget.title.contains('하루 사용 금액')) {
@@ -325,27 +351,28 @@ class _InputModalWidgetState extends State<InputModalWidget> {
       color: Colors.black54,
       child: Center(
         child: Container(
-          margin: const EdgeInsets.all(16),
-          constraints: BoxConstraints(maxHeight: maxH, maxWidth: maxW),
+          // padding: const EdgeInsets.all(20),
+          // margin: const EdgeInsets.all(16),
+          // constraints: BoxConstraints(maxHeight: maxH, maxWidth: maxW),
           decoration: BoxDecoration(
               color: Colors.white, borderRadius: BorderRadius.circular(20)),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Color(0xFFF0F0F0))),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(widget.title,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
+              // Container(
+              //   padding: const EdgeInsets.all(16),
+              //   decoration: const BoxDecoration(
+              //     border: Border(bottom: BorderSide(color: Color(0xFFF0F0F0))),
+              //   ),
+              //   child: Row(
+              //     mainAxisAlignment: MainAxisAlignment.center,
+              //     children: [
+              //       Text(widget.title,
+              //           style: const TextStyle(
+              //               fontSize: 18, fontWeight: FontWeight.bold)),
+              //     ],
+              //   ),
+              // ),
               buildDetailBox(),
               if (!_isKeyboardVisible) const SizedBox(height: 8),
               Expanded(child: buildContent()),
@@ -354,6 +381,38 @@ class _InputModalWidgetState extends State<InputModalWidget> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _CaptionWithDot extends StatelessWidget {
+  final String text;
+  const _CaptionWithDot({required this.text});
+
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: const BoxDecoration(
+            color: Color(0xFFDADADA),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.help_outline, color: Colors.white, size: 12),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontFamily: 'Pretendard Variable',
+              fontSize: 13,
+              color: Color(0xFF9E9E9E),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

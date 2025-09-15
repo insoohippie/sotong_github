@@ -140,7 +140,7 @@ class ChatBottomInputArea extends StatelessWidget {
 
           if (currentStep == ChatStep.dailySpending)
             CustomButton(
-              text: '하루 소비 한도 금액 입력하러가기',
+              text: '하루 사용 금액 입력하러가기',
               onPressed: () {
                 showDailySpendingModal();
                 onDisappear();
@@ -235,6 +235,7 @@ class ChatBottomInputArea extends StatelessWidget {
                 ),
               ],
             ),
+          SizedBox(height: 20,)
         ],
       ),
     );

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:sotong_local/component/buttons/custom_button.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:sotong_local/component/theme/app_spacing.dart';
 
 class FooterDefault extends StatelessWidget {
   final double total;
@@ -16,7 +18,7 @@ class FooterDefault extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
         border: const Border(top: BorderSide(color: Color(0xFFF0F0F0))),
@@ -38,24 +40,9 @@ class FooterDefault extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _buildCompleteButton(),
+          const SizedBox(height: 40),
+          CustomButton(text: '완료', onPressed: onComplete)
         ],
-      ),
-    );
-  }
-
-  Widget _buildCompleteButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: onComplete,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0062FF),
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        child: const ParagraphText(text: '완료', color: AppColors.whiteText, fontWeight: FontWeight.bold),
       ),
     );
   }

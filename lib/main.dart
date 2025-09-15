@@ -108,7 +108,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/logo_splash',
+        initialRoute: '/plan_chat',
         routes: appRoutes,
       ),
     );

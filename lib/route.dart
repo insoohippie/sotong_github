@@ -25,6 +25,8 @@ import 'package:sotong_local/view/pages/home/period_loading_page.dart';
 import 'package:sotong_local/view/pages/home/limit_loading_page.dart';
 import 'package:sotong_local/view/pages/home/period_complete_page.dart';
 import 'package:sotong_local/view/pages/home/limit_complete_page.dart';
+import 'package:sotong_local/view/pages/variable_expense_popup.dart';
+
 import 'view/pages/auth/login_page.dart';
 
 final Map<String, WidgetBuilder> appRoutes = {
@@ -59,6 +61,8 @@ final Map<String, WidgetBuilder> appRoutes = {
     oldLimit: '7,000원',
     newLimit: '8,500원',
   ),
+
+  '/popup': (_) => const VariableExpensePopup(),
 
   '/record_spending': (_) => const RecordSpendingPage(),
   '/record_diary': (_) => const RecordDiaryPage(),

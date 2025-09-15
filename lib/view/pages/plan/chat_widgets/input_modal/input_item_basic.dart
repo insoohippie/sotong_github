@@ -11,7 +11,7 @@ class InputItemBasic extends StatelessWidget {
   final String placeholder;
   final Function(int, String, dynamic) onUpdate;
   final Function(int) onRemove;
-  final int index;
+  final int index; // 사용은 안 하지만 기존 시그니처 유지
 
   const InputItemBasic({
     Key? key,
@@ -24,80 +24,76 @@ class InputItemBasic extends StatelessWidget {
     required this.index,
   }) : super(key: key);
 
+  String _formatWithComma(String value) {
+    if (value.isEmpty) return '';
+    final n = int.tryParse(value);
+    if (n == null) return '';
+    final s = n.toString();
+    return s.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 힌트 문구는 기존 로직 유지
     final hintsForIncome = ['급여', '아르바이트', '용돈'];
     final hintsForFixed = ['월세', '통신비', '구독 서비스'];
-
     String? categoryHint;
+
     if (placeholder.contains('수입')) {
-      if (index < hintsForIncome.length) {
-        categoryHint = '${hintsForIncome[index]}';
-      }
+      if (index < hintsForIncome.length) categoryHint = hintsForIncome[index];
     } else if (placeholder.contains('소비 카테고리') || placeholder.contains('고정 소비')) {
-      // 네가 써둔 '소비 카테고리' 비교를 유지하면서, 고정 소비 문구도 함께 대응
-      if (index < hintsForFixed.length) {
-        categoryHint = '${hintsForFixed[index]}';
-      }
+      if (index < hintsForFixed.length) categoryHint = hintsForFixed[index];
     }
 
-    String _formatWithComma(String value) {
-      if (value.isEmpty) return '';
-      final n = int.tryParse(value);
-      if (n == null) return '';
-      final s = n.toString();
-      return s.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
-    }
-
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 6),
-        ],
-      ),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // 본문
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SubText(
-                  text: '$placeholder ${index+1}',
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.subText,
-                ),
-                const SizedBox(height: 3),
-                CustomTextField(
+    return Dismissible(
+      key: ValueKey('basic_${item.idx}'),
+      direction: DismissDirection.endToStart,
+      background: _buildSwipeBg(Alignment.centerRight),
+      onDismissed: (_) => onRemove(item.idx),
+      child: Container(
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 20),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // // 상단 라벨(TextField 위) — 유지
+              // const SubText(
+              //   text: '카테고리',
+              //   fontWeight: FontWeight.bold,
+              //   color: AppColors.subText,
+              // ),
+              // const SizedBox(height: 3),
+              Expanded(
+                flex: 2,
+                child: CustomTextField(
                   controller: categoryController,
-                  hintText: categoryHint ?? placeholder,
+                  hintText: categoryHint ?? '카테고리',
                   borderRadius: 8,
-                  height: 50,
+                  height: 60,
                   onChanged: (v) => onUpdate(item.idx, 'category', v),
                 ),
-                const SizedBox(height: 6),
-                const SubText(
-                  text: '금액',
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.subText,
-                ),
-                const SizedBox(height: 3),
-                CustomTextField(
+              ),
+              const SizedBox(width: 10),
+              // const SubText(
+              //   text: '금액',
+              //   fontWeight: FontWeight.bold,
+              //   color: AppColors.subText,
+              // ),
+              // const SizedBox(height: 3),
+              Expanded(
+                flex: 3,
+                child: CustomTextField(
                   controller: amountController,
                   hintText: '(예: 1,000,000)',
                   keyboardType: TextInputType.number,
                   borderRadius: 8,
-                  height: 50,
+                  height: 60,
                   onChanged: (v) {
                     final un = v.replaceAll(',', '');
                     final amt = double.tryParse(un) ?? 0;
                     onUpdate(item.idx, 'amount', amt);
+
                     final formatted = _formatWithComma(un);
                     if (formatted != v) {
                       amountController.value = TextEditingValue(
@@ -107,34 +103,27 @@ class InputItemBasic extends StatelessWidget {
                     }
                   },
                 ),
-              ],
-            ),
-          ),
-
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => onRemove(item.idx),
-                customBorder: const CircleBorder(),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: const BoxDecoration(
-                    color: Colors.transparent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    size: 18,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
               ),
-            ),
+            ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSwipeBg(AlignmentGeometry align) {
+    return Container(
+      alignment: align,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment:
+        align == Alignment.centerLeft ? MainAxisAlignment.start : MainAxisAlignment.end,
+        children: const [
+          Icon(Icons.delete_outline, color: Colors.redAccent),
         ],
       ),
     );

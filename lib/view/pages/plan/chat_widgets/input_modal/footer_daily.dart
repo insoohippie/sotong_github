@@ -4,6 +4,9 @@ import 'package:sotong_local/component/texts/paragraph_text.dart';
 import 'package:sotong_local/component/texts/subtext.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 
+import '../../../../../component/buttons/custom_button.dart';
+import '../../../../../component/theme/app_spacing.dart';
+
 class FooterDaily extends StatelessWidget {
   final double total;
   final VoidCallback onComplete;
@@ -21,7 +24,7 @@ class FooterDaily extends StatelessWidget {
     final targetText = DateFormat('yyyy년 M월 d일').format(targetDate);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.symmetric(vertical: AppSpacing.screenPadding),
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
         border: const Border(top: BorderSide(color: Color(0xFFF0F0F0))),
@@ -32,7 +35,9 @@ class FooterDaily extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Row(
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            child: Row(
             children: [
               Expanded(
                 child: Row(
@@ -68,47 +73,35 @@ class FooterDaily extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.primary.withOpacity(0.15), width: 1),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.flag_rounded, size: 16, color: AppColors.primary),
-                const SizedBox(width: 6),
-                SubText(
-                  text: '목표 도달일: $targetText 예정입니다.',
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
-              ],
-            ),
           ),
-          const SizedBox(height: 10),
-          _buildCompleteButton(),
+
+          // const SizedBox(height: 10),
+          // Container(
+          //   width: double.infinity,
+          //   padding: const EdgeInsets.symmetric(vertical: 10),
+          //   decoration: BoxDecoration(
+          //     color: const Color(0xFFEFF6FF),
+          //     borderRadius: BorderRadius.circular(20),
+          //     border: Border.all(color: AppColors.primary.withOpacity(0.15), width: 1),
+          //   ),
+          //   child: Row(
+          //     mainAxisAlignment: MainAxisAlignment.center,
+          //     children: [
+          //       const Icon(Icons.flag_rounded, size: 16, color: AppColors.primary),
+          //       const SizedBox(width: 6),
+          //       SubText(
+          //         text: '목표 도달일: $targetText 예정입니다.',
+          //         fontWeight: FontWeight.bold,
+          //         color: AppColors.primary,
+          //       ),
+          //     ],
+          //   ),
+          // ),
+          const SizedBox(height: AppSpacing.sectionSpacing),
+          CustomButton(text: '완료', onPressed: onComplete)
         ],
       ),
     );
   }
 
-  Widget _buildCompleteButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: onComplete,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0062FF),
-          minimumSize: const Size(double.infinity, 50),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        child: const ParagraphText(text: '완료', color: AppColors.whiteText, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
 }

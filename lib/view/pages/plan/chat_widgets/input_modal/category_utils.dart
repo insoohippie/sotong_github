@@ -17,7 +17,7 @@ class CategoryPill extends StatelessWidget {
     required this.text,
     required this.onTap,
     required this.onClear,
-    this.height = 50,
+    this.height = 60,
   }) : super(key: key);
 
   static const double kRadius = 12;
@@ -178,20 +178,17 @@ Future<void> openCategorySheet(
                   children: [
                     // 입력란
                     Expanded(
-                      child: SizedBox(
-                        height: 50,
-                        child: CustomTextField(
-                          controller: tempController!,
-                          hintText: '다른 카테고리 입력',
-                          onChanged: (v) => setModalState(() => temp = v),
-                          height: 50,
-                        ),
+                      child: CustomTextField(
+                        controller: tempController!,
+                        hintText: '다른 카테고리 입력',
+                        onChanged: (v) => setModalState(() => temp = v),
+                        height: 60,
                       ),
                     ),
                     const SizedBox(width: 10),
                     // 확인 버튼
                     SizedBox(
-                      height: 50,
+                      height: 60,
                       child: ElevatedButton(
                         onPressed: () {
                           final result = temp.trim();

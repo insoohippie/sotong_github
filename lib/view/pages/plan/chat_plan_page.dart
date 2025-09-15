@@ -142,7 +142,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     final statusBarHeight = mediaQuery.padding.top;
     final screenHeight = mediaQuery.size.height;
 
-    final bottomPadding = screenHeight * 0.20;
+    final bottomPadding = screenHeight * 0.22;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
