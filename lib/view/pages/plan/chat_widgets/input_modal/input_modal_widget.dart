@@ -309,8 +309,8 @@ class _InputModalWidgetState extends State<InputModalWidget> {
       visible: !_isKeyboardVisible,
       child: Column(
           children: [
-            SizedBox(height: 40),
-            CustomAppBar(title:'', onBack: () => Navigator.of(context).pushReplacementNamed('/chat_plan'),),
+            SizedBox(height: 100), // 나중에는 픽셀로 하지말고 비율로 위 아래 공간 확보
+            // CustomAppBar(title:'', onBack: () => Navigator.of(context).pushReplacementNamed('/chat_plan'),),
             // 타이틀/서브설명
             Padding(
               padding: EdgeInsets.symmetric(
