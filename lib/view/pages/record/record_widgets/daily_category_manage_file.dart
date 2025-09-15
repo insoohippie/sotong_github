@@ -9,7 +9,9 @@ class DailyCategoryManagePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
     final vm = context.watch<DailyCategoryViewModel>();
+    debugPrint('[ManagePage] rebuild  items.len=${vm.items.length} vm.hash=${vm.hashCode}');
 
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
@@ -25,11 +27,7 @@ class DailyCategoryManagePage extends StatelessWidget {
         actions: [
           IconButton(
             onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => const DailyCategoryAddPage(),
-                ),
-              );
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DailyCategoryAddPage()));
             },
             icon: const Icon(Icons.add_rounded, color: Colors.black),
             tooltip: '카테고리 추가',
@@ -50,17 +48,24 @@ class DailyCategoryManagePage extends StatelessWidget {
             ),
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: Text(item.emoji, style: const TextStyle(fontSize: 24)),
-              title: Text(item.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              trailing: Switch(
-                value: item.enabled,
-                activeColor: Colors.white,
-                activeTrackColor: AppColors.primary,
-                inactiveThumbColor: Colors.white,
-                inactiveTrackColor: const Color(0xFFCDD4E1),
-                onChanged: (v) => context.read<DailyCategoryViewModel>().setEnabled(i, v),
+              leading: CircleAvatar(
+                backgroundColor: item.color.withOpacity(0.25),
+                child: Icon(item.icon, color: Colors.black),
               ),
-              // 필요하면 길게 눌러 삭제
+              title: Text(item.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Switch(
+                    value: item.enabled,
+                    activeColor: Colors.white,
+                    activeTrackColor: AppColors.primary,
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: const Color(0xFFCDD4E1),
+                    onChanged: (v) => context.read<DailyCategoryViewModel>().setEnabled(i, v),
+                  ),
+                ],
+              ),
               onLongPress: () async {
                 final ok = await showDialog<bool>(
                   context: context,

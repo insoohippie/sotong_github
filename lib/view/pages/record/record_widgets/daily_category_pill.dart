@@ -9,9 +9,9 @@ import 'daily_category_manage_file.dart';
 
 /// 오늘의 소비 입력에서만 쓰는 Large Pill (height=60, radius=12, ParagraphText)
 class DailyCategoryPill extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-  final VoidCallback onClear;
+  final String text;          // 현재 선택된 카테고리명
+  final VoidCallback onTap;   // 시트 열기 등
+  final VoidCallback onClear; // 롱프레스 초기화
 
   const DailyCategoryPill({
     Key? key,
@@ -26,11 +26,8 @@ class DailyCategoryPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasValue = text.trim().isNotEmpty;
-
-    // ✅ 안전하게 nullable 로 조회
     final vm = context.watch<DailyCategoryViewModel>();
     final matched = vm.findByName(text.trim());
-    final String? emoji = matched?.emoji;
 
     return InkWell(
       onTap: onTap,
@@ -40,26 +37,42 @@ class DailyCategoryPill extends StatelessWidget {
         height: kHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: hasValue ? AppColors.lightBlue : AppColors.greyBackground,
+          color: hasValue ? AppColors.lightBlue : AppColors.greyBackground, // ✅ 라이트블루 유지
           borderRadius: BorderRadius.circular(kRadius),
         ),
         child: Row(
           children: [
-            if (hasValue && emoji != null && emoji.isNotEmpty)
-              Text(emoji, style: const TextStyle(fontSize: 18))
+            // 왼쪽 아이콘: 항상 검정
+            if (hasValue && matched != null)
+              Icon(matched.icon, size: 20, color: Colors.black) // ✅ 검정 아이콘
             else
               Icon(
                 hasValue ? Icons.push_pin_rounded : Icons.add_circle_outline_rounded,
-                size: 18,
+                size: 20,
                 color: hasValue ? AppColors.primary : AppColors.subText,
               ),
+
             const SizedBox(width: 8),
+
+            // 텍스트
             Expanded(
               child: ParagraphText(
                 text: hasValue ? text : '입력',
                 color: hasValue ? Colors.black : AppColors.subText,
               ),
             ),
+
+            // ✅ 오른쪽: 작은 색상 동그라미 (사용자 색)
+            if (hasValue && matched != null)
+              Container(
+                width: 10, // 🔹 작게
+                height: 10,
+                decoration: BoxDecoration(
+                  color: matched.color,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1), // 살짝 테두리
+                ),
+              ),
           ],
         ),
       ),
@@ -74,6 +87,7 @@ Future<void> openDailyCategorySheet(
     void Function(String) onSelected,
     ) async {
   String temp = controller.text;
+  String _norm(String s) => s.trim();
 
   await showModalBottomSheet(
     context: context,
@@ -92,6 +106,8 @@ Future<void> openDailyCategorySheet(
 
           tempController ??= TextEditingController(text: temp);
           final bottom = MediaQuery.of(ctx).viewInsets.bottom;
+
+          final bool isValid = _norm(temp).isNotEmpty;
 
           return Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
@@ -115,28 +131,21 @@ Future<void> openDailyCategorySheet(
                 // 제목 + 관리 버튼
                 Row(
                   children: [
-                    const Text(
-                      '카테고리 선택',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
                     const Spacer(),
                     TextButton.icon(
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        foregroundColor: AppColors.primary,
+                        foregroundColor: Colors.black,
                       ),
                       onPressed: () async {
                         await Navigator.of(ctx).push(
-                          MaterialPageRoute(
-                            builder: (_) => const DailyCategoryManagePage(),
-                          ),
+                          MaterialPageRoute(builder: (_) => const DailyCategoryManagePage()),
                         );
-
-                        // 돌아오면 현재 선택값이 여전히 사용 가능한지 점검
+                        // 복귀 후 선택값 유효성 점검
                         final stillExists = context
                             .read<DailyCategoryViewModel>()
                             .enabledItems
-                            .any((e) => e.name == temp);
+                            .any((e) => e.name.trim() == temp.trim());
                         if (!stillExists) {
                           setModalState(() {
                             temp = '';
@@ -152,22 +161,28 @@ Future<void> openDailyCategorySheet(
 
                 const SizedBox(height: 8),
 
-                // 프리셋 칩
+                // 프리셋 칩(아이콘 + 이름 + 색상 동그라미)
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: enabled.map((p) {
-                      final selected = temp == p.name;
+                      final selected = p.name.trim() == temp.trim();
                       return ChoiceChip(
                         showCheckmark: false,
                         label: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(p.emoji, style: const TextStyle(fontSize: 16)),
+                            // ✅ 색상 동그라미 + 검은 아이콘
+                            CircleAvatar(
+                              radius: 10,
+                              backgroundColor: p.color,
+                              child: Icon(p.icon, size: 14, color: Colors.black),
+                            ),
                             const SizedBox(width: 6),
                             Text(p.name),
+                            // ⛔ 우측 작은 색상 점 제거
                           ],
                         ),
                         selected: selected,
@@ -175,8 +190,7 @@ Future<void> openDailyCategorySheet(
                           setModalState(() {
                             temp = p.name;
                             tempController!.text = temp;
-                            tempController!.selection =
-                                TextSelection.collapsed(offset: temp.length);
+                            tempController!.selection = TextSelection.collapsed(offset: temp.length);
                           });
                         },
                         selectedColor: AppColors.primary,
@@ -196,7 +210,7 @@ Future<void> openDailyCategorySheet(
 
                 const SizedBox(height: 16),
 
-                // 입력 + 확인
+                // 직접 입력 + 확인 (빈 값이면 비활성화)
                 Row(
                   children: [
                     Expanded(
@@ -214,26 +228,23 @@ Future<void> openDailyCategorySheet(
                     SizedBox(
                       height: 60,
                       child: ElevatedButton(
-                        onPressed: () {
-                          final result = temp.trim();
+                        onPressed: isValid
+                            ? () {
+                          final result = _norm(temp);
                           controller.text = result;
                           onSelected(result);
                           Navigator.pop(ctx);
-                        },
+                        }
+                            : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           minimumSize: const Size(80, 60),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
                         child: const Text(
                           '확인',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ),
                     ),

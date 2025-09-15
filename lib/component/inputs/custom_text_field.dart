@@ -57,7 +57,7 @@ class CustomTextField extends StatelessWidget {
           isCollapsed: false,
           isDense: true,
           hintText: hintText,
-          hintStyle: AppTextStyles.paragraph.copyWith(color: Colors.grey),
+          hintStyle: AppTextStyles.paragraph.copyWith(color: AppColors.subText),
           border: InputBorder.none,
           suffixIcon: suffix,
         ),

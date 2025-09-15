@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import '../../../../../component/buttons/custom_dual_button.dart';
 import '../../../../../component/inputs/custom_text_field.dart';
+import '../../../../../component/texts/paragraph_text.dart';
 import '../../../../../component/texts/subtext.dart';
 
 /// 카테고리 선택용 원형 Pill
@@ -19,6 +20,8 @@ class CategoryPill extends StatelessWidget {
     this.height = 50,
   }) : super(key: key);
 
+  static const double kRadius = 12;
+
   @override
   Widget build(BuildContext context) {
     final hasValue = text.trim().isNotEmpty;
@@ -33,33 +36,31 @@ class CategoryPill extends StatelessWidget {
         ? (isPreset ? matched.icon : Icons.push_pin_rounded)
         : Icons.add_circle_outline_rounded;
 
-    // 높이에 비례한 아이콘 크기 (작아도 보기 좋게 14~22 사이로 클램프)
-    final double iconSize = (height * 0.36).clamp(14, 22);
 
     return InkWell(
       onTap: onTap,
       onLongPress: onClear,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(12),
       child: Container(
         height: height,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
           color: hasValue ? AppColors.lightBlue : AppColors.greyBackground,
-          borderRadius: BorderRadius.circular(999),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
             Icon(
               iconData,
-              size: iconSize,
+              size: 18,
               color: hasValue ? AppColors.primary : AppColors.subText,
             ),
             const SizedBox(width: 6),
             Expanded(
-              child: SubText(
+              child: ParagraphText(
                 text: hasValue ? text : '입력',
-                fontWeight: FontWeight.bold,
                 color: hasValue ? Colors.black : AppColors.subText,
+                // fontWeight: FontWeight.bold,
               ),
             ),
           ],

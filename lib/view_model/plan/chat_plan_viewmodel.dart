@@ -439,7 +439,7 @@ class ChatPlanViewModel extends ChangeNotifier {
         if (response == '네, 좋아요!') {
           updatePlanInfo(autoService: true);
           addMessage(response, MessageType.user);
-          await addBotMessageWithTyping('완료되었습니다! 이제 플랜을 수정하거나 확인할 수 있습니다.');
+          await addBotMessageWithTyping('완료되었습니다! 이제 본격적으로 저와 소통해볼까요?');
           _currentStep = ChatStep.complete;
           notifyListeners();
         } else {

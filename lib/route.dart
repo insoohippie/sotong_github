@@ -19,6 +19,12 @@ import 'package:sotong_local/view/pages/setting/edit_plan/edit_fixed_cost_page.d
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_income_page.dart';
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_saving_target_page.dart';
 import 'package:sotong_local/view/pages/setting/settings_page.dart';
+import 'package:sotong_local/view/pages/home/home_add_income.dart';
+import 'package:sotong_local/view/pages/home/amount_change_choice_page.dart';
+import 'package:sotong_local/view/pages/home/period_loading_page.dart';
+import 'package:sotong_local/view/pages/home/limit_loading_page.dart';
+import 'package:sotong_local/view/pages/home/period_complete_page.dart';
+import 'package:sotong_local/view/pages/home/limit_complete_page.dart';
 import 'view/pages/auth/login_page.dart';
 
 final Map<String, WidgetBuilder> appRoutes = {
@@ -34,6 +40,25 @@ final Map<String, WidgetBuilder> appRoutes = {
 
   '/home_tab_navigator': (_) => const HomeTabNavigator(),
   '/home': (_) => const HomePage(),
+
+  '/add_income': (_) => const HomeAddIncomePage(),
+  '/amount_change_choice': (context) => AmountChangeChoicePage(
+    amount:
+    ModalRoute.of(context)?.settings.arguments as String? ?? '1,500,000원',
+  ),
+  '/period_loading': (_) => const PeriodLoadingPage(),
+  '/limit_loading': (_) => const LimitLoadingPage(),
+  '/period_complete': (context) => PeriodCompletePage(
+    amount:
+    ModalRoute.of(context)?.settings.arguments as String? ?? '1,500,000원',
+    daysReduced: 27,
+  ),
+  '/limit_complete': (context) => LimitCompletePage(
+    amount:
+    ModalRoute.of(context)?.settings.arguments as String? ?? '1,500,000원',
+    oldLimit: '7,000원',
+    newLimit: '8,500원',
+  ),
 
   '/record_spending': (_) => const RecordSpendingPage(),
   '/record_diary': (_) => const RecordDiaryPage(),

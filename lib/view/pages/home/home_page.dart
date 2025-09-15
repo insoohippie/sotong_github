@@ -184,6 +184,7 @@ class _HomePageState extends State<HomePage> {
                       const SizedBox(height: AppSpacing.fieldSpacing),
                       RoundedInfoContainer(
                         backgroundColor: AppColors.greyBackground,
+                        padding: 20,
                         child: Column(
                           crossAxisAlignment: hasSpendingRecord
                               ? CrossAxisAlignment.start
@@ -192,9 +193,54 @@ class _HomePageState extends State<HomePage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                ParagraphText(
-                                  text: displayDate,
-                                  fontWeight: FontWeight.bold,
+                                Row(
+                                  children: [
+                                    ParagraphText(
+                                      text: displayDate,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    GestureDetector(
+                                      onTap: () {
+                                        Navigator.of(
+                                          context,
+                                          rootNavigator: true,
+                                        ).pushNamed('/add_income');
+                                      },
+                                      child: Container(
+                                        height: 32,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.add,
+                                              color: Colors.white,
+                                              size: 16,
+                                            ),
+                                            SizedBox(width: 4),
+                                            Text(
+                                              '저축',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 Row(
                                   children: [
@@ -250,10 +296,10 @@ class _HomePageState extends State<HomePage> {
                                       ).pushNamed('/record_spending');
                                     },
                                   ),
-                                  SubText(
-                                    text: "아직 소비를 기록하지 않았어요",
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  // SubText(
+                                  //   text: "아직 소비를 기록하지 않았어요",
+                                  //   fontWeight: FontWeight.bold,
+                                  // ),
                                 ] else ...[
                                   Material(
                                     color: Colors.transparent,

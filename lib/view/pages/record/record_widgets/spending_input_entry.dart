@@ -142,13 +142,14 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                 controller: noteController,
                 hintText: '노트 작성 (20자 이내)',
                 onChanged: (text) {
+                  setState(() {});
+
                   if (text.length > 20) {
                     noteController.text = text.substring(0, 20);
                     noteController.selection = TextSelection.fromPosition(
                       TextPosition(offset: noteController.text.length),
                     );
                   }
-                  // 필요 시 entry에 동기화
                   widget.entry['note'] = noteController.text;
                 },
                 height: 60,

@@ -39,7 +39,7 @@ class HomeViewModel extends ChangeNotifier {
   Timer? _ticker;
 
   // 실시간 계산 기준점(로드 완료 시 고정)
-  late DateTime _baseNow;
+  DateTime _baseNow = DateTime.now();
   double _baseSaved = 0;              // 스냅샷 시점 누적 저축액(있으면 반영, 없으면 0)
   double _savingPerSecond = 0;        // 초당 저축액
   DateTime? _goalDate;                // 목표일

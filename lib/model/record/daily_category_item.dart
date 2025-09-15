@@ -1,25 +1,28 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 
-@immutable
 class DailyCategoryItem {
   final String name;
-  final String emoji;   // 간단히 이모지 문자열로 표현
+  final IconData icon;
+  final Color color;
   final bool enabled;
 
   const DailyCategoryItem({
     required this.name,
-    required this.emoji,
+    required this.icon,
+    required this.color,
     this.enabled = true,
   });
 
   DailyCategoryItem copyWith({
     String? name,
-    String? emoji,
+    IconData? icon,
+    Color? color,
     bool? enabled,
   }) {
     return DailyCategoryItem(
       name: name ?? this.name,
-      emoji: emoji ?? this.emoji,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
       enabled: enabled ?? this.enabled,
     );
   }
