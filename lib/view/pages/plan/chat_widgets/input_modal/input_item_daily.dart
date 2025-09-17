@@ -64,23 +64,23 @@ class InputItemDaily extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Expanded(
-                  flex: 2,
-                  child: CategoryPill(
-                    text: categoryController.text,
-                    onTap: () =>
-                        openCategorySheet(
-                          context,
-                          item.idx,
-                          categoryController,
-                              (val) => onUpdate(item.idx, 'category', val),
-                        ),
-                    onClear: () {
-                      categoryController.clear();
-                      onUpdate(item.idx, 'category', '');
-                    },
-                  ),
-                ),
+                // Expanded(
+                //   flex: 2,
+                //   child: CategoryPill(
+                //     text: categoryController.text,
+                //     onTap: () =>
+                //         openCategorySheet(
+                //           context,
+                //           item.idx,
+                //           categoryController,
+                //               (val) => onUpdate(item.idx, 'category', val),
+                //         ),
+                //     onClear: () {
+                //       categoryController.clear();
+                //       onUpdate(item.idx, 'category', '');
+                //     },
+                //   ),
+                // ),
                 const SizedBox(width: 8),
                 Expanded(
                   flex: 3,

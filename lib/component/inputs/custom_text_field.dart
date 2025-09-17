@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -15,6 +16,8 @@ class CustomTextField extends StatelessWidget {
   final Widget? suffix;
   final FocusNode? focusNode;
   final Key? inputKey;
+  final bool enabled;
+  final List<TextInputFormatter>? inputFormatters;
 
   const CustomTextField({
     Key? key,
@@ -29,6 +32,8 @@ class CustomTextField extends StatelessWidget {
     this.obscureText = false,
     this.height = 60.0,
     this.suffix,
+    this.enabled = true,
+    this.inputFormatters,
   }) : super(key: key);
 
   @override
@@ -53,6 +58,7 @@ class CustomTextField extends StatelessWidget {
         controller: controller,
         style: AppTextStyles.paragraph,
         textAlignVertical: TextAlignVertical.center,
+        enabled: enabled,
         decoration: InputDecoration(
           isCollapsed: false,
           isDense: true,
@@ -64,6 +70,7 @@ class CustomTextField extends StatelessWidget {
         onChanged: onChanged,
         keyboardType: keyboardType,
         obscureText: obscureText,
+        inputFormatters: inputFormatters,
       ),
     );
   }

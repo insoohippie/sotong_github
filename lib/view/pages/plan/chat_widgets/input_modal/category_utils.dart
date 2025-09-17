@@ -1,31 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
-import '../../../../../component/buttons/custom_dual_button.dart';
 import '../../../../../component/inputs/custom_text_field.dart';
 import '../../../../../component/texts/paragraph_text.dart';
-import '../../../../../component/texts/subtext.dart';
 
-/// 카테고리 선택용 원형 Pill
 class CategoryPill extends StatelessWidget {
   final String text;
   final VoidCallback onTap;
   final VoidCallback onClear;
   final double height;
 
+  // NEW: 화면에서 주입하는 프리셋 (ex. income/fixed/daily)
+  final List<CatPreset> presets;
+
   const CategoryPill({
     Key? key,
     required this.text,
     required this.onTap,
     required this.onClear,
+    required this.presets,
     this.height = 60,
   }) : super(key: key);
-
-  static const double kRadius = 12;
 
   @override
   Widget build(BuildContext context) {
     final hasValue = text.trim().isNotEmpty;
 
+    // 기존: 전역 presets 사용 → 변경: 주입받은 presets
     final CatPreset matched = presets.firstWhere(
           (p) => p.name == text.trim(),
       orElse: () => const CatPreset('', Icons.add_circle_outline_rounded),
@@ -35,7 +35,6 @@ class CategoryPill extends StatelessWidget {
     final IconData iconData = hasValue
         ? (isPreset ? matched.icon : Icons.push_pin_rounded)
         : Icons.add_circle_outline_rounded;
-
 
     return InkWell(
       onTap: onTap,
@@ -60,7 +59,6 @@ class CategoryPill extends StatelessWidget {
               child: ParagraphText(
                 text: hasValue ? text : '입력',
                 color: hasValue ? Colors.black : AppColors.subText,
-                // fontWeight: FontWeight.bold,
               ),
             ),
           ],
@@ -70,26 +68,40 @@ class CategoryPill extends StatelessWidget {
   }
 }
 
-/// 카테고리 프리셋 정의
+// 카테고리 프리셋
 class CatPreset {
   final String name;
   final IconData icon;
   const CatPreset(this.name, this.icon);
 }
 
-final List<CatPreset> presets = const [
+// ✅ 프리셋 세트 3종
+const List<CatPreset> dailyPresets = [
   CatPreset('식비', Icons.restaurant_rounded),
   CatPreset('교통비', Icons.train_rounded),
   CatPreset('카페', Icons.local_cafe_rounded),
   CatPreset('취미', Icons.sports_esports_rounded),
 ];
 
+const List<CatPreset> incomePresets = [
+  CatPreset('급여', Icons.payments_rounded),
+  CatPreset('부업·아르바이트', Icons.handshake_rounded),
+  CatPreset('금융소득', Icons.trending_up_rounded),
+];
+
+const List<CatPreset> fixedPresets = [
+  CatPreset('주거비', Icons.home_rounded),
+  CatPreset('통신비', Icons.wifi_rounded),
+  CatPreset('보험료', Icons.health_and_safety_rounded),
+];
+
+// ✅ 바텀시트도 프리셋을 주입받도록 변경
 Future<void> openCategorySheet(
     BuildContext context,
-    int idx,
     TextEditingController controller,
-    void Function(String) onSelected,
-    ) async {
+    void Function(String) onSelected, {
+      required List<CatPreset> presets,
+    }) async {
   String temp = controller.text;
 
   await showModalBottomSheet(
@@ -105,19 +117,17 @@ Future<void> openCategorySheet(
       return StatefulBuilder(
         builder: (context, setModalState) {
           tempController ??= TextEditingController(text: temp);
-
           final bottom = MediaQuery.of(ctx).viewInsets.bottom;
+
           return Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 상단 바
                 Center(
                   child: Container(
-                    width: 40,
-                    height: 4,
+                    width: 40, height: 4,
                     decoration: BoxDecoration(
                       color: const Color(0xFFE5E7EB),
                       borderRadius: BorderRadius.circular(999),
@@ -126,11 +136,11 @@ Future<void> openCategorySheet(
                 ),
                 const SizedBox(height: 16),
 
+                // 프리셋 칩들
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
+                    spacing: 8, runSpacing: 8,
                     children: presets.map((p) {
                       final selected = temp == p.name;
                       return ChoiceChip(
@@ -138,11 +148,8 @@ Future<void> openCategorySheet(
                         label: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              p.icon,
-                              size: 16,
-                              color: selected ? Colors.white : const Color(0xFF6B7280),
-                            ),
+                            Icon(p.icon, size: 16,
+                                color: selected ? Colors.white : const Color(0xFF6B7280)),
                             const SizedBox(width: 6),
                             Text(p.name),
                           ],
@@ -176,7 +183,6 @@ Future<void> openCategorySheet(
 
                 Row(
                   children: [
-                    // 입력란
                     Expanded(
                       child: CustomTextField(
                         controller: tempController!,
@@ -186,7 +192,6 @@ Future<void> openCategorySheet(
                       ),
                     ),
                     const SizedBox(width: 10),
-                    // 확인 버튼
                     SizedBox(
                       height: 60,
                       child: ElevatedButton(
@@ -203,19 +208,14 @@ Future<void> openCategorySheet(
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
-                        child: const Text(
-                          '확인',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                        child: const Text('확인',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 40),
-
               ],
             ),
           );

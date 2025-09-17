@@ -16,6 +16,7 @@ import 'input_item_basic.dart';
 import 'footer_daily.dart';
 import 'footer_default.dart';
 import 'category_utils.dart';
+import 'input_item_row.dart';
 
 class InputModalWidget extends StatefulWidget {
   final bool isOpen;
@@ -253,37 +254,49 @@ class _InputModalWidgetState extends State<InputModalWidget> {
                   const TextStyle(color: Color(0xFFDC2626), fontSize: 14)),
             ),
           ...items.asMap().entries.map((e) {
-            final idx = e.key;
+            final idx  = e.key;
             final item = e.value;
 
+            // 모드/프리셋 결정
+            late final ItemKind kind;
+            late final List<CatPreset> presets;
+            late final String hint;
+
             if (widget.title.contains('하루 사용 금액')) {
-              return InputItemDaily(
-                item: item,
-                categoryController: _categoryControllers[item.idx]!,
-                amountController: _amountControllers[item.idx]!,
-                onUpdate: updateItem,
-                onRemove: removeItem,
-                index: idx,
-              );
+              kind = ItemKind.daily;
+              presets = dailyPresets;
+              hint = '예: 12,000원';
+            } else if (widget.title.contains('월 수입')) {
+              kind = ItemKind.income;
+              presets = incomePresets;
+              hint = '예: 1,000,000원';
             } else {
-              return InputItemBasic(
-                item: item,
-                categoryController: _categoryControllers[item.idx]!,
-                amountController: _amountControllers[item.idx]!,
-                placeholder: widget.placeholder,
-                onUpdate: updateItem,
-                onRemove: removeItem,
-                index: idx,
-              );
+              // 고정 소비
+              kind = ItemKind.fixed;
+              presets = fixedPresets;
+              hint = '예: 450,000원';
             }
+
+            return InputItemRow(
+              kind: kind,
+              item: item,
+              categoryController: _categoryControllers[item.idx]!,
+              amountController: _amountControllers[item.idx]!,
+              onUpdate: updateItem,
+              onRemove: removeItem,
+              presets: presets,
+              amountHint: hint,
+              showMonthlyHint: kind == ItemKind.daily, // daily만 월환산 문구
+            );
           }).toList(),
+
           SmallRoundedButton(
             text: '항목 추가',
             onPressed: addItem,
             icon: Icons.add,
             backgroundColor: Colors.white,
             textColor: AppColors.subText,
-          )
+          ),
         ],
       ),
     );
