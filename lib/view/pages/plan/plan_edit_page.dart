@@ -52,19 +52,23 @@ class _PlanEditPageState extends State<PlanEditPage> {
               void editIncome() async {
                 await showDialog(
                   context: context,
+                  barrierDismissible: false,
+                  barrierColor: Colors.transparent, // 모달이 자체 스크림 있음
                   builder: (ctx) {
-                    return InputModalWidget(
-                      isOpen: true,
-                      onClose: () => Navigator.of(ctx).pop(),
-                      title: '월 수입 항목 수정',
-                      placeholder: '수입 카테고리',
-                      hintText: '예: 월급, 아르바이트, 용돈 등',
-                      type: EntryType.fixed,
-                      initialEntries: viewModel.refData.fixedIncomes,
-                      // 기존 데이터 전달
-                      onComplete: (items, total) {
-                        viewModel.updateFixedIncomeEntries(items);
-                      },
+                    return Material( // ✅ InkWell용 Material 제공
+                      type: MaterialType.transparency,
+                      child: InputModalWidget(
+                        isOpen: true,
+                        onClose: () => Navigator.of(ctx).pop(),
+                        title: '월 수입 항목 수정',
+                        placeholder: '수입 카테고리',
+                        hintText: '예: 월급, 아르바이트, 용돈 등',
+                        type: EntryType.fixed,
+                        initialEntries: context.read<PlanEditViewModel>().refData.fixedIncomes,
+                        onComplete: (items, total) {
+                          context.read<PlanEditViewModel>().updateFixedIncomeEntries(items);
+                        },
+                      ),
                     );
                   },
                 );
@@ -73,18 +77,23 @@ class _PlanEditPageState extends State<PlanEditPage> {
               void editFixedCost() async {
                 await showDialog(
                   context: context,
+                  barrierDismissible: false,
+                  barrierColor: Colors.transparent,
                   builder: (ctx) {
-                    return InputModalWidget(
-                      isOpen: true,
-                      onClose: () => Navigator.of(ctx).pop(),
-                      title: '고정 소비 항목 수정',
-                      placeholder: '고정 지출 항목',
-                      hintText: '예: 월세, 핸드폰 요금, 보험료 등',
-                      type: EntryType.fixed,
-                      initialEntries: viewModel.refData.fixedConsumptions,
-                      onComplete: (items, total) {
-                        viewModel.updateFixedCostEntries(items);
-                      },
+                    return Material(
+                      type: MaterialType.transparency,
+                      child: InputModalWidget(
+                        isOpen: true,
+                        onClose: () => Navigator.of(ctx).pop(),
+                        title: '고정 소비 항목 수정',
+                        placeholder: '고정 지출 항목',
+                        hintText: '예: 월세, 핸드폰 요금, 보험료 등',
+                        type: EntryType.fixed,
+                        initialEntries: context.read<PlanEditViewModel>().refData.fixedConsumptions,
+                        onComplete: (items, total) {
+                          context.read<PlanEditViewModel>().updateFixedCostEntries(items);
+                        },
+                      ),
                     );
                   },
                 );
@@ -93,18 +102,23 @@ class _PlanEditPageState extends State<PlanEditPage> {
               void editDailySpending() async {
                 await showDialog(
                   context: context,
+                  barrierDismissible: false,
+                  barrierColor: Colors.transparent,
                   builder: (ctx) {
-                    return InputModalWidget(
-                      isOpen: true,
-                      onClose: () => Navigator.of(ctx).pop(),
-                      title: '하루 소비 한도 금액 수정',
-                      placeholder: '소비 항목',
-                      hintText: '예: 커피값, 점심값, 택시비 등',
-                      type: EntryType.daily,
-                      initialEntries: viewModel.refData.dailyConsumptions,
-                      onComplete: (items, total) {
-                        viewModel.updateDailyCostEntries(items);
-                      },
+                    return Material(
+                      type: MaterialType.transparency,
+                      child: InputModalWidget(
+                        isOpen: true,
+                        onClose: () => Navigator.of(ctx).pop(),
+                        title: '하루 소비 한도 금액 수정',
+                        placeholder: '소비 항목',
+                        hintText: '예: 커피값, 점심값, 택시비 등',
+                        type: EntryType.daily,
+                        initialEntries: context.read<PlanEditViewModel>().refData.dailyConsumptions,
+                        onComplete: (items, total) {
+                          context.read<PlanEditViewModel>().updateDailyCostEntries(items);
+                        },
+                      ),
                     );
                   },
                 );

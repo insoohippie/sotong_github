@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:intl/intl.dart';
-import 'package:sotong_local/component/appbars/custom_app_bar.dart';
-import 'package:sotong_local/component/texts/paragraph_text.dart';
-import 'package:sotong_local/component/texts/subtext.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/model/entry.dart';
 
 import '../../../../../component/buttons/small_rounded_button.dart';
+import '../../../../../component/texts/caption_with_dot.dart';
 import '../../../../../component/texts/header_text.dart';
-
 import '../../../../../component/theme/app_spacing.dart';
-import 'input_item_daily.dart';
-import 'input_item_basic.dart';
+
 import 'footer_daily.dart';
 import 'footer_default.dart';
 import 'category_utils.dart';
@@ -25,8 +22,11 @@ class InputModalWidget extends StatefulWidget {
   final Function(List<Entry>, double) onComplete;
   final String placeholder;
   final String hintText;
+  /// EntryType.daily | EntryType.fixed (수입/고정소비는 fixed 사용)
   final EntryType type;
   final List<Entry>? initialEntries;
+  /// 비교 기준(한도). 일일: (가용예산), 고정: (월수입합)
+  final double? monthlyIncome;
 
   const InputModalWidget({
     Key? key,
@@ -38,16 +38,27 @@ class InputModalWidget extends StatefulWidget {
     this.placeholder = '수입 카테고리',
     this.hintText = '예: 월급, 아르바이트, 용돈 등',
     this.initialEntries,
+    this.monthlyIncome,
   }) : super(key: key);
 
   @override
   State<InputModalWidget> createState() => _InputModalWidgetState();
 }
 
-class _InputModalWidgetState extends State<InputModalWidget> {
+class _InputModalWidgetState extends State<InputModalWidget>
+    with SingleTickerProviderStateMixin {
+  // ----- 애니메이션 컨트롤 -----
+  late final AnimationController _ctrl;
+  late final Animation<Offset> _slide; // 아래서 위로/위에서 아래로
+  late final Animation<double> _scrimFade;
+  static const _kSlideMs = 500; // 닫힘이 확실히 보이도록 500ms
+  static const _kScrimMs = 220;
+
+  bool _logicalOpen = false; // 논리적 열림(내부 상태)
+
+  // ----- 데이터 -----
   List<Entry> items = [];
   String error = '';
-
   final Map<int, TextEditingController> _amountControllers = {};
   final Map<int, TextEditingController> _categoryControllers = {};
 
@@ -57,40 +68,100 @@ class _InputModalWidgetState extends State<InputModalWidget> {
   @override
   void initState() {
     super.initState();
+
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _kSlideMs),
+      reverseDuration: const Duration(milliseconds: _kSlideMs),
+    );
+
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 1), // 아래서 시작
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
+
+    _scrimFade = CurvedAnimation(
+      parent: _ctrl,
+      curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
+    );
+
+    _logicalOpen = widget.isOpen;
+    if (_logicalOpen) {
+      // 첫 프레임 이후 forward 해야 제대로 보임
+      SchedulerBinding.instance.addPostFrameCallback((_) => _ctrl.forward());
+    }
+
     _keyboardVisibilityController = KeyboardVisibilityController();
     _initKeyboardVisibility();
     _initItems(widget.initialEntries);
   }
 
+  @override
+  void didUpdateWidget(covariant InputModalWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // 외부 isOpen 변경 → 내부 애니로 동기화
+    if (oldWidget.isOpen != widget.isOpen) {
+      _logicalOpen = widget.isOpen;
+      if (_logicalOpen) {
+        _ctrl.forward();
+      } else {
+        // 외부가 강제 닫기한 경우에도 부드럽게
+        _ctrl.reverse().whenComplete(() {
+          if (mounted) widget.onClose();
+        });
+      }
+    }
+
+    if (oldWidget.monthlyIncome != widget.monthlyIncome) {
+      setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    for (final c in _amountControllers.values) c.dispose();
+    for (final c in _categoryControllers.values) c.dispose();
+    super.dispose();
+  }
+
   Future<void> _initKeyboardVisibility() async {
     _isKeyboardVisible = await _keyboardVisibilityController.isVisible;
-    setState(() {});
+    if (mounted) setState(() {});
     _keyboardVisibilityController.onChange.listen((visible) {
-      setState(() => _isKeyboardVisible = visible);
+      if (mounted) setState(() => _isKeyboardVisible = visible);
     });
   }
 
-  void _initItems(List<Entry>? initial) {
-    final isDaily = widget.title.contains('하루 사용 금액');
+  ItemKind _resolveKind() {
+    if (widget.type == EntryType.daily) return ItemKind.daily;
+    if (widget.title.contains('월 수입')) return ItemKind.income;
+    return ItemKind.fixed;
+  }
 
-    // 기본 생성 개수: 일일 소비는 1칸, 나머지는 3칸
-    final int minCount = isDaily ? 1 : 3;
-    // 만약 "일일 소비도 3칸" 원하시면 위 줄을: final int minCount = 3; 로 바꾸세요.
+  bool _isOverBudget() {
+    final kind = _resolveKind();
+    final double limit = widget.monthlyIncome ?? 0.0;
+    if (limit <= 0.0) return false;
+    if (kind == ItemKind.income) return false;
+    if (kind == ItemKind.daily) return (getTotalAmount() * 30.0) > limit;
+    return getTotalAmount() > limit;
+  }
+
+  void _initItems(List<Entry>? initial) {
+    final kind = _resolveKind();
+    final int minCount = (kind == ItemKind.daily) ? 1 : 3;
 
     if (initial != null && initial.isNotEmpty) {
-      // 1) 전달된 초기 데이터 적용
       items = List<Entry>.from(initial);
-
-      // 2) 컨트롤러 초기화
       for (final item in items) {
         _initializeControllers(item.idx, item.category, item.amount);
       }
-
-      // 3) 3칸(또는 1칸) 미만이면 빈 항목으로 패딩
       while (items.length < minCount) {
         final seed = Entry(
           idx: DateTime.now().millisecondsSinceEpoch + items.length,
-          amount: 0,
+          amount: 0.0,
           category: '',
           type: widget.type,
         );
@@ -98,27 +169,18 @@ class _InputModalWidgetState extends State<InputModalWidget> {
         _initializeControllers(seed.idx, seed.category, seed.amount);
       }
     } else {
-      // 초기 데이터가 없으면 기본 minCount만큼 생성
       items = List.generate(minCount, (i) {
         return Entry(
           idx: DateTime.now().millisecondsSinceEpoch + i,
-          amount: 0,
+          amount: 0.0,
           category: '',
           type: widget.type,
         );
       });
-
       for (final item in items) {
         _initializeControllers(item.idx, item.category, item.amount);
       }
     }
-  }
-
-  @override
-  void dispose() {
-    for (final c in _amountControllers.values) c.dispose();
-    for (final c in _categoryControllers.values) c.dispose();
-    super.dispose();
   }
 
   void _initializeControllers(int idx, String category, double amount) {
@@ -137,13 +199,13 @@ class _InputModalWidgetState extends State<InputModalWidget> {
   }
 
   double getTotalAmount() =>
-      items.fold<double>(0, (sum, item) => sum + item.amount);
+      items.fold<double>(0.0, (sum, item) => sum + item.amount);
 
   void addItem() {
     final newIdx = DateTime.now().millisecondsSinceEpoch + items.length;
     setState(() {
-      items.add(Entry(idx: newIdx, amount: 0, category: '', type: widget.type));
-      _initializeControllers(newIdx, '', 0);
+      items.add(Entry(idx: newIdx, amount: 0.0, category: '', type: widget.type));
+      _initializeControllers(newIdx, '', 0.0);
       if (error.isNotEmpty) error = '';
     });
   }
@@ -151,13 +213,11 @@ class _InputModalWidgetState extends State<InputModalWidget> {
   void updateItem(int idx, String field, dynamic value) {
     final i = items.indexWhere((e) => e.idx == idx);
     if (i == -1) return;
-
     if (field == 'category') {
       items[i].category = value as String;
     } else if (field == 'amount') {
-      items[i].amount = value as double;
+      items[i].amount = (value as num).toDouble();
     }
-
     setState(() {
       if (error.isNotEmpty) error = '';
     });
@@ -174,69 +234,40 @@ class _InputModalWidgetState extends State<InputModalWidget> {
     });
   }
 
-  void handleComplete() {
-    final validItems =
-    items.where((e) => e.category.isNotEmpty && e.amount > 0).toList();
+  Future<void> _closeWithAnimation() async {
+    if (_ctrl.status == AnimationStatus.dismissed ||
+        _ctrl.status == AnimationStatus.reverse) {
+      return;
+    }
+    await _ctrl.reverse(); // ↓ 슬라이드 다운 + 스크림 페이드아웃
+    if (mounted) widget.onClose(); // 여기서 부모가 isOpen=false로 바꿔주세요.
+  }
+
+  Future<void> handleComplete() async {
+    final valid = items
+        .where((e) => e.category.trim().isNotEmpty && e.amount > 0.0)
+        .toList();
     final hasEmptyCategory =
-    items.any((e) => e.amount > 0 && e.category.trim().isEmpty);
+    items.any((e) => e.amount > 0.0 && e.category.trim().isEmpty);
 
     if (hasEmptyCategory) {
       setState(() => error = '카테고리명을 정확히 입력해주세요.');
       return;
     }
-    if (validItems.isEmpty) {
+    if (valid.isEmpty) {
       setState(() => error = '최소 하나의 항목을 입력해주세요.');
       return;
     }
 
-    widget.onComplete(validItems, getTotalAmount());
-    widget.onClose();
+    widget.onComplete(valid, getTotalAmount());
+    await _closeWithAnimation(); // 닫힘 애니 후 onClose 호출
     setState(() => error = '');
   }
 
-  // String getDetailDescription() {
-  //   if (widget.title.contains('월 수입')) {
-  //     return '💡 <b>월 수입이란?</b>\n'
-  //         '- 매달 반복적으로 들어오는 수입\n'
-  //         '- 금액이 일정치 않다면 최근 3개월 평균 입력\n\n'
-  //         '✍ <b>입력 가이드</b>\n'
-  //         '- 수입이 여러 가지라면 항목별로 입력\n'
-  //         '- 실제 통장에 들어온 세후 금액 기준으로 입력';
-  //   } else if (widget.title.contains('고정 소비')) {
-  //     return '💡 <b>고정 소비란?</b>\n'
-  //         '매달 빠짐없이 자동으로 지출되는 비용 \n\n'
-  //         '✍ <b>입력 가이드</b>\n'
-  //         '- 필수 지출 항목만 입력\n'
-  //         '- 저축·투자는 제외';
-  //   } else if (widget.title.contains('하루 사용 금액')) {
-  //     return '💡 <b>하루 사용 금액이란?</b>\n'
-  //         '- 평균적으로 매일 쓰는 생활비 기준\n\n'
-  //         '✍ <b>입력 가이드</b>\n'
-  //         '- 유지 가능한 수준에서 입력\n'
-  //         '- 원 단위로 입력';
-  //   }
-  //   return '';
-  // }
-
-  // Widget buildDescriptionRich() {
-  //   final raw = getDetailDescription();
-  //   if (raw.isEmpty) return const SizedBox.shrink();
-  //   final spans = <TextSpan>[];
-  //   final regex = RegExp(r'<b>(.*?)</b>', dotAll: true);
-  //   int last = 0;
-  //   for (final m in regex.allMatches(raw)) {
-  //     if (m.start > last) spans.add(TextSpan(text: raw.substring(last, m.start)));
-  //     final boldText = m.group(1) ?? '';
-  //     spans.add(TextSpan(
-  //         text: boldText, style: const TextStyle(fontWeight: FontWeight.bold)));
-  //     last = m.end;
-  //   }
-  //   if (last < raw.length) spans.add(TextSpan(text: raw.substring(last)));
-  //   return Text.rich(TextSpan(children: spans),
-  //       style: const TextStyle(fontSize: 14, color: Colors.black));
-  // }
-
   Widget buildContent() {
+    final kind = _resolveKind();
+    final over = _isOverBudget();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.screenPadding),
       child: Column(
@@ -249,30 +280,22 @@ class _InputModalWidgetState extends State<InputModalWidget> {
                 color: const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(error,
-                  style:
-                  const TextStyle(color: Color(0xFFDC2626), fontSize: 14)),
+              child: const Text(
+                '카테고리명을 정확히 입력해주세요.',
+                style: TextStyle(color: Color(0xFFDC2626), fontSize: 14),
+              ),
             ),
-          ...items.asMap().entries.map((e) {
-            final idx  = e.key;
-            final item = e.value;
-
-            // 모드/프리셋 결정
-            late final ItemKind kind;
+          ...items.map((item) {
             late final List<CatPreset> presets;
             late final String hint;
 
-            if (widget.title.contains('하루 사용 금액')) {
-              kind = ItemKind.daily;
+            if (kind == ItemKind.daily) {
               presets = dailyPresets;
               hint = '예: 12,000원';
-            } else if (widget.title.contains('월 수입')) {
-              kind = ItemKind.income;
+            } else if (kind == ItemKind.income) {
               presets = incomePresets;
               hint = '예: 1,000,000원';
             } else {
-              // 고정 소비
-              kind = ItemKind.fixed;
               presets = fixedPresets;
               hint = '예: 450,000원';
             }
@@ -286,10 +309,10 @@ class _InputModalWidgetState extends State<InputModalWidget> {
               onRemove: removeItem,
               presets: presets,
               amountHint: hint,
-              showMonthlyHint: kind == ItemKind.daily, // daily만 월환산 문구
+              showMonthlyHint: kind == ItemKind.daily,
+              isOverBudget: over,
             );
           }).toList(),
-
           SmallRoundedButton(
             text: '항목 추가',
             onPressed: addItem,
@@ -303,129 +326,118 @@ class _InputModalWidgetState extends State<InputModalWidget> {
   }
 
   Widget buildDetailBox() {
-    // 타입/타이틀에 따라 문구 바꿔서 쓰고 싶으면 여기서 분기해도 됨
     String titleText = '변동 가능성이 있는\n소비를 입력해주세요';
     String captionText = '지출 금액을 조절할 수 있는 항목(소비)를 의미해요.';
-
-    if (widget.title.contains('월 수입')) {
+    final kind = _resolveKind();
+    if (kind == ItemKind.income) {
       titleText = '월 수입을 입력해주세요';
       captionText = '매달 반복적으로 들어오는 수입을 항목별로 입력해요.';
-    } else if (widget.title.contains('고정 소비')) {
+    } else if (kind == ItemKind.fixed) {
       titleText = '고정 소비를 입력해주세요';
       captionText = '매달 빠짐없이 자동으로 지출되는 비용만 입력해요.';
-    } else if (widget.title.contains('하루 사용 금액')) {
-      titleText = '변동 가능성이 있는\n소비를 입력해주세요';
-      captionText = '매일 평균적으로 쓰는 생활비예요.';
     }
 
     return Visibility(
       visible: !_isKeyboardVisible,
       child: Column(
-          children: [
-            SizedBox(height: 100), // 나중에는 픽셀로 하지말고 비율로 위 아래 공간 확보
-            // CustomAppBar(title:'', onBack: () => Navigator.of(context).pushReplacementNamed('/chat_plan'),),
-            // 타이틀/서브설명
-            Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  HeaderText(text: titleText),
-                  const SizedBox(height: 10),
-                  _CaptionWithDot(text: captionText),
-                ],
-              ),
+        children: [
+          const SizedBox(height: 100),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                HeaderText(text: titleText),
+                const SizedBox(height: 10),
+                // CaptionWithDot(text: captionText), // 분리해두셨다면 이렇게
+                CaptionWithDot(text: captionText),
+              ],
             ),
-          ]
+          ),
+        ],
       ),
     );
   }
 
-
-
   Widget buildFooter() {
-    if (widget.title.contains('하루 사용 금액')) {
-      return FooterDaily(total: getTotalAmount(), onComplete: handleComplete);
+    final kind = _resolveKind();
+    final over = _isOverBudget();
+    final double limit = widget.monthlyIncome ?? 0.0;
+
+    if (kind == ItemKind.daily) {
+      return FooterDaily(
+        total: getTotalAmount(),
+        onComplete: handleComplete,
+        isOverBudget: over,
+        monthlyIncome: limit,
+      );
     } else {
-      return FooterDefault(total: getTotalAmount(), onComplete: handleComplete);
+      return FooterDefault(
+        total: getTotalAmount(),
+        onComplete: handleComplete,
+        isOverBudget: over,
+        monthlyIncome: limit,
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isOpen) return const SizedBox.shrink();
-
-    final maxH = MediaQuery.of(context).size.height * 0.9;
-    final maxW = MediaQuery.of(context).size.width * 0.9;
-
-    return Material(
-      color: Colors.black54,
-      child: Center(
-        child: Container(
-          // padding: const EdgeInsets.all(20),
-          // margin: const EdgeInsets.all(16),
-          // constraints: BoxConstraints(maxHeight: maxH, maxWidth: maxW),
-          decoration: BoxDecoration(
-              color: Colors.white, borderRadius: BorderRadius.circular(20)),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Container(
-              //   padding: const EdgeInsets.all(16),
-              //   decoration: const BoxDecoration(
-              //     border: Border(bottom: BorderSide(color: Color(0xFFF0F0F0))),
-              //   ),
-              //   child: Row(
-              //     mainAxisAlignment: MainAxisAlignment.center,
-              //     children: [
-              //       Text(widget.title,
-              //           style: const TextStyle(
-              //               fontSize: 18, fontWeight: FontWeight.bold)),
-              //     ],
-              //   ),
-              // ),
-              buildDetailBox(),
-              if (!_isKeyboardVisible) const SizedBox(height: 8),
-              Expanded(child: buildContent()),
-              buildFooter(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _CaptionWithDot extends StatelessWidget {
-  final String text;
-  const _CaptionWithDot({required this.text});
-
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 16,
-          height: 16,
-          decoration: const BoxDecoration(
-            color: Color(0xFFDADADA),
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.help_outline, color: Colors.white, size: 12),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontFamily: 'Pretendard Variable',
-              fontSize: 13,
-              color: Color(0xFF9E9E9E),
+    // 부모는 항상 위젯을 트리에 유지하고 isOpen만 바꿔주면 됩니다.
+    return IgnorePointer(
+      ignoring: _ctrl.status == AnimationStatus.dismissed,
+      child: Stack(
+        children: [
+          // 스크림
+          FadeTransition(
+            opacity: _scrimFade,
+            child: GestureDetector(
+              onTap: _closeWithAnimation, // 탭으로 닫기(애니 후 onClose)
+              child: Container(color: Colors.black54),
             ),
           ),
-        ),
-      ],
+          // 모달
+          Positioned.fill(
+            child: SlideTransition(
+              position: _slide,
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: FractionallySizedBox(
+                  widthFactor: 1.0,
+                  heightFactor: 0.96,
+                  child: TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.98, end: 1.0),
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    builder: (context, scale, child) => Transform.scale(
+                      scale: scale,
+                      alignment: Alignment.bottomCenter,
+                      child: child,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
+                        bottom: Radius.zero,
+                      ),
+                      child: Container(
+                        color: Colors.white,
+                        child: Column(
+                          children: [
+                            buildDetailBox(),
+                            if (!_isKeyboardVisible) const SizedBox(height: 8),
+                            Expanded(child: buildContent()),
+                            buildFooter(),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

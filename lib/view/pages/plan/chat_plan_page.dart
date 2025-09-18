@@ -348,8 +348,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   placeholder: '수입 카테고리',
                   type: EntryType.fixed,
                   onComplete: (items, total) async {
-                    final vm =
-                    Provider.of<ChatPlanViewModel>(context, listen: false);
+                    final vm = context.read<ChatPlanViewModel>();
+
                     vm.updateRefData(fixedIncomes: items);
 
                     final itemLines = items
@@ -357,17 +357,14 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                         .join('');
 
                     await vm.waitForTypingToFinish();
-
                     vm.addMessage(
                       '월 수입은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!$itemLines',
                       MessageType.user,
                     );
-
                     await vm.addBotMessageWithTyping(
                       '혹시 잘못 입력했거나 수정이 필요하다면 나중에 다시 변경하실 수 있어요.\n\n👉 이제 매달 빠져나가는 돈을 입력해볼까요? 🏠',
                       awaitTyping: true,
                     );
-
                     vm.nextStep();
                   },
                 ),
@@ -377,25 +374,20 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   title: '고정 소비 입력하기',
                   placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
+                  monthlyIncome: context.read<ChatPlanViewModel>().planInfo.fixedIncomeSum ?? 0.0,
                   onComplete: (items, total) async {
-                    final vm = Provider.of<ChatPlanViewModel>(
-                      context,
-                      listen: false,
-                    );
+                    final vm = context.read<ChatPlanViewModel>();
                     vm.updateRefData(fixedConsumptions: items);
 
                     final itemLines = items
-                        .map((e) =>
-                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .map((e) => '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
-
                     vm.addMessage(
                       '매달 빠져나가는 고정 소비는 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!$itemLines',
                       MessageType.user,
                     );
-
                     await vm.addBotMessageWithTyping(
                       '혹시 잘못 기입했거나 수정이 필요하다면, 나중에 다시 변경하실 수 있어요.\n\n👉 이제 하루에 사용할 금액을 정해볼까요? 💳',
                       awaitTyping: true,
@@ -405,36 +397,35 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                 ),
                 InputModalWidget(
                   isOpen: _showDailySpendingModal,
-                  onClose: () =>
-                      setState(() => _showDailySpendingModal = false),
+                  onClose: () => setState(() => _showDailySpendingModal = false),
                   title: '하루 사용 금액',
                   placeholder: '하루 소비 항목',
                   type: EntryType.daily,
+                  monthlyIncome: (() {
+                    final vm = context.read<ChatPlanViewModel>();
+                    final double income = vm.planInfo.fixedIncomeSum ?? 0.0;
+                    final double fixed  = vm.planInfo.fixedConsumptionSum ?? 0.0;
+                    final double leftover = income - fixed;
+                    return leftover > 0 ? leftover : 0.0;
+                  }()),
                   onComplete: (items, total) async {
-                    final vm = Provider.of<ChatPlanViewModel>(
-                      context,
-                      listen: false,
-                    );
+                    final vm = context.read<ChatPlanViewModel>();
                     vm.updateRefData(dailyConsumptions: items);
 
                     final itemLines = items
-                        .map((e) =>
-                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .map((e) => '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
-
                     vm.addMessage(
                       '하루 사용할 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n(30일 기준 월 약 ${SavingPlanCalculator.formatAmount(total * 30)}원)\n\n아래는 하루 소비 내역입니다.$itemLines',
                       MessageType.user,
                     );
-
                     await vm.addBotMessageWithTyping(
                       '이제 모든 입력이 끝났습니다.\n지금까지 입력해주신 내용을 바탕으로 저축 플랜을 계산해드릴게요!',
                       awaitTyping: true,
                     );
-
-                    await vm.nextStep();
+                    vm.nextStep();
                   },
                 ),
               ],

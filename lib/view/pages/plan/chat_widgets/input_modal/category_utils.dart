@@ -1,81 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:sotong_local/component/inputs/custom_text_field.dart';
+import 'package:sotong_local/component/texts/paragraph_text.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
-import '../../../../../component/inputs/custom_text_field.dart';
-import '../../../../../component/texts/paragraph_text.dart';
 
-class CategoryPill extends StatelessWidget {
-  final String text;
-  final VoidCallback onTap;
-  final VoidCallback onClear;
-  final double height;
-
-  // NEW: 화면에서 주입하는 프리셋 (ex. income/fixed/daily)
-  final List<CatPreset> presets;
-
-  const CategoryPill({
-    Key? key,
-    required this.text,
-    required this.onTap,
-    required this.onClear,
-    required this.presets,
-    this.height = 60,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    final hasValue = text.trim().isNotEmpty;
-
-    // 기존: 전역 presets 사용 → 변경: 주입받은 presets
-    final CatPreset matched = presets.firstWhere(
-          (p) => p.name == text.trim(),
-      orElse: () => const CatPreset('', Icons.add_circle_outline_rounded),
-    );
-
-    final bool isPreset = matched.name.isNotEmpty;
-    final IconData iconData = hasValue
-        ? (isPreset ? matched.icon : Icons.push_pin_rounded)
-        : Icons.add_circle_outline_rounded;
-
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onClear,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: height,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: hasValue ? AppColors.lightBlue : AppColors.greyBackground,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              iconData,
-              size: 18,
-              color: hasValue ? AppColors.primary : AppColors.subText,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: ParagraphText(
-                text: hasValue ? text : '입력',
-                color: hasValue ? Colors.black : AppColors.subText,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// 카테고리 프리셋
+/// 카테고리 프리셋
 class CatPreset {
   final String name;
   final IconData icon;
   const CatPreset(this.name, this.icon);
 }
 
-// ✅ 프리셋 세트 3종
+/// ✅ 프리셋 세트 3종
 const List<CatPreset> dailyPresets = [
   CatPreset('식비', Icons.restaurant_rounded),
   CatPreset('교통비', Icons.train_rounded),
@@ -95,7 +30,80 @@ const List<CatPreset> fixedPresets = [
   CatPreset('보험료', Icons.health_and_safety_rounded),
 ];
 
-// ✅ 바텀시트도 프리셋을 주입받도록 변경
+/// 카테고리 Pill (왼쪽 칩)
+class CategoryPill extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+  final double height;
+  final List<CatPreset> presets;
+
+  /// ✅ 예산 초과 + 해당 행에 입력이 있을 때 붉은 배경 강조
+  final bool highlight;
+  final Color highlightColor;
+
+  const CategoryPill({
+    Key? key,
+    required this.text,
+    required this.onTap,
+    required this.onClear,
+    required this.presets,
+    this.height = 60,
+    this.highlight = false,
+    this.highlightColor = const Color(0xFFFFF1F1),
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValue = text.trim().isNotEmpty;
+
+    final CatPreset matched = presets.firstWhere(
+          (p) => p.name == text.trim(),
+      orElse: () => const CatPreset('', Icons.add_circle_outline_rounded),
+    );
+
+    final bool isPreset = matched.name.isNotEmpty;
+    final IconData iconData = hasValue
+        ? (isPreset ? matched.icon : Icons.push_pin_rounded)
+        : Icons.add_circle_outline_rounded;
+
+    // ✅ 배경색: 입력 있고 highlight면 붉은색, 아니면 기존 색
+    final Color bgColor = (hasValue && highlight)
+        ? highlightColor
+        : (hasValue ? AppColors.lightBlue : AppColors.greyBackground);
+
+    final Color iconColor = hasValue ? AppColors.primary : AppColors.subText;
+    final Color textColor = hasValue ? Colors.black : AppColors.subText;
+
+    return InkWell(
+      onTap: onTap,
+      onLongPress: onClear,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: height,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(iconData, size: 18, color: iconColor),
+            const SizedBox(width: 6),
+            Expanded(
+              child: ParagraphText(
+                text: hasValue ? text : '입력',
+                color: textColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// ✅ 카테고리 선택 바텀시트 (프리셋 주입받음)
 Future<void> openCategorySheet(
     BuildContext context,
     TextEditingController controller,
@@ -117,7 +125,10 @@ Future<void> openCategorySheet(
       return StatefulBuilder(
         builder: (context, setModalState) {
           tempController ??= TextEditingController(text: temp);
-          final bottom = MediaQuery.of(ctx).viewInsets.bottom;
+          final bottom = MediaQuery
+              .of(ctx)
+              .viewInsets
+              .bottom;
 
           return Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
@@ -127,7 +138,8 @@ Future<void> openCategorySheet(
               children: [
                 Center(
                   child: Container(
-                    width: 40, height: 4,
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
                       color: const Color(0xFFE5E7EB),
                       borderRadius: BorderRadius.circular(999),
@@ -136,11 +148,11 @@ Future<void> openCategorySheet(
                 ),
                 const SizedBox(height: 16),
 
-                // 프리셋 칩들
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Wrap(
-                    spacing: 8, runSpacing: 8,
+                    spacing: 8,
+                    runSpacing: 8,
                     children: presets.map((p) {
                       final selected = temp == p.name;
                       return ChoiceChip(
@@ -148,8 +160,13 @@ Future<void> openCategorySheet(
                         label: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(p.icon, size: 16,
-                                color: selected ? Colors.white : const Color(0xFF6B7280)),
+                            Icon(
+                              p.icon,
+                              size: 16,
+                              color: selected
+                                  ? Colors.white
+                                  : const Color(0xFF6B7280),
+                            ),
                             const SizedBox(width: 6),
                             Text(p.name),
                           ],
@@ -159,26 +176,30 @@ Future<void> openCategorySheet(
                           setModalState(() {
                             temp = p.name;
                             tempController!.text = temp;
-                            tempController!.selection =
-                                TextSelection.collapsed(offset: temp.length);
+                            tempController!.selection = TextSelection.collapsed(
+                              offset: temp.length,
+                            );
                           });
                         },
                         selectedColor: AppColors.primary,
                         backgroundColor: const Color(0xFFF3F4F6),
                         labelStyle: TextStyle(
-                          color: selected ? Colors.white : const Color(0xFF111827),
+                          color: selected
+                              ? Colors.white
+                              : const Color(0xFF111827),
                           fontWeight: FontWeight.w600,
                         ),
                         shape: StadiumBorder(
                           side: BorderSide(
-                            color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
+                            color: selected
+                                ? AppColors.primary
+                                : const Color(0xFFE5E7EB),
                           ),
                         ),
                       );
                     }).toList(),
                   ),
                 ),
-
                 const SizedBox(height: 16),
 
                 Row(
@@ -206,10 +227,14 @@ Future<void> openCategorySheet(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          padding:
+                          const EdgeInsets.symmetric(horizontal: 16),
                         ),
-                        child: const Text('확인',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                        child: const Text(
+                          '확인',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
                         ),
                       ),
                     ),
