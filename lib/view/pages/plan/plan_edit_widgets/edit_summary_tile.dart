@@ -71,7 +71,7 @@ class EditSummaryTile extends StatelessWidget {
             ),
           ),
           SizedBox(height: 16),
-          Divider(height: 2, color:AppColors.greyBackground, )
+          Divider(height: 5, color:AppColors.greyBackground, )
 
         ],
       ),

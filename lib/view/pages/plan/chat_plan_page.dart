@@ -33,6 +33,31 @@ class _ChatPlanPageState extends State<ChatPlanPage>
   bool _isFormatting = false;
   bool _showBottomArea = true;
 
+  // ====== 자동 스크롤 제어 추가 ======
+  int _lastMessageCount = 0;
+  static const _autoScrollThreshold = 120.0;
+
+  bool _isNearBottom() {
+    if (!_scrollController.hasClients) return true;
+    final pos = _scrollController.position;
+    final distanceFromBottom = (pos.maxScrollExtent - pos.pixels).abs();
+    return distanceFromBottom <= _autoScrollThreshold;
+  }
+
+  void _maybeScrollToBottomOnNewMessage(List<ChatMessage> messages, bool isTyping) {
+    final added = messages.length > _lastMessageCount;
+    if (added && _isNearBottom()) {
+      _scrollToBottom();
+    }
+    _lastMessageCount = messages.length;
+
+    // 타이핑 표시가 켜질 때도 바닥 근처면 내려줌(옵션)
+    if (isTyping && _isNearBottom()) {
+      _scrollToBottom();
+    }
+  }
+  // =================================
+
   @override
   void initState() {
     super.initState();
@@ -86,9 +111,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     });
   }
 
-  String _unformatNumber(String value) {
-    return value.replaceAll(',', '');
-  }
+  String _unformatNumber(String value) => value.replaceAll(',', '');
 
   String _formatNumber(String value) {
     if (value.isEmpty) return '';
@@ -100,9 +123,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
   bool _isChatInputEnabled(ChatStep step) {
     return step == ChatStep.planName ||
         step == ChatStep.targetAmount ||
-    step == ChatStep.currentAsset
-    // || step == ChatStep.purposeCustom
-    ;
+        step == ChatStep.currentAsset;
   }
 
   @override
@@ -141,16 +162,15 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     final mediaQuery = MediaQuery.of(context);
     final statusBarHeight = mediaQuery.padding.top;
     final screenHeight = mediaQuery.size.height;
-
     final bottomPadding = screenHeight * 0.22;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: Consumer<ChatPlanViewModel>(
         builder: (context, viewModel, child) {
-          WidgetsBinding.instance.addPostFrameCallback(
-                (_) => _scrollToBottom(),
-          );
+          // ✅ 새 메시지/타이핑 변화에만 조건부 자동 스크롤
+          _maybeScrollToBottomOnNewMessage(viewModel.messages, viewModel.isTyping);
+
           bool animDone = false;
           if (viewModel.messages.isNotEmpty &&
               shouldWaitForAnimation(viewModel.currentStep)) {
@@ -164,10 +184,10 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           }
 
           final bool lastIsSummary =
-              viewModel.messages.isNotEmpty && viewModel.messages.last.type == MessageType.summary;
+              viewModel.messages.isNotEmpty &&
+                  viewModel.messages.last.type == MessageType.summary;
           if (viewModel.currentStep == ChatStep.summary && lastIsSummary) {
             animDone = true;
-
 
             if (!_showBottomArea) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -196,12 +216,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
               : null;
 
           final step = viewModel.currentStep;
-          final raw  = _inputController.text;
+          final raw = _inputController.text;
 
           return Stack(
             children: [
               Column(
                 children: [
+                  // 상단 패딩만 남겨두기
                   Container(
                     padding: EdgeInsets.only(
                       top: statusBarHeight + 16,
@@ -209,22 +230,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       right: 16,
                       bottom: 16,
                     ),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: Color(0xFFF0F0F0)),
-                      ),
-                    ),
-                    child: const Text(
-                      '플랜 설정',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
                   ),
-
                   Expanded(
                     child: Container(
                       margin: EdgeInsets.only(bottom: bottomPadding),
@@ -262,15 +268,15 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                               (
                                   // 목표금액: 양수만
                                   (step == ChatStep.targetAmount &&
-                                      double.parse(_unformatNumber(raw)) > 0)
-                                      ||
+                                      double.parse(_unformatNumber(raw)) > 0) ||
                                       // 보유자산: 음수/0/양수 모두 허용
                                       (step == ChatStep.currentAsset)
-                              )
-                          )
+                              ))
                             AmountGuideWidget(
                               amount: double.parse(_unformatNumber(raw)),
-                              type: step == ChatStep.targetAmount ? '목표금액' : '보유금액',
+                              type: step == ChatStep.targetAmount
+                                  ? '목표금액'
+                                  : '보유금액',
                             ),
 
                           // summary는 ChatMessageWidget 내부에서 MessageType.summary로 렌더하도록 했으면 여기 주석 유지
@@ -310,17 +316,19 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                         }
 
                         // targetAmount / currentAsset만 천단위 포맷
-                        if (step == ChatStep.targetAmount || step == ChatStep.currentAsset) {
+                        if (step == ChatStep.targetAmount ||
+                            step == ChatStep.currentAsset) {
                           if (_isFormatting) return;
 
                           final unformatted = _unformatNumber(value);
-                          final formatted   = _formatNumber(unformatted);
+                          final formatted = _formatNumber(unformatted);
 
                           if (value != formatted) {
                             _isFormatting = true;
                             _inputController.value = TextEditingValue(
                               text: formatted,
-                              selection: TextSelection.collapsed(offset: formatted.length),
+                              selection: TextSelection.collapsed(
+                                  offset: formatted.length),
                             );
                             _isFormatting = false;
                           }
@@ -353,7 +361,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     vm.updateRefData(fixedIncomes: items);
 
                     final itemLines = items
-                        .map((e) => '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .map((e) =>
+                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -374,13 +383,15 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   title: '고정 소비 입력하기',
                   placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
-                  monthlyIncome: context.read<ChatPlanViewModel>().planInfo.fixedIncomeSum ?? 0.0,
+                  monthlyIncome:
+                  context.read<ChatPlanViewModel>().planInfo.fixedIncomeSum ?? 0.0,
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
                     vm.updateRefData(fixedConsumptions: items);
 
                     final itemLines = items
-                        .map((e) => '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .map((e) =>
+                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -404,7 +415,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   monthlyIncome: (() {
                     final vm = context.read<ChatPlanViewModel>();
                     final double income = vm.planInfo.fixedIncomeSum ?? 0.0;
-                    final double fixed  = vm.planInfo.fixedConsumptionSum ?? 0.0;
+                    final double fixed = vm.planInfo.fixedConsumptionSum ?? 0.0;
                     final double leftover = income - fixed;
                     return leftover > 0 ? leftover : 0.0;
                   }()),
@@ -413,7 +424,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     vm.updateRefData(dailyConsumptions: items);
 
                     final itemLines = items
-                        .map((e) => '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .map((e) =>
+                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();

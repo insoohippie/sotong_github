@@ -5,6 +5,7 @@ import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/texts/header_text.dart';
 import '../../../component/texts/multi_color_text.dart';
+import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
 import '../../../view_model/auth/login_view_model.dart';
@@ -33,11 +34,13 @@ class EmailLoginPage extends StatelessWidget {
                     MultiColorText(
                       baseStyle: AppTextStyles.header,
                       parts: const [
-                        TextPart('재미있게 ', Color(0xFF231F1F)),
-                        TextPart('소통', Color(0xFF0062FF)),
-                        TextPart('하며\n', Color(0xFF231F1F)),
-                        TextPart('소비 통제', Color(0xFF0062FF)),
-                        TextPart(' 하자!', Color(0xFF231F1F)),
+                        TextPart('재미있게 ', Colors.black),
+                        TextPart('소통', AppColors.primary),
+                        TextPart('하며\n',Colors.black),
+                        TextPart('소', AppColors.primary),
+                        TextPart('비 ', Colors.black),
+                        TextPart('통', AppColors.primary),
+                        TextPart('제 하자!', Colors.black),
                       ],
                     ),
                     const SizedBox(height: 20),

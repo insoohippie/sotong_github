@@ -247,13 +247,23 @@ class _InputModalWidgetState extends State<InputModalWidget>
     final valid = items
         .where((e) => e.category.trim().isNotEmpty && e.amount > 0.0)
         .toList();
+
     final hasEmptyCategory =
     items.any((e) => e.amount > 0.0 && e.category.trim().isEmpty);
+
+    final hasZeroAmountWithCategory =
+    items.any((e) => e.amount == 0.0 && e.category.trim().isNotEmpty);
 
     if (hasEmptyCategory) {
       setState(() => error = '카테고리명을 정확히 입력해주세요.');
       return;
     }
+
+    if (hasZeroAmountWithCategory) {
+      setState(() => error = '금액은 0원보다 커야 해요.');
+      return;
+    }
+
     if (valid.isEmpty) {
       setState(() => error = '최소 하나의 항목을 입력해주세요.');
       return;
@@ -280,8 +290,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
                 color: const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                '카테고리명을 정확히 입력해주세요.',
+              child: Text(
+                error,
                 style: TextStyle(color: Color(0xFFDC2626), fontSize: 14),
               ),
             ),
@@ -370,6 +380,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
         onComplete: handleComplete,
         isOverBudget: over,
         monthlyIncome: limit,
+        isEdit: widget.isEditMode,
       );
     } else {
       return FooterDefault(

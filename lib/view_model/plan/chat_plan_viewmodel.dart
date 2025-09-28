@@ -232,8 +232,8 @@ class ChatPlanViewModel extends ChangeNotifier {
       if (_currentStep == ChatStep.summary) {
         final calc = calculate();
         if (calc == null || calc.dailyNetSaving <= 0) {
-          await addBotMessageWithTyping(
-            '죄송합니다. 입력하신 정보로는 저축이 어려운 상황입니다.\n플랜을 다시 검토해보시겠어요?',
+          print(
+            '저축 불가',
           );
         }
       }

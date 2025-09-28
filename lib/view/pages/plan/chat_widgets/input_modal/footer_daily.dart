@@ -86,7 +86,7 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
         // 개월 수 = 남은금액 / 월저축액 → 올림
         final monthsNeeded = (remaining / monthlySaving).ceil();
         helperLine = '목표 금액까지 약 ${monthsNeeded}개월 소요!';
-      } else {
+      } else if (monthlySaving < 0) {
         // 저축 불가(0 이하)
         helperLine = '⚠️ 현재 금액으로는 저축이 어려워요. 일일 소비를 조금 줄여볼까요?';
       }
