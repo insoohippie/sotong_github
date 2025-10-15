@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sotong_local/summary_widget_sandbox.dart';
 import 'package:sotong_local/view/pages/auth/signup_page.dart';
 import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
 import 'package:sotong_local/view/pages/communication/communication_logs_page.dart';
@@ -25,7 +26,6 @@ import 'package:sotong_local/view/pages/home/period_loading_page.dart';
 import 'package:sotong_local/view/pages/home/limit_loading_page.dart';
 import 'package:sotong_local/view/pages/home/period_complete_page.dart';
 import 'package:sotong_local/view/pages/home/limit_complete_page.dart';
-import 'package:sotong_local/view/pages/variable_expense_popup.dart';
 
 import 'view/pages/auth/login_page.dart';
 
@@ -62,8 +62,6 @@ final Map<String, WidgetBuilder> appRoutes = {
     newLimit: '8,500원',
   ),
 
-  '/popup': (_) => const VariableExpensePopup(),
-
   '/record_spending': (_) => const RecordSpendingPage(),
   '/record_diary': (_) => const RecordDiaryPage(),
   '/today_spending': (_) => const TodaySpendingPage(),
@@ -81,4 +79,6 @@ final Map<String, WidgetBuilder> appRoutes = {
 
   '/communication': (_) => const CommunicationPage(),
   '/communication_logs': (_) => const CommunicationLogsPage(),
+
+  '/__debug_summary': (_) => PieAndPlanSummaryPage(),
 };

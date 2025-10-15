@@ -135,8 +135,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
         ChatStep.onboarding3,
         ChatStep.greeting,
         ChatStep.planName,
-        // ChatStep.purpose,
-        // ChatStep.purposeCustom,
         ChatStep.currentAssetAsk,
         ChatStep.currentAsset,
         ChatStep.targetAmount,
@@ -161,14 +159,14 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
     final mediaQuery = MediaQuery.of(context);
     final statusBarHeight = mediaQuery.padding.top;
-    final screenHeight = mediaQuery.size.height;
-    final bottomPadding = screenHeight * 0.22;
+
+    // 너가 잡아놓은 고정 픽셀 높이 (하단 입력바/모달 높이)
+    const double bottomBarHeight = 250.0;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: Consumer<ChatPlanViewModel>(
         builder: (context, viewModel, child) {
-          // ✅ 새 메시지/타이핑 변화에만 조건부 자동 스크롤
           _maybeScrollToBottomOnNewMessage(viewModel.messages, viewModel.isTyping);
 
           bool animDone = false;
@@ -222,21 +220,21 @@ class _ChatPlanPageState extends State<ChatPlanPage>
             children: [
               Column(
                 children: [
-                  // 상단 패딩만 남겨두기
                   Container(
                     padding: EdgeInsets.only(
-                      top: statusBarHeight + 16,
-                      left: 16,
-                      right: 16,
-                      bottom: 16,
+                      top: statusBarHeight,
                     ),
                   ),
                   Expanded(
                     child: Container(
-                      margin: EdgeInsets.only(bottom: bottomPadding),
                       child: ListView(
                         controller: _scrollController,
-                        padding: const EdgeInsets.all(16),
+                        padding: EdgeInsets.fromLTRB(
+                          16, // left
+                          16, // top
+                          16, // right
+                          bottomBarHeight + 16, // bottom
+                        ),
                         children: [
                           ...messages.asMap().entries.map((entry) {
                             final message = entry.value;
@@ -278,11 +276,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                                   ? '목표금액'
                                   : '보유금액',
                             ),
-
-                          // summary는 ChatMessageWidget 내부에서 MessageType.summary로 렌더하도록 했으면 여기 주석 유지
-                          // if (viewModel.currentStep == ChatStep.summary &&
-                          //     viewModel.calculationResult != null)
-                          //   buildSummarySection(context, viewModel),
                         ],
                       ),
                     ),
@@ -315,7 +308,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                           return;
                         }
 
-                        // targetAmount / currentAsset만 천단위 포맷
                         if (step == ChatStep.targetAmount ||
                             step == ChatStep.currentAsset) {
                           if (_isFormatting) return;

@@ -27,6 +27,8 @@ class InputModalWidget extends StatefulWidget {
   final List<Entry>? initialEntries;
   /// 비교 기준(한도). 일일: (가용예산), 고정: (월수입합)
   final double? monthlyIncome;
+  /// 수정 모드(예산 초과 경고/흔들림/비활성화 억제)
+  final bool isEditMode;
 
   const InputModalWidget({
     Key? key,
@@ -39,6 +41,7 @@ class InputModalWidget extends StatefulWidget {
     this.hintText = '예: 월급, 아르바이트, 용돈 등',
     this.initialEntries,
     this.monthlyIncome,
+    this.isEditMode = false,
   }) : super(key: key);
 
   @override
@@ -64,6 +67,13 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
   late KeyboardVisibilityController _keyboardVisibilityController;
   bool _isKeyboardVisible = false;
+
+  // 화면 높이 비율 기반 간격 유틸: ratio * height, min/max로 클램프
+  double _vh(BuildContext context, double ratio, {double min = 0, double max = double.infinity}) {
+    final h = MediaQuery.of(context).size.height;
+    final v = h * ratio;
+    return v.clamp(min, max);
+  }
 
   @override
   void initState() {
@@ -141,6 +151,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
   }
 
   bool _isOverBudget() {
+    if (widget.isEditMode) return false;
     final kind = _resolveKind();
     final double limit = widget.monthlyIncome ?? 0.0;
     if (limit <= 0.0) return false;
@@ -278,8 +289,17 @@ class _InputModalWidgetState extends State<InputModalWidget>
     final kind = _resolveKind();
     final over = _isOverBudget();
 
+    // 본문 위·아래 마진도 비율 기반으로 조절 (가벼운 예시)
+    final contentTopGap = _vh(context, 0.01, min: 6, max: 12);
+    final contentBottomGap = _vh(context, 0.012, min: 8, max: 16);
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.screenPadding),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.screenPadding,
+        AppSpacing.screenPadding + contentTopGap,
+        AppSpacing.screenPadding,
+        AppSpacing.screenPadding + contentBottomGap,
+      ),
       child: Column(
         children: [
           if (error.isNotEmpty)
@@ -290,8 +310,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
                 color: const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Text(
-                error,
+              child: const Text(
+                '카테고리/금액을 확인해주세요.',
                 style: TextStyle(color: Color(0xFFDC2626), fontSize: 14),
               ),
             ),
@@ -336,8 +356,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
   }
 
   Widget buildDetailBox() {
-    String titleText = '변동 가능성이 있는\n소비를 입력해주세요';
-    String captionText = '지출 금액을 조절할 수 있는 항목(소비)를 의미해요.';
+    String titleText = '일 변동소비 예산을\n입력해주세요';
+    String captionText = '하루 지출을 입력하면 월(30일) 변동예산을 자동으로 계산해요.';
     final kind = _resolveKind();
     if (kind == ItemKind.income) {
       titleText = '월 수입을 입력해주세요';
@@ -347,19 +367,23 @@ class _InputModalWidgetState extends State<InputModalWidget>
       captionText = '매달 빠짐없이 자동으로 지출되는 비용만 입력해요.';
     }
 
+    // 상단 여백: 화면 높이의 % (min ~ max px 사이)
+    final topGap = _vh(context, 0.08, min: 48, max: 120);
+    // 제목 아래 간격: 1.2% (6~14px)
+    final underTitleGap = _vh(context, 0.01, min: 6, max: 14);
+
     return Visibility(
       visible: !_isKeyboardVisible,
       child: Column(
         children: [
-          const SizedBox(height: 100),
+          SizedBox(height: topGap),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 HeaderText(text: titleText),
-                const SizedBox(height: 10),
-                // CaptionWithDot(text: captionText), // 분리해두셨다면 이렇게
+                SizedBox(height: underTitleGap),
                 CaptionWithDot(text: captionText),
               ],
             ),
@@ -394,7 +418,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
   @override
   Widget build(BuildContext context) {
-    // 부모는 항상 위젯을 트리에 유지하고 isOpen만 바꿔주면 됩니다.
     return IgnorePointer(
       ignoring: _ctrl.status == AnimationStatus.dismissed,
       child: Stack(
@@ -403,7 +426,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
           FadeTransition(
             opacity: _scrimFade,
             child: GestureDetector(
-              onTap: _closeWithAnimation, // 탭으로 닫기(애니 후 onClose)
               child: Container(color: Colors.black54),
             ),
           ),
@@ -435,7 +457,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
                         child: Column(
                           children: [
                             buildDetailBox(),
-                            if (!_isKeyboardVisible) const SizedBox(height: 8),
+                            if (!_isKeyboardVisible)
+                              SizedBox(height: _vh(context, 0.01, min: 6, max: 12)),
                             Expanded(child: buildContent()),
                             buildFooter(),
                           ],
