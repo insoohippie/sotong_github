@@ -13,9 +13,10 @@ import '../../../component/chart/animated_budget_bar_chart.dart';
 import '../../../component/theme/app_colors.dart';
 
 // Models / VMs
-import '../../../model/entry.dart';
-import '../../../model/plan_info.dart';
-import '../../../model/ref_data.dart';
+import '../../../model/refData/entry.dart';
+import '../../../model/plan/plan_edit_result.dart';
+import '../../../model/plan/total_plan.dart';
+import '../../../model/refData/ref_data.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/plan/plan_edit_viewmodel.dart';
 
@@ -23,13 +24,15 @@ import '../../../view_model/plan/plan_edit_viewmodel.dart';
 import 'chat_widgets/input_modal/input_modal_widget.dart';
 
 class PlanEditPage extends StatefulWidget {
-  final PlanInfo initialPlan;
+  final TotalPlan initialPlan;
   final RefData initialRefData;
+  final bool requireApplyDate;
 
   const PlanEditPage({
     Key? key,
     required this.initialPlan,
     required this.initialRefData,
+    this.requireApplyDate = true,
   }) : super(key: key);
 
   @override
@@ -69,6 +72,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
   // ----------------- 모달 -----------------
   Future<void> _openIncomeModal(BuildContext context, PlanEditViewModel vm) async {
+    List<Entry>? stagedEntries;
     await showDialog(
       context: context,
       useRootNavigator: false,
@@ -83,17 +87,27 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '월 수입 입력하기',
             placeholder: '수입 카테고리',
             type: EntryType.fixed,
-            initialEntries: vm.refData.fixedIncomes,
+            initialEntries: vm.currentMonthlyIncomeEntries,
             onComplete: (items, total) {
-              context.read<PlanEditViewModel>().updateFixedIncomeEntries(items);
+              stagedEntries = List<Entry>.from(items);
             },
           ),
         );
       },
     );
+    if (!mounted || stagedEntries == null) return;
+
+    final DateTime? applyDate = await _resolveApplyDate(
+      vm: vm,
+      title: '월 수입 적용일을 선택하세요',
+      initialDate: vm.pendingFixedIncomeApplyDate ?? DateTime.now(),
+    );
+    if (applyDate == null) return;
+    vm.applyFixedIncomeEdit(entries: stagedEntries!, applyDate: applyDate);
   }
 
   Future<void> _openFixedCostModal(BuildContext context, PlanEditViewModel vm) async {
+    List<Entry>? stagedEntries;
     await showDialog(
       context: context,
       useRootNavigator: false,
@@ -108,17 +122,27 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '고정 소비 입력하기',
             placeholder: '고정 소비 항목',
             type: EntryType.fixed,
-            initialEntries: vm.refData.fixedConsumptions,
+            initialEntries: vm.currentMonthlyConsumeEntries,
             onComplete: (items, total) {
-              context.read<PlanEditViewModel>().updateFixedCostEntries(items);
+              stagedEntries = List<Entry>.from(items);
             },
           ),
         );
       },
     );
+    if (!mounted || stagedEntries == null) return;
+
+    final DateTime? applyDate = await _resolveApplyDate(
+      vm: vm,
+      title: '고정 소비 적용일을 선택하세요',
+      initialDate: vm.pendingFixedConsumeApplyDate ?? DateTime.now(),
+    );
+    if (applyDate == null) return;
+    vm.applyFixedConsumeEdit(entries: stagedEntries!, applyDate: applyDate);
   }
 
   Future<void> _openDailyModal(BuildContext context, PlanEditViewModel vm) async {
+    List<Entry>? stagedEntries;
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -132,19 +156,28 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '하루 사용 금액',
             placeholder: '하루 소비 항목',
             type: EntryType.daily,
-            initialEntries: vm.refData.dailyConsumptions,
+            initialEntries: vm.currentDailyConsumeEntries,
             isEditMode: true,
             onComplete: (items, total) {
-              context.read<PlanEditViewModel>().updateDailyCostEntries(items);
+              stagedEntries = List<Entry>.from(items);
             },
           ),
         );
       },
     );
+    if (!mounted || stagedEntries == null) return;
+
+    final DateTime? applyDate = await _resolveApplyDate(
+      vm: vm,
+      title: '일일 소비 적용일을 선택하세요',
+      initialDate: vm.pendingDailyConsumeApplyDate ?? DateTime.now(),
+    );
+    if (applyDate == null) return;
+    vm.applyDailyConsumeEdit(entries: stagedEntries!, applyDate: applyDate);
   }
 
   // ----------------- 저장 -----------------
-  void _save(PlanEditViewModel vm) {
+  Future<void> _save(PlanEditViewModel vm) async {
     final msg = _blockingMessage(vm);
     if (msg != null) return;
 
@@ -156,8 +189,91 @@ class _PlanEditPageState extends State<PlanEditPage> {
       return;
     }
 
-    final updated = vm.createUpdatedPlan(widget.initialPlan);
-    Navigator.of(context).pop(updated);
+    vm.createUpdatedPlan(widget.initialPlan);
+
+    final result = vm.finalizeEdits();
+    Navigator.of(context).pop(result);
+  }
+
+  Future<DateTime?> _resolveApplyDate({
+    required PlanEditViewModel vm,
+    required String title,
+    required DateTime initialDate,
+  }) async {
+    if (!widget.requireApplyDate) {
+      final now = DateTime.now();
+      return DateTime(now.year, now.month, now.day);
+    }
+    return _pickApplyDate(
+      vm: vm,
+      title: title,
+      initialDate: initialDate,
+    );
+  }
+
+  Future<DateTime?> _pickApplyDate({
+    required PlanEditViewModel vm,
+    required String title,
+    DateTime? initialDate,
+  }) async {
+    final now = DateTime.now();
+    final startSource = vm.totalPlan.startDate ?? now;
+    final planStart = DateTime(startSource.year, startSource.month, startSource.day);
+    final endSource = vm.projectedGoalDate ??
+        vm.totalPlan.modEndDate ??
+        vm.totalPlan.endDate ??
+        startSource;
+    DateTime planEnd = DateTime(endSource.year, endSource.month, endSource.day);
+    if (planEnd.isBefore(planStart)) {
+      planEnd = planStart;
+    }
+
+    DateTime initial = initialDate != null
+        ? DateTime(initialDate.year, initialDate.month, initialDate.day)
+        : DateTime(now.year, now.month, now.day);
+    if (initial.isBefore(planStart)) {
+      initial = planStart;
+    }
+    if (initial.isAfter(planEnd)) {
+      initial = planEnd;
+    }
+
+    DateTime tempSelected = initial;
+
+    final result = await showDialog<DateTime>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            height: 320,
+            width: 320,
+            child: CalendarDatePicker(
+              initialDate: initial,
+              firstDate: planStart,
+              lastDate: planEnd,
+              onDateChanged: (value) {
+                tempSelected = value;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, tempSelected),
+              child: const Text('적용'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == null) return null;
+    return DateTime(result.year, result.month, result.day);
   }
 
   // ----------------- UI -----------------
@@ -315,12 +431,12 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
       dly.toStringAsFixed(2),
       target.toStringAsFixed(2),
       current.toStringAsFixed(2),
-      vm.refData.fixedIncomes.length,
-      _sum(vm.refData.fixedIncomes).toStringAsFixed(2),
-      vm.refData.fixedConsumptions.length,
-      _sum(vm.refData.fixedConsumptions).toStringAsFixed(2),
-      vm.refData.dailyConsumptions.length,
-      _sum(vm.refData.dailyConsumptions).toStringAsFixed(2),
+      vm.currentMonthlyIncomeEntries.length,
+      _sum(vm.currentMonthlyIncomeEntries).toStringAsFixed(2),
+      vm.currentMonthlyConsumeEntries.length,
+      _sum(vm.currentMonthlyConsumeEntries).toStringAsFixed(2),
+      vm.currentDailyConsumeEntries.length,
+      _sum(vm.currentDailyConsumeEntries).toStringAsFixed(2),
     ].join('|');
   }
 
@@ -335,10 +451,13 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
       fixedConsumptionSum: editVM.monthlyFixedCost,
       dailyConsumptionSum: editVM.dailySpendingLimit,
     );
-    chatVM.updateRefData(
-      fixedIncomes: editVM.refData.fixedIncomes,
-      fixedConsumptions: editVM.refData.fixedConsumptions,
-      dailyConsumptions: editVM.refData.dailyConsumptions,
+    chatVM.updatePlanInfo(
+      planName: editVM.planNameController.text,
+      targetAmount: _parse(editVM.targetAmountController.text),
+      currentAsset: _parse(editVM.currentAssetController.text),
+      fixedIncomeSum: editVM.monthlyIncome,
+      fixedConsumptionSum: editVM.monthlyFixedCost,
+      dailyConsumptionSum: editVM.dailySpendingLimit,
     );
     chatVM.calculate();
   }
@@ -414,7 +533,7 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               AnimatedBudgetBarChart(
-                planInfo: chatVM.planInfo,
+                plan: chatVM.totalPlan,
                 calculation: calc,
                 height: 20,
                 showPercentages: true,

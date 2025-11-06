@@ -1,29 +1,54 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../model/entry.dart';
-import '../../model/plan_info.dart';
-import '../../model/ref_data.dart';
-import '../services/plan_info_viewmodel.dart';
+import '../../model/commands/update_daily_command.dart';
+import '../../model/commands/update_monthly_command.dart';
+import '../../model/plan/plan_edit_result.dart';
+import '../../model/plan/total_plan.dart';
+import '../../model/refData/ref_data.dart';
+import '../../model/refData/entry.dart';
+import '../services/ref_data_viewmodel.dart';
+import '../services/saving_calculator.dart';
+import '../services/total_plan_viewmodel.dart';
 
 class PlanEditViewModel extends ChangeNotifier {
   late TextEditingController planNameController;
   late TextEditingController targetAmountController;
   late TextEditingController currentAssetController;
 
-  late PlanInfo planInfo;
-  late PlanInfoViewModel planInfoVM;
+  late TotalPlan totalPlan;
+  late TotalPlanViewModel totalPlanVM;
   late RefData refData;
+  late RefDataViewModel refDataVM;
+
+  List<Entry>? _pendingFixedIncomeEntries;
+  List<Entry>? _pendingFixedConsumeEntries;
+  List<Entry>? _pendingDailyConsumeEntries;
+  DateTime? _pendingFixedIncomeApplyDate;
+  DateTime? _pendingFixedConsumeApplyDate;
+  DateTime? _pendingDailyConsumeApplyDate;
 
   // Getters for calculated values
-  double get monthlyIncome =>
-      refData.fixedIncomes.fold(0, (sum, i) => sum + i.amount);
+  double get monthlyIncome => _pendingFixedIncomeEntries != null
+      ? _sumEntries(_pendingFixedIncomeEntries!)
+      : refData.primaryMonthlyIncomeSum;
 
-  double get monthlyFixedCost =>
-      refData.fixedConsumptions.fold(0, (sum, i) => sum + i.amount);
+  double get monthlyFixedCost => _pendingFixedConsumeEntries != null
+      ? _sumEntries(_pendingFixedConsumeEntries!)
+      : refData.primaryMonthlyConsumeSum;
 
-  double get dailySpendingLimit =>
-      refData.dailyConsumptions.fold(0, (sum, i) => sum + i.amount);
+  double get dailySpendingLimit => _pendingDailyConsumeEntries != null
+      ? _sumEntries(_pendingDailyConsumeEntries!)
+      : refData.primaryDailyConsumeSum;
+
+  List<Entry> get currentMonthlyIncomeEntries =>
+      _pendingFixedIncomeEntries ?? refData.primaryMonthlyIncomeEntries;
+
+  List<Entry> get currentMonthlyConsumeEntries =>
+      _pendingFixedConsumeEntries ?? refData.primaryMonthlyConsumeEntries;
+
+  List<Entry> get currentDailyConsumeEntries =>
+      _pendingDailyConsumeEntries ?? refData.primaryDailyConsumeEntries;
 
   // 입력 필드 파싱 getter
   double get parsedTarget =>
@@ -35,6 +60,11 @@ class PlanEditViewModel extends ChangeNotifier {
   double get dailyNetSaving {
     final monthlyNet = monthlyIncome - monthlyFixedCost - (dailySpendingLimit * 30.0);
     return monthlyNet / 30.0;
+  }
+
+  DateTime? get projectedGoalDate {
+    final calc = SavingPlanCalculator(plan: totalPlan).calculate();
+    return calc?.goalDateTime;
   }
 
   // 목표까지 남은 일수 (저축 불가 or 목표 이하 → null)
@@ -70,25 +100,27 @@ class PlanEditViewModel extends ChangeNotifier {
   }
   void _onFieldChanged() => notifyListeners();
 
-  // Constructor that automatically initializes with PlanInfo
-  PlanEditViewModel(PlanInfo initialPlan, {RefData? initialRefData}) {
+  // Constructor that automatically initializes with TotalPlan
+  PlanEditViewModel(TotalPlan initialPlan, {RefData? initialRefData}) {
     _initializeWithPlan(initialPlan, initialRefData: initialRefData);
   }
 
   // Initialize with initial plan data
-  void _initializeWithPlan(PlanInfo initialPlan, {RefData? initialRefData}) {
-    planInfo = initialPlan;
-    planInfoVM = PlanInfoViewModel(planInfo);
-    refData = initialRefData ?? RefData();
+  void _initializeWithPlan(TotalPlan initialPlan, {RefData? initialRefData}) {
+    totalPlan = initialPlan;
+    totalPlanVM = TotalPlanViewModel(totalPlan);
+    refData = initialRefData ?? RefData(planId: initialPlan.planId);
+    refData.planId = initialPlan.planId;
+    refDataVM = RefDataViewModel(refData);
 
-    planNameController = TextEditingController(text: initialPlan.planName);
+    planNameController = TextEditingController(text: initialPlan.planName ?? '');
 
     final formatter = NumberFormat('#,###');
     targetAmountController = TextEditingController(
-      text: formatter.format((initialPlan.targetAmount ?? 0).toInt()),
+      text: formatter.format((initialPlan.targetAmount ?? 0)),
     );
     currentAssetController = TextEditingController(
-      text: formatter.format((initialPlan.currentAsset ?? 0).toInt()),
+      text: formatter.format(initialPlan.currentAsset),
     );
 
     // 🔔 실시간 반영: 입력 변화가 있을 때마다 화면 갱신
@@ -104,39 +136,235 @@ class PlanEditViewModel extends ChangeNotifier {
   }
 
   // Entry 리스트 업데이트
-  void updateFixedIncomeEntries(List<Entry> entries) {
-    refData.fixedIncomes = entries;
-    planInfo.fixedIncomeSum = monthlyIncome;
+  DateTime? get pendingFixedIncomeApplyDate => _pendingFixedIncomeApplyDate;
+  DateTime? get pendingFixedConsumeApplyDate => _pendingFixedConsumeApplyDate;
+  DateTime? get pendingDailyConsumeApplyDate => _pendingDailyConsumeApplyDate;
+
+  void applyFixedIncomeEdit({
+    required List<Entry> entries,
+    required DateTime applyDate,
+  }) {
+    _pendingFixedIncomeEntries = List<Entry>.unmodifiable(entries);
+    _pendingFixedIncomeApplyDate = _normalizeDay(applyDate);
+    totalPlanVM.updateMetrics(monthlyIncome: _sumEntries(entries));
+    totalPlan = totalPlanVM.plan;
     notifyListeners();
   }
 
-  void updateFixedCostEntries(List<Entry> entries) {
-    refData.fixedConsumptions = entries;
-    planInfo.fixedConsumptionSum = monthlyFixedCost;
+  void applyFixedConsumeEdit({
+    required List<Entry> entries,
+    required DateTime applyDate,
+  }) {
+    _pendingFixedConsumeEntries = List<Entry>.unmodifiable(entries);
+    _pendingFixedConsumeApplyDate = _normalizeDay(applyDate);
+    totalPlanVM.updateMetrics(monthlyConsume: _sumEntries(entries));
+    totalPlan = totalPlanVM.plan;
     notifyListeners();
   }
 
-  void updateDailyCostEntries(List<Entry> entries) {
-    refData.dailyConsumptions = entries;
-    planInfo.dailyConsumptionSum = dailySpendingLimit;
+  void applyDailyConsumeEdit({
+    required List<Entry> entries,
+    required DateTime applyDate,
+  }) {
+    _pendingDailyConsumeEntries = List<Entry>.unmodifiable(entries);
+    _pendingDailyConsumeApplyDate = _normalizeDay(applyDate);
+    totalPlanVM.updateMetrics(dailyConsume: _sumEntries(entries));
+    totalPlan = totalPlanVM.plan;
     notifyListeners();
   }
 
-  // Create updated PlanInfo
-  PlanInfo createUpdatedPlan(PlanInfo originalPlan) {
-    // planInfo 객체를 직접 업데이트
-    planInfo.planName = planNameController.text;
-    planInfo.targetAmount =
-        double.tryParse(targetAmountController.text.replaceAll(',', '')) ?? 0;
-    planInfo.currentAsset =
-        double.tryParse(currentAssetController.text.replaceAll(',', '')) ?? 0;
+  // Create updated TotalPlan
+  TotalPlan createUpdatedPlan(TotalPlan originalPlan) {
+    totalPlanVM.updateMeta(
+      planName: planNameController.text,
+      targetAmount: parsedTarget,
+      currentAsset: parsedCurrent,
+    );
+    totalPlanVM.updateMetrics(
+      monthlyIncome: monthlyIncome,
+      monthlyConsume: monthlyFixedCost,
+      dailyConsume: dailySpendingLimit,
+    );
+    totalPlan = totalPlanVM.plan;
+    return totalPlan;
+  }
 
-    // RefData도 함께 업데이트
-    planInfo.fixedIncomeSum = monthlyIncome;
-    planInfo.fixedConsumptionSum = monthlyFixedCost;
-    planInfo.dailyConsumptionSum = dailySpendingLimit;
+  UpdateMonthlyCommand buildMonthlyCommand({
+    required DateTime applyMonth,
+    required DateTime modEndMonth,
+    required List<Entry> entries,
+    required String newDocumentId,
+    String? previousDocumentId,
+    required bool isIncome,
+  }) {
+    return UpdateMonthlyCommand(
+      applyMonth: DateTime(applyMonth.year, applyMonth.month),
+      modEndMonth: DateTime(modEndMonth.year, modEndMonth.month),
+      entries: entries,
+      newDocumentId: newDocumentId,
+      previousDocumentId: previousDocumentId,
+      isIncome: isIncome,
+    );
+  }
 
-    return planInfo;
+  UpdateDailyCommand buildDailyCommand({
+    required DateTime applyDate,
+    required DateTime modEndDate,
+    required List<Entry> entries,
+    required String newDailyId,
+    required String newMiniDocId,
+    String? previousDailyId,
+  }) {
+    return UpdateDailyCommand(
+      applyDate: DateTime(applyDate.year, applyDate.month, applyDate.day),
+      modEndDate: DateTime(modEndDate.year, modEndDate.month, modEndDate.day),
+      entries: entries,
+      newDailyId: newDailyId,
+      newMiniDocId: newMiniDocId,
+      previousDailyId: previousDailyId,
+    );
+  }
+
+  DateTime _normalizeDay(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
+  double _sumEntries(List<Entry> entries) =>
+      entries.fold(0.0, (sum, e) => sum + e.amount);
+
+  PlanEditResult finalizeEdits() {
+    final projected = projectedGoalDate ??
+        totalPlan.modEndDate ??
+        totalPlan.endDate ??
+        DateTime.now();
+
+    totalPlanVM.plan = totalPlanVM.plan.copyWith(modEndDate: projected);
+    totalPlan = totalPlanVM.plan;
+
+    final projectedMonth = DateTime(projected.year, projected.month, 1);
+
+    final monthlyCommands = <UpdateMonthlyCommand>[];
+    final dailyCommands = <UpdateDailyCommand>[];
+    DateTime? earliestApplyDate;
+
+    void trackApplyDate(DateTime date) {
+      final normalized = _normalizeDay(date);
+      if (earliestApplyDate == null || normalized.isBefore(earliestApplyDate!)) {
+        earliestApplyDate = normalized;
+      }
+    }
+
+    if (_pendingFixedIncomeEntries != null) {
+      final applyDate = _pendingFixedIncomeApplyDate;
+      if (applyDate == null) {
+        throw StateError('월 수입 적용일이 설정되어 있지 않습니다.');
+      }
+      final applyMonth = DateTime(applyDate.year, applyDate.month, 1);
+      final previousId = refData.primaryMonthlyIncomeId;
+      final income = refData.addMonthlyIncome(
+        applyMonth: applyMonth,
+        modEndMonth: projectedMonth,
+        entries: _pendingFixedIncomeEntries!,
+      );
+      monthlyCommands.add(
+        UpdateMonthlyCommand(
+          applyMonth: applyMonth,
+          modEndMonth: projectedMonth,
+          entries: income.entries,
+          newDocumentId: income.id,
+          previousDocumentId: previousId,
+          isIncome: true,
+        ),
+      );
+      trackApplyDate(applyDate);
+      _pendingFixedIncomeEntries = null;
+      _pendingFixedIncomeApplyDate = null;
+    }
+
+    if (_pendingFixedConsumeEntries != null) {
+      final applyDate = _pendingFixedConsumeApplyDate;
+      if (applyDate == null) {
+        throw StateError('고정 소비 적용일이 설정되어 있지 않습니다.');
+      }
+      final applyMonth = DateTime(applyDate.year, applyDate.month, 1);
+      final previousId = refData.primaryMonthlyConsumeId;
+      final consume = refData.addMonthlyConsume(
+        applyMonth: applyMonth,
+        modEndMonth: projectedMonth,
+        entries: _pendingFixedConsumeEntries!,
+      );
+      monthlyCommands.add(
+        UpdateMonthlyCommand(
+          applyMonth: applyMonth,
+          modEndMonth: projectedMonth,
+          entries: consume.entries,
+          newDocumentId: consume.id,
+          previousDocumentId: previousId,
+          isIncome: false,
+        ),
+      );
+      trackApplyDate(applyDate);
+      _pendingFixedConsumeEntries = null;
+      _pendingFixedConsumeApplyDate = null;
+    }
+
+    if (_pendingDailyConsumeEntries != null) {
+      final applyDate = _pendingDailyConsumeApplyDate;
+      if (applyDate == null) {
+        throw StateError('일일 소비 적용일이 설정되어 있지 않습니다.');
+      }
+      final previousId = refData.primaryDailyConsumeId;
+      final daily = refData.addDailyConsume(
+        applyDate: applyDate,
+        modEndDate: projected,
+        entries: _pendingDailyConsumeEntries!,
+      );
+      final miniDocId = _nextMiniDocId(applyDate);
+      dailyCommands.add(
+        UpdateDailyCommand(
+          applyDate: applyDate,
+          modEndDate: projected,
+          entries: daily.entries,
+          newDailyId: daily.id,
+          newMiniDocId: miniDocId,
+          previousDailyId: previousId,
+        ),
+      );
+      trackApplyDate(applyDate);
+      _pendingDailyConsumeEntries = null;
+      _pendingDailyConsumeApplyDate = null;
+    }
+
+    final refDataSnapshot = RefData.fromMap(refData.toMap());
+    final resolvedApplyDate =
+        earliestApplyDate ?? (totalPlan.startDate ?? _normalizeDay(DateTime.now()));
+
+    return PlanEditResult(
+      updatedPlan: totalPlan,
+      updatedRefData: refDataSnapshot,
+      applyDate: resolvedApplyDate,
+      projectedGoalDate: projected,
+      monthlyCommands: monthlyCommands,
+      dailyCommands: dailyCommands,
+    );
+  }
+
+  String _nextMiniDocId(DateTime applyDate) {
+    final base =
+        '${applyDate.year.toString().padLeft(4, '0')}${applyDate.month.toString().padLeft(2, '0')}';
+    final subPlan = totalPlan.subPlans[base];
+    var maxSeq = 0;
+    if (subPlan != null) {
+      for (final id in subPlan.miniPlans.keys) {
+        final parts = id.split('-');
+        if (parts.length != 2) continue;
+        final seq = int.tryParse(parts[1]);
+        if (seq != null && seq > maxSeq) {
+          maxSeq = seq;
+        }
+      }
+    }
+    final nextSeq = (maxSeq + 1).toString().padLeft(3, '0');
+    return '$base-$nextSeq';
   }
 
   // Get updated RefData
@@ -175,15 +403,17 @@ class PlanEditViewModel extends ChangeNotifier {
     if (err != null) return err;
 
     // 2) 업데이트
-    planInfo.planName = planNameController.text;
-    planInfo.targetAmount =
-        double.tryParse(targetAmountController.text.replaceAll(',', '')) ?? 0;
-    planInfo.currentAsset =
-        double.tryParse(currentAssetController.text.replaceAll(',', '')) ?? 0;
-
-    planInfo.fixedIncomeSum = monthlyIncome;
-    planInfo.fixedConsumptionSum = monthlyFixedCost;
-    planInfo.dailyConsumptionSum = dailySpendingLimit;
+    totalPlanVM.updateMeta(
+      planName: planNameController.text,
+      targetAmount: parsedTarget,
+      currentAsset: parsedCurrent,
+    );
+    totalPlanVM.updateMetrics(
+      monthlyIncome: monthlyIncome,
+      monthlyConsume: monthlyFixedCost,
+      dailyConsume: dailySpendingLimit,
+    );
+    totalPlan = totalPlanVM.plan;
 
     // null 이면 성공
     return null;

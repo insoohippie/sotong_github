@@ -5,7 +5,9 @@ import 'package:syncfusion_flutter_charts/charts.dart';
 
 // 너의 실제 경로로 맞춰줘
 import 'package:sotong_local/view/pages/plan/chat_widgets/plan_summary_chart_widget.dart';
-import 'package:sotong_local/model/plan_info.dart';
+import 'package:sotong_local/model/plan/plan_metrics.dart';
+import 'package:sotong_local/model/plan/sub_plan.dart';
+import 'package:sotong_local/model/plan/total_plan.dart';
 import 'package:sotong_local/model/saving_calculation_result.dart';
 
 class PieAndPlanSummaryPage extends StatefulWidget {
@@ -30,7 +32,7 @@ class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
   final Color badgeBorder = Color(0xFFDCEAFF);
 
   // 데이터
-  late final PlanInfo plan;
+  late final TotalPlan plan;
   late final SavingCalculationResult calc;
 
   // Syncfusion
@@ -40,19 +42,35 @@ class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
   void initState() {
     super.initState();
 
-    plan = PlanInfo()
-      ..planName = '유럽여행'
-      ..targetAmount = 5000000
-      ..currentAsset = 1200000
-      ..fixedIncomeSum = 2000000
-      ..fixedConsumptionSum = 800000
-      ..dailyConsumptionSum = 20000
-      ..variableConsumptionSum = 0
-      ..autoService = true;
+    final metrics = PlanMetrics.fromRange(
+      startDate: DateTime.now(),
+      endDate: DateTime.now().add(const Duration(days: 29)),
+      sumMonthlyIncome: 2000000,
+      sumMonthlyConsume: 800000,
+      sumDailyConsume: 20000,
+    );
+    plan = TotalPlan(
+      planId: 'sandbox',
+      planName: '유럽여행',
+      targetAmount: 5000000,
+      currentAmount: 0,
+      currentAsset: 1200000,
+      startDate: DateTime.now(),
+      endDate: null,
+      modEndDate: null,
+      creationDate: DateTime.now(),
+      autoService: true,
+      subPlans: const {},
+      result: TotalResult(
+        totalMetrics: metrics,
+        subResult: const SubPlanResult(subMetrics: [], subPlanList: []),
+      ),
+    );
 
-    final income = plan.fixedIncomeSum?.toInt() ?? 0;
-    final fixedC = plan.fixedConsumptionSum?.toInt() ?? 0;
-    final variableC = ((plan.dailyConsumptionSum ?? 0) * 30).toInt();
+    final totalMetrics = plan.result.totalMetrics;
+    final income = totalMetrics.sumMonthlyIncome;
+    final fixedC = totalMetrics.sumMonthlyConsume;
+    final variableC = (totalMetrics.sumDailyConsume * 30);
     final saving = (income - fixedC - variableC).clamp(0, income);
 
     final dailySaving = income == 0 ? 0.0 : saving / 30.0;
@@ -89,9 +107,10 @@ class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final income = plan.fixedIncomeSum?.toDouble() ?? 0;
-    final fixedVal = plan.fixedConsumptionSum?.toDouble() ?? 0;
-    final variableVal = ((plan.dailyConsumptionSum ?? 0) * 30).toDouble();
+    final metrics = plan.result.totalMetrics;
+    final income = metrics.sumMonthlyIncome.toDouble();
+    final fixedVal = metrics.sumMonthlyConsume.toDouble();
+    final variableVal = (metrics.sumDailyConsume * 30).toDouble();
     final double savingVal = (calc.monthlySaving).clamp(0, income);
 
     final tinyVariable = income * 0.01; // 오버플로 테스트용
@@ -230,7 +249,7 @@ class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
               _whiteCard(
                 'Plan Summary',
                 PlanSummaryChartWidget(
-                  planInfo: plan,
+                  plan: plan,
                   calculation: calc,
                   userName: '하경',
                   onEdit: () {
@@ -288,7 +307,7 @@ class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
                       xValueMapper: (_SFItem d, _) => d.x,
                       yValueMapper: (_SFItem d, _) => d.y,
                       pointColorMapper: (_SFItem d, _) => d.color,
-                      maximumValue: plan.fixedIncomeSum?.toDouble() ?? 0,
+                      maximumValue: metrics.sumMonthlyIncome.toDouble(),
                       cornerStyle: CornerStyle.bothCurve,
                       gap: '8%',
                       radius: '90%',

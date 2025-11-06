@@ -18,6 +18,7 @@ import 'data_source/plan_data_source.dart';
 // Repositories
 import 'repository/auth_repository.dart';
 import 'repository/plan_repository.dart';
+import 'services/plan_saved_event_bus.dart';
 
 // ViewModels
 import 'view_model/auth/login_view_model.dart';
@@ -43,12 +44,18 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 1) DataSources
+        // 1) Shared coordinators / event buses
+        Provider<PlanSavedEventBus>(
+          create: (_) => PlanSavedEventBus(),
+          dispose: (_, bus) => bus.dispose(),
+        ),
+
+        // 2) DataSources
         Provider<AuthDataSource>(create: (_) => AuthDataSource()),
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
         Provider<CommunicationDataSource>(create: (_) => CommunicationDataSource()),
 
-        // 2) Repositories
+        // 3) Repositories
         Provider<AuthRepository>(
           create: (ctx) => AuthRepository(ctx.read<AuthDataSource>()),
         ),
@@ -65,7 +72,7 @@ class MyApp extends StatelessWidget {
           ),
         ),
 
-        // 3) ViewModels
+        // 4) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
           create: (ctx) => LoginViewModel(ctx.read<AuthRepository>()),
         ),
@@ -76,12 +83,14 @@ class MyApp extends StatelessWidget {
           create: (ctx) => ChatPlanViewModel(
             ctx.read<AuthRepository>(),
             ctx.read<PlanRepository>(),
+            planSavedBus: ctx.read<PlanSavedEventBus>(),
           ),
         ),
         ChangeNotifierProvider<HomeViewModel>(
           create: (ctx) => HomeViewModel(
             ctx.read<AuthRepository>(),
             ctx.read<PlanRepository>(),
+            ctx.read<PlanSavedEventBus>(),
           ),
         ),
         ChangeNotifierProvider<CommunicationViewModel>(
@@ -108,7 +117,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/__debug_summary',
+        initialRoute: '/logo_splash',
         routes: appRoutes,
       ),
     );

@@ -1,22 +1,42 @@
 import 'package:flutter/material.dart';
 
 import '../../model/chat_message.dart';
-import '../../model/entry.dart';
-import '../../model/plan_info.dart';
-import '../../model/ref_data.dart';
+import '../../model/refData/entry.dart';
+import '../../model/commands/update_daily_command.dart';
+import '../../model/commands/update_monthly_command.dart';
+import '../../model/plan/plan_edit_result.dart';
+import '../../model/plan/total_plan.dart';
+import '../../model/refData/ref_data.dart';
 import '../../model/saving_calculation_result.dart';
 import '../../repository/auth_repository.dart';
 import '../../repository/plan_repository.dart';
-import '../services/plan_info_viewmodel.dart';
+import '../../services/plan_debug_printer.dart';
+import '../../services/plan_saved_event_bus.dart';
 import '../services/ref_data_viewmodel.dart';
 import '../services/saving_calculator.dart';
+import '../services/total_plan_viewmodel.dart';
+import '../../services/plan_mutation_service.dart';
+import '../../repository/plan_mutation_repository.dart';
+import '../../model/plan/plan_snapshot.dart';
 import 'enums/chat_step.dart';
 
 // 기본 회원가입 창의 viewmodel
 class ChatPlanViewModel extends ChangeNotifier {
   final AuthRepository _authRepo;
   final PlanRepository _planRepo;
-  ChatPlanViewModel(this._authRepo, this._planRepo);
+  final PlanSavedEventBus? _planSavedBus;
+
+  ChatPlanViewModel(
+    this._authRepo,
+    this._planRepo, {
+    PlanSavedEventBus? planSavedBus,
+  })  : _planSavedBus = planSavedBus,
+        _mutationRepository = PlanMutationRepository() {
+    _mutationService = PlanMutationService(_mutationRepository);
+    _refDataVM = RefDataViewModel(_refData);
+    _totalPlanVM = TotalPlanViewModel(_totalPlan);
+    _calculationVM = SavingPlanCalculator(plan: _totalPlan);
+  }
 
   String _userName = '회원';
   String get userName => _userName;
@@ -25,12 +45,17 @@ class ChatPlanViewModel extends ChangeNotifier {
   bool get isSaving => _isSaving;
 
   // 플랜 정보
-  PlanInfo _planInfo = PlanInfo();
-  PlanInfo get planInfo => _planInfo;
+  TotalPlan _totalPlan = TotalPlan.empty();
+  TotalPlan get totalPlan => _totalPlan;
 
   // 참조 데이터 (월 수입, 고정 소비, 하루 소비 한도)
-  RefData _refData = RefData();
+  RefData _refData = RefData(planId: '');
   RefData get refData => _refData;
+
+  List<UpdateMonthlyCommand> _pendingMonthlyCommands = [];
+  List<UpdateDailyCommand> _pendingDailyCommands = [];
+  List<UpdateMonthlyCommand> get pendingMonthlyCommands => _pendingMonthlyCommands;
+  List<UpdateDailyCommand> get pendingDailyCommands => _pendingDailyCommands;
 
   // 계산 결과
   SavingCalculationResult? _calculationResult;
@@ -56,9 +81,15 @@ class ChatPlanViewModel extends ChangeNotifier {
   bool _buttonClicked = false;
   bool get buttonClicked => _buttonClicked;
 
-  late final RefDataViewModel _refDataVM = RefDataViewModel(_refData);
-  late final PlanInfoViewModel _planInfoVM = PlanInfoViewModel(_planInfo);
-  late final SavingPlanCalculator _calculationVM = SavingPlanCalculator(planInfo: _planInfo);
+  late RefDataViewModel _refDataVM;
+  late TotalPlanViewModel _totalPlanVM;
+  late SavingPlanCalculator _calculationVM;
+  final PlanMutationRepository _mutationRepository;
+  late final PlanMutationService _mutationService;
+
+  bool _hasIncomeInput = false;
+  bool _hasFixedConsumeInput = false;
+  bool _hasDailyInput = false;
 
   // --------------------------------------
   // 메시지
@@ -107,7 +138,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     }
 
     final months = c.daysToGoal / 30.0;
-    final curr = planInfo.currentAsset ?? 0;
+    final curr = _totalPlan.currentAsset.toDouble();
     final amt3m = curr + c.dailyNetSaving * 90;   // 대략 3개월
     final amt6m = curr + c.dailyNetSaving * 180;  // 대략 6개월
 
@@ -141,6 +172,11 @@ class ChatPlanViewModel extends ChangeNotifier {
   // --------------------------------------
   // Plan/RefData 업데이트
   // --------------------------------------
+  bool _hasRequiredInputs() {
+    final target = (_totalPlan.targetAmount ?? 0) > 0;
+    return _hasIncomeInput && _hasFixedConsumeInput && _hasDailyInput && target;
+  }
+
   void updatePlanInfo({
     String? planName,
     double? targetAmount,
@@ -149,26 +185,32 @@ class ChatPlanViewModel extends ChangeNotifier {
     double? fixedIncomeSum,
     double? fixedConsumptionSum,
     double? dailyConsumptionSum,
-    double? variableConsumptionSum,
   }) {
-    _planInfoVM.updatePlanInfo(
+    _totalPlanVM.updateMeta(
       planName: planName,
       targetAmount: targetAmount,
       currentAsset: currentAsset,
       autoService: autoService,
     );
 
-    if (fixedIncomeSum != null) _planInfo.fixedIncomeSum = fixedIncomeSum;
-    if (fixedConsumptionSum != null) _planInfo.fixedConsumptionSum = fixedConsumptionSum;
-    if (dailyConsumptionSum != null) _planInfo.dailyConsumptionSum = dailyConsumptionSum;
-    if (variableConsumptionSum != null) _planInfo.variableConsumptionSum = variableConsumptionSum;
-    if (autoService != null) _planInfo.autoService = autoService;
+    if (fixedIncomeSum != null) {
+      _totalPlanVM.updateMetrics(monthlyIncome: fixedIncomeSum);
+      _hasIncomeInput = true;
+    }
+    if (fixedConsumptionSum != null) {
+      _totalPlanVM.updateMetrics(monthlyConsume: fixedConsumptionSum);
+      _hasFixedConsumeInput = true;
+    }
+    if (dailyConsumptionSum != null) {
+      _totalPlanVM.updateMetrics(dailyConsume: dailyConsumptionSum);
+      _hasDailyInput = true;
+    }
 
-    // 모든 핵심 값이 모였을 때만 계산
-    if (_planInfo.fixedIncomeSum != null &&
-        _planInfo.fixedConsumptionSum != null &&
-        _planInfo.targetAmount != null &&
-        _planInfo.dailyConsumptionSum != null) {
+    _totalPlan = _totalPlanVM.plan;
+    _refData.planId = _totalPlan.planId;
+    _calculationVM.updatePlan(_totalPlan);
+
+    if (_hasRequiredInputs()) {
       calculate();
     }
     notifyListeners();
@@ -178,43 +220,62 @@ class ChatPlanViewModel extends ChangeNotifier {
     List<Entry>? fixedIncomes,
     List<Entry>? fixedConsumptions,
     List<Entry>? dailyConsumptions,
-    List<Entry>? variableConsumptions,
-    List<Entry>? installmentIncomes,
-    List<Entry>? installmentConsumptions,
-    List<Entry>? additionalIncomeList,
-    List<Entry>? additionalConsumptionList,
-    List<Entry>? variableConsumptionList,
+    DateTime? applyDate,
+    DateTime? modEndDate,
   }) {
-    _refDataVM.updateRefData(
-      fixedIncomes: fixedIncomes,
-      fixedConsumptions: fixedConsumptions,
-      dailyConsumptions: dailyConsumptions,
-      variableConsumptions: variableConsumptions,
-      installmentIncomes: installmentIncomes,
-      installmentConsumptions: installmentConsumptions,
-      additionalIncomeList: additionalIncomeList,
-      additionalConsumptionList: additionalConsumptionList,
-      variableConsumptionList: variableConsumptionList,
-    );
+    final now = DateTime.now();
+    final apply = applyDate ?? now;
+    final endDate = modEndDate ?? (_totalPlan.modEndDate ?? _totalPlan.endDate ?? now);
 
-    double? fixedIncomeSum = fixedIncomes != null ? _refDataVM.sum(fixedIncomes) : null;
-    double? fixedConsumptionSum = fixedConsumptions != null ? _refDataVM.sum(fixedConsumptions) : null;
-    double? dailyConsumptionSum = dailyConsumptions != null ? _refDataVM.sum(dailyConsumptions) : null;
-    double? variableConsumptionSum = variableConsumptions != null ? _refDataVM.sum(variableConsumptions) : null;
-
-    if (fixedIncomeSum != null ||
-        fixedConsumptionSum != null ||
-        dailyConsumptionSum != null ||
-        variableConsumptionSum != null) {
-      updatePlanInfo(
-        fixedIncomeSum: fixedIncomeSum,
-        fixedConsumptionSum: fixedConsumptionSum,
-        dailyConsumptionSum: dailyConsumptionSum,
-        variableConsumptionSum: variableConsumptionSum,
+    if (fixedIncomes != null && fixedIncomes.isNotEmpty) {
+      _refDataVM.appendMonthlyIncome(
+        applyDate: apply,
+        modEndDate: endDate,
+        entries: fixedIncomes,
       );
-    } else {
-      notifyListeners();
     }
+
+    if (fixedConsumptions != null && fixedConsumptions.isNotEmpty) {
+      _refDataVM.appendMonthlyConsume(
+        applyDate: apply,
+        modEndDate: endDate,
+        entries: fixedConsumptions,
+      );
+    }
+
+    if (dailyConsumptions != null && dailyConsumptions.isNotEmpty) {
+      _refDataVM.appendDailyConsume(
+        applyDate: apply,
+        modEndDate: endDate,
+        entries: dailyConsumptions,
+      );
+    }
+
+    updatePlanInfo(
+      fixedIncomeSum:
+          fixedIncomes != null ? refData.primaryMonthlyIncomeSum : null,
+      fixedConsumptionSum:
+          fixedConsumptions != null ? refData.primaryMonthlyConsumeSum : null,
+      dailyConsumptionSum:
+          dailyConsumptions != null ? refData.primaryDailyConsumeSum : null,
+    );
+  }
+
+  void applyPlanEditResult(PlanEditResult result) {
+    _totalPlan = result.updatedPlan;
+    _totalPlanVM = TotalPlanViewModel(_totalPlan);
+    _refData.planId = _totalPlan.planId;
+    _pendingMonthlyCommands = List<UpdateMonthlyCommand>.from(result.monthlyCommands);
+    _pendingDailyCommands = List<UpdateDailyCommand>.from(result.dailyCommands);
+    _calculationVM.updatePlan(_totalPlan);
+    calculate();
+    notifyListeners();
+    print('--- Plan Tree After Edit ---\n${debugPlanTree()}');
+  }
+
+  /// Returns a human readable tree view of the current plan/mini/sub linkage.
+  String debugPlanTree() {
+    return PlanDebugPrinter.describe(plan: _totalPlan, refData: _refData);
   }
 
   // --------------------------------------
@@ -456,6 +517,7 @@ class ChatPlanViewModel extends ChangeNotifier {
   // 계산 (요약 추천 멘트도 함께 갱신)
   // --------------------------------------
   SavingCalculationResult? calculate() {
+    _calculationVM.updatePlan(_totalPlan);
     _calculationResult = _calculationVM.calculate(); // 위임
     // 요약 추천 멘트 갱신
     _updateSummaryRecommendation();
@@ -502,7 +564,9 @@ class ChatPlanViewModel extends ChangeNotifier {
     _isSaving = true;
     notifyListeners();
     try {
-      await _planRepo.saveCurrentUserPlan(_planInfo);
+      await _planRepo.saveCurrentUserPlan(_totalPlan);
+      print('--- Plan Tree After Save ---\n${debugPlanTree()}');
+      _planSavedBus?.notify();
       return true;
     } catch (e) {
       return false;
@@ -522,7 +586,7 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   void testPrint() {
-    print('planInfo: $planInfo');
+    print('totalPlan: $_totalPlan');
     print('refData: $refData');
     print('calculationResult: $calculationResult');
     print('summaryRecommendation: $_summaryRecommendation');

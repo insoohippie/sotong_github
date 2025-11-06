@@ -130,12 +130,12 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
     // 저장 성공 → VM 데이터로 화면 구성
     final userName = vm.userName.isNotEmpty ? vm.userName : '사용자';
 
-    final startDate = vm.planInfo.startDate ?? DateTime.now();
+    final startDate = vm.totalPlan.startDate ?? DateTime.now();
     final calc = vm.calculationResult;
     final goalDate = calc?.goalDateTime ?? startDate;
 
-    final dailyLimit = vm.planInfo.dailyConsumptionSum ?? 0;
-    final targetAmount = vm.planInfo.targetAmount ?? 0;
+    final dailyLimit = vm.refData.primaryDailyConsumeSum;
+    final targetAmount = (vm.totalPlan.targetAmount ?? 0).toDouble();
 
     // 텍스트 파트 구성
     final List<TextPart> messageHeaderParts = [

@@ -1,91 +1,229 @@
-// calculator => 비즈니스 로직
-// (중략)
+import 'dart:math';
 
-// 세은님이 새로 짜시는 계산 로직 calculator 로 수정해야함! 지금은 28, 30, 31일을 고려 안한 초기의 계산 로직
-
-import '../../model/plan_info.dart';
+import '../../model/plan/mini_plan.dart';
+import '../../model/plan/plan_metrics.dart';
+import '../../model/plan/sub_plan.dart';
+import '../../model/plan/total_plan.dart';
 import '../../model/saving_calculation_result.dart';
 
+/// Calculates saving pace, goal date, and related metrics for a [TotalPlan].
 class SavingPlanCalculator {
-  final PlanInfo planInfo;
+  SavingPlanCalculator({required TotalPlan plan}) : _plan = plan;
 
-  SavingPlanCalculator({required this.planInfo});
+  TotalPlan _plan;
 
-  double get monthlyIncome => planInfo.fixedIncomeSum!;
-  double get monthlyFixedCost => planInfo.fixedConsumptionSum!;
-  double get targetAmount => planInfo.targetAmount!;
-  double get currentAsset => planInfo.currentAsset; // non-nullable, default 0.0
-  double get dailySpendingLimit => planInfo.dailyConsumptionSum!;
-  DateTime get planStartDate => planInfo.startDate ?? DateTime.now();
+  void updatePlan(TotalPlan plan) => _plan = plan;
+
+  PlanMetrics get _metrics => _plan.result.totalMetrics;
+
+  double get _monthlyIncome => _metrics.sumMonthlyIncome.toDouble();
+  double get _monthlyFixedCost => _metrics.sumMonthlyConsume.toDouble();
+  double get _dailyLimit => _metrics.sumDailyConsume.toDouble();
+  double get _targetAmount => (_plan.targetAmount ?? 0).toDouble();
+  double get _currentAsset => _plan.currentAsset.toDouble();
+  DateTime get _planStart => _plan.startDate ?? DateTime.now();
 
   SavingCalculationResult calculate() {
-    print('=== SavingPlanCalculator.calculate() 시작 ===');
-    print('monthlyIncome: $monthlyIncome');
-    print('monthlyFixedCost: $monthlyFixedCost');
-    print('targetAmount: $targetAmount');
-    print('currentAsset: $currentAsset');
-    print('dailySpendingLimit: $dailySpendingLimit');
-    print('planStartDate: $planStartDate');
+    final requiredSaving = _targetAmount - _currentAsset;
 
-    // 1) 고정소비만 뺀 ‘일일 가용액’
-    final monthlySavingBeforeVariable = monthlyIncome - monthlyFixedCost; // (수입-고정)
-    final dailySaving = monthlySavingBeforeVariable / 30;
+    final monthlyVariable = _dailyLimit * 30;
+    final monthlySavingDisplay =
+        _monthlyIncome - _monthlyFixedCost - monthlyVariable;
+    final dailySavingBeforeVariable =
+        (_monthlyIncome - _monthlyFixedCost) / 30.0;
+    final savingRatioDisplay = _monthlyIncome <= 0
+        ? 0.0
+        : max(0.0, monthlySavingDisplay / _monthlyIncome);
 
-    // 2) 변동소비(일일 한도 × 30일)
-    final variableMonthly = dailySpendingLimit * 30;
+    if (requiredSaving <= 0) {
+      return SavingCalculationResult(
+        monthlySaving: monthlySavingDisplay,
+        dailySaving: dailySavingBeforeVariable,
+        savingRatio: savingRatioDisplay.clamp(0.0, 1.0),
+        dailyNetSaving: dailySavingBeforeVariable - _dailyLimit,
+        requiredSaving: requiredSaving,
+        daysToGoal: 0,
+        totalSeconds: 0,
+        goalDateTime: _planStart,
+        savingPerSecond: 0,
+      );
+    }
 
-    // 3) 최종 월 저축(수입 - 고정 - 변동)  ← UI에서 ‘저축’에 쓰일 값
-    final monthlySaving = monthlySavingBeforeVariable - variableMonthly; // ✅ 수정
+    final timeline = _generateTimeline();
+    if (timeline.isEmpty) {
+      return _simpleCalculation(
+        requiredSaving: requiredSaving,
+        monthlySavingDisplay: monthlySavingDisplay,
+        dailySavingBeforeVariable: dailySavingBeforeVariable,
+        savingRatioDisplay: savingRatioDisplay,
+      );
+    }
 
-    // 4) 일 순저축 = (수입-고정)/30 - 일일한도  == monthlySaving/30
-    final dailyNetSaving = dailySaving - dailySpendingLimit;
+    double accumulated = 0.0;
+    double totalSeconds = 0.0;
+    DateTime? goalDate;
+    bool insufficient = false;
 
-    // 5) 일일 한도가 ‘일일 가용액’을 얼마만큼 쓰는지 비율 (0~1로 클램프)
-    double savingRatio =
-    dailySaving == 0 ? 0.0 : 1 - (dailySpendingLimit / dailySaving);
-    if (savingRatio.isNaN) savingRatio = 0.0;
-    savingRatio = savingRatio.clamp(0.0, 1.0);
+    for (final slice in timeline) {
+      final dailyNet = slice.dailyNet;
+      if (dailyNet <= 0) {
+        insufficient = true;
+        break;
+      }
 
-    // 6) 목표까지 필요한 금액(보유자산 반영)
-    final requiredSaving = targetAmount - currentAsset;
+      if (accumulated + dailyNet >= requiredSaving) {
+        final remaining = requiredSaving - accumulated;
+        final fraction = (remaining / dailyNet).clamp(0.0, 1.0);
+        totalSeconds += fraction * 86400.0;
+        goalDate = slice.date.add(
+          Duration(seconds: (fraction * 86400).round()),
+        );
+        accumulated = requiredSaving;
+        break;
+      } else {
+        accumulated += dailyNet;
+        totalSeconds += 86400.0;
+      }
+    }
 
-    // 7) 기간/도달일 계산 (저축 불가면 0/NULL)
-    final savingPerSecond =
-    dailyNetSaving == 0 ? 0.0 : dailyNetSaving / 86400;
-    final daysToGoal =
-    dailyNetSaving == 0 ? 0.0 : requiredSaving / dailyNetSaving;
-    final totalSeconds =
-    dailyNetSaving == 0 ? 0.0 : daysToGoal * 86400;
-    final goalDateTime = dailyNetSaving == 0
-        ? null
-        : planStartDate.add(Duration(seconds: totalSeconds.toInt()));
+    if (accumulated < requiredSaving) {
+      insufficient = true;
+    }
 
-    print('계산 결과:');
-    print('monthlySavingBeforeVariable: $monthlySavingBeforeVariable');
-    print('variableMonthly: $variableMonthly');
-    print('monthlySaving(=net): $monthlySaving');
-    print('dailySaving: $dailySaving');
-    print('dailyNetSaving: $dailyNetSaving');
-    print('requiredSaving: $requiredSaving');
-    print('daysToGoal: $daysToGoal');
+    if (insufficient || totalSeconds <= 0) {
+      return SavingCalculationResult(
+        monthlySaving: monthlySavingDisplay,
+        dailySaving: dailySavingBeforeVariable,
+        savingRatio: savingRatioDisplay.clamp(0.0, 1.0),
+        dailyNetSaving: 0,
+        requiredSaving: requiredSaving,
+        daysToGoal: 0,
+        totalSeconds: 0,
+        goalDateTime: null,
+        savingPerSecond: 0,
+      );
+    }
+
+    final averageDailyNet = requiredSaving / (totalSeconds / 86400.0);
+    final savingPerSecond = requiredSaving / totalSeconds;
+    final daysToGoal = totalSeconds / 86400.0;
+    final modEndDate =
+        goalDate ?? _planStart.add(Duration(seconds: totalSeconds.round()));
 
     return SavingCalculationResult(
-      monthlySaving: monthlySaving,      // ✅ 이제 ‘수입-고정-변동’ 값
-      dailySaving: dailySaving,          // 수입-고정 기준 일일 가용액
-      savingRatio: savingRatio,          // 0~1
-      dailyNetSaving: dailyNetSaving,    // (수입-고정)/30 - 일일한도
-      requiredSaving: requiredSaving,    // 목표-보유자산
+      monthlySaving: monthlySavingDisplay,
+      dailySaving: dailySavingBeforeVariable,
+      savingRatio: savingRatioDisplay.clamp(0.0, 1.0),
+      dailyNetSaving: averageDailyNet,
+      requiredSaving: requiredSaving,
       daysToGoal: daysToGoal,
       totalSeconds: totalSeconds,
-      goalDateTime: goalDateTime,
+      goalDateTime: modEndDate,
       savingPerSecond: savingPerSecond,
     );
+  }
+
+  List<_DailySlice> _generateTimeline() {
+    final ordered = _orderedMinis();
+    if (ordered.isEmpty) return const [];
+
+    final planStart = _planStart;
+    final slices = <_DailySlice>[];
+
+    for (final mini in ordered) {
+      final metrics = mini.toMetrics();
+      final monthlyIncome = metrics.sumMonthlyIncome.toDouble();
+      final monthlyConsume = metrics.sumMonthlyConsume.toDouble();
+      final dailyLimit = metrics.sumDailyConsume.toDouble();
+
+      var cursor = mini.startDate;
+      while (!cursor.isAfter(mini.endDate)) {
+        if (cursor.isBefore(planStart)) {
+          cursor = cursor.add(const Duration(days: 1));
+          continue;
+        }
+
+        final daysInMonth = _daysInMonth(cursor.year, cursor.month);
+        final monthlyVariable = dailyLimit * daysInMonth;
+        final dailyNet =
+            (monthlyIncome - monthlyConsume - monthlyVariable) / daysInMonth;
+
+        slices.add(_DailySlice(date: cursor, dailyNet: dailyNet));
+        cursor = cursor.add(const Duration(days: 1));
+      }
+    }
+    return slices;
+  }
+
+  List<MiniPlan> _orderedMinis() {
+    final result = <MiniPlan>[];
+    final entries = _plan.subPlans.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    for (final entry in entries) {
+      final subPlan = entry.value;
+      result.addAll(subPlan.orderedMinis());
+    }
+    return result;
+  }
+
+  static int _daysInMonth(int year, int month) {
+    final firstOfNextMonth = month == 12
+        ? DateTime(year + 1, 1, 1)
+        : DateTime(year, month + 1, 1);
+    return firstOfNextMonth.subtract(const Duration(days: 1)).day;
   }
 
   static String formatAmount(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
+      (match) => '${match[1]},',
     );
   }
+
+  SavingCalculationResult _simpleCalculation({
+    required double requiredSaving,
+    required double monthlySavingDisplay,
+    required double dailySavingBeforeVariable,
+    required double savingRatioDisplay,
+  }) {
+    final dailyNet = dailySavingBeforeVariable - _dailyLimit;
+    if (dailyNet <= 0) {
+      return SavingCalculationResult(
+        monthlySaving: monthlySavingDisplay,
+        dailySaving: dailySavingBeforeVariable,
+        savingRatio: savingRatioDisplay.clamp(0.0, 1.0),
+        dailyNetSaving: 0,
+        requiredSaving: requiredSaving,
+        daysToGoal: 0,
+        totalSeconds: 0,
+        goalDateTime: null,
+        savingPerSecond: 0,
+      );
+    }
+
+    final daysToGoal = requiredSaving / dailyNet;
+    final totalSeconds = daysToGoal * 86400.0;
+    final goalDate = _planStart.add(
+      Duration(seconds: totalSeconds.round()),
+    );
+
+    return SavingCalculationResult(
+      monthlySaving: monthlySavingDisplay,
+      dailySaving: dailySavingBeforeVariable,
+      savingRatio: savingRatioDisplay.clamp(0.0, 1.0),
+      dailyNetSaving: dailyNet,
+      requiredSaving: requiredSaving,
+      daysToGoal: daysToGoal,
+      totalSeconds: totalSeconds,
+      goalDateTime: goalDate,
+      savingPerSecond: dailyNet / 86400.0,
+    );
+  }
+}
+
+class _DailySlice {
+  const _DailySlice({required this.date, required this.dailyNet});
+
+  final DateTime date;
+  final double dailyNet;
 }

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+import '../../../../model/plan/plan_edit_result.dart';
+import '../../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../../view_model/plan/enums/chat_step.dart';
 import './plan_summary_chart_widget.dart';
 import '../plan_edit_page.dart';
-import '../../../../view_model/plan/chat_plan_viewmodel.dart';
 
 Widget buildSummarySection(BuildContext context, ChatPlanViewModel viewModel) {
   final calc = viewModel.calculationResult ?? viewModel.calculate();
@@ -35,21 +37,17 @@ Widget _buildNoSavingWarning(
       const SizedBox(height: 16),
       ElevatedButton(
         onPressed: () async {
-          final updatedPlan = await Navigator.of(context).push(
+          final editResult = await Navigator.of(context).push<PlanEditResult>(
             MaterialPageRoute(
               builder: (_) => PlanEditPage(
-                initialPlan: viewModel.planInfo,
+                initialPlan: viewModel.totalPlan,
                 initialRefData: viewModel.refData,
+                requireApplyDate: false,
               ),
             ),
           );
-          if (updatedPlan != null) {
-            viewModel.updatePlanInfo(
-              planName: updatedPlan.planName,
-              targetAmount: updatedPlan.targetAmount,
-              currentAsset: updatedPlan.currentAsset,
-            );
-            viewModel.calculate(); // 추천 멘트/요약 재계산
+          if (editResult != null) {
+            viewModel.applyPlanEditResult(editResult);
           }
         },
         style: ElevatedButton.styleFrom(
@@ -80,25 +78,21 @@ Widget _buildSummaryChartWithRecommendation(
     children: [
       // 요약 차트
       PlanSummaryChartWidget(
-        planInfo: viewModel.planInfo,
+        plan: viewModel.totalPlan,
         calculation: viewModel.calculationResult,
         userName: viewModel.userName,
         onEdit: canEdit ? () async {
-          final updatedPlan = await Navigator.of(context).push(
+          final editResult = await Navigator.of(context).push<PlanEditResult>(
             MaterialPageRoute(
               builder: (_) => PlanEditPage(
-                initialPlan: viewModel.planInfo,
+                initialPlan: viewModel.totalPlan,
                 initialRefData: viewModel.refData,
+                requireApplyDate: false,
               ),
             ),
           );
-          if (updatedPlan != null) {
-            viewModel.updatePlanInfo(
-              planName: updatedPlan.planName,
-              targetAmount: updatedPlan.targetAmount,
-              currentAsset: updatedPlan.currentAsset,
-            );
-            viewModel.calculate();
+          if (editResult != null) {
+            viewModel.applyPlanEditResult(editResult);
           }
         } : null, // ← autoService면 null로 넘겨 비활성화
       ),

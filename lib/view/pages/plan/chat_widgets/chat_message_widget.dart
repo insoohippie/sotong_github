@@ -29,7 +29,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
     with SingleTickerProviderStateMixin {
   String _displayText = '';
   bool _isComplete = false;
-  late AnimationController _animationController;
+  AnimationController? _animationController;
   Timer? _typingTimer;
 
   static final Set<String> _completedMessageIds = <String>{};
@@ -104,7 +104,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _animationController?.dispose();
     _typingTimer?.cancel();
     super.dispose();
   }

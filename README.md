@@ -1,16 +1,19 @@
-# sotong
+# 🐙 Sotong – 대화형 가계부 & 저축 플랜 도우미
 
-A new Flutter project.
+> Flutter + Firebase 기반의 **챗봇형 가계부 애플리케이션**  
+> 사용자의 소비 패턴을 분석하고, 목표 저축액 달성을 위한 **맞춤형 계획**을 제안합니다.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## 📱 개요
 
-A few resources to get you started if this is your first Flutter project:
+**Sotong**은 “대화형 금융 비서(Chat-based Financial Assistant)”를 지향하는 개인 가계부 앱입니다.  
+사용자는 챗봇 인터페이스를 통해 자연스럽게 자신의 수입, 지출, 목표를 입력하고  
+앱은 이를 바탕으로 **월간/일간 저축 목표**, **소비 한도**, **저축률**을 자동으로 계산해줍니다.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🧩 아키텍처 구조
+
+이 프로젝트는 **MVVM(Model-View-ViewModel)** 패턴을 따르며,  
+Firebase를 통한 데이터 저장 및 동기화 구조를 가지고 있습니다.

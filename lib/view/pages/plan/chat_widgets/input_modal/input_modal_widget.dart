@@ -3,7 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:intl/intl.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/model/entry.dart';
+import 'package:sotong_local/model/refData/entry.dart';
 
 import '../../../../../component/buttons/small_rounded_button.dart';
 import '../../../../../component/texts/caption_with_dot.dart';

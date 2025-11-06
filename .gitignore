@@ -1,0 +1,82 @@
+# Flutter/Dart 관련
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+flutter_*.png
+
+# Flutter build outputs
+build/
+android/app/build/
+
+# IntelliJ / Android Studio
+.idea/
+*.iml
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# Android
+/android/.gradle/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/key.properties
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/ephemeral/
+ios/Runner/GeneratedPluginRegistrant.*
+
+# macOS
+macos/Flutter/ephemeral/
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Pods/
+
+# Windows
+windows/flutter/
+windows/runner/GeneratedPluginRegistrant.*
+
+# Linux
+linux/flutter/
+linux/runner/GeneratedPluginRegistrant.*
+
+# Web
+web/.dart_tool/
+web/.flutter-plugins
+web/.flutter-plugins-dependencies
+
+# Firebase/Secrets
+google-services.json
+GoogleService-Info.plist
+.env
+*.keystore
+*.jks
+
+# Logs & Temp
+*.log
+*.tmp
+*.swp
+*.lock
+.DS_Store
+Thumbs.db
+
+# Coverage / Reports
+coverage/
+test_output/
+reports/
+
+# JetBrains IDE cache
+.idea/
+*.ipr
+*.iws
+out/
+
+# Others
+*.bak
+*.orig

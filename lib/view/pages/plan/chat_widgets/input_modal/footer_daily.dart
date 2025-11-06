@@ -74,12 +74,12 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
 
     // ✨ 추가: "월수입 > 목표금액"으로 바뀌는 순간 에러 배너 등장
     final vm = context.read<ChatPlanViewModel>();
-    final target = vm.planInfo.targetAmount;
+    final target = vm.totalPlan.targetAmount?.toDouble();
     final bool incomeExceedsTargetNow =
         !widget.isEdit && target != null && target > 0 && widget.monthlyIncome > target;
 
     final bool incomeExceedsTargetBefore = () {
-      final t = vm.planInfo.targetAmount;
+      final t = vm.totalPlan.targetAmount?.toDouble();
       return !oldWidget.isEdit && t != null && t > 0 && oldWidget.monthlyIncome > t;
     }();
 
@@ -104,8 +104,8 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
     final over = widget.isOverBudget && !widget.isEdit;
 
     final vm = context.watch<ChatPlanViewModel>();
-    final target = vm.planInfo.targetAmount;
-    final current = vm.planInfo.currentAsset ?? 0.0;
+    final target = vm.totalPlan.targetAmount?.toDouble();
+    final current = vm.totalPlan.currentAsset.toDouble();
     final monthlySaving = (widget.monthlyIncome - monthlySpending).toDouble();
 
     // ✨ 조건: 월수입이 목표금액을 초과 (isEdit면 표시하지 않음)

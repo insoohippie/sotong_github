@@ -22,7 +22,7 @@ dependencies:
   image_picker: ^1.1.2
   intl: ^0.19.0
   lottie: ^3.3.1
-  flutter_keyboard_visibility: ^5.4.1
+  flutter_keyboard_visibility: ^6.0.0
   nimble_charts: ^0.5.0-beta
   fl_chart:  ^0.68.0
   mrx_charts: ^0.1.3

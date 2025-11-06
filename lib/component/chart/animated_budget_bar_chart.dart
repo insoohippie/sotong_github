@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../model/plan_info.dart';
+import '../../model/plan/total_plan.dart';
 import '../../model/saving_calculation_result.dart';
 
 /// 재사용 가능한 애니메이션 예산 바 차트 위젯
@@ -9,7 +9,7 @@ const Color _labelBlue = Color(0xFF1D4ED8); // 추후 수정?
 
 class AnimatedBudgetBarChart extends StatefulWidget {
   /// 플랜 정보
-  final PlanInfo planInfo;
+  final TotalPlan plan;
 
   /// 계산 결과
   final SavingCalculationResult? calculation;
@@ -31,7 +31,7 @@ class AnimatedBudgetBarChart extends StatefulWidget {
 
   const AnimatedBudgetBarChart({
     Key? key,
-    required this.planInfo,
+    required this.plan,
     required this.calculation,
     this.animationDuration = const Duration(milliseconds: 1200),
     this.height = 20,
@@ -52,9 +52,9 @@ class _AnimatedBudgetBarChartState extends State<AnimatedBudgetBarChart>
   late Animation<double> _savingAnim;
 
   // 계산된 값들
-  double get monthlyIncome => widget.planInfo.fixedIncomeSum ?? 0;
-  double get monthlyFixedCost => widget.planInfo.fixedConsumptionSum ?? 0;
-  double get dailySpendingLimit => widget.planInfo.dailyConsumptionSum ?? 0;
+  double get monthlyIncome => widget.plan.result.totalMetrics.sumMonthlyIncome.toDouble();
+  double get monthlyFixedCost => widget.plan.result.totalMetrics.sumMonthlyConsume.toDouble();
+  double get dailySpendingLimit => widget.plan.result.totalMetrics.sumDailyConsume.toDouble();
   double get monthlyVariableCost => dailySpendingLimit * 30;
   double get monthlySaving => widget.calculation?.monthlySaving ?? 0;
 
@@ -97,7 +97,7 @@ class _AnimatedBudgetBarChartState extends State<AnimatedBudgetBarChart>
   @override
   void didUpdateWidget(covariant AnimatedBudgetBarChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.planInfo != widget.planInfo ||
+    if (oldWidget.plan != widget.plan ||
         oldWidget.calculation != widget.calculation) {
       _initAnimations();
       if (widget.autoPlay) {
