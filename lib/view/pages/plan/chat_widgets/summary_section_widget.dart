@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../../view_model/plan/enums/chat_step.dart';
 import './plan_summary_chart_widget.dart';
 import '../plan_edit_page.dart';
 import '../../../../view_model/plan/chat_plan_viewmodel.dart';
@@ -71,6 +73,7 @@ Widget _buildSummaryChartWithRecommendation(
     ChatPlanViewModel viewModel,
     ) {
   final recommendation = viewModel.summaryRecommendation; // null 가능
+  final canEdit = context.read<ChatPlanViewModel>().currentStep != ChatStep.autoService;
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -78,9 +81,9 @@ Widget _buildSummaryChartWithRecommendation(
       // 요약 차트
       PlanSummaryChartWidget(
         planInfo: viewModel.planInfo,
-        calculation: viewModel.calculationResult!,
+        calculation: viewModel.calculationResult,
         userName: viewModel.userName,
-        onEdit: () async {
+        onEdit: canEdit ? () async {
           final updatedPlan = await Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => PlanEditPage(
@@ -95,9 +98,9 @@ Widget _buildSummaryChartWithRecommendation(
               targetAmount: updatedPlan.targetAmount,
               currentAsset: updatedPlan.currentAsset,
             );
-            viewModel.calculate(); // 추천 멘트/요약 재계산 → 내부 notify
+            viewModel.calculate();
           }
-        },
+        } : null, // ← autoService면 null로 넘겨 비활성화
       ),
 
       const SizedBox(height: 16),

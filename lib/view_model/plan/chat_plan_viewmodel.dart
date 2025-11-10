@@ -58,9 +58,7 @@ class ChatPlanViewModel extends ChangeNotifier {
 
   late final RefDataViewModel _refDataVM = RefDataViewModel(_refData);
   late final PlanInfoViewModel _planInfoVM = PlanInfoViewModel(_planInfo);
-  late final SavingPlanCalculator _calculationVM = SavingPlanCalculator(
-    planInfo: _planInfo,
-  );
+  late final SavingPlanCalculator _calculationVM = SavingPlanCalculator(planInfo: _planInfo);
 
   // --------------------------------------
   // 메시지
@@ -78,10 +76,10 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   Future<void> addBotMessageWithTyping(
-    String content, {
-    int delay = 1000,
-    bool awaitTyping = false,
-  }) async {
+      String content, {
+        int delay = 1000,
+        bool awaitTyping = false,
+      }) async {
     _isTyping = true;
     notifyListeners();
     final trimmed = content.trim();
@@ -110,15 +108,15 @@ class ChatPlanViewModel extends ChangeNotifier {
 
     final months = c.daysToGoal / 30.0;
     final curr = planInfo.currentAsset ?? 0;
-    final amt3m = curr + c.dailyNetSaving * 90; // 대략 3개월
-    final amt6m = curr + c.dailyNetSaving * 180; // 대략 6개월
+    final amt3m = curr + c.dailyNetSaving * 90;   // 대략 3개월
+    final amt6m = curr + c.dailyNetSaving * 180;  // 대략 6개월
 
     String fmt(double v) => SavingPlanCalculator.formatAmount(v);
 
     if (months <= 1.0) {
       // 1개월 이하 → 조금 늘리는 걸 추천 (3개월 이상)
       _summaryRecommendation =
-          '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월밖에 걸리지 않아요!\n'
+      '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월밖에 걸리지 않아요!\n'
           '너무 짧으면 약간 늘려 잡는 걸 추천드려요 😊\n\n'
           '• 3개월 목표: 약 ${fmt(amt3m)}원\n'
           '• 6개월 목표: 약 ${fmt(amt6m)}원\n'
@@ -126,7 +124,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     } else if (months >= 6.0) {
       // 6개월 이상 → 조금 줄이는/쪼개는 걸 추천
       _summaryRecommendation =
-          '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월이 걸려요.\n'
+      '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월이 걸려요.\n'
           '조금 길 수 있어서 목표를 나눠보는 걸 추천드려요 😊\n\n'
           '• 3개월 목표: 약 ${fmt(amt3m)}원\n'
           '• 6개월 목표: 약 ${fmt(amt6m)}원\n'
@@ -134,7 +132,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     } else {
       // 그 외 → 좋은 플랜
       _summaryRecommendation =
-          '좋은 플랜이네요! 🎉\n'
+      '좋은 플랜이네요! 🎉\n'
           '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월입니다.\n'
           '충분히 현실적인 계획이에요 👍';
     }
@@ -161,12 +159,9 @@ class ChatPlanViewModel extends ChangeNotifier {
     );
 
     if (fixedIncomeSum != null) _planInfo.fixedIncomeSum = fixedIncomeSum;
-    if (fixedConsumptionSum != null)
-      _planInfo.fixedConsumptionSum = fixedConsumptionSum;
-    if (dailyConsumptionSum != null)
-      _planInfo.dailyConsumptionSum = dailyConsumptionSum;
-    if (variableConsumptionSum != null)
-      _planInfo.variableConsumptionSum = variableConsumptionSum;
+    if (fixedConsumptionSum != null) _planInfo.fixedConsumptionSum = fixedConsumptionSum;
+    if (dailyConsumptionSum != null) _planInfo.dailyConsumptionSum = dailyConsumptionSum;
+    if (variableConsumptionSum != null) _planInfo.variableConsumptionSum = variableConsumptionSum;
     if (autoService != null) _planInfo.autoService = autoService;
 
     // 모든 핵심 값이 모였을 때만 계산
@@ -202,18 +197,10 @@ class ChatPlanViewModel extends ChangeNotifier {
       variableConsumptionList: variableConsumptionList,
     );
 
-    double? fixedIncomeSum = fixedIncomes != null
-        ? _refDataVM.sum(fixedIncomes)
-        : null;
-    double? fixedConsumptionSum = fixedConsumptions != null
-        ? _refDataVM.sum(fixedConsumptions)
-        : null;
-    double? dailyConsumptionSum = dailyConsumptions != null
-        ? _refDataVM.sum(dailyConsumptions)
-        : null;
-    double? variableConsumptionSum = variableConsumptions != null
-        ? _refDataVM.sum(variableConsumptions)
-        : null;
+    double? fixedIncomeSum = fixedIncomes != null ? _refDataVM.sum(fixedIncomes) : null;
+    double? fixedConsumptionSum = fixedConsumptions != null ? _refDataVM.sum(fixedConsumptions) : null;
+    double? dailyConsumptionSum = dailyConsumptions != null ? _refDataVM.sum(dailyConsumptions) : null;
+    double? variableConsumptionSum = variableConsumptions != null ? _refDataVM.sum(variableConsumptions) : null;
 
     if (fixedIncomeSum != null ||
         fixedConsumptionSum != null ||
@@ -245,7 +232,9 @@ class ChatPlanViewModel extends ChangeNotifier {
       if (_currentStep == ChatStep.summary) {
         final calc = calculate();
         if (calc == null || calc.dailyNetSaving <= 0) {
-          print('저축 불가');
+          print(
+            '저축 불가',
+          );
         }
       }
     }
@@ -327,10 +316,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           final amountStr = response.replaceAll(',', '').trim();
           final amount = double.tryParse(amountStr);
           if (amount != null && amount > 0) {
-            addMessage(
-              '목표 금액은 ${SavingPlanCalculator.formatAmount(amount)}원이에요!',
-              MessageType.user,
-            );
+            addMessage('목표 금액은 ${SavingPlanCalculator.formatAmount(amount)}원이에요!', MessageType.user);
             updatePlanInfo(targetAmount: amount);
             notifyListeners();
 
@@ -346,10 +332,7 @@ class ChatPlanViewModel extends ChangeNotifier {
       case ChatStep.currentAssetAsk:
         {
           final lower = response.trim().toLowerCase();
-          if (lower == '없어요' ||
-              lower == '없음' ||
-              lower == '없다' ||
-              lower == 'no') {
+          if (lower == '없어요' || lower == '없음' || lower == '없다' || lower == 'no') {
             addMessage('보유 자산 없이 진행할게요!', MessageType.user);
             updatePlanInfo(currentAsset: 0);
             notifyListeners();
@@ -357,16 +340,13 @@ class ChatPlanViewModel extends ChangeNotifier {
             await addBotMessageWithTyping('좋습니다! 이제 월 수입을 알려주세요. 💰');
             _currentStep = ChatStep.monthlyIncome;
             notifyListeners();
-          } else if (lower == '있어요' ||
-              lower == '있음' ||
-              lower == '있다' ||
-              lower == 'yes') {
+          } else if (lower == '있어요' || lower == '있음' || lower == '있다' || lower == 'yes') {
             addMessage('보유 자산이 있어요!', MessageType.user);
             notifyListeners();
 
             await addBotMessageWithTyping(
               '보유하고 계신 자산 금액을 입력해주세요.\n'
-              '빚이 있다면 마이너스(-) 를 포함해 입력하셔도 됩니다. (예: -5000000)',
+                  '빚이 있다면 마이너스(-) 를 포함해 입력하셔도 됩니다. (예: -5000000)',
             );
             _currentStep = ChatStep.currentAsset;
             notifyListeners();
@@ -507,9 +487,9 @@ class ChatPlanViewModel extends ChangeNotifier {
 
     await addBotMessageWithTyping(
       '안녕하세요, $_userName님! 😊\n'
-      '소통에 오신 걸 환영해요. 🎉\n\n'
-      '소통은 단순한 가계부가 아니라\n 당신만의 재정 파트너입니다.\n\n'
-      '하루 소비 계획부터 기록·피드백까지, \n목표 달성을 함께 해드려요.',
+          '소통에 오신 걸 환영해요. 🎉\n\n'
+          '소통은 단순한 가계부가 아니라\n 당신만의 재정 파트너입니다.\n\n'
+          '하루 소비 계획부터 기록·피드백까지, \n목표 달성을 함께 해드려요.',
       delay: 500,
     );
   }
@@ -522,16 +502,9 @@ class ChatPlanViewModel extends ChangeNotifier {
     _isSaving = true;
     notifyListeners();
     try {
-      print('=== 플랜 저장 시작 ===');
-      print('PlanInfo: $_planInfo');
-      print('PlanInfo.toMap(): ${_planInfo.toMap()}');
       await _planRepo.saveCurrentUserPlan(_planInfo);
-      print('=== 플랜 저장 성공 ===');
       return true;
-    } catch (e, stackTrace) {
-      print('=== 플랜 저장 실패 ===');
-      print('오류: $e');
-      print('스택 트레이스: $stackTrace');
+    } catch (e) {
       return false;
     } finally {
       _isSaving = false;

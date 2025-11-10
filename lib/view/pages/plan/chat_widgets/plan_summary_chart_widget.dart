@@ -5,8 +5,6 @@ import '../../../../component/chart/animated_budget_bar_chart.dart';
 import '../../../../model/plan_info.dart';
 import '../../../../model/saving_calculation_result.dart';
 
-
-
 class PlanSummaryChartWidget extends StatefulWidget {
   final PlanInfo planInfo;
   final SavingCalculationResult? calculation;
@@ -26,6 +24,8 @@ class PlanSummaryChartWidget extends StatefulWidget {
 }
 
 class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
+  // ⬇️ 추가: 1초마다 다시 그리기 위한 타이머
+  Timer? _ticker;
 
   double get monthlyIncome => widget.planInfo.fixedIncomeSum!;
   double get monthlyFixedCost => widget.planInfo.fixedConsumptionSum!;
@@ -36,18 +36,34 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
   double get monthlySaving => widget.calculation?.monthlySaving ?? 0;
   double get savingRatio => widget.calculation?.savingRatio ?? 0;
 
+  @override
+  void initState() {
+    super.initState();
+    // ⬇️ 추가: 1초마다 setState() 호출해 남은 시간 갱신
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {}); // build()가 다시 돌면서 now가 갱신됨
+    });
+  }
 
+  @override
+  void dispose() {
+    // ⬇️ 추가: 타이머 정리
+    _ticker?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final name = widget.userName.isNotEmpty ? widget.userName : '회원';
-    final now = DateTime.now();
+    final now = DateTime.now(); // 타이머로 매초 갱신됨
     final goalDate = widget.calculation?.goalDateTime ?? DateTime.now();
     final duration = goalDate.difference(now);
     final days = duration.inDays;
     final hours = duration.inHours % 24;
     final minutes = duration.inMinutes % 60;
     final seconds = duration.inSeconds % 60;
+
     final dailyIncome = monthlyIncome / 30;
     final dailyFixed = monthlyFixedCost / 30;
     final dailyVariable = dailySpendingLimit;
@@ -55,7 +71,7 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
     final savingPerSecond = widget.calculation?.savingPerSecond ?? 0;
     final monthlyVariableCost = this.monthlyVariableCost;
     final monthlySaving = this.monthlySaving;
-    // Animated stacked bar
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -81,7 +97,6 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
             ),
           ),
           const SizedBox(height: 20),
-          // 분리된 애니메이션 차트 위젯 사용
           AnimatedBudgetBarChart(
             planInfo: widget.planInfo,
             calculation: widget.calculation,
@@ -89,57 +104,6 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
             showPercentages: true,
             animationDuration: const Duration(milliseconds: 1200),
           ),
-
-          // 요약 설명 박스
-          // Container(
-          //   width: double.infinity,
-          //   padding: const EdgeInsets.all(18),
-          //   decoration: BoxDecoration(
-          //     color: Color(0xFFEFF6FF),
-          //     borderRadius: BorderRadius.circular(14),
-          //   ),
-          //   child: Column(
-          //     crossAxisAlignment: CrossAxisAlignment.start,
-          //     children: [
-          //       // Text('$name님의 하루 재정 플랜',
-          //       //     style: const TextStyle(
-          //       //         fontWeight: FontWeight.bold, fontSize: 15)),
-          //       // const SizedBox(height: 10),
-          //       // Text(
-          //       //     '$name님은 하루에 ${SavingPlanCalculator.formatAmount(dailyIncome)}원을 벌고, 고정소비로 ${SavingPlanCalculator.formatAmount(dailyFixed)}원이 지출되고, 하루소비로 ${SavingPlanCalculator.formatAmount(dailyVariable)}원을 등록하여 최종적으로 하루에 저축 가능한 금액은 ${SavingPlanCalculator.formatAmount(dailySaving)}원입니다.',
-          //       //     style: const TextStyle(fontSize: 14)),
-          //       // const SizedBox(height: 8),
-          //       // Text('1초당 약 ${savingPerSecond.toStringAsFixed(2)}원이 저축됩니다.',
-          //       //     style: const TextStyle(
-          //       //         fontSize: 13, color: Color(0xFF3B82F6))),
-          //       // const SizedBox(height: 8),
-          //       // Text('$name님은 하루에 이 소비한도 금액만 지켜주시면 목표달성일에 문제없이 도달할 수 있어요!',
-          //       //     style: const TextStyle(
-          //       //         fontSize: 13, color: Color(0xFF1E40AF))),
-          //       // const SizedBox(height: 18),
-          //       Center(
-          //         child: ElevatedButton(
-          //           onPressed: widget.onEdit,
-          //           style: ElevatedButton.styleFrom(
-          //             backgroundColor: const Color(0xFF3B82F6),
-          //             padding: const EdgeInsets.symmetric(
-          //                 horizontal: 24, vertical: 12),
-          //             shape: RoundedRectangleBorder(
-          //               borderRadius: BorderRadius.circular(12),
-          //             ),
-          //           ),
-          //           child: const Text(
-          //             '수정하기',
-          //             style: TextStyle(
-          //                 color: Colors.white,
-          //                 fontSize: 16,
-          //                 fontWeight: FontWeight.w600),
-          //           ),
-          //         ),
-          //       ),
-          //     ],
-          //   ),
-          // ),
           const SizedBox(height: 16),
           Center(
             child: Column(
@@ -168,18 +132,14 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
               onPressed: widget.onEdit,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3B82F6),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
               child: const Text(
                 '수정하기',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600),
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
           ),

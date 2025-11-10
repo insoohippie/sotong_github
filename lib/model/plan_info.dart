@@ -71,22 +71,17 @@ class PlanInfo {
   // ✅ Firestore 저장용
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{
+      'planName': planName,
+      'targetAmount': targetAmount,
       'currentAmount': currentAmount,
       'currentAsset': currentAsset,
       'startDate': startDate?.toIso8601String(),
+      'autoService': autoService,
+      'fixedIncomeSum': fixedIncomeSum,
+      'fixedConsumptionSum': fixedConsumptionSum,
+      'dailyConsumptionSum': dailyConsumptionSum,
+      'variableConsumptionSum': variableConsumptionSum,
     };
-
-    // null이 아닌 값만 추가
-    if (planName != null) map['planName'] = planName;
-    if (targetAmount != null) map['targetAmount'] = targetAmount;
-    if (autoService != null) map['autoService'] = autoService;
-    if (fixedIncomeSum != null) map['fixedIncomeSum'] = fixedIncomeSum;
-    if (fixedConsumptionSum != null)
-      map['fixedConsumptionSum'] = fixedConsumptionSum;
-    if (dailyConsumptionSum != null)
-      map['dailyConsumptionSum'] = dailyConsumptionSum;
-    if (variableConsumptionSum != null)
-      map['variableConsumptionSum'] = variableConsumptionSum;
 
     return map;
   }
@@ -102,8 +97,7 @@ class PlanInfo {
       fixedIncomeSum: (map['fixedIncomeSum'] as num?)?.toDouble(),
       fixedConsumptionSum: (map['fixedConsumptionSum'] as num?)?.toDouble(),
       dailyConsumptionSum: (map['dailyConsumptionSum'] as num?)?.toDouble(),
-      variableConsumptionSum: (map['variableConsumptionSum'] as num?)
-          ?.toDouble(),
+      variableConsumptionSum: (map['variableConsumptionSum'] as num?)?.toDouble(),
       planStartDate: _parseDate(map['startDate']),
     );
   }

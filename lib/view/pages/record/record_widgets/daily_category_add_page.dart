@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'package:sotong_local/component/appbars/custom_app_bar_title_subtitle.dart';
 
 import '../../../../view_model/record/daily_category_viewmodel.dart';
-import '../../../../model/record/daily_category_item.dart';
 
 // 네가 만든 컴포넌트/테마들
 import '../../../../component/inputs/custom_text_field.dart';
@@ -14,10 +13,7 @@ import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart'; // ✅ 패딩값 통일
 
 class DailyCategoryAddPage extends StatefulWidget {
-  final DailyCategoryItem? editItem;
-  final int? editIndex;
-
-  const DailyCategoryAddPage({super.key, this.editItem, this.editIndex});
+  const DailyCategoryAddPage({super.key});
 
   @override
   State<DailyCategoryAddPage> createState() => _DailyCategoryAddPageState();
@@ -25,8 +21,6 @@ class DailyCategoryAddPage extends StatefulWidget {
 
 class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
   final _name = TextEditingController();
-  late IconData _selectedIcon;
-  late Color _selectedColor;
 
   // 아이콘 후보
   final List<IconData> _iconCandidates = const [
@@ -62,21 +56,13 @@ class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
     Color(0xFFB0BEC5), // blue grey
   ];
 
+  IconData _selectedIcon = Icons.restaurant_rounded;
+  Color _selectedColor = const Color(0xFFFFE082); // amber
+
   @override
   void initState() {
     super.initState();
     _name.addListener(() => setState(() {})); // 버튼 활성/비활성 갱신
-
-    if (widget.editItem != null) {
-      // 수정 모드: 기존 데이터 로드
-      _name.text = widget.editItem!.name;
-      _selectedIcon = widget.editItem!.icon;
-      _selectedColor = widget.editItem!.color;
-    } else {
-      // 추가 모드: 기본값 설정
-      _selectedIcon = _iconCandidates[0];
-      _selectedColor = _colorCandidates[0];
-    }
   }
 
   @override
@@ -88,27 +74,12 @@ class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
   void _save() {
     final n = _name.text.trim();
     if (n.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('카테고리 이름을 입력하세요.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('카테고리 이름을 입력하세요.')),
+      );
       return;
     }
-    if (widget.editItem != null && widget.editIndex != null) {
-      // 수정 모드
-      context.read<DailyCategoryViewModel>().updateAt(
-        widget.editIndex!,
-        name: n,
-        icon: _selectedIcon,
-        color: _selectedColor,
-      );
-    } else {
-      // 추가 모드
-      context.read<DailyCategoryViewModel>().addCategory(
-        n,
-        _selectedIcon,
-        _selectedColor,
-      );
-    }
+    context.read<DailyCategoryViewModel>().addCategory(n, _selectedIcon, _selectedColor);
     Navigator.pop(context); // 관리 페이지로 복귀 → Provider로 즉시 갱신됨
   }
 
@@ -122,7 +93,7 @@ class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
         child: Column(
           children: [
             CustomAppBarTitleSubtitle(
-              title: widget.editItem != null ? '카테고리 수정' : '카테고리 추가',
+              title: '카테고리 추가',
               subtitle: '아이콘과 색상을 선택하세요',
               onBack: () => Navigator.pop(context),
             ),
@@ -158,12 +129,11 @@ class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: _iconCandidates.length,
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 6,
-                                mainAxisSpacing: 4,
-                                crossAxisSpacing: 4,
-                              ),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 6,
+                            mainAxisSpacing: 4,
+                            crossAxisSpacing: 4,
+                          ),
                           itemBuilder: (_, i) {
                             final icon = _iconCandidates[i];
                             final selected = icon == _selectedIcon;
@@ -172,16 +142,12 @@ class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
                                 decoration: BoxDecoration(
-                                  color: selected
-                                      ? AppColors.lightBlue
-                                      : Colors.white,
+                                  color: selected ? AppColors.lightBlue : Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Icon(
                                   icon,
-                                  color: selected
-                                      ? AppColors.primary
-                                      : AppColors.subText,
+                                  color: selected ? AppColors.primary : AppColors.subText,
                                 ),
                               ),
                             );
@@ -211,9 +177,7 @@ class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
                                   color: c,
                                   shape: BoxShape.circle,
                                   border: Border.all(
-                                    color: selected
-                                        ? const Color(0xFF2196F3)
-                                        : const Color(0xFFE5E7EB),
+                                    color: selected ? const Color(0xFF2196F3) : const Color(0xFFE5E7EB),
                                     width: selected ? 3 : 2,
                                   ),
                                 ),
@@ -237,10 +201,7 @@ class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
                               child: Icon(_selectedIcon, color: Colors.black87),
                             ),
                             const SizedBox(width: 12),
-                            const ParagraphText(
-                              text: '미리보기',
-                              fontWeight: FontWeight.w600,
-                            ),
+                            const ParagraphText(text: '미리보기', fontWeight: FontWeight.w600),
                             const Spacer(),
                             Container(
                               width: 16,
@@ -248,10 +209,7 @@ class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
                               decoration: BoxDecoration(
                                 color: _selectedColor,
                                 shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: const Color(0xFFE5E7EB),
-                                  width: 2,
-                                ),
+                                border: Border.all(color: const Color(0xFFE5E7EB), width: 2),
                               ),
                             ),
                           ],
@@ -266,7 +224,11 @@ class _DailyCategoryAddPageState extends State<DailyCategoryAddPage> {
             ),
 
             // ✅ 하단 버튼(RecordSpendingPage와 동일한 배치)
-            CustomButton(text: '저장', enabled: isValid, onPressed: _save),
+            CustomButton(
+              text: '저장',
+              enabled: isValid,
+              onPressed: _save,
+            ),
             const SizedBox(height: AppSpacing.bottomSpacing),
           ],
         ),

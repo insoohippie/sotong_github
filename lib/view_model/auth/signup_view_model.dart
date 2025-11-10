@@ -136,16 +136,9 @@ class SignupViewModel extends ChangeNotifier {
       case SignupStep.password:
         return isPasswordValid;
       case SignupStep.userInfo:
-        final nameValid = nameController.text.isNotEmpty;
-        final birthdayValid = birthdayController.text.isNotEmpty;
-        final genderValid = gender != null;
-        print(
-          '회원가입 유효성 검사: name=$nameValid, birthday=$birthdayValid, gender=$genderValid',
-        );
-        print(
-          'name: "${nameController.text}", birthday: "${birthdayController.text}", gender: $gender',
-        );
-        return nameValid && birthdayValid && genderValid;
+        return nameController.text.isNotEmpty &&
+            birthdayController.text.isNotEmpty &&
+            gender != null;
     }
   }
 
@@ -185,13 +178,8 @@ class SignupViewModel extends ChangeNotifier {
     }
   }
 
-  bool get canSubmit {
-    final result = currentStep == SignupStep.userInfo && isCurrentStepValid;
-    print(
-      'canSubmit: currentStep=$currentStep, isCurrentStepValid=$isCurrentStepValid, result=$result',
-    );
-    return result;
-  }
+  bool get canSubmit =>
+      currentStep == SignupStep.userInfo && isCurrentStepValid;
 
   Future<bool> submit() async {
     isLoading = true;
