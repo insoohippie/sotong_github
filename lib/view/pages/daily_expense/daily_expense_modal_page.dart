@@ -5,70 +5,50 @@ import 'package:intl/intl.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/model/entry.dart';
 
-import '../../../../../component/buttons/small_rounded_button.dart';
-import '../../../../../component/texts/caption_with_dot.dart';
-import '../../../../../component/texts/header_text.dart';
-import '../../../../../component/theme/app_spacing.dart';
+import '../../../../component/buttons/small_rounded_button.dart';
+import '../../../../component/texts/caption_with_dot.dart';
+import '../../../../component/texts/header_text.dart';
+import '../../../../component/theme/app_spacing.dart';
 
-import 'footer_daily.dart';
-import 'footer_default.dart';
-import 'category_utils.dart';
-import 'input_item_row.dart';
+import '../plan/chat_widgets/input_modal/footer_daily.dart';
+import '../plan/chat_widgets/input_modal/footer_default.dart';
+import '../plan/chat_widgets/input_modal/category_utils.dart';
+import '../plan/chat_widgets/input_modal/input_item_row.dart';
 
-class InputModalWidget extends StatefulWidget {
-  final bool isOpen;
-  final VoidCallback onClose;
+/// 일 변동소비 입력 모달 전용 페이지 (원본 InputModalWidget 기반)
+class DailyExpenseModalPage extends StatefulWidget {
   final String title;
-  final Function(List<Entry>, double) onComplete;
+  final Function(List<Entry>, double)? onComplete;
   final String placeholder;
   final String hintText;
-  final VoidCallback? onCategorySettingsTap; // 카테고리 설정 콜백 추가
-  final List<String>? customCategories; // 사용자 입력 카테고리
-  final Function(String)? onCustomCategoryAdded; // 사용자 카테고리 추가 콜백
-  final Function(String)? onCustomCategoryRemoved; // 사용자 카테고리 삭제 콜백
-  final Function(String, String)?
-  onCustomCategoryAddedWithEmoji; // 카테고리와 이모지를 함께 전달하는 콜백
-  final Map<String, String>? categoryEmojis; // 카테고리별 이모지 정보
-
-  /// EntryType.daily | EntryType.fixed (수입/고정소비는 fixed 사용)
+  final VoidCallback? onCategorySettingsTap;
   final EntryType type;
   final List<Entry>? initialEntries;
-
-  /// 비교 기준(한도). 일일: (가용예산), 고정: (월수입합)
   final double? monthlyIncome;
 
-  const InputModalWidget({
+  const DailyExpenseModalPage({
     Key? key,
-    required this.isOpen,
-    required this.onClose,
-    required this.title,
-    required this.onComplete,
-    required this.type,
+    this.title = '일 변동소비 예산을 입력해주세요',
+    this.onComplete,
     this.placeholder = '수입 카테고리',
     this.hintText = '예: 월급, 아르바이트, 용돈 등',
+    this.onCategorySettingsTap,
+    this.type = EntryType.daily,
     this.initialEntries,
     this.monthlyIncome,
-    this.onCategorySettingsTap,
-    this.customCategories,
-    this.onCustomCategoryAdded,
-    this.onCustomCategoryRemoved,
-    this.onCustomCategoryAddedWithEmoji,
-    this.categoryEmojis,
   }) : super(key: key);
 
   @override
-  State<InputModalWidget> createState() => _InputModalWidgetState();
+  State<DailyExpenseModalPage> createState() => _DailyExpenseModalPageState();
 }
 
-class _InputModalWidgetState extends State<InputModalWidget>
+class _DailyExpenseModalPageState extends State<DailyExpenseModalPage>
     with SingleTickerProviderStateMixin {
   // ----- 애니메이션 컨트롤 -----
   late final AnimationController _ctrl;
   late final Animation<Offset> _slide; // 아래서 위로/위에서 아래로
   late final Animation<double> _scrimFade;
   static const _kSlideMs = 500; // 닫힘이 확실히 보이도록 500ms
-
-  bool _logicalOpen = false; // 논리적 열림(내부 상태)
 
   // ----- 데이터 -----
   List<Entry> items = [];
@@ -99,37 +79,12 @@ class _InputModalWidgetState extends State<InputModalWidget>
       curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
     );
 
-    _logicalOpen = widget.isOpen;
-    if (_logicalOpen) {
-      // 첫 프레임 이후 forward 해야 제대로 보임
-      SchedulerBinding.instance.addPostFrameCallback((_) => _ctrl.forward());
-    }
+    // 첫 프레임 이후 forward 해야 제대로 보임
+    SchedulerBinding.instance.addPostFrameCallback((_) => _ctrl.forward());
 
     _keyboardVisibilityController = KeyboardVisibilityController();
     _initKeyboardVisibility();
     _initItems(widget.initialEntries);
-  }
-
-  @override
-  void didUpdateWidget(covariant InputModalWidget oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // 외부 isOpen 변경 → 내부 애니로 동기화
-    if (oldWidget.isOpen != widget.isOpen) {
-      _logicalOpen = widget.isOpen;
-      if (_logicalOpen) {
-        _ctrl.forward();
-      } else {
-        // 외부가 강제 닫기한 경우에도 부드럽게
-        _ctrl.reverse().whenComplete(() {
-          if (mounted) widget.onClose();
-        });
-      }
-    }
-
-    if (oldWidget.monthlyIncome != widget.monthlyIncome) {
-      setState(() {});
-    }
   }
 
   @override
@@ -256,7 +211,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
       return;
     }
     await _ctrl.reverse(); // ↓ 슬라이드 다운 + 스크림 페이드아웃
-    if (mounted) widget.onClose(); // 여기서 부모가 isOpen=false로 바꿔주세요.
+    if (mounted) Navigator.of(context).pop();
   }
 
   Future<void> handleComplete() async {
@@ -287,8 +242,11 @@ class _InputModalWidgetState extends State<InputModalWidget>
       return;
     }
 
-    widget.onComplete(valid, getTotalAmount());
-    await _closeWithAnimation(); // 닫힘 애니 후 onClose 호출
+    if (widget.onComplete != null) {
+      widget.onComplete!(valid, getTotalAmount());
+    }
+
+    Navigator.of(context).pop({'entries': valid, 'total': getTotalAmount()});
     setState(() => error = '');
   }
 
@@ -337,12 +295,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
               onRemove: removeItem,
               presets: presets,
               onCategorySettingsTap: widget.onCategorySettingsTap,
-              customCategories: widget.customCategories,
-              onCustomCategoryAdded: widget.onCustomCategoryAdded,
-              onCustomCategoryRemoved: widget.onCustomCategoryRemoved,
-              onCustomCategoryAddedWithEmoji:
-                  widget.onCustomCategoryAddedWithEmoji,
-              categoryEmojis: widget.categoryEmojis,
               amountHint: hint,
               showMonthlyHint: kind == ItemKind.daily,
               isOverBudget: over,
@@ -376,7 +328,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
       visible: !_isKeyboardVisible,
       child: Column(
         children: [
-          const SizedBox(height: 40),
+          const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.screenPadding,
@@ -386,7 +338,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
               children: [
                 HeaderText(text: titleText),
                 const SizedBox(height: 10),
-                // CaptionWithDot(text: captionText), // 분리해두셨다면 이렇게
                 CaptionWithDot(text: captionText),
               ],
             ),
@@ -477,4 +428,27 @@ class _InputModalWidgetState extends State<InputModalWidget>
       ),
     );
   }
+}
+
+/// 일 변동소비 입력 모달 페이지를 열고 결과를 받는 함수
+Future<Map<String, dynamic>?> openDailyExpenseModalPage(
+  BuildContext context, {
+  String? title,
+  List<Entry>? initialEntries,
+  double? monthlyIncome,
+  VoidCallback? onCategorySettingsTap,
+  EntryType type = EntryType.daily,
+}) async {
+  final result = await Navigator.of(context).push<Map<String, dynamic>>(
+    MaterialPageRoute(
+      builder: (context) => DailyExpenseModalPage(
+        title: title ?? '일 변동소비 예산을 입력해주세요',
+        initialEntries: initialEntries,
+        monthlyIncome: monthlyIncome,
+        onCategorySettingsTap: onCategorySettingsTap,
+        type: type,
+      ),
+    ),
+  );
+  return result;
 }

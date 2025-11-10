@@ -108,7 +108,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/__debug_summary',
+        initialRoute: '/plan_chat',
         routes: appRoutes,
       ),
     );

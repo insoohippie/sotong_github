@@ -17,15 +17,22 @@ class PlanRepository {
 
   /// 저장
   Future<String> saveCurrentUserPlan(PlanInfo plan) async {
-    final uid = _uidOrThrow();
-    final now = FieldValue.serverTimestamp();
-    final data = {
-      ...plan.toMap(),
-      'createdAt': now,
-      'updatedAt': now,
-    };
-    final id = await _ds.create(uid, data);
-    return id;
+    try {
+      print('=== PlanRepository.saveCurrentUserPlan 시작 ===');
+      final uid = _uidOrThrow();
+      print('UID: $uid');
+      final now = FieldValue.serverTimestamp();
+      final data = {...plan.toMap(), 'createdAt': now, 'updatedAt': now};
+      print('저장할 데이터: $data');
+      final id = await _ds.create(uid, data);
+      print('=== PlanRepository 저장 성공, ID: $id ===');
+      return id;
+    } catch (e, stackTrace) {
+      print('=== PlanRepository 저장 실패 ===');
+      print('오류: $e');
+      print('스택 트레이스: $stackTrace');
+      rethrow;
+    }
   }
 
   /// 전체 플랜(최신순)
@@ -38,7 +45,12 @@ class PlanRepository {
   /// 최신 플랜 1개
   Future<PlanInfo?> getLatestPlanForCurrentUser() async {
     final uid = _uidOrThrow();
-    final snaps = await _ds.query(uid, orderBy: 'createdAt', descending: true, limit: 1);
+    final snaps = await _ds.query(
+      uid,
+      orderBy: 'createdAt',
+      descending: true,
+      limit: 1,
+    );
     if (snaps.docs.isEmpty) return null;
     return PlanInfo.fromMap(snaps.docs.first.data());
   }
@@ -55,7 +67,12 @@ class PlanRepository {
   /// 최신 플랜 이름만 수정(편의 함수)
   Future<void> updateLatestPlanName(String newName) async {
     final uid = _uidOrThrow();
-    final snaps = await _ds.query(uid, orderBy: 'createdAt', descending: true, limit: 1);
+    final snaps = await _ds.query(
+      uid,
+      orderBy: 'createdAt',
+      descending: true,
+      limit: 1,
+    );
     if (snaps.docs.isEmpty) throw Exception('수정할 플랜이 없습니다.');
     final planId = snaps.docs.first.id;
     await updatePlanNameById(planId, newName);

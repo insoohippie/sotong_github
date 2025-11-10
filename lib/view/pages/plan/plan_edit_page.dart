@@ -37,12 +37,20 @@ class PlanEditPage extends StatefulWidget {
 }
 
 class _PlanEditPageState extends State<PlanEditPage> {
+  late final PageController _pageController;
   int _selectedTabIndex = 0;
   final NumberFormat _nf = NumberFormat.decimalPattern('ko_KR');
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(initialPage: 0, keepPage: true);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   double _parseController(TextEditingController c) =>
@@ -67,7 +75,8 @@ class _PlanEditPageState extends State<PlanEditPage> {
     return null;
   }
 
-  // ----------------- 모달 -----------------
+  // ----------------- 모달 (제한 없음) -----------------
+
   Future<void> _openIncomeModal(BuildContext context, PlanEditViewModel vm) async {
     await showDialog(
       context: context,
@@ -121,6 +130,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
   Future<void> _openDailyModal(BuildContext context, PlanEditViewModel vm) async {
     await showDialog(
       context: context,
+      useRootNavigator: false,
       barrierDismissible: false,
       barrierColor: Colors.transparent,
       builder: (ctx) {
@@ -133,7 +143,6 @@ class _PlanEditPageState extends State<PlanEditPage> {
             placeholder: '하루 소비 항목',
             type: EntryType.daily,
             initialEntries: vm.refData.dailyConsumptions,
-            isEditMode: true,
             onComplete: (items, total) {
               context.read<PlanEditViewModel>().updateDailyCostEntries(items);
             },
@@ -144,6 +153,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
   }
 
   // ----------------- 저장 -----------------
+
   void _save(PlanEditViewModel vm) {
     final msg = _blockingMessage(vm);
     if (msg != null) return;
@@ -161,6 +171,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
   }
 
   // ----------------- UI -----------------
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
@@ -181,33 +192,23 @@ class _PlanEditPageState extends State<PlanEditPage> {
                 child: _SyncBridgeForChartOrAdvice(),
               ),
 
+              // 탭바
               _buildTabBar(),
 
-              // ▼▼▼ 스크롤 가능한 영역 ▼▼▼
+              // 탭 컨텐츠
               Expanded(
-                child: Scrollbar(
-                  thumbVisibility: false,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: IndexedStack(
-                            index: _selectedTabIndex,
-                            children: const [
-                              _PlanBasicInfoTab(),
-                              _UserInfoTab(),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: PageView(
+                  controller: _pageController,
+                  physics: const NeverScrollableScrollPhysics(),
+                  onPageChanged: (i) => setState(() => _selectedTabIndex = i),
+                  children: const [
+                    _PlanBasicInfoTab(),
+                    _UserInfoTab(),
+                  ],
                 ),
               ),
 
-              // 저장 버튼
+              // 저장 버튼 (하단 경고 제거, 버튼만)
               Consumer<PlanEditViewModel>(
                 builder: (context, vm, _) {
                   final canSave = vm.isValidForm() && _blockingMessage(vm) == null;
@@ -252,7 +253,11 @@ class _PlanEditPageState extends State<PlanEditPage> {
     final isSelected = _selectedTabIndex == index;
     return InkWell(
       onTap: () {
-        setState(() => _selectedTabIndex = index);
+        _pageController.animateToPage(
+          index,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+        );
       },
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -384,13 +389,15 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
             subtitle: '고정소비 ${_fmt(fixed)}원 > 수입 ${_fmt(income)}원',
             tips: const ['고정 소비 점검', '수입 항목 추가 고려'],
           ));
-        } else if (daily30 > (leftover > 0 ? leftover : 0)) {
+        }
+        else if (daily30 > (leftover > 0 ? leftover : 0)) {
           issues.add(_AdviceItem(
             title: '하루 소비(×30)가 남는 금액을 초과했어요.',
             subtitle: '남는 금액 ${_fmt(leftover)}원, 변동소비 ${_fmt(daily30)}원',
-            tips: const ['하루 한도를 낮추기', '고정소비 줄이기', '수입 늘리기 검토'],
+            tips: const ['하루 한도 낮추기', '고정소비 줄이기', '수입 늘리기 검토'],
           ));
-        } else if (monthlySaving <= 0) {
+        }
+        else if (monthlySaving <= 0) {
           issues.add(_AdviceItem(
             title: '현재 설정으로 월 저축액이 0원 이하예요.',
             subtitle: '월저축 = 수입 − 고정 − 변동',
@@ -405,31 +412,19 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
           ));
         }
 
+        // 케이스 있으면 차트 “대신” 배너, 없으면 차트
         if (issues.isNotEmpty) {
           return _BudgetAdviceBanner(items: issues);
         }
 
+        // 정상: 차트
         return RepaintBoundary(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AnimatedBudgetBarChart(
-                planInfo: chatVM.planInfo,
-                calculation: calc,
-                height: 20,
-                showPercentages: true,
-                animationDuration: const Duration(milliseconds: 1200),
-              ),
-              const SizedBox(height: 12),
-
-              // ⬇️ 여기를 수정: chatVM이 아닌 editVM에서 바로 읽기
-              _PlanStatsBelowChart(
-                reachDateStr: editVM.reachDateStr,
-                durationStr: editVM.durationStr,
-                canSave: editVM.dailyNetSaving > 0,
-                hasGoal: (editVM.parsedTarget > editVM.parsedCurrent),
-              ),
-            ],
+          child: AnimatedBudgetBarChart(
+            planInfo: chatVM.planInfo,
+            calculation: calc,
+            height: 20,
+            showPercentages: true,
+            animationDuration: const Duration(milliseconds: 1200),
           ),
         );
       },
@@ -455,7 +450,7 @@ class _PlanBasicInfoTab extends StatelessWidget {
                 label: '플랜 이름',
                 controller: vm.planNameController,
                 hint: '예: 여름휴가 프로젝트',
-                onChanged: (_) {}, // 리스너가 이미 notify 처리
+                onChanged: (_) {},
               ),
               MinimalField(
                 label: '목표 금액',
@@ -507,7 +502,7 @@ class _UserInfoTab extends StatelessWidget {
               EditSummaryTile(
                 label: '하루 소비 한도 금액',
                 total: vm.dailySpendingLimit,
-                unit: '원',
+                unit: '원', // ‘원/일’로 바꾸고 싶으면 여기 변경
                 onEdit: () => page._openDailyModal(context, vm),
               ),
               const SizedBox(height: 30),
@@ -591,10 +586,12 @@ class _AdviceTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SubText(text: item.title, fontWeight: FontWeight.bold, color: Colors.black),
+                SubText(text: item.title, fontWeight: FontWeight.bold, color: Colors.black,),
                 if (item.subtitle != null) ...[
                   const SizedBox(height: 4),
-                  SubText(text: item.subtitle!),
+                  SubText(
+                    text: item.subtitle!,
+                  ),
                 ],
                 const SizedBox(height: 4),
                 Wrap(
@@ -607,7 +604,8 @@ class _AdviceTile extends StatelessWidget {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: SubText(text: t, color: AppColors.redText),
+                      child: SubText(
+                        text: t, color: AppColors.redText)
                     );
                   }).toList(),
                 ),
@@ -617,65 +615,5 @@ class _AdviceTile extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-/// =========================
-/// 차트 하단 한 줄 3타일
-/// =========================
-class _PlanStatsBelowChart extends StatelessWidget {
-  final String? reachDateStr;
-  final String? durationStr;
-  final bool hasGoal;
-  final bool canSave;
-
-  const _PlanStatsBelowChart({
-    Key? key,
-    required this.reachDateStr,
-    required this.durationStr,
-    required this.hasGoal,
-    required this.canSave,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    Widget tile(String title, String value, {Color? valueColor}) {
-      return Expanded(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.lightBlue,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SubText(text: title, fontWeight: FontWeight.bold),
-              const SizedBox(height: 6),
-              SubText(
-                text: value,
-                color: valueColor ?? Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final show = hasGoal && canSave && reachDateStr != null && durationStr != null;
-
-    if (show) {
-      return Row(
-        children: [
-          tile('목표 도달 예정일', reachDateStr!),
-          const SizedBox(width: 8),
-          tile('예상 소요 기간', durationStr!),
-        ],
-      );
-    }
-
-    // 표시 조건이 안 되면 빈 자리
-    return const SizedBox.shrink();
   }
 }

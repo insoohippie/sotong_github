@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/daily_category_pill.dart';
+import 'package:sotong_local/view/pages/plan/chat_widgets/input_modal/category_utils.dart';
+import 'package:sotong_local/view/pages/category/category_state_manager.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart';
 import '../../../../component/inputs/custom_text_field.dart';
+
 class SpendingInputEntry extends StatefulWidget {
   final Map<String, dynamic> entry;
   final List<String> categoryItems; // (호환성 유지용, 미사용)
@@ -22,16 +24,12 @@ class SpendingInputEntry extends StatefulWidget {
 class _SpendingInputEntryState extends State<SpendingInputEntry> {
   late final TextEditingController _categoryController;
 
-  int get _idx {
-    final v = widget.entry['idx'];
-    return (v is int) ? v : 0;
-  }
-
   @override
   void initState() {
     super.initState();
-    _categoryController =
-        TextEditingController(text: (widget.entry['category'] as String?) ?? '');
+    _categoryController = TextEditingController(
+      text: (widget.entry['category'] as String?) ?? '',
+    );
     _categoryController.addListener(() {
       widget.entry['category'] = _categoryController.text;
     });
@@ -50,16 +48,19 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
     final n = int.tryParse(_unformatNumber(v));
     if (n == null) return '';
     // 천단위 콤마
-    return n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
+    return n.toString().replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (m) => ',',
+    );
   }
   // -----------------------------------
 
   @override
   Widget build(BuildContext context) {
     final amountController =
-    widget.entry['amountController'] as TextEditingController;
+        widget.entry['amountController'] as TextEditingController;
     final noteController =
-    widget.entry['noteController'] as TextEditingController;
+        widget.entry['noteController'] as TextEditingController;
 
     return Column(
       children: [
@@ -80,18 +81,26 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                   // 카테고리 Pill
                   Expanded(
                     flex: 2,
-                    child: DailyCategoryPill(
+                    child: CategoryPill(
                       text: _categoryController.text,
+                      presets: dailyPresets,
                       onTap: () async {
-                        await openDailyCategorySheet(
+                        await openCategorySheet(
                           context,
                           _categoryController,
-                              (val) {
+                          (val) {
                             setState(() {
                               _categoryController.text = val;
                               widget.entry['category'] = val;
                             });
                           },
+                          presets: dailyPresets,
+                          enabledStates:
+                              CategoryStateManager.dailyExpenseEnabledStates,
+                          customCategories:
+                              CategoryStateManager.customDailyExpenseCategories,
+                          categoryEmojis:
+                              CategoryStateManager.dailyExpenseCategoryEmojis,
                         );
                       },
                       onClear: () {
@@ -100,6 +109,8 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                           widget.entry['category'] = '';
                         });
                       },
+                      customEmoji: CategoryStateManager
+                          .dailyExpenseCategoryEmojis[_categoryController.text],
                     ),
                   ),
                   const SizedBox(width: 8),
