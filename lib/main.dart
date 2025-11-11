@@ -117,7 +117,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/logo_splash',
+        initialRoute: '/signup',
         routes: appRoutes,
       ),
     );

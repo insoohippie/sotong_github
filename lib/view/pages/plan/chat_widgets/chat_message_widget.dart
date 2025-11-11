@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import '../../../../component/theme/app_colors.dart';
 import '../../../../model/chat_message.dart';
 // 요약 카드 위젯을 메시지로 쓰고 싶다면 임포트
 import '../../../../view_model/plan/chat_plan_viewmodel.dart';
@@ -187,7 +188,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
-                  color: isBot ? const Color(0xFFF4F4F4) : const Color(0xFF0062FF),
+                  color: isBot ? const Color(0xFFF4F4F4) : AppColors.primary,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
@@ -200,7 +201,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
                 child: Text(
                   _displayText,
                   style: TextStyle(
-                    color: isBot ? const Color(0xFF333333) : Colors.white,
+                    color: isBot ? const Color(0xFF333333): AppColors.whiteText,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     height: 1.4,

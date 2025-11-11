@@ -80,5 +80,5 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/communication': (_) => const CommunicationPage(),
   '/communication_logs': (_) => const CommunicationLogsPage(),
 
-  '/__debug_summary': (_) => PieAndPlanSummaryPage(),
+  '/__debug_summary': (_) => BudgetAllWidgetsSandboxPage(),
 };

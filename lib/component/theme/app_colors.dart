@@ -7,6 +7,7 @@ class AppColors {
   static const Color greyBackground = Color(0xFFEDEDED); // 입력 전 입력창 배경
   static const Color lightBlue = Color(0xFFEDF4FF); // 파스텔 파랑 (입력창 배경)
   static const Color planTagBackground = Color(0xFFBBD5FF); //
+  static const Color userChat = const Color(0xFF4C8FFF);
 
   static const Color redBackground = Color(0xFFFFF5F5);
   static const Color redText = Color(0xFFDC2626);

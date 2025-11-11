@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import '../../../model/category/category_state_manager.dart';
 import '../../../view_model/plan/enums/chat_step.dart';
 import '../../../view_model/services/saving_calculator.dart';
+import '../record/record_widgets/daily_category_manage_file.dart';
 import './chat_widgets/amount_guide_widget.dart';
 import './chat_widgets/chat_bottom_input_area.dart';
 import './chat_widgets/chat_message_widget.dart';
@@ -32,6 +34,17 @@ class _ChatPlanPageState extends State<ChatPlanPage>
   bool _showDailySpendingModal = false;
   bool _isFormatting = false;
   bool _showBottomArea = true;
+  bool _suppressNextBottomShow = false;
+
+  // 카테고리 관련 상태 변수들 (CategoryTestPage에서 가져옴)
+  List<String> _customIncomeCategories = [];
+  List<String> _customFixedExpenseCategories = [];
+  List<String> _customDailyExpenseCategories = [];
+
+  // 카테고리별 이모지 저장
+  Map<String, String> _incomeCategoryEmojis = {};
+  Map<String, String> _fixedExpenseCategoryEmojis = {};
+  Map<String, String> _dailyExpenseCategoryEmojis = {};
 
   // ====== 자동 스크롤 제어 추가 ======
   int _lastMessageCount = 0;
@@ -83,6 +96,31 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     });
   }
 
+  // 카테고리 데이터 로드 (CategoryTestPage에서 가져옴)
+  void _loadCategoryData() {
+    setState(() {
+      _customIncomeCategories = List.from(
+        CategoryStateManager.customIncomeCategories,
+      );
+      _customFixedExpenseCategories = List.from(
+        CategoryStateManager.customFixedExpenseCategories,
+      );
+      _customDailyExpenseCategories = List.from(
+        CategoryStateManager.customDailyExpenseCategories,
+      );
+
+      _incomeCategoryEmojis = Map.from(
+        CategoryStateManager.incomeCategoryEmojis,
+      );
+      _fixedExpenseCategoryEmojis = Map.from(
+        CategoryStateManager.fixedExpenseCategoryEmojis,
+      );
+      _dailyExpenseCategoryEmojis = Map.from(
+        CategoryStateManager.dailyExpenseCategoryEmojis,
+      );
+    });
+  }
+
   @override
   void dispose() {
     _bottomSlideController.dispose();
@@ -108,6 +146,107 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           curve: Curves.easeOut,
         );
       }
+    });
+  }
+
+  void _openCategorySettings() {
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => DailyCategoryManagePage()));
+  }
+
+  void _openIncomeCategorySettings() {
+    Navigator.of(context).pushNamed('/income_category');
+  }
+
+  void _openFixedExpenseCategorySettings() {
+    Navigator.of(context).pushNamed('/fixed_expense_category');
+  }
+
+  // 카테고리 추가 콜백들 (CategoryTestPage에서 가져옴)
+  void _addCustomIncomeCategory(String category) {
+    setState(() {
+      if (!_customIncomeCategories.contains(category)) {
+        _customIncomeCategories.add(category);
+        CategoryStateManager.addCustomIncomeCategory(category);
+      }
+    });
+  }
+
+  void _addCustomFixedExpenseCategory(String category) {
+    setState(() {
+      if (!_customFixedExpenseCategories.contains(category)) {
+        _customFixedExpenseCategories.add(category);
+        CategoryStateManager.addCustomFixedExpenseCategory(category);
+      }
+    });
+  }
+
+  void _addCustomDailyExpenseCategory(String category) {
+    setState(() {
+      if (!_customDailyExpenseCategories.contains(category)) {
+        _customDailyExpenseCategories.add(category);
+        CategoryStateManager.addCustomDailyExpenseCategory(category);
+      }
+    });
+  }
+
+  // 카테고리와 이모지를 함께 추가하는 콜백들
+  void _addCustomIncomeCategoryWithEmoji(String category, String emoji) {
+    setState(() {
+      if (!_customIncomeCategories.contains(category)) {
+        _customIncomeCategories.add(category);
+        _incomeCategoryEmojis[category] = emoji;
+        CategoryStateManager.addCustomIncomeCategory(category);
+        CategoryStateManager.setIncomeCategoryEmoji(category, emoji);
+      }
+    });
+  }
+
+  void _addCustomFixedExpenseCategoryWithEmoji(String category, String emoji) {
+    setState(() {
+      if (!_customFixedExpenseCategories.contains(category)) {
+        _customFixedExpenseCategories.add(category);
+        _fixedExpenseCategoryEmojis[category] = emoji;
+        CategoryStateManager.addCustomFixedExpenseCategory(category);
+        CategoryStateManager.setFixedExpenseCategoryEmoji(category, emoji);
+      }
+    });
+  }
+
+  void _addCustomDailyExpenseCategoryWithEmoji(String category, String emoji) {
+    setState(() {
+      if (!_customDailyExpenseCategories.contains(category)) {
+        _customDailyExpenseCategories.add(category);
+        _dailyExpenseCategoryEmojis[category] = emoji;
+        CategoryStateManager.addCustomDailyExpenseCategory(category);
+        CategoryStateManager.setDailyExpenseCategoryEmoji(category, emoji);
+      }
+    });
+  }
+
+  // 카테고리 삭제 콜백들
+  void _removeCustomIncomeCategory(String category) {
+    setState(() {
+      _customIncomeCategories.remove(category);
+      _incomeCategoryEmojis.remove(category);
+      CategoryStateManager.removeCustomIncomeCategory(category);
+    });
+  }
+
+  void _removeCustomFixedExpenseCategory(String category) {
+    setState(() {
+      _customFixedExpenseCategories.remove(category);
+      _fixedExpenseCategoryEmojis.remove(category);
+      CategoryStateManager.removeCustomFixedExpenseCategory(category);
+    });
+  }
+
+  void _removeCustomDailyExpenseCategory(String category) {
+    setState(() {
+      _customDailyExpenseCategories.remove(category);
+      _dailyExpenseCategoryEmojis.remove(category);
+      CategoryStateManager.removeCustomDailyExpenseCategory(category);
     });
   }
 
@@ -149,12 +288,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     }
 
     void onboardingAnimDoneCallback() {
-      if (mounted) {
-        setState(() {
-          _showBottomArea = true;
-        });
-        _bottomSlideController.forward(from: 0);
+      if (!mounted) return;
+      if (_suppressNextBottomShow) {
+        _suppressNextBottomShow = false;
+        return;
       }
+      setState(() => _showBottomArea = true);
+      _bottomSlideController.forward(from: 0);
     }
 
     final mediaQuery = MediaQuery.of(context);
@@ -347,6 +487,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   title: '월 수입 입력하기',
                   placeholder: '수입 카테고리',
                   type: EntryType.fixed,
+                  onCategorySettingsTap: _openIncomeCategorySettings,
+                  customCategories: _customIncomeCategories,
+                  onCustomCategoryAdded: _addCustomIncomeCategory,
+                  onCustomCategoryRemoved: _removeCustomIncomeCategory,
+                  onCustomCategoryAddedWithEmoji:
+                  _addCustomIncomeCategoryWithEmoji,
+                  categoryEmojis: _incomeCategoryEmojis,
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
 
@@ -358,8 +505,10 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     );
 
                     final itemLines = items
-                        .map((e) =>
-                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .map(
+                          (e) =>
+                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
+                    )
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -367,8 +516,22 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       '월 수입은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!$itemLines',
                       MessageType.user,
                     );
+                    await vm.waitForTypingToFinish();
+
+                    _suppressNextBottomShow = true;
+
                     await vm.addBotMessageWithTyping(
-                      '혹시 잘못 입력했거나 수정이 필요하다면 나중에 다시 변경하실 수 있어요.\n\n👉 이제 매달 빠져나가는 돈을 입력해볼까요? 🏠',
+                      '이제 소비를 입력해볼게요! ✏️\n'
+                          '소비는 두 단계로 나누어 입력할 거예요.\n\n',
+                    );
+
+                    await vm.addBotMessageWithTyping(
+                      '먼저 한 달에 한 번 나가는 고정소비부터 시작할게요.\n\n'
+                          '💡 소통 tip 💡\n고정소비는 생활에 꼭 필요한 금액으로,\n'
+                          '한 달에 한 번 정기적으로 지출되는 비용이에요.\n'
+                          '예: 주거비, 통신비, 구독료 등\n\n'
+                          '반면 식비나 교통비처럼 매일 쓰는 돈은\n'
+                          '다음 단계 ‘일 변동소비’에 입력해요!',
                       awaitTyping: true,
                     );
                     vm.nextStep();
@@ -380,6 +543,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   title: '고정 소비 입력하기',
                   placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
+                  onCategorySettingsTap: _openFixedExpenseCategorySettings,
+                  customCategories: _customFixedExpenseCategories,
+                  onCustomCategoryAdded: _addCustomFixedExpenseCategory,
+                  onCustomCategoryRemoved: _removeCustomFixedExpenseCategory,
+                  onCustomCategoryAddedWithEmoji:
+                  _addCustomFixedExpenseCategoryWithEmoji,
+                  categoryEmojis: _fixedExpenseCategoryEmojis,
                   monthlyIncome:
                   context.read<ChatPlanViewModel>().totalPlan.result.totalMetrics.sumMonthlyIncome.toDouble(),
                   onComplete: (items, total) async {
@@ -392,8 +562,10 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     );
 
                     final itemLines = items
-                        .map((e) =>
-                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .map(
+                          (e) =>
+                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
+                    )
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -402,7 +574,10 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       MessageType.user,
                     );
                     await vm.addBotMessageWithTyping(
-                      '혹시 잘못 기입했거나 수정이 필요하다면, 나중에 다시 변경하실 수 있어요.\n\n👉 이제 하루에 사용할 금액을 정해볼까요? 💳',
+                      '좋아요! 이제 하루 단위로 사용하는 일 변동소비를 입력해볼게요. 💳\n\n'
+                          '💡 소통 tip: 일 변동소비는 매일 반복되는 생활비예요.\n'
+                          '예: 식비, 교통비, 카페비, 여가비 등\n\n'
+                          '작은 지출이라도 꾸준히 관리하면 절약 효과가 커진답니다! ✨',
                       awaitTyping: true,
                     );
                     vm.nextStep();
@@ -414,6 +589,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   title: '하루 사용 금액',
                   placeholder: '하루 소비 항목',
                   type: EntryType.daily,
+                  onCategorySettingsTap: _openCategorySettings,
+                  customCategories: _customDailyExpenseCategories,
+                  onCustomCategoryAdded: _addCustomDailyExpenseCategory,
+                  onCustomCategoryRemoved: _removeCustomDailyExpenseCategory,
+                  onCustomCategoryAddedWithEmoji:
+                  _addCustomDailyExpenseCategoryWithEmoji,
+                  categoryEmojis: _dailyExpenseCategoryEmojis,
                   monthlyIncome: (() {
                     final vm = context.read<ChatPlanViewModel>();
                     final metrics = vm.totalPlan.result.totalMetrics;
@@ -432,8 +614,10 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     );
 
                     final itemLines = items
-                        .map((e) =>
-                    '\n📌 ${e.category} - ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                        .map(
+                          (e) =>
+                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
+                    )
                         .join('');
 
                     await vm.waitForTypingToFinish();

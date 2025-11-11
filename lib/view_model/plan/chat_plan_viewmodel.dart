@@ -316,9 +316,12 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.onboarding2;
           notifyListeners();
           await addBotMessageWithTyping(
-            '🔍 소통은 $_userName님의 재정 상황을 바탕으로,\n하루에 쓸 수 있는 금액과 목표 달성까지 걸리는 시간을 계산해드려요.\n\n계획만 세우는 게 아니라, 목표 달성까지 함께 가는 재정 파트너예요. 💙',
+            '소통은 $_userName님의 재정 상황을 바탕으로,\n'
+                '목표 달성까지 걸리는 시간을 계산해드려요.\n\n'
+                '계획만 세우는 게 아니라, 목표 달성까지 함께 가는 재정 파트너예요. 💙',
             delay: 500,
           );
+
           _buttonClicked = false;
           notifyListeners();
         }
@@ -332,7 +335,10 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.onboarding3;
           notifyListeners();
           await addBotMessageWithTyping(
-            '그럼 이제 $_userName님만의 목표를 향한 플랜을 \n저와 함께 하나씩 만들어볼까요? 🚀\n\n현재 상황과 목표만 알려주시면,\n가장 현실적인 계획을 제안해드릴게요! 🤝',
+            '그럼 이제 $_userName님만의 목표를 향한 플랜을\n'
+                '저와 함께 하나씩 만들어볼까요? 🚀\n\n'
+                '현재 재정 상황과 목표만 알려주시면,\n'
+                '가장 현실적인 계획을 제안해드릴게요! 🤝',
             delay: 500,
           );
           _buttonClicked = false;
@@ -348,7 +354,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           _currentStep = ChatStep.planName;
           notifyListeners();
           await addBotMessageWithTyping(
-            '$_userName님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n\n플랜에 이름을 붙여주세요.\n예: 🏝 세계여행 프로젝트 / 🎓 학자금 모으기',
+            '$_userName님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n\n플랜에 이름을 붙여주세요.\n예: 세계여행 프로젝트 / 학자금 모으기',
             delay: 500,
           );
           _buttonClicked = false;
@@ -381,7 +387,12 @@ class ChatPlanViewModel extends ChangeNotifier {
             updatePlanInfo(targetAmount: amount);
             notifyListeners();
 
-            await addBotMessageWithTyping('보유하고 계신 자산이 있으신가요? 😊');
+            await addBotMessageWithTyping(
+              '보유하고 계신 자산이 있으신가요? 😊\n\n'
+                  '💡 소통 tip 💡\n보유 자산을 입력하시면 목표 금액에서 자동 차감돼요!\n'
+                  '따라서 플랜에 보유 자산을 반영하고 싶지 않다면 ‘없어요’ 버튼을 눌러주세요.',
+              delay: 500,
+            );
             _currentStep = ChatStep.currentAssetAsk;
             notifyListeners();
           } else {
@@ -398,7 +409,14 @@ class ChatPlanViewModel extends ChangeNotifier {
             updatePlanInfo(currentAsset: 0);
             notifyListeners();
 
-            await addBotMessageWithTyping('좋습니다! 이제 월 수입을 알려주세요. 💰');
+            await addBotMessageWithTyping(
+              '좋아요! 이제 회원님의 월 수입을 입력해볼게요. 💼\n\n'
+                  '💡 소통 tip 💡\n월 수입은 한 달 동안 고정적으로 들어오는 돈이에요.\n'
+                  '예: 급여, 용돈, 사업 수입, 이자·배당금 등\n\n'
+                  '여러 개의 수입이 있다면 항목별로 나눠서 입력해주시면 더 정확해요!',
+              delay: 500,
+            );
+
             _currentStep = ChatStep.monthlyIncome;
             notifyListeners();
           } else if (lower == '있어요' || lower == '있음' || lower == '있다' || lower == 'yes') {
@@ -406,8 +424,8 @@ class ChatPlanViewModel extends ChangeNotifier {
             notifyListeners();
 
             await addBotMessageWithTyping(
-              '보유하고 계신 자산 금액을 입력해주세요.\n'
-                  '빚이 있다면 마이너스(-) 를 포함해 입력하셔도 됩니다. (예: -5000000)',
+              '보유하고 계신 자산 금액을 입력해주세요.\n\n'
+              '빚(부채)은 보유 자산 입력 시 ‘-’를 붙여서 기입해주세요!',
             );
             _currentStep = ChatStep.currentAsset;
             notifyListeners();
@@ -419,30 +437,26 @@ class ChatPlanViewModel extends ChangeNotifier {
 
       case ChatStep.currentAsset:
         {
-          final lower = userMsg.toLowerCase();
-          final isNone = (lower == '없어요' || lower == '없음' || lower == '없다');
-          if (isNone) {
-            addMessage('보유 자산 없이 진행할게요!', MessageType.user);
-            updatePlanInfo(currentAsset: 0);
-            notifyListeners();
-
-            await addBotMessageWithTyping('좋습니다! 이제 월 수입을 알려주세요. 💰');
-            _currentStep = ChatStep.monthlyIncome;
-            notifyListeners();
-            break;
-          }
-
           final amountStr = response.replaceAll(',', '').trim();
           final amount = double.tryParse(amountStr);
           if (amount != null) {
             addMessage(
-              '보유 자산은 ${amount.isNegative ? "-" : ""}${SavingPlanCalculator.formatAmount(amount.abs())}원이에요!',
+              amount.isNegative
+                  ? '빚(부채)이 ${SavingPlanCalculator.formatAmount(amount.abs())}원 있어요.'
+                  : '보유 자산은 ${SavingPlanCalculator.formatAmount(amount)}원이에요!',
               MessageType.user,
             );
             updatePlanInfo(currentAsset: amount);
             notifyListeners();
 
-            await addBotMessageWithTyping('확인했어요! 이제 월 수입을 알려주세요. 💰');
+            await addBotMessageWithTyping(
+              '좋아요! 이제 회원님의 월 수입을 입력해볼게요. 💼\n\n'
+                  '💡 소통 tip 💡\n월 수입은 한 달 동안 고정적으로 들어오는 돈이에요.\n'
+                  '예: 급여, 용돈, 사업 수입, 이자·배당금 등\n\n'
+                  '여러 개의 수입이 있다면 항목별로 나눠서 입력해주시면 더 정확해요!',
+              delay: 500,
+            );
+
             _currentStep = ChatStep.monthlyIncome;
             notifyListeners();
           } else {
@@ -452,21 +466,6 @@ class ChatPlanViewModel extends ChangeNotifier {
           }
           break;
         }
-
-      case ChatStep.monthlyIncome:
-        await addBotMessageWithTyping('"월 수입 입력하러가기" 버튼을 눌러주세요.');
-        notifyListeners();
-        break;
-
-      case ChatStep.monthlyFixedCost:
-        await addBotMessageWithTyping('"고정 소비 입력하러가기" 버튼을 눌러주세요.');
-        notifyListeners();
-        break;
-
-      case ChatStep.dailySpending:
-        await addBotMessageWithTyping('"하루 소비 한도 금액 입력하러가기" 버튼을 눌러주세요.');
-        notifyListeners();
-        break;
 
       case ChatStep.summaryIntro:
         if (response == '좋아요! 요약해주세요!') {
@@ -549,11 +548,14 @@ class ChatPlanViewModel extends ChangeNotifier {
 
     await addBotMessageWithTyping(
       '안녕하세요, $_userName님! 😊\n'
-          '소통에 오신 걸 환영해요. 🎉\n\n'
-          '소통은 단순한 가계부가 아니라\n 당신만의 재정 파트너입니다.\n\n'
-          '하루 소비 계획부터 기록·피드백까지, \n목표 달성을 함께 해드려요.',
+          '소통에 오신 걸 환영해요.\n\n'
+          '매일 아무 생각 없이 쓰는 돈 있으시죠?\n'
+          '소통은 그런 ‘무의식적인 소비 패턴’을 발견하고, '
+          '절약으로 전환할 수 있게 함께 도와드려요!\n\n'
+          '소통에 대해 더 알아보시겠어요?',
       delay: 500,
     );
+
   }
 
   // --------------------------------------

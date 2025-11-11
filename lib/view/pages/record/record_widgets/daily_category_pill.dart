@@ -9,8 +9,8 @@ import 'daily_category_manage_file.dart';
 
 /// 오늘의 소비 입력에서만 쓰는 Large Pill (height=60, radius=12, ParagraphText)
 class DailyCategoryPill extends StatelessWidget {
-  final String text;          // 현재 선택된 카테고리명
-  final VoidCallback onTap;   // 시트 열기 등
+  final String text; // 현재 선택된 카테고리명
+  final VoidCallback onTap; // 시트 열기 등
   final VoidCallback onClear; // 롱프레스 초기화
 
   const DailyCategoryPill({
@@ -37,7 +37,9 @@ class DailyCategoryPill extends StatelessWidget {
         height: kHeight,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: hasValue ? AppColors.lightBlue : AppColors.greyBackground, // ✅ 라이트블루 유지
+          color: hasValue
+              ? AppColors.lightBlue
+              : AppColors.greyBackground, // ✅ 라이트블루 유지
           borderRadius: BorderRadius.circular(kRadius),
         ),
         child: Row(
@@ -47,7 +49,9 @@ class DailyCategoryPill extends StatelessWidget {
               Icon(matched.icon, size: 20, color: Colors.black) // ✅ 검정 아이콘
             else
               Icon(
-                hasValue ? Icons.push_pin_rounded : Icons.add_circle_outline_rounded,
+                hasValue
+                    ? Icons.push_pin_rounded
+                    : Icons.add_circle_outline_rounded,
                 size: 20,
                 color: hasValue ? AppColors.primary : AppColors.subText,
               ),
@@ -82,10 +86,10 @@ class DailyCategoryPill extends StatelessWidget {
 
 /// 오늘의 소비 입력 전용 카테고리 시트 (뷰모델 기반)
 Future<void> openDailyCategorySheet(
-    BuildContext context,
-    TextEditingController controller,
-    void Function(String) onSelected,
-    ) async {
+  BuildContext context,
+  TextEditingController controller,
+  void Function(String) onSelected,
+) async {
   String temp = controller.text;
   String _norm(String s) => s.trim();
 
@@ -110,7 +114,7 @@ Future<void> openDailyCategorySheet(
           final bool isValid = _norm(temp).isNotEmpty;
 
           return Padding(
-            padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottom),
+            padding: EdgeInsets.fromLTRB(16, 16, 16, 32 + bottom),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,12 +138,17 @@ Future<void> openDailyCategorySheet(
                     const Spacer(),
                     TextButton.icon(
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 6,
+                        ),
                         foregroundColor: Colors.black,
                       ),
                       onPressed: () async {
                         await Navigator.of(ctx).push(
-                          MaterialPageRoute(builder: (_) => const DailyCategoryManagePage()),
+                          MaterialPageRoute(
+                            builder: (_) => const DailyCategoryManagePage(),
+                          ),
                         );
                         // 복귀 후 선택값 유효성 점검
                         final stillExists = context
@@ -178,7 +187,11 @@ Future<void> openDailyCategorySheet(
                             CircleAvatar(
                               radius: 10,
                               backgroundColor: p.color,
-                              child: Icon(p.icon, size: 14, color: Colors.black),
+                              child: Icon(
+                                p.icon,
+                                size: 14,
+                                color: Colors.black,
+                              ),
                             ),
                             const SizedBox(width: 6),
                             Text(p.name),
@@ -190,18 +203,24 @@ Future<void> openDailyCategorySheet(
                           setModalState(() {
                             temp = p.name;
                             tempController!.text = temp;
-                            tempController!.selection = TextSelection.collapsed(offset: temp.length);
+                            tempController!.selection = TextSelection.collapsed(
+                              offset: temp.length,
+                            );
                           });
                         },
                         selectedColor: AppColors.primary,
                         backgroundColor: const Color(0xFFF3F4F6),
                         labelStyle: TextStyle(
-                          color: selected ? Colors.white : const Color(0xFF111827),
+                          color: selected
+                              ? Colors.white
+                              : const Color(0xFF111827),
                           fontWeight: FontWeight.w600,
                         ),
                         shape: const StadiumBorder(),
                         side: BorderSide(
-                          color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
+                          color: selected
+                              ? AppColors.primary
+                              : const Color(0xFFE5E7EB),
                         ),
                       );
                     }).toList(),
@@ -209,49 +228,6 @@ Future<void> openDailyCategorySheet(
                 ),
 
                 const SizedBox(height: 16),
-
-                // 직접 입력 + 확인 (빈 값이면 비활성화)
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 60,
-                        child: CustomTextField(
-                          controller: tempController!,
-                          hintText: '다른 카테고리 입력',
-                          onChanged: (v) => setModalState(() => temp = v),
-                          height: 60,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      height: 60,
-                      child: ElevatedButton(
-                        onPressed: isValid
-                            ? () {
-                          final result = _norm(temp);
-                          controller.text = result;
-                          onSelected(result);
-                          Navigator.pop(ctx);
-                        }
-                            : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          minimumSize: const Size(80, 60),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                        ),
-                        child: const Text(
-                          '확인',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 40),
               ],
             ),
           );

@@ -10,6 +10,8 @@ import 'package:sotong_local/view/pages/plan/plan_edit_widgets/edit_summary_tile
 import 'package:sotong_local/view/pages/plan/plan_edit_widgets/minimal_field.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/chart/animated_budget_bar_chart.dart';
+import '../../../component/chart/fl_donut_colored_budget.dart';
+import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_colors.dart';
 
 // Models / VMs
@@ -148,6 +150,10 @@ class _PlanEditPageState extends State<PlanEditPage> {
       barrierDismissible: false,
       barrierColor: Colors.transparent,
       builder: (ctx) {
+        // ✅ 월 잔여 예산 = 월수입 - 고정소비 (음수면 0으로 보정)
+        final double leftover = (vm.monthlyIncome - vm.monthlyFixedCost);
+        final double availableMonthly = leftover > 0 ? leftover : 0.0;
+
         return Material(
           type: MaterialType.transparency,
           child: InputModalWidget(
@@ -156,8 +162,8 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '하루 사용 금액',
             placeholder: '하루 소비 항목',
             type: EntryType.daily,
-            initialEntries: vm.currentDailyConsumeEntries,
-            isEditMode: true,
+            initialEntries: vm.refData.dailyConsumptions,
+            monthlyIncome: availableMonthly,
             onComplete: (items, total) {
               stagedEntries = List<Entry>.from(items);
             },
@@ -289,11 +295,11 @@ class _PlanEditPageState extends State<PlanEditPage> {
         body: SafeArea(
           child: Column(
             children: [
-              const CustomAppBar(title: '저축 플랜 수정'),
+              const CustomAppBar(title: ''),
 
               // 상단: 차트 또는 경고 배너(대체 표시)
               const Padding(
-                padding: EdgeInsets.fromLTRB(24, 8, 24, 8),
+                padding: EdgeInsets.fromLTRB(24, 0, 24, 28),
                 child: _SyncBridgeForChartOrAdvice(),
               ),
 
@@ -304,18 +310,15 @@ class _PlanEditPageState extends State<PlanEditPage> {
                 child: Scrollbar(
                   thumbVisibility: false,
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 5),
                     child: Column(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: IndexedStack(
-                            index: _selectedTabIndex,
-                            children: const [
-                              _PlanBasicInfoTab(),
-                              _UserInfoTab(),
-                            ],
-                          ),
+                        IndexedStack(
+                          index: _selectedTabIndex,
+                          children: const [
+                            _PlanBasicInfoTab(),
+                            _UserInfoTab(),
+                          ],
                         ),
                       ],
                     ),
@@ -349,7 +352,6 @@ class _PlanEditPageState extends State<PlanEditPage> {
     return Center(
       child: Container(
         width: MediaQuery.of(context).size.width * 0.5,
-        margin: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: const Color(0xFFF8F9FA),
           borderRadius: BorderRadius.circular(12),
@@ -532,16 +534,16 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AnimatedBudgetBarChart(
-                plan: chatVM.totalPlan,
-                calculation: calc,
-                height: 20,
-                showPercentages: true,
-                animationDuration: const Duration(milliseconds: 1200),
+              FlDonutColoredBudgetChart(
+                income: editVM.monthlyIncome,
+                fixed: editVM.monthlyFixedCost,
+                variable: editVM.monthlyVariableCost,
+                saving: editVM.monthlySaving,
+                  centerSpace: 30,
+                  chartHeight: 120,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 50),
 
-              // ⬇️ 여기를 수정: chatVM이 아닌 editVM에서 바로 읽기
               _PlanStatsBelowChart(
                 reachDateStr: editVM.reachDateStr,
                 durationStr: editVM.durationStr,
@@ -785,14 +787,33 @@ class _PlanStatsBelowChart extends StatelessWidget {
     final show = hasGoal && canSave && reachDateStr != null && durationStr != null;
 
     if (show) {
-      return Row(
-        children: [
-          tile('목표 도달 예정일', reachDateStr!),
-          const SizedBox(width: 8),
-          tile('예상 소요 기간', durationStr!),
-        ],
+      return Align(
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.flag_rounded, size: 16, color: Colors.black54),
+            const SizedBox(width: 6),
+            RichText(
+              text: TextSpan(
+                style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.2),
+                children: [
+                  const TextSpan(text: '목표 도달 예정일: '),
+                  TextSpan(
+                    text: reachDateStr!, // 예: "2026.04.28"
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       );
     }
+
 
     // 표시 조건이 안 되면 빈 자리
     return const SizedBox.shrink();
