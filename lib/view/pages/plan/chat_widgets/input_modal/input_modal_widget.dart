@@ -22,13 +22,20 @@ class InputModalWidget extends StatefulWidget {
   final Function(List<Entry>, double) onComplete;
   final String placeholder;
   final String hintText;
+  final VoidCallback? onCategorySettingsTap; // 카테고리 설정 콜백 추가
+  final List<String>? customCategories; // 사용자 입력 카테고리
+  final Function(String)? onCustomCategoryAdded; // 사용자 카테고리 추가 콜백
+  final Function(String)? onCustomCategoryRemoved; // 사용자 카테고리 삭제 콜백
+  final Function(String, String)?
+  onCustomCategoryAddedWithEmoji; // 카테고리와 이모지를 함께 전달하는 콜백
+  final Map<String, String>? categoryEmojis; // 카테고리별 이모지 정보
+
   /// EntryType.daily | EntryType.fixed (수입/고정소비는 fixed 사용)
   final EntryType type;
   final List<Entry>? initialEntries;
+
   /// 비교 기준(한도). 일일: (가용예산), 고정: (월수입합)
   final double? monthlyIncome;
-  /// 수정 모드(예산 초과 경고/흔들림/비활성화 억제)
-  final bool isEditMode;
 
   const InputModalWidget({
     Key? key,
@@ -41,7 +48,12 @@ class InputModalWidget extends StatefulWidget {
     this.hintText = '예: 월급, 아르바이트, 용돈 등',
     this.initialEntries,
     this.monthlyIncome,
-    this.isEditMode = false,
+    this.onCategorySettingsTap,
+    this.customCategories,
+    this.onCustomCategoryAdded,
+    this.onCustomCategoryRemoved,
+    this.onCustomCategoryAddedWithEmoji,
+    this.categoryEmojis,
   }) : super(key: key);
 
   @override
@@ -55,7 +67,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
   late final Animation<Offset> _slide; // 아래서 위로/위에서 아래로
   late final Animation<double> _scrimFade;
   static const _kSlideMs = 500; // 닫힘이 확실히 보이도록 500ms
-  static const _kScrimMs = 220;
 
   bool _logicalOpen = false; // 논리적 열림(내부 상태)
 
@@ -67,13 +78,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
   late KeyboardVisibilityController _keyboardVisibilityController;
   bool _isKeyboardVisible = false;
-
-  // 화면 높이 비율 기반 간격 유틸: ratio * height, min/max로 클램프
-  double _vh(BuildContext context, double ratio, {double min = 0, double max = double.infinity}) {
-    final h = MediaQuery.of(context).size.height;
-    final v = h * ratio;
-    return v.clamp(min, max);
-  }
 
   @override
   void initState() {
@@ -151,7 +155,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
   }
 
   bool _isOverBudget() {
-    if (widget.isEditMode) return false;
     final kind = _resolveKind();
     final double limit = widget.monthlyIncome ?? 0.0;
     if (limit <= 0.0) return false;
@@ -215,7 +218,9 @@ class _InputModalWidgetState extends State<InputModalWidget>
   void addItem() {
     final newIdx = DateTime.now().millisecondsSinceEpoch + items.length;
     setState(() {
-      items.add(Entry(idx: newIdx, amount: 0.0, category: '', type: widget.type));
+      items.add(
+        Entry(idx: newIdx, amount: 0.0, category: '', type: widget.type),
+      );
       _initializeControllers(newIdx, '', 0.0);
       if (error.isNotEmpty) error = '';
     });
@@ -259,11 +264,13 @@ class _InputModalWidgetState extends State<InputModalWidget>
         .where((e) => e.category.trim().isNotEmpty && e.amount > 0.0)
         .toList();
 
-    final hasEmptyCategory =
-    items.any((e) => e.amount > 0.0 && e.category.trim().isEmpty);
+    final hasEmptyCategory = items.any(
+      (e) => e.amount > 0.0 && e.category.trim().isEmpty,
+    );
 
-    final hasZeroAmountWithCategory =
-    items.any((e) => e.amount == 0.0 && e.category.trim().isNotEmpty);
+    final hasZeroAmountWithCategory = items.any(
+      (e) => e.amount == 0.0 && e.category.trim().isNotEmpty,
+    );
 
     if (hasEmptyCategory) {
       setState(() => error = '카테고리명을 정확히 입력해주세요.');
@@ -289,17 +296,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
     final kind = _resolveKind();
     final over = _isOverBudget();
 
-    // 본문 위·아래 마진도 비율 기반으로 조절 (가벼운 예시)
-    final contentTopGap = _vh(context, 0.01, min: 6, max: 12);
-    final contentBottomGap = _vh(context, 0.012, min: 8, max: 16);
-
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.screenPadding,
-        AppSpacing.screenPadding + contentTopGap,
-        AppSpacing.screenPadding,
-        AppSpacing.screenPadding + contentBottomGap,
-      ),
+      padding: const EdgeInsets.all(AppSpacing.screenPadding),
       child: Column(
         children: [
           if (error.isNotEmpty)
@@ -310,8 +308,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
                 color: const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                '카테고리/금액을 확인해주세요.',
+              child: Text(
+                error,
                 style: TextStyle(color: Color(0xFFDC2626), fontSize: 14),
               ),
             ),
@@ -338,6 +336,13 @@ class _InputModalWidgetState extends State<InputModalWidget>
               onUpdate: updateItem,
               onRemove: removeItem,
               presets: presets,
+              onCategorySettingsTap: widget.onCategorySettingsTap,
+              customCategories: widget.customCategories,
+              onCustomCategoryAdded: widget.onCustomCategoryAdded,
+              onCustomCategoryRemoved: widget.onCustomCategoryRemoved,
+              onCustomCategoryAddedWithEmoji:
+                  widget.onCustomCategoryAddedWithEmoji,
+              categoryEmojis: widget.categoryEmojis,
               amountHint: hint,
               showMonthlyHint: kind == ItemKind.daily,
               isOverBudget: over,
@@ -367,23 +372,21 @@ class _InputModalWidgetState extends State<InputModalWidget>
       captionText = '매달 빠짐없이 자동으로 지출되는 비용만 입력해요.';
     }
 
-    // 상단 여백: 화면 높이의 % (min ~ max px 사이)
-    final topGap = _vh(context, 0.08, min: 48, max: 120);
-    // 제목 아래 간격: 1.2% (6~14px)
-    final underTitleGap = _vh(context, 0.01, min: 6, max: 14);
-
     return Visibility(
       visible: !_isKeyboardVisible,
       child: Column(
         children: [
-          SizedBox(height: topGap),
+          const SizedBox(height: 40),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.screenPadding,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 HeaderText(text: titleText),
-                SizedBox(height: underTitleGap),
+                const SizedBox(height: 10),
+                // CaptionWithDot(text: captionText), // 분리해두셨다면 이렇게
                 CaptionWithDot(text: captionText),
               ],
             ),
@@ -404,7 +407,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
         onComplete: handleComplete,
         isOverBudget: over,
         monthlyIncome: limit,
-        isEdit: widget.isEditMode,
       );
     } else {
       return FooterDefault(
@@ -418,6 +420,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
   @override
   Widget build(BuildContext context) {
+    // 부모는 항상 위젯을 트리에 유지하고 isOpen만 바꿔주면 됩니다.
     return IgnorePointer(
       ignoring: _ctrl.status == AnimationStatus.dismissed,
       child: Stack(
@@ -426,6 +429,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
           FadeTransition(
             opacity: _scrimFade,
             child: GestureDetector(
+              onTap: _closeWithAnimation, // 탭으로 닫기(애니 후 onClose)
               child: Container(color: Colors.black54),
             ),
           ),
@@ -457,8 +461,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
                         child: Column(
                           children: [
                             buildDetailBox(),
-                            if (!_isKeyboardVisible)
-                              SizedBox(height: _vh(context, 0.01, min: 6, max: 12)),
+                            if (!_isKeyboardVisible) const SizedBox(height: 8),
                             Expanded(child: buildContent()),
                             buildFooter(),
                           ],

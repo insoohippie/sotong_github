@@ -37,42 +37,37 @@ class EditSummaryTile extends StatelessWidget {
             fontWeight: FontWeight.bold,
             color: AppColors.subText,
           ),
-          // MinimalField와 동일: 라벨 아래 8px 간격
           const SizedBox(height: 8),
 
-          // 본문 컨테이너(높이 60, 좌우 패딩 20, 모서리 12)
-          Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: AppColors.lightBlue,
+          // ✅ 컨테이너 전체 탭 → onEdit 실행
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
               borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                ParagraphText(
-                  text: '$formattedTotal${unit ?? '원'}',
-                  color: Colors.black,
+              onTap: onEdit,
+              child: Container(
+                height: 60,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                decoration: BoxDecoration(
+                  color: AppColors.lightBlue,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                TextButton(
-                  onPressed: onEdit,
-                  child: const Text(
-                    '세부 수정',
-                    style: TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    ParagraphText(
+                      text: '$formattedTotal${unit ?? '원'}',
+                      color: Colors.black,
                     ),
-                  ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-          SizedBox(height: 16),
-          Divider(height: 5, color:AppColors.greyBackground, )
 
+          const SizedBox(height: 16),
+          const Divider(height: 5, color: AppColors.greyBackground),
         ],
       ),
     );

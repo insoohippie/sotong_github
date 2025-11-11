@@ -108,7 +108,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/__debug_summary',
+        initialRoute: '/signup',
         routes: appRoutes,
       ),
     );

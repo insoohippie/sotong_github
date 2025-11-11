@@ -88,19 +88,10 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '📊 한눈에 보는 플랜 요약',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1F2937),
-            ),
-          ),
-          const SizedBox(height: 20),
           AnimatedBudgetBarChart(
             planInfo: widget.planInfo,
             calculation: widget.calculation,
-            height: 20,
+            height: 35,
             showPercentages: true,
             animationDuration: const Duration(milliseconds: 1200),
           ),

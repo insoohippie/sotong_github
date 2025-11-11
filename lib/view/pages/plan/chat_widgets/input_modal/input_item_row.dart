@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/model/entry.dart';
+import '../../../../../model/category/category_state_manager.dart';
 import 'category_utils.dart';
 
 enum ItemKind { daily, income, fixed }
@@ -14,6 +15,13 @@ class InputItemRow extends StatelessWidget {
   final void Function(int idx, String field, dynamic value) onUpdate;
   final void Function(int idx) onRemove;
   final List<CatPreset> presets;
+  final VoidCallback? onCategorySettingsTap; // 카테고리 설정 콜백 추가
+  final List<String>? customCategories; // 사용자 입력 카테고리
+  final Function(String)? onCustomCategoryAdded; // 사용자 카테고리 추가 콜백
+  final Function(String)? onCustomCategoryRemoved; // 사용자 카테고리 삭제 콜백
+  final Function(String, String)?
+  onCustomCategoryAddedWithEmoji; // 카테고리와 이모지를 함께 전달하는 콜백
+  final Map<String, String>? categoryEmojis; // 카테고리별 이모지 정보
 
   /// 기본 힌트(카테고리 매칭 안되면 사용)
   final String? amountHint;
@@ -31,10 +39,27 @@ class InputItemRow extends StatelessWidget {
     required this.onUpdate,
     required this.onRemove,
     required this.presets,
+    this.onCategorySettingsTap,
+    this.customCategories,
+    this.onCustomCategoryAdded,
+    this.onCustomCategoryRemoved,
+    this.onCustomCategoryAddedWithEmoji,
+    this.categoryEmojis,
     this.amountHint,
     this.showMonthlyHint = true,
     this.isOverBudget = false,
   }) : super(key: key);
+
+  List<bool>? _getEnabledStates(ItemKind kind) {
+    switch (kind) {
+      case ItemKind.income:
+        return CategoryStateManager.incomeEnabledStates;
+      case ItemKind.fixed:
+        return CategoryStateManager.fixedExpenseEnabledStates;
+      case ItemKind.daily:
+        return CategoryStateManager.dailyExpenseEnabledStates;
+    }
+  }
 
   Map<String, String> get _incomeHints => const {
     '급여': '2,500,000원',
@@ -59,9 +84,10 @@ class InputItemRow extends StatelessWidget {
     if (v.isEmpty) return '';
     final n = int.tryParse(_un(v));
     if (n == null) return '';
-    return n
-        .toString()
-        .replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => ',');
+    return n.toString().replaceAllMapped(
+      RegExp(r'\B(?=(\d{3})+(?!\d))'),
+      (m) => ',',
+    );
   }
 
   String _dynamicAmountHint() {
@@ -88,8 +114,9 @@ class InputItemRow extends StatelessWidget {
     final bool hasInput =
         categoryController.text.trim().isNotEmpty || value > 0.0;
 
-    final Color? fieldBg =
-    (isOverBudget && hasInput) ? const Color(0xFFFFF1F1) : null;
+    final Color? fieldBg = (isOverBudget && hasInput)
+        ? const Color(0xFFFFF1F1)
+        : null;
 
     return Container(
       color: Colors.white,
@@ -113,8 +140,16 @@ class InputItemRow extends StatelessWidget {
                     onTap: () => openCategorySheet(
                       context,
                       categoryController,
-                          (val) => onUpdate(item.idx, 'category', val),
+                      (val) => onUpdate(item.idx, 'category', val),
                       presets: presets,
+                      enabledStates: _getEnabledStates(kind),
+                      onCategorySettingsTap: onCategorySettingsTap,
+                      customCategories: customCategories,
+                      onCustomCategoryAdded: onCustomCategoryAdded,
+                      onCustomCategoryRemoved: onCustomCategoryRemoved,
+                      onCustomCategoryAddedWithEmoji:
+                          onCustomCategoryAddedWithEmoji,
+                      categoryEmojis: categoryEmojis,
                     ),
                     onClear: () {
                       categoryController.clear();
@@ -122,6 +157,9 @@ class InputItemRow extends StatelessWidget {
                     },
                     height: 60,
                     highlight: isOverBudget && hasInput,
+                    customEmoji:
+                        categoryEmojis?[categoryController
+                            .text], // 사용자 추가 카테고리의 이모지 전달
                     // highlightColor: const Color(0xFFFFE5E5), // 필요시 커스텀
                   ),
                 ),
@@ -146,7 +184,8 @@ class InputItemRow extends StatelessWidget {
                         amountController.value = TextEditingValue(
                           text: formatted,
                           selection: TextSelection.collapsed(
-                              offset: formatted.length),
+                            offset: formatted.length,
+                          ),
                         );
                       }
                     },

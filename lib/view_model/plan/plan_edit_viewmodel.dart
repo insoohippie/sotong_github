@@ -22,6 +22,14 @@ class PlanEditViewModel extends ChangeNotifier {
   double get monthlyFixedCost =>
       refData.fixedConsumptions.fold(0, (sum, i) => sum + i.amount);
 
+  // 월 변동소비(일한도 × 30)
+  double get monthlyVariableCost => dailySpendingLimit * 30.0;
+
+// 월 저축액 (음수면 0으로 클램프)
+  double get monthlySaving =>
+      (monthlyIncome - monthlyFixedCost - monthlyVariableCost)
+          .clamp(0, monthlyIncome);
+
   double get dailySpendingLimit =>
       refData.dailyConsumptions.fold(0, (sum, i) => sum + i.amount);
 
