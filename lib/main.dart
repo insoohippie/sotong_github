@@ -53,7 +53,9 @@ class MyApp extends StatelessWidget {
         // 2) DataSources
         Provider<AuthDataSource>(create: (_) => AuthDataSource()),
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
-        Provider<CommunicationDataSource>(create: (_) => CommunicationDataSource()),
+        Provider<CommunicationDataSource>(
+          create: (_) => CommunicationDataSource(),
+        ),
 
         // 3) Repositories
         Provider<AuthRepository>(
@@ -94,18 +96,23 @@ class MyApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider<CommunicationViewModel>(
-          create: (ctx) => CommunicationViewModel(
-            ctx.read<CommunicationRepository>(),
-          )..loadMonth(DateTime.now()),
+          create: (ctx) =>
+              CommunicationViewModel(ctx.read<CommunicationRepository>())
+                ..loadMonth(DateTime.now()),
         ),
         ChangeNotifierProvider<DailyCategoryViewModel>(
           create: (_) => DailyCategoryViewModel(),
         ),
-        ChangeNotifierProvider<RecordViewModel>(create: (_) => RecordViewModel()),
-        ChangeNotifierProvider<SettingViewModel>(create: (_) => SettingViewModel()),
+        ChangeNotifierProvider<RecordViewModel>(
+          create: (_) => RecordViewModel(),
+        ),
+        ChangeNotifierProvider<SettingViewModel>(
+          create: (_) => SettingViewModel(),
+        ),
         ChangeNotifierProvider<AlarmViewModel>(create: (_) => AlarmViewModel()),
-        ChangeNotifierProvider<NotificationViewModel>(create: (_) => NotificationViewModel()),
-
+        ChangeNotifierProvider<NotificationViewModel>(
+          create: (_) => NotificationViewModel(),
+        ),
       ],
       child: MaterialApp(
         title: 'Sotong App',
@@ -117,7 +124,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/signup',
+        initialRoute: '/home_test',
         routes: appRoutes,
       ),
     );

@@ -24,7 +24,6 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-
   @override
   void initState() {
     super.initState();
@@ -71,12 +70,12 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    final userName = vm.name;                                    // ✔ 사용자명
-    final planName = vm.planTitle;                               // ✔ 플랜명
-    final savingPerSec = vm.perSecondSaving;                     // ✔ 1초당 저축
-    final currentRate = vm.progressRatio;                        // ✔ 진행율(저축비중)
-    final baseRate = 0.50;                                       // 수정 필요
-    final fixedSpending = vm.dailyLimitText;                     // ✔ 하루 소비한도
+    final userName = vm.name; // ✔ 사용자명
+    final planName = vm.planTitle; // ✔ 플랜명
+    final savingPerSec = vm.perSecondSaving; // ✔ 1초당 저축
+    final currentRate = vm.progressRatio; // ✔ 진행율(저축비중)
+    final baseRate = 0.50; // 수정 필요
+    final fixedSpending = vm.dailyLimitText; // ✔ 하루 소비한도
 
     // (오늘 지출 동작은 기존 CommunicationViewModel 로직 유지)
     final displayDate = _formatDate(_selectedDate);
@@ -92,8 +91,12 @@ class _HomePageState extends State<HomePage> {
             CustomAppBarHome(
               text: '${vm.name} 님',
               unreadCount: 3,
-              onNotifications: () => Navigator.pushNamed(context, '/notification'),
-              onSettings: () => Navigator.of(context, rootNavigator: true).pushNamed('/setting'),
+              onNotifications: () =>
+                  Navigator.pushNamed(context, '/notification'),
+              onSettings: () => Navigator.of(
+                context,
+                rootNavigator: true,
+              ).pushNamed('/setting'),
             ),
 
             Expanded(
@@ -146,7 +149,10 @@ class _HomePageState extends State<HomePage> {
                             ),
                             SizedBox(height: AppSpacing.fieldSpacing),
                             // 목표까지 남은 시간 (1초마다 갱신)
-                            ParagraphText(text: '목표 금액까지', fontWeight: FontWeight.bold),
+                            ParagraphText(
+                              text: '목표 금액까지',
+                              fontWeight: FontWeight.bold,
+                            ),
                             ValueListenableBuilder<int>(
                               valueListenable: vm.secondTick,
                               builder: (_, __, ___) => ParagraphText(
@@ -163,7 +169,8 @@ class _HomePageState extends State<HomePage> {
                                   ValueListenableBuilder<int>(
                                     valueListenable: vm.secondTick,
                                     builder: (_, __, ___) => HeaderText(
-                                      text: vm.liveSavedAmountText, // 예: "345,132원"
+                                      text: vm
+                                          .liveSavedAmountText, // 예: "345,132원"
                                     ),
                                   ),
                                   SubText(
@@ -205,7 +212,7 @@ class _HomePageState extends State<HomePage> {
                                         Navigator.of(
                                           context,
                                           rootNavigator: true,
-                                        ).pushNamed('/add_income');
+                                        ).pushNamed('/add_income_edit');
                                       },
                                       child: Container(
                                         height: 32,
