@@ -21,11 +21,19 @@ import 'package:sotong_local/view/pages/setting/edit_plan/edit_income_page.dart'
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_saving_target_page.dart';
 import 'package:sotong_local/view/pages/setting/settings_page.dart';
 import 'package:sotong_local/view/pages/home/home_add_income.dart';
+import 'package:sotong_local/view/pages/home/add_income_edit.dart';
+import 'package:sotong_local/view/pages/home/period_success_page.dart';
+import 'package:sotong_local/view/pages/home/limit_success_page.dart';
 import 'package:sotong_local/view/pages/home/amount_change_choice_page.dart';
 import 'package:sotong_local/view/pages/home/period_loading_page.dart';
 import 'package:sotong_local/view/pages/home/limit_loading_page.dart';
 import 'package:sotong_local/view/pages/home/period_complete_page.dart';
 import 'package:sotong_local/view/pages/home/limit_complete_page.dart';
+
+// test_insoo pages
+import 'package:sotong_local/test_insoo/communication/communication_test.dart';
+import 'package:sotong_local/test_insoo/home/home_test.dart';
+import 'package:sotong_local/test_insoo/report/report_test.dart';
 
 import 'view/pages/auth/login_page.dart';
 
@@ -44,20 +52,23 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/home': (_) => const HomePage(),
 
   '/add_income': (_) => const HomeAddIncomePage(),
+  '/add_income_edit': (_) => const AddIncomeEditPage(),
   '/amount_change_choice': (context) => AmountChangeChoicePage(
     amount:
-    ModalRoute.of(context)?.settings.arguments as String? ?? '1,500,000원',
+        ModalRoute.of(context)?.settings.arguments as String? ?? '1,500,000원',
   ),
   '/period_loading': (_) => const PeriodLoadingPage(),
+  '/period_success': (_) => const PeriodSuccessPage(),
+  '/limit_success': (_) => const LimitSuccessPage(),
   '/limit_loading': (_) => const LimitLoadingPage(),
   '/period_complete': (context) => PeriodCompletePage(
     amount:
-    ModalRoute.of(context)?.settings.arguments as String? ?? '1,500,000원',
+        ModalRoute.of(context)?.settings.arguments as String? ?? '1,500,000원',
     daysReduced: 27,
   ),
   '/limit_complete': (context) => LimitCompletePage(
     amount:
-    ModalRoute.of(context)?.settings.arguments as String? ?? '1,500,000원',
+        ModalRoute.of(context)?.settings.arguments as String? ?? '1,500,000원',
     oldLimit: '7,000원',
     newLimit: '8,500원',
   ),
@@ -79,6 +90,11 @@ final Map<String, WidgetBuilder> appRoutes = {
 
   '/communication': (_) => const CommunicationPage(),
   '/communication_logs': (_) => const CommunicationLogsPage(),
+
+  // test_insoo routes
+  '/home_test': (_) => const HomeTestPage(),
+  '/report_test': (_) => const ReportTestPage(),
+  '/communication_test': (_) => const CommunicationTestPage(),
 
   '/__debug_summary': (_) => BudgetAllWidgetsSandboxPage(),
 };
