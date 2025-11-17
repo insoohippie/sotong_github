@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
-import 'package:sotong_local/model/plan_info.dart';
+import 'package:sotong_local/model/plan/plan_metrics.dart';
+import 'package:sotong_local/model/plan/total_plan.dart';
 import 'package:sotong_local/model/saving_calculation_result.dart';
 
 // 차트 파일 경로 맞춰서!
@@ -10,14 +11,14 @@ import '../../../../component/chart/fl_donut_colored_budget.dart';
 import '../../../../component/theme/app_colors.dart';
 
 class PlanSummaryDonutChartWidget extends StatefulWidget {
-  final PlanInfo planInfo;
+  final TotalPlan plan;
   final SavingCalculationResult? calculation;
   final VoidCallback? onEdit;
   final String userName;
 
   const PlanSummaryDonutChartWidget({
     super.key,
-    required this.planInfo,
+    required this.plan,
     required this.calculation,
     this.onEdit,
     required this.userName,
@@ -30,11 +31,13 @@ class PlanSummaryDonutChartWidget extends StatefulWidget {
 class _PlanSummaryDonutChartWidgetState extends State<PlanSummaryDonutChartWidget> {
   Timer? _ticker;
 
-  double get monthlyIncome => (widget.planInfo.fixedIncomeSum ?? 0).toDouble();
-  double get monthlyFixedCost => (widget.planInfo.fixedConsumptionSum ?? 0).toDouble();
-  double get dailySpendingLimit => (widget.planInfo.dailyConsumptionSum ?? 0).toDouble();
+  PlanMetrics get _metrics => widget.plan.result.totalMetrics;
+
+  double get monthlyIncome => _metrics.sumMonthlyIncome.toDouble();
+  double get monthlyFixedCost => _metrics.sumMonthlyConsume.toDouble();
+  double get dailySpendingLimit => _metrics.sumDailyConsume.toDouble();
   double get monthlyVariableCost => dailySpendingLimit * 30;
-  double get monthlySaving => (widget.calculation?.monthlySaving ?? 0).toDouble();
+  double get monthlySaving => widget.calculation?.monthlySaving ?? 0;
 
   final _chartKey = GlobalKey<FlDonutBudgetChartState>();
 

@@ -1,50 +1,41 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:sotong_local/view/pages/plan/chat_widgets/plan_summary_chart_widget.dart';
-import 'package:sotong_local/view/pages/plan/chat_widgets/plan_summary_donut_chart_widget.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
-
-// 너의 실제 경로로 맞춰줘
-import 'package:sotong_local/view/pages/plan/chat_widgets/plan_summary_chart_widget.dart';
 import 'package:sotong_local/model/plan/plan_metrics.dart';
 import 'package:sotong_local/model/plan/sub_plan.dart';
 import 'package:sotong_local/model/plan/total_plan.dart';
 import 'package:sotong_local/model/saving_calculation_result.dart';
-
-import 'component/chart/fl_donut_budget_chart.dart';
+import 'package:sotong_local/view/pages/plan/chat_widgets/plan_summary_chart_widget.dart';
+import 'package:sotong_local/view/pages/plan/chat_widgets/plan_summary_donut_chart_widget.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 4) 모두 한 화면에서 보기: BudgetPieChartSyncfusion + PlanSummaryChartWidget
 // ─────────────────────────────────────────────────────────────────────────────
 class BudgetAllWidgetsSandboxPage extends StatefulWidget {
-  BudgetAllWidgetsSandboxPage({super.key});
+  const BudgetAllWidgetsSandboxPage({super.key});
   @override
   State<BudgetAllWidgetsSandboxPage> createState() => _BudgetAllWidgetsSandboxPageState();
 }
 
-class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
+class _BudgetAllWidgetsSandboxPageState extends State<BudgetAllWidgetsSandboxPage> {
   // fl_chart touched indices
   int touchedIndexSolid = -1;
   int touchedIndexDonut = -1;
   int touchedIndexTiny = -1;
 
   // 팔레트(연→중→진 파랑)
-  final Color colorFixed = Color(0xFFB9D2FF);    // 고정지출
-  final Color colorVariable = Color(0xFF8BB8FF); // 변동지출
-  final Color colorSaving = Color(0xFF3C7BFF);   // 저축
-
-  // 텍스트 배지 스타일(연하늘 컨테이너 느낌)
-  final Color badgeBg = Color(0xFFEFF6FF);
-  final Color badgeBorder = Color(0xFFDCEAFF);
+  final Color colorFixed = const Color(0xFFB9D2FF);    // 고정지출
+  final Color colorVariable = const Color(0xFF8BB8FF); // 변동지출
+  final Color colorSaving = const Color(0xFF3C7BFF);   // 저축
 
   // 데이터
   late final TotalPlan plan;
   late final SavingCalculationResult calc;
 
   // Syncfusion
-  TooltipBehavior? _sfTooltip;
+  late final TooltipBehavior _sfTooltip;
 
   @override
   void initState() {
@@ -97,6 +88,8 @@ class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
       goalDateTime: goalDate,
       savingPerSecond: dailySaving / (24 * 60 * 60),
     );
+
+    _sfTooltip = TooltipBehavior(enable: true);
   }
 
   @override
@@ -106,9 +99,6 @@ class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
     final fixedVal = metrics.sumMonthlyConsume.toDouble();
     final variableVal = (metrics.sumDailyConsume * 30).toDouble();
     final double savingVal = (calc.monthlySaving).clamp(0, income);
-
-    final tinyVariable = income * 0.01; // 오버플로 테스트용
-    final restForTiny = (fixedVal + savingVal) <= 0 ? income : (fixedVal + savingVal);
 
     // Syncfusion 데이터 공통 (x=라벨, y=금액)
     final sfData = [
@@ -156,7 +146,7 @@ class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
               _card(
                 'fl_chart • 도넛 차트(금액 라벨 + 텍스트 배지)',
                 PlanSummaryDonutChartWidget(
-                  planInfo: plan,
+                  plan: plan,
                   calculation: calc,
                   userName: '하경',
                   onEdit: () {
@@ -267,4 +257,44 @@ class _PieAndPlanSummaryPageState extends State<PieAndPlanSummaryPage> {
       ),
     );
   }
+
+  Widget _whiteCard(String title, Widget child, {double height = 260}) {
+    return Card(
+      color: Colors.white,
+      elevation: 0.8,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+        child: SizedBox(
+          height: height,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 10),
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              Expanded(child: child),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _manWon(double value) {
+    if (value == 0) return '0원';
+    final double man = value / 10000;
+    final bool needDecimal = man < 10;
+    final String formatted = needDecimal ? man.toStringAsFixed(1) : man.toStringAsFixed(0);
+    return '$formatted만';
+  }
+}
+
+class _SFItem {
+  final String x;
+  final double y;
+  final Color color;
+
+  const _SFItem(this.x, this.y, this.color);
 }

@@ -16,8 +16,8 @@ class TotalPlan {
     this.planName,
     this.targetAmount,
     this.startDate,
-    this.endDate,
-    this.modEndDate,
+    this.endDate, // 처음 플랜 생성시 종료일
+    this.modEndDate, // 변경된 종료일
     this.creationDate,
     this.autoService,
   });

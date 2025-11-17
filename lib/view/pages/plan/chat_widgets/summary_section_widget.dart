@@ -80,7 +80,7 @@ Widget _buildSummaryChartWithRecommendation(
     children: [
       // 요약 차트
       PlanSummaryDonutChartWidget(
-        planInfo: viewModel.totalPlan,
+        plan: viewModel.totalPlan,
         calculation: viewModel.calculationResult,
         userName: viewModel.userName,
         onEdit: canEdit ? () async {

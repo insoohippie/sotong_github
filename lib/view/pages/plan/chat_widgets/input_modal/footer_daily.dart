@@ -14,6 +14,7 @@ class FooterDaily extends StatefulWidget {
   final VoidCallback onComplete;
   final bool isOverBudget;      // 예산 초과 여부 (일×30 > monthlyIncome)
   final double monthlyIncome;   // 월 잔여 예산(= 수입 - 고정비)
+  final bool isEdit;            // true if editing an existing plan
 
   const FooterDaily({
     Key? key,
@@ -21,6 +22,7 @@ class FooterDaily extends StatefulWidget {
     required this.onComplete,
     this.isOverBudget = false,
     this.monthlyIncome = 0,
+    this.isEdit = false,
   }) : super(key: key);
 
   @override
@@ -49,23 +51,6 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
     // false -> true로 넘어갈 때 흔들림
     if (widget.isOverBudget && !oldWidget.isOverBudget) {
       _shakeController.forward().then((_) => _shakeController.reverse());
-    }
-
-    // ✨ 추가: "월수입 > 목표금액"으로 바뀌는 순간 에러 배너 등장
-    final vm = context.read<ChatPlanViewModel>();
-    final target = vm.totalPlan.targetAmount?.toDouble();
-    final bool incomeExceedsTargetNow =
-        !widget.isEdit && target != null && target > 0 && widget.monthlyIncome > target;
-
-    final bool incomeExceedsTargetBefore = () {
-      final t = vm.totalPlan.targetAmount?.toDouble();
-      return !oldWidget.isEdit && t != null && t > 0 && oldWidget.monthlyIncome > t;
-    }();
-
-    if (incomeExceedsTargetNow && !incomeExceedsTargetBefore) {
-      _errCtrl.forward();  // 슬라이드+페이드 인
-    } else if (!incomeExceedsTargetNow && incomeExceedsTargetBefore) {
-      _errCtrl.reverse();  // 슬라이드+페이드 아웃 (조건 해제 시)
     }
   }
 
@@ -108,6 +93,14 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
       // 목표 미입력 시 가벼운 안내
       helperLine = '목표 금액을 입력하면 예상 소요 기간을 계산해드려요.';
     }
+
+    final bool showTargetWarning =
+        !widget.isEdit && target != null && target > 0 && widget.monthlyIncome > target;
+    final String? targetWarningText = showTargetWarning
+        ? '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome.toInt())}원이 '
+            '목표 금액 ${NumberFormat('#,###').format(target!.toInt())}원을 초과했어요.\n'
+            '목표를 조금 올리거나 예산을 다시 조정해볼까요?'
+        : null;
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: AppSpacing.screenPadding),
@@ -178,6 +171,56 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
           ),
 
           const SizedBox(height: 12),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final slideAnimation = Tween<Offset>(
+                begin: const Offset(0, -0.1),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(
+                  position: slideAnimation,
+                  child: child,
+                ),
+              );
+            },
+            child: showTargetWarning
+                ? Padding(
+                    key: const ValueKey('target-warning'),
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.redText.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.error_outline, size: 18, color: AppColors.redText),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              targetWarningText ?? '',
+                              style: const TextStyle(
+                                fontFamily: 'Pretendard Variable',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.redText,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(key: ValueKey('target-warning-empty')),
+          ),
+          if (showTargetWarning) const SizedBox(height: 8),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
             child: Center(

@@ -20,6 +20,7 @@ class InputModalWidget extends StatefulWidget {
   final VoidCallback onClose;
   final String title;
   final Function(List<Entry>, double) onComplete;
+  final bool isEdit; // true when editing existing data
   final String placeholder;
   final String hintText;
   final VoidCallback? onCategorySettingsTap; // 카테고리 설정 콜백 추가
@@ -44,6 +45,7 @@ class InputModalWidget extends StatefulWidget {
     required this.title,
     required this.onComplete,
     required this.type,
+    this.isEdit = false,
     this.placeholder = '수입 카테고리',
     this.hintText = '예: 월급, 아르바이트, 용돈 등',
     this.initialEntries,
@@ -407,6 +409,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
         onComplete: handleComplete,
         isOverBudget: over,
         monthlyIncome: limit,
+        isEdit: widget.isEdit,
       );
     } else {
       return FooterDefault(

@@ -89,6 +89,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '월 수입 입력하기',
             placeholder: '수입 카테고리',
             type: EntryType.fixed,
+            isEdit: true,
             initialEntries: vm.currentMonthlyIncomeEntries,
             onComplete: (items, total) {
               stagedEntries = List<Entry>.from(items);
@@ -124,6 +125,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '고정 소비 입력하기',
             placeholder: '고정 소비 항목',
             type: EntryType.fixed,
+            isEdit: true,
             initialEntries: vm.currentMonthlyConsumeEntries,
             onComplete: (items, total) {
               stagedEntries = List<Entry>.from(items);
@@ -162,7 +164,8 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '하루 사용 금액',
             placeholder: '하루 소비 항목',
             type: EntryType.daily,
-            initialEntries: vm.refData.dailyConsumptions,
+            isEdit: true,
+            initialEntries: vm.currentDailyConsumeEntries,
             monthlyIncome: availableMonthly,
             onComplete: (items, total) {
               stagedEntries = List<Entry>.from(items);

@@ -37,6 +37,10 @@ class PlanEditViewModel extends ChangeNotifier {
       ? _sumEntries(_pendingFixedConsumeEntries!)
       : refData.primaryMonthlyConsumeSum;
 
+  double get monthlyVariableCost => dailySpendingLimit * 30.0;
+
+  double get monthlySaving => monthlyIncome - monthlyFixedCost - monthlyVariableCost;
+
   double get dailySpendingLimit => _pendingDailyConsumeEntries != null
       ? _sumEntries(_pendingDailyConsumeEntries!)
       : refData.primaryDailyConsumeSum;
