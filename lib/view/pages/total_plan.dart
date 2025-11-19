@@ -7,9 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
 import '../../component/theme/app_colors.dart';
-import '../../model/plan_info.dart';
-import '../../model/ref_data.dart';
-import '../../model/entry.dart';
+import '../../model/plan/plan_metrics.dart';
+import '../../model/plan/sub_plan.dart';
+import '../../model/plan/total_plan.dart';
+import '../../model/refData/entry.dart';
 import 'plan/chat_widgets/input_modal/input_modal_widget.dart';
 import '../../component/inputs/custom_text_field.dart';
 import '../../component/buttons/custom_button.dart';
@@ -49,29 +50,39 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   final NumberFormat _nf = NumberFormat.decimalPattern('ko_KR');
 
   // @insoohippie - 플랜 정보 (실제로는 Provider나 ViewModel에서 가져와야 함)
-  PlanInfo _planInfo = PlanInfo(
+  TotalPlan _plan = TotalPlan(
+    planId: 'demo',
     planName: '첫 번째 저축 계획',
     targetAmount: 10000000, // 1,000만원
     currentAmount: 500000, // 50만원
     currentAsset: 2000000, // 200만원
+    startDate: DateTime.now(),
+    endDate: null,
+    modEndDate: null,
+    creationDate: DateTime.now(),
+    autoService: false,
+    subPlans: const {},
+    result: TotalResult(
+      totalMetrics: PlanMetrics.fromRange(
+        startDate: DateTime.now(),
+        endDate: DateTime.now().add(const Duration(days: 29)),
+        sumMonthlyIncome: 3500000,
+        sumMonthlyConsume: 980000,
+        sumDailyConsume: 20000,
+      ),
+      subResult: const SubPlanResult(subMetrics: [], subPlanList: []),
+    ),
   );
+  String? _planName;
+  double _targetAmount = 0;
+  double _currentAmount = 0;
+  double _fixedIncomeSum = 0;
+  double _fixedCostSum = 0;
+  double _dailyConsumeSum = 0;
 
-  // @insoohippie - 참조 데이터 (수입/지출 항목들)
-  RefData _refData = RefData(
-    fixedIncomes: [
-      Entry(idx: 0, category: '급여', amount: 3000000, type: EntryType.fixed),
-      Entry(idx: 1, category: '부업', amount: 500000, type: EntryType.fixed),
-    ],
-    fixedConsumptions: [
-      Entry(idx: 0, category: '월세', amount: 800000, type: EntryType.fixed),
-      Entry(idx: 1, category: '관리비', amount: 100000, type: EntryType.fixed),
-      Entry(idx: 2, category: '통신비', amount: 80000, type: EntryType.fixed),
-    ],
-    dailyConsumptions: [
-      Entry(idx: 0, category: '식비', amount: 15000, type: EntryType.daily),
-      Entry(idx: 1, category: '교통비', amount: 5000, type: EntryType.daily),
-    ],
-  );
+  List<Entry> _incomeEntries = const [];
+  List<Entry> _fixedCostEntries = const [];
+  List<Entry> _dailyEntries = const [];
 
   // @insoohippie - 모달 표시 상태
   bool _showIncomeModal = false;
@@ -107,10 +118,50 @@ class _TotalPlanPageState extends State<TotalPlanPage>
 
   // =============================== 생명주기 ===============================
 
+  void _syncStateFromPlan() {
+    final metrics = _plan.result.totalMetrics;
+    _planName = _plan.planName;
+    _targetAmount = (_plan.targetAmount ?? 0).toDouble();
+    _currentAmount = _plan.currentAsset.toDouble();
+    _fixedIncomeSum = metrics.sumMonthlyIncome.toDouble();
+    _fixedCostSum = metrics.sumMonthlyConsume.toDouble();
+    _dailyConsumeSum = metrics.sumDailyConsume.toDouble();
+  }
+
+  void _applyPlanMetrics({
+    double? monthlyIncome,
+    double? monthlyConsume,
+    double? dailyConsume,
+  }) {
+    final metrics = _plan.result.totalMetrics;
+    final nextMonthlyIncome =
+        monthlyIncome != null ? monthlyIncome.round() : metrics.sumMonthlyIncome;
+    final nextMonthlyConsume =
+        monthlyConsume != null ? monthlyConsume.round() : metrics.sumMonthlyConsume;
+    final nextDailyConsume =
+        dailyConsume != null ? dailyConsume.round() : metrics.sumDailyConsume;
+    final updatedMetrics = PlanMetrics.fromRange(
+      startDate: metrics.startDate,
+      endDate: metrics.endDate,
+      sumMonthlyIncome: nextMonthlyIncome,
+      sumMonthlyConsume: nextMonthlyConsume,
+      sumDailyConsume: nextDailyConsume,
+    );
+    final updatedResult = _plan.result.copyWith(totalMetrics: updatedMetrics);
+    _plan = _plan.copyWith(
+      planName: _planName,
+      targetAmount: _targetAmount.round(),
+      currentAmount: _currentAmount.round(),
+      currentAsset: _currentAmount.round(),
+      result: updatedResult,
+    );
+  }
+
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
     _insightsPageController = PageController();
+    _syncStateFromPlan();
     _initializeInsights();
     _initializeAnimations();
     _startInsightsAutoSlide();
@@ -132,12 +183,13 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     final expense = _totalFixedCost + _totalDailyCost;
     final savings = income - expense;
     final remainingAmount =
-        (_planInfo.targetAmount ?? 0) - _planInfo.currentAmount;
+        (_targetAmount - _currentAmount).clamp(0.0, double.infinity);
     final estimatedMonths = savings > 0
         ? (remainingAmount / savings).ceil()
         : 0;
-    final progressRate =
-        (_planInfo.currentAmount / (_planInfo.targetAmount ?? 1) * 100);
+    final progressRate = _targetAmount <= 0
+        ? 0.0
+        : (_currentAmount / _targetAmount * 100);
 
     // 원본 인사이트 데이터
     final originalInsights = [
@@ -289,16 +341,13 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   // =============================== 계산된 속성 ===============================
 
   // @insoohippie - 총 고정 수입 계산
-  double get _totalFixedIncome =>
-      _refData.fixedIncomes.fold(0.0, (sum, e) => sum + e.amount);
+  double get _totalFixedIncome => _fixedIncomeSum;
 
   // @insoohippie - 총 고정 지출 계산
-  double get _totalFixedCost =>
-      _refData.fixedConsumptions.fold(0.0, (sum, e) => sum + e.amount);
+  double get _totalFixedCost => _fixedCostSum;
 
   // @insoohippie - 총 변동 지출 계산 (30일 기준)
-  double get _totalDailyCost =>
-      _refData.dailyConsumptions.fold(0.0, (sum, e) => sum + e.amount) * 30;
+  double get _totalDailyCost => _dailyConsumeSum * 30;
 
   // =============================== 모달 제어 ===============================
 
@@ -391,45 +440,59 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   // @insoohippie - 수입 데이터 업데이트
   void _updateIncomeData(List<Entry> items, double total) {
     setState(() {
-      _refData.fixedIncomes = items;
-      _planInfo.fixedIncomeSum = total;
+      _incomeEntries = List<Entry>.from(items);
+      _fixedIncomeSum = total;
+      _applyPlanMetrics(monthlyIncome: total);
+      _initializeInsights();
     });
   }
 
   // @insoohippie - 고정소비 데이터 업데이트
   void _updateFixedCostData(List<Entry> items, double total) {
     setState(() {
-      _refData.fixedConsumptions = items;
-      _planInfo.fixedConsumptionSum = total;
+      _fixedCostEntries = List<Entry>.from(items);
+      _fixedCostSum = total;
+      _applyPlanMetrics(monthlyConsume: total);
+      _initializeInsights();
     });
   }
 
   // @insoohippie - 변동소비 데이터 업데이트
   void _updateVariableExpenseData(List<Entry> items, double total) {
     setState(() {
-      _refData.variableConsumptions = items;
-      _planInfo.variableConsumptionSum = total;
+      _dailyEntries = List<Entry>.from(items);
+      _dailyConsumeSum = total;
+      _applyPlanMetrics(dailyConsume: total);
+      _initializeInsights();
     });
   }
 
   // @insoohippie - 플랜 이름 업데이트
   void _updatePlanName(String newName) {
     setState(() {
-      _planInfo.planName = newName;
+      _planName = newName;
+      _plan = _plan.copyWith(planName: newName);
     });
   }
 
   // @insoohippie - 목표금액 업데이트
   void _updateTargetAmount(double newAmount) {
     setState(() {
-      _planInfo.targetAmount = newAmount;
+      _targetAmount = newAmount;
+      _plan = _plan.copyWith(targetAmount: newAmount.round());
+      _initializeInsights();
     });
   }
 
   // @insoohippie - 보유금액 업데이트
   void _updateCurrentAmount(double newAmount) {
     setState(() {
-      _planInfo.currentAmount = newAmount;
+      _currentAmount = newAmount;
+      _plan = _plan.copyWith(
+        currentAmount: newAmount.round(),
+        currentAsset: newAmount.round(),
+      );
+      _initializeInsights();
     });
   }
 
@@ -464,6 +527,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                 title: '월 수입 입력하기',
                 placeholder: '수입 카테고리',
                 type: EntryType.fixed,
+                initialEntries: _incomeEntries,
                 onComplete: _updateIncomeData,
               ),
             ),
@@ -479,6 +543,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                 title: '고정 소비 입력하기',
                 placeholder: '고정 소비 항목',
                 type: EntryType.fixed,
+                initialEntries: _fixedCostEntries,
                 onComplete: _updateFixedCostData,
               ),
             ),
@@ -533,6 +598,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                 title: '하루 사용 금액',
                 placeholder: '변동소비 항목',
                 type: EntryType.daily,
+                initialEntries: _dailyEntries,
                 onComplete: _updateVariableExpenseData,
               ),
             ),
@@ -614,7 +680,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   // @insoohippie - 플랜 이름 수정 모달 컨텐츠
   Widget _buildPlanNameModalContent() {
     final TextEditingController controller = TextEditingController(
-      text: _planInfo.planName ?? '',
+      text: _planName ?? '',
     );
 
     return Column(
@@ -691,7 +757,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   // @insoohippie - 목표금액 수정 모달 컨텐츠
   Widget _buildTargetAmountModalContent() {
     final TextEditingController controller = TextEditingController(
-      text: _planInfo.targetAmount?.toInt().toString() ?? '0',
+      text: _targetAmount.toInt().toString(),
     );
 
     // @insoohippie - 천자리 단위 콤마 포맷터 (숫자만 허용)
@@ -799,7 +865,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   // @insoohippie - 보유금액 수정 모달 컨텐츠
   Widget _buildCurrentAmountModalContent() {
     final TextEditingController controller = TextEditingController(
-      text: _planInfo.currentAmount.toInt().toString(),
+      text: _currentAmount.toInt().toString(),
     );
 
     // @insoohippie - 천자리 단위 콤마 포맷터 (음수 포함)
@@ -935,13 +1001,13 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     final income = _totalFixedIncome;
     final expense = _totalFixedCost + _totalDailyCost;
     final savings = income - expense;
-    final remainingAmount =
-        (_planInfo.targetAmount ?? 0) - _planInfo.currentAmount;
+    final remainingAmount = (_targetAmount - _currentAmount).clamp(0.0, double.infinity);
     final estimatedMonths = savings > 0
         ? (remainingAmount / savings).ceil()
         : 0;
-    final progressRate =
-        (_planInfo.currentAmount / (_planInfo.targetAmount ?? 1) * 100);
+    final progressRate = _targetAmount <= 0
+        ? 0.0
+        : (_currentAmount / _targetAmount * 100);
     final savingsRate = income > 0 ? (savings / income * 100).toDouble() : 0.0;
 
     return Container(
@@ -986,7 +1052,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             Expanded(
               child: _buildMetricCard(
                 '목표 금액',
-                '${_nf.format((_planInfo.targetAmount ?? 0).toInt())}원',
+                '${_nf.format(_targetAmount.toInt())}원',
                 Icons.flag,
                 Colors.blue,
                 '목표 달성까지',
@@ -996,7 +1062,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             Expanded(
               child: _buildMetricCard(
                 '현재 금액',
-                '${_nf.format(_planInfo.currentAmount.toInt())}원',
+                '${_nf.format(_currentAmount.toInt())}원',
                 Icons.account_balance_wallet,
                 Colors.green,
                 '${progressRate.toStringAsFixed(1)}% 달성',
@@ -1280,7 +1346,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     return _buildInfoCard(
       icon: Icons.edit_outlined,
       title: '플랜 이름',
-      value: _planInfo.planName ?? '플랜 이름 없음',
+      value: _planName ?? '플랜 이름 없음',
       onTap: _openPlanNameModal,
     );
   }
@@ -1290,14 +1356,14 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     return _buildInfoCard(
       icon: Icons.flag_outlined,
       title: '목표 금액',
-      value: '${_nf.format(_planInfo.targetAmount?.toInt() ?? 0)}원',
+      value: '${_nf.format(_targetAmount.toInt())}원',
       onTap: _openTargetAmountModal,
     );
   }
 
   // @insoohippie - 보유 금액 카드
   Widget _buildCurrentAmountCard() {
-    final amount = _planInfo.currentAmount;
+    final amount = _currentAmount;
     final color = amount >= 0 ? AppColors.primary : Colors.red;
 
     return _buildInfoCard(

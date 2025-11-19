@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../component/appbars/custom_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/containers/rounded_info_container.dart';
 import '../../../component/texts/multi_color_text.dart';
@@ -10,6 +11,7 @@ import '../../../component/theme/app_text_styles.dart';
 
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/services/saving_calculator.dart';
+import 'chat_widgets/plan_edit_back_button.dart'; // 금액 포맷용
 
 class PlanSuccessPage extends StatefulWidget {
   const PlanSuccessPage({super.key});
@@ -80,6 +82,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
         body: SafeArea(
           child: Column(
             children: [
+              PlanEditBackAppBar(),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -89,11 +92,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 56,
-                          color: Colors.red,
-                        ),
+                        const Icon(Icons.error_outline, size: 56, color: Colors.red),
                         const SizedBox(height: 12),
                         const Text(
                           '플랜 저장에 실패했어요.\n잠시 후 다시 시도해주세요.',
@@ -101,14 +100,17 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 20),
-                        CustomButton(text: '다시 시도', onPressed: _runSave),
+                        CustomButton(
+                          text: '다시 시도',
+                          onPressed: _runSave,
+                        ),
                         const SizedBox(height: 12),
                         TextButton(
                           onPressed: () {
                             Navigator.pushNamedAndRemoveUntil(
                               context,
                               '/home_tab_navigator',
-                              (route) => false,
+                                  (route) => false,
                             );
                           },
                           child: const Text('홈으로 이동'),
@@ -127,12 +129,12 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
     // 저장 성공 → VM 데이터로 화면 구성
     final userName = vm.userName.isNotEmpty ? vm.userName : '사용자';
 
-    final startDate = vm.planInfo.startDate ?? DateTime.now();
+    final startDate = vm.totalPlan.startDate ?? DateTime.now();
     final calc = vm.calculationResult;
     final goalDate = calc?.goalDateTime ?? startDate;
 
-    final dailyLimit = vm.planInfo.dailyConsumptionSum ?? 0;
-    final targetAmount = vm.planInfo.targetAmount ?? 0;
+    final dailyLimit = vm.refData.primaryDailyConsumeSum;
+    final targetAmount = (vm.totalPlan.targetAmount ?? 0).toDouble();
 
     // 텍스트 파트 구성
     final List<TextPart> messageHeaderParts = [
@@ -230,7 +232,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/home_tab_navigator',
-                  (route) => false,
+                      (route) => false,
                 );
               },
             ),

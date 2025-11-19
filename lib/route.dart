@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/summary_widget_sandbox.dart';
 import 'package:sotong_local/view/pages/auth/signup_page.dart';
 import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
-import 'package:sotong_local/view/pages/communication/communication_logs_page.dart';
 import 'package:sotong_local/view/pages/communication/communication_page.dart';
 import 'package:sotong_local/view/pages/home/home_page.dart';
 import 'package:sotong_local/view/pages/home/home_tab_navigator.dart';
@@ -89,12 +87,9 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/report': (_) => const ReportPage(),
 
   '/communication': (_) => const CommunicationPage(),
-  '/communication_logs': (_) => const CommunicationLogsPage(),
 
   // test_insoo routes
   '/home_test': (_) => const HomeTestPage(),
   '/report_test': (_) => const ReportTestPage(),
   '/communication_test': (_) => const CommunicationTestPage(),
-
-  '/__debug_summary': (_) => BudgetAllWidgetsSandboxPage(),
 };

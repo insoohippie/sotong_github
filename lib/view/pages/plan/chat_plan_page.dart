@@ -11,7 +11,7 @@ import './chat_widgets/chat_message_widget.dart';
 import 'chat_widgets/input_modal/input_modal_widget.dart';
 import './chat_widgets/summary_section_widget.dart';
 import '../../../model/chat_message.dart';
-import '../../../model/entry.dart';
+import '../../../model/refData/entry.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import 'chat_widgets/typing_indicator_widget.dart';
 
@@ -497,7 +497,12 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
 
-                    vm.updateRefData(fixedIncomes: items);
+                    final now = DateTime.now();
+                    vm.updateRefData(
+                      fixedIncomes: items,
+                      applyDate: DateTime(now.year, now.month, now.day),
+                      modEndDate: DateTime(now.year, now.month, now.day),
+                    );
 
                     final itemLines = items
                         .map(
@@ -546,14 +551,15 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   _addCustomFixedExpenseCategoryWithEmoji,
                   categoryEmojis: _fixedExpenseCategoryEmojis,
                   monthlyIncome:
-                  context
-                      .read<ChatPlanViewModel>()
-                      .planInfo
-                      .fixedIncomeSum ??
-                      0.0,
+                  context.read<ChatPlanViewModel>().totalPlan.result.totalMetrics.sumMonthlyIncome.toDouble(),
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
-                    vm.updateRefData(fixedConsumptions: items);
+                    final now = DateTime.now();
+                    vm.updateRefData(
+                      fixedConsumptions: items,
+                      applyDate: DateTime(now.year, now.month, now.day),
+                      modEndDate: DateTime(now.year, now.month, now.day),
+                    );
 
                     final itemLines = items
                         .map(
@@ -579,8 +585,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                 ),
                 InputModalWidget(
                   isOpen: _showDailySpendingModal,
-                  onClose: () =>
-                      setState(() => _showDailySpendingModal = false),
+                  onClose: () => setState(() => _showDailySpendingModal = false),
                   title: '하루 사용 금액',
                   placeholder: '하루 소비 항목',
                   type: EntryType.daily,
@@ -593,14 +598,20 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   categoryEmojis: _dailyExpenseCategoryEmojis,
                   monthlyIncome: (() {
                     final vm = context.read<ChatPlanViewModel>();
-                    final double income = vm.planInfo.fixedIncomeSum ?? 0.0;
-                    final double fixed = vm.planInfo.fixedConsumptionSum ?? 0.0;
+                    final metrics = vm.totalPlan.result.totalMetrics;
+                    final double income = metrics.sumMonthlyIncome.toDouble();
+                    final double fixed = metrics.sumMonthlyConsume.toDouble();
                     final double leftover = income - fixed;
                     return leftover > 0 ? leftover : 0.0;
                   }()),
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
-                    vm.updateRefData(dailyConsumptions: items);
+                    final now = DateTime.now();
+                    vm.updateRefData(
+                      dailyConsumptions: items,
+                      applyDate: DateTime(now.year, now.month, now.day),
+                      modEndDate: DateTime(now.year, now.month, now.day),
+                    );
 
                     final itemLines = items
                         .map(
@@ -629,6 +640,3 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     );
   }
 }
-
-
-

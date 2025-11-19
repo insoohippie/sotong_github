@@ -1,13 +1,15 @@
 // repository/plan_repository.dart
-import '../data_source/plan_data_source.dart';
-import '../data_source/auth_data_source.dart';
-import '../model/plan_info.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../data_source/auth_data_source.dart';
+import '../data_source/plan_data_source.dart';
+import '../model/plan/total_plan.dart';
+
 class PlanRepository {
+  PlanRepository(this._ds, this._auth);
+
   final PlanDataSource _ds;
   final AuthDataSource _auth;
-  PlanRepository(this._ds, this._auth);
 
   String _uidOrThrow() {
     final uid = _auth.currentUser?.uid;
@@ -16,11 +18,12 @@ class PlanRepository {
   }
 
   /// 저장
-  Future<String> saveCurrentUserPlan(PlanInfo plan) async {
+  Future<String> saveCurrentUserPlan(TotalPlan plan) async {
     final uid = _uidOrThrow();
     final now = FieldValue.serverTimestamp();
     final data = {
       ...plan.toMap(),
+      'planId': plan.planId,
       'createdAt': now,
       'updatedAt': now,
     };
@@ -29,18 +32,18 @@ class PlanRepository {
   }
 
   /// 전체 플랜(최신순)
-  Future<List<PlanInfo>> getUserPlans() async {
+  Future<List<TotalPlan>> getUserPlans() async {
     final uid = _uidOrThrow();
     final snaps = await _ds.query(uid, orderBy: 'createdAt', descending: true);
-    return snaps.docs.map((d) => PlanInfo.fromMap(d.data())).toList();
+    return snaps.docs.map(_mapDocToTotalPlan).toList();
   }
 
   /// 최신 플랜 1개
-  Future<PlanInfo?> getLatestPlanForCurrentUser() async {
+  Future<TotalPlan?> getLatestPlanForCurrentUser() async {
     final uid = _uidOrThrow();
     final snaps = await _ds.query(uid, orderBy: 'createdAt', descending: true, limit: 1);
     if (snaps.docs.isEmpty) return null;
-    return PlanInfo.fromMap(snaps.docs.first.data());
+    return _mapDocToTotalPlan(snaps.docs.first);
   }
 
   /// 특정 플랜 이름만 수정
@@ -61,11 +64,12 @@ class PlanRepository {
     await updatePlanNameById(planId, newName);
   }
 
-  /// 부분 업데이트(PlanInfo -> Map으로 변환해 patch)
-  Future<void> updatePlan(String planId, PlanInfo patch) async {
+  /// 부분 업데이트(TotalPlan -> Map으로 변환해 patch)
+  Future<void> updatePlan(String planId, TotalPlan patch) async {
     final uid = _uidOrThrow();
     await _ds.updateFields(uid, planId, {
       ...patch.toMap(),
+      'planId': patch.planId,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -73,5 +77,11 @@ class PlanRepository {
   Future<void> deletePlan(String planId) async {
     final uid = _uidOrThrow();
     await _ds.delete(uid, planId);
+  }
+
+  TotalPlan _mapDocToTotalPlan(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) {
+    return TotalPlan.fromMap(doc.id, doc.data());
   }
 }

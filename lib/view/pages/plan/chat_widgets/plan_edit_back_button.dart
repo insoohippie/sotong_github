@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../component/appbars/custom_app_bar.dart';
+import '../../../../model/plan/plan_edit_result.dart';
 import '../../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../plan_edit_page.dart';
 
@@ -32,18 +33,22 @@ class PlanEditBackAppBar extends StatelessWidget {
         );
 
         if (shouldEdit == true && context.mounted) {
-          Navigator.push(
+          final result = await Navigator.push<PlanEditResult>(
             context,
             MaterialPageRoute(
               builder: (_) {
                 final vm = context.read<ChatPlanViewModel>();
                 return PlanEditPage(
-                  initialPlan: vm.planInfo,
+                  initialPlan: vm.totalPlan,
                   initialRefData: vm.refData,
+                  requireApplyDate: false,
                 );
               },
             ),
           );
+          if (result != null && context.mounted) {
+            context.read<ChatPlanViewModel>().applyPlanEditResult(result);
+          }
         }
       },
     );

@@ -2,17 +2,28 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-import '../../model/plan_info.dart';
+import '../../model/plan/total_plan.dart';
 import '../../model/saving_calculation_result.dart';
 import '../../repository/auth_repository.dart';
 import '../../repository/plan_repository.dart';
 import '../services/saving_calculator.dart';
+import '../../services/plan_saved_event_bus.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final AuthRepository _authRepo;
   final PlanRepository _planRepo;
+  final PlanSavedEventBus _planSavedBus;
+  StreamSubscription<void>? _planSavedSub;
 
-  HomeViewModel(this._authRepo, this._planRepo);
+  HomeViewModel(
+    this._authRepo,
+    this._planRepo,
+    this._planSavedBus,
+  ) {
+    _planSavedSub = _planSavedBus.stream.listen((_) {
+      refresh();
+    });
+  }
 
   // ---------- 상태 ----------
   bool _isLoading = false;
@@ -25,9 +36,9 @@ class HomeViewModel extends ChangeNotifier {
   String get name => _name;
 
   // 플랜 스냅샷
-  PlanInfo? _latestPlan;
+  TotalPlan? _latestPlan;
   SavingCalculationResult? _calc;
-  PlanInfo? get latestPlan => _latestPlan;
+  TotalPlan? get latestPlan => _latestPlan;
   SavingCalculationResult? get calc => _calc;
 
   // 이름 변경 진행 상태
@@ -46,6 +57,7 @@ class HomeViewModel extends ChangeNotifier {
 
   // ---------- 로드 ----------
   Future<void> load() async {
+    if (_isLoading) return;
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -58,19 +70,15 @@ class HomeViewModel extends ChangeNotifier {
       _latestPlan = await _planRepo.getLatestPlanForCurrentUser();
 
       // 3) 계산 스냅샷
-      if (_latestPlan != null &&
-          _latestPlan!.fixedIncomeSum != null &&
-          _latestPlan!.fixedConsumptionSum != null &&
-          _latestPlan!.dailyConsumptionSum != null &&
-          _latestPlan!.targetAmount != null) {
-        _calc = SavingPlanCalculator(planInfo: _latestPlan!).calculate();
+      if (_latestPlan != null && _hasMetrics(_latestPlan!)) {
+        _calc = SavingPlanCalculator(plan: _latestPlan!).calculate();
       } else {
         _calc = null;
       }
 
       // 4) 실시간 계산 기준 설정
       _baseNow = DateTime.now();
-      _baseSaved = _latestPlan?.currentAmount ?? 0;
+      _baseSaved = (_latestPlan?.currentAmount ?? 0).toDouble();
       _savingPerSecond = _calc?.savingPerSecond ?? 0;
       _goalDate = _calc?.goalDateTime;
 
@@ -121,14 +129,22 @@ class HomeViewModel extends ChangeNotifier {
   String get planTitle => _latestPlan?.planName ?? '플랜 없음';
 
   String get dailyLimitText {
-    final v = _latestPlan?.dailyConsumptionSum;
-    if (v == null) return '—';
-    return SavingPlanCalculator.formatAmount(v) + '원';
+    final metrics = _latestPlan?.result.totalMetrics;
+    if (metrics == null) return '—';
+    return SavingPlanCalculator.formatAmount(metrics.sumDailyConsume.toDouble()) + '원';
   }
 
   String get perSecondSaving => _savingPerSecond.toStringAsFixed(2);
 
   double get progressRatio => _calc?.savingRatio ?? 0.0;
+
+  bool _hasMetrics(TotalPlan plan) {
+    final metrics = plan.result.totalMetrics;
+    final hasIncome = metrics.sumMonthlyIncome > 0;
+    final hasTarget = (plan.targetAmount ?? 0) > 0;
+    final hasDaily = metrics.sumDailyConsume >= 0;
+    return hasIncome && hasTarget && hasDaily;
+  }
 
   // ---------- 최신 플랜 이름 변경 ----------
   Future<bool> updatePlanName(String newName) async {
@@ -145,10 +161,7 @@ class HomeViewModel extends ChangeNotifier {
 
       // 로컬 상태 즉시 반영(낙관적 업데이트)
       if (_latestPlan != null) {
-        _latestPlan = PlanInfo.fromMap({
-          ..._latestPlan!.toMap(),
-          'planName': trimmed,
-        });
+        _latestPlan = _latestPlan!.copyWith(planName: trimmed);
       }
 
       notifyListeners();
@@ -169,6 +182,7 @@ class HomeViewModel extends ChangeNotifier {
   void dispose() {
     _ticker?.cancel();
     secondTick.dispose();
+    _planSavedSub?.cancel();
     super.dispose();
   }
 }

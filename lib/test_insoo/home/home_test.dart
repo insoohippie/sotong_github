@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
@@ -5,7 +7,6 @@ import 'package:sotong_local/component/appbars/custom_app_bar_home.dart';
 import 'package:sotong_local/component/buttons/small_rounded_button.dart';
 import 'package:sotong_local/component/containers/rounded_info_container.dart';
 
-import 'package:sotong_local/component/texts/subtext.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/component/theme/app_spacing.dart';
 import 'package:sotong_local/component/chart/half_donut_chart.dart';
@@ -102,71 +103,142 @@ class _HomeTestPageState extends State<HomeTestPage> {
     return _spendingData[key] ?? 0.0;
   }
 
+  void _showCountdownDialog() {
+    if (_goalDate == null) return;
+
+    Duration remaining = _goalDate!.difference(DateTime.now());
+    Timer? countdown;
+
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            countdown ??= Timer.periodic(const Duration(seconds: 1), (_) {
+              final newRemaining = _goalDate!.difference(DateTime.now());
+              setState(() {
+                if (newRemaining.isNegative) {
+                  remaining = Duration.zero;
+                  countdown?.cancel();
+                } else {
+                  remaining = newRemaining;
+                }
+              });
+            });
+
+            final days = remaining.inDays;
+            final hours = remaining.inHours % 24;
+            final minutes = remaining.inMinutes % 60;
+            final seconds = remaining.inSeconds % 60;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 24,
+                vertical: 24,
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 18,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.black12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      '$days일 ${twoDigits(hours)}:${twoDigits(minutes)}:${twoDigits(seconds)}',
+                      style: const TextStyle(
+                        fontFamily: 'RobotoMono',
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    '1초씩 $_savingPerSec원이 증가해요',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('닫기'),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).then((_) => countdown?.cancel());
+  }
+
   void _changeDate(int days) {
     setState(() {
       _selectedDate = _selectedDate.add(Duration(days: days));
     });
   }
 
-  // 반원 그래프 빌드 메서드
-  Widget _buildHalfDonutChart() {
-    if (_goalDate == null) {
-      return const SizedBox.shrink();
-    }
+  // 실행률 계산
+  double _calculateExecutionRate() {
+    if (_goalDate == null) return 0.0;
 
     final now = DateTime.now();
-    final remainingDays = _goalDate!.difference(now).inDays;
     final totalDays = _goalDate!.difference(_planStartDate).inDays;
+    final elapsedDays = now.difference(_planStartDate).inDays;
 
     // 진행률 계산 (0-100)
-    final elapsedDays = now.difference(_planStartDate).inDays;
     final progressPercentage = totalDays > 0
-        ? ((elapsedDays / totalDays) * 100).round().clamp(0, 100)
+        ? ((elapsedDays / totalDays) * 100).clamp(0, 100)
         : 0;
 
-    // 목표 금액 달성률 (예: 현재 저축액 / 목표 금액)
-    // 테스트용 목표 금액 설정
+    // 목표 금액
     final targetAmount = 5000000.0; // 500만원
-    final achievementPercentage = targetAmount > 0
-        ? ((_liveSavedAmount / targetAmount) * 100).round().clamp(0, 100)
-        : 0;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // 모인 금액 텍스트 (왼쪽 정렬)
-        ParagraphText(text: '모인 금액', fontWeight: FontWeight.bold),
-        SizedBox(height: AppSpacing.fieldSpacing),
-        // 금액 표시 (큰 크기, 파란색)
-        Text(
-          _liveSavedAmount
-                  .toStringAsFixed(0)
-                  .replaceAllMapped(
-                    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-                    (Match m) => '${m[1]},',
-                  ) +
-              '원',
-          style: TextStyle(
-            fontSize: 32,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primary,
-          ),
-        ),
-        SizedBox(height: AppSpacing.sectionSpacing2),
-        // 반원 그래프 (중앙 정렬)
-        Center(
-          child: HalfDonutChart(
-            outerProgress: 100, // 외부는 항상 100%
-            innerProgress: progressPercentage, // 내부는 진행률
-            state: true, // 파란색
-            width: 300, // 크기 증가
-            height: 180, // 크기 증가
-            showLegend: true,
-          ),
-        ),
-      ],
-    );
+    // 저축 실행률 계산 (계획 대비 실제 저축액)
+    final expectedAmount = targetAmount * progressPercentage / 100;
+    final executionRate = expectedAmount > 0
+        ? ((_liveSavedAmount / expectedAmount) * 100).clamp(0.0, 200.0)
+        : 0.0;
+
+    return executionRate;
+  }
+
+  // 실행률에 따른 색상 반환
+  Color _getExecutionRateColor(double rate) {
+    if (rate < 20) {
+      return const Color(0xFFFF5F5F); // 빨강
+    } else if (rate < 40) {
+      return const Color(0xFFFF8F00); // 주황
+    } else if (rate < 60) {
+      return const Color(0xFFFFC107); // 노랑
+    } else if (rate < 80) {
+      return const Color(0xFF8BC34A); // 연한 초록
+    } else {
+      return const Color(0xFF4CAF50); // 진한 초록
+    }
   }
 
   @override
@@ -215,7 +287,7 @@ class _HomeTestPageState extends State<HomeTestPage> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       RoundedInfoContainer(
-                        backgroundColor: Colors.white,
+                        backgroundColor: const Color(0xFFF5F5F5),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
@@ -241,75 +313,114 @@ class _HomeTestPageState extends State<HomeTestPage> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(20),
-                                        onTap: () async {
-                                          // Test: Show a simple dialog instead of the actual modal
-                                          final controller =
-                                              TextEditingController(
-                                                text: _planName,
-                                              );
-                                          showDialog(
-                                            context: context,
-                                            builder: (context) => AlertDialog(
-                                              title: const Text('플랜 이름 수정'),
-                                              content: TextField(
-                                                controller: controller,
-                                                decoration:
-                                                    const InputDecoration(
-                                                      hintText: '플랜 이름을 입력하세요',
-                                                    ),
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () =>
-                                                      Navigator.pop(context),
-                                                  child: const Text('취소'),
-                                                ),
-                                                TextButton(
-                                                  onPressed: () {
-                                                    if (controller
-                                                        .text
-                                                        .isNotEmpty) {
-                                                      setState(() {
-                                                        _planName =
-                                                            controller.text;
-                                                      });
-                                                    }
-                                                    Navigator.pop(context);
-                                                  },
-                                                  child: const Text('저장'),
-                                                ),
-                                              ],
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(20),
+                                    onTap: () async {
+                                      // Test: Show a simple dialog instead of the actual modal
+                                      final controller = TextEditingController(
+                                        text: _planName,
+                                      );
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text('플랜 이름 수정'),
+                                          content: TextField(
+                                            controller: controller,
+                                            decoration: const InputDecoration(
+                                              hintText: '플랜 이름을 입력하세요',
                                             ),
-                                          );
-                                        },
-                                        child: const Icon(
-                                          Icons.edit,
-                                          size: 20,
-                                          color: AppColors.primary,
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              child: const Text('취소'),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                if (controller.text
+                                                    .isNotEmpty) {
+                                                  setState(() {
+                                                    _planName =
+                                                        controller.text;
+                                                  });
+                                                }
+                                                Navigator.pop(context);
+                                              },
+                                              child: const Text('저장'),
+                                            ),
+                                          ],
                                         ),
-                                      ),
+                                      );
+                                    },
+                                    child: const Icon(
+                                      Icons.edit,
+                                      size: 20,
+                                      color: AppColors.primary,
                                     ),
-                                  ],
-                                ),
-                                // D-Day 표시
-                                ParagraphText(
-                                  text: _dDayText,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ],
                             ),
+                            // D-Day 표시
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: _showCountdownDialog,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  child: ParagraphText(
+                                    text: _dDayText,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ),
+                              ],
+                            ),
                             SizedBox(height: AppSpacing.fieldSpacing),
-                            // 반원 그래프 (안에 금액 포함)
-                            _buildHalfDonutChart(),
-                            SizedBox(height: AppSpacing.sectionSpacing2),
-                            SubText(
-                              text: '1초씩 $_savingPerSec원이 증가해요',
-                              fontWeight: FontWeight.bold,
+                            // 모인 금액 컨테이너
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // 모인 금액 텍스트 (왼쪽 정렬)
+                                ParagraphText(text: '모인 금액', fontWeight: FontWeight.bold),
+                                SizedBox(height: AppSpacing.fieldSpacing),
+                                // 금액 표시 (큰 크기, 파란색)
+                                Text(
+                                  _liveSavedAmount
+                                          .toStringAsFixed(0)
+                                          .replaceAllMapped(
+                                            RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                            (Match m) => '${m[1]},',
+                                          ) +
+                                      '원',
+                                  style: TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                SizedBox(height: AppSpacing.sectionSpacing2),
+                                Center(
+                                  child: HalfDonutChart(
+                                    outerProgress: 100,
+                                    innerProgress: (_currentRate * 100).round(),
+                                    state: true,
+                                    width: 300,
+                                    height: 180,
+                                    showLegend: true,
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/model/entry.dart';
+import 'package:sotong_local/model/refData/entry.dart';
 import '../../../../../model/category/category_state_manager.dart';
 import 'category_utils.dart';
 

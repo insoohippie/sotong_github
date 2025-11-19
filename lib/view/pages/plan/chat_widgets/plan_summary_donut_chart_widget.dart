@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
-import 'package:sotong_local/model/plan_info.dart';
+
+// ✅ PlanInfo → TotalPlan 으로 교체
+import 'package:sotong_local/model/plan/total_plan.dart';
 import 'package:sotong_local/model/saving_calculation_result.dart';
 
 // 차트 파일 경로 맞춰서!
@@ -10,30 +12,41 @@ import '../../../../component/chart/fl_donut_colored_budget.dart';
 import '../../../../component/theme/app_colors.dart';
 
 class PlanSummaryDonutChartWidget extends StatefulWidget {
-  final PlanInfo planInfo;
+  // ✅ PlanInfo → TotalPlan
+  final TotalPlan plan;
   final SavingCalculationResult? calculation;
   final VoidCallback? onEdit;
   final String userName;
 
   const PlanSummaryDonutChartWidget({
     super.key,
-    required this.planInfo,
+    required this.plan,
     required this.calculation,
     this.onEdit,
     required this.userName,
   });
 
   @override
-  State<PlanSummaryDonutChartWidget> createState() => _PlanSummaryDonutChartWidgetState();
+  State<PlanSummaryDonutChartWidget> createState() =>
+      _PlanSummaryDonutChartWidgetState();
 }
 
-class _PlanSummaryDonutChartWidgetState extends State<PlanSummaryDonutChartWidget> {
+class _PlanSummaryDonutChartWidgetState
+    extends State<PlanSummaryDonutChartWidget> {
   Timer? _ticker;
 
-  double get monthlyIncome => (widget.planInfo.fixedIncomeSum ?? 0).toDouble();
-  double get monthlyFixedCost => (widget.planInfo.fixedConsumptionSum ?? 0).toDouble();
-  double get dailySpendingLimit => (widget.planInfo.dailyConsumptionSum ?? 0).toDouble();
+  // ✅ 합계 값들을 TotalPlan.totalMetrics에서 가져오도록 변경
+  double get monthlyIncome =>
+      widget.plan.result.totalMetrics.sumMonthlyIncome.toDouble();
+
+  double get monthlyFixedCost =>
+      widget.plan.result.totalMetrics.sumMonthlyConsume.toDouble();
+
+  double get dailySpendingLimit =>
+      widget.plan.result.totalMetrics.sumDailyConsume.toDouble();
+
   double get monthlyVariableCost => dailySpendingLimit * 30;
+
   double get monthlySaving => (widget.calculation?.monthlySaving ?? 0).toDouble();
 
   final _chartKey = GlobalKey<FlDonutBudgetChartState>();
@@ -88,7 +101,6 @@ class _PlanSummaryDonutChartWidgetState extends State<PlanSummaryDonutChartWidge
             centerSpace: 30,
             minRatio: 0.15,
           ),
-
           const SizedBox(height: 50),
 
           // 목표/카운트다운
@@ -96,13 +108,10 @@ class _PlanSummaryDonutChartWidgetState extends State<PlanSummaryDonutChartWidge
             child: Column(
               children: [
                 ParagraphText(
-                    text: '목표 달성 예정일: ${goalDate.year}년 ${goalDate.month}월 ${goalDate.day}일',
-                    // fontWeight: FontWeight.bold,
-                    color: AppColors.primary),
-                // Text(
-                //   '목표 달성 예정일: ${goalDate.year}년 ${goalDate.month}월 ${goalDate.day}일',
-                //   style: const TextStyle(fontSize: 15, color: Color(0xFF3B82F6)),
-                // ),
+                  text:
+                  '목표 달성 예정일: ${goalDate.year}년 ${goalDate.month}월 ${goalDate.day}일',
+                  color: AppColors.primary,
+                ),
                 const SizedBox(height: 2),
                 Text(
                   '목표까지 ${days}일 ${hours}시간 ${minutes}분 ${seconds}초 남았어요!',
@@ -123,16 +132,20 @@ class _PlanSummaryDonutChartWidgetState extends State<PlanSummaryDonutChartWidge
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3B82F6),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
               child: const Text(
                 '수정하기',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ),
-
           const SizedBox(height: 24),
         ],
       ),

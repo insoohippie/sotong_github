@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../component/theme/app_border_radius.dart';
+import '../../../model/plan/plan_edit_result.dart';
+import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/setting/setting_view_model.dart';
+import '../plan/plan_edit_page.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({Key? key}) : super(key: key);
@@ -90,8 +93,39 @@ class SettingsPage extends StatelessWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: AppBorderRadius.card,
-                        onTap: () {
-                          Navigator.pushNamed(context, '/edit_income');
+                        onTap: () async {
+                          final chatVm = context.read<ChatPlanViewModel>();
+                          final navigator = Navigator.of(context);
+
+                          final result = await navigator.push<PlanEditResult>(
+                            MaterialPageRoute(
+                              builder: (_) => PlanEditPage(
+                                initialPlan: chatVm.totalPlan,
+                                initialRefData: chatVm.refData,
+                                requireApplyDate: true,
+                              ),
+                            ),
+                          );
+
+                          if (!navigator.mounted || result == null) {
+                            return;
+                          }
+
+                          chatVm.applyPlanEditResult(result);
+                          final ok = await chatVm.savePlan();
+                          if (!navigator.mounted) return;
+
+                          final rootContext =
+                              Navigator.of(context, rootNavigator: true).context;
+                          ScaffoldMessenger.of(rootContext).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                ok
+                                    ? '플랜이 저장되었습니다.'
+                                    : '플랜 저장에 실패했습니다. 잠시 후 다시 시도해주세요.',
+                              ),
+                            ),
+                          );
                         },
                         child: Padding(
                           padding: const EdgeInsets.symmetric(

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -15,9 +16,10 @@ import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_colors.dart';
 
 // Models / VMs
-import '../../../model/entry.dart';
-import '../../../model/plan_info.dart';
-import '../../../model/ref_data.dart';
+import '../../../model/refData/entry.dart';
+import '../../../model/plan/plan_edit_result.dart';
+import '../../../model/plan/total_plan.dart';
+import '../../../model/refData/ref_data.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/plan/plan_edit_viewmodel.dart';
 
@@ -25,13 +27,15 @@ import '../../../view_model/plan/plan_edit_viewmodel.dart';
 import 'chat_widgets/input_modal/input_modal_widget.dart';
 
 class PlanEditPage extends StatefulWidget {
-  final PlanInfo initialPlan;
+  final TotalPlan initialPlan;
   final RefData initialRefData;
+  final bool requireApplyDate;
 
   const PlanEditPage({
     Key? key,
     required this.initialPlan,
     required this.initialRefData,
+    this.requireApplyDate = true,
   }) : super(key: key);
 
   @override
@@ -71,6 +75,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
   // ----------------- 모달 -----------------
   Future<void> _openIncomeModal(BuildContext context, PlanEditViewModel vm) async {
+    List<Entry>? stagedEntries;
     await showDialog(
       context: context,
       useRootNavigator: false,
@@ -85,17 +90,27 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '월 수입 입력하기',
             placeholder: '수입 카테고리',
             type: EntryType.fixed,
-            initialEntries: vm.refData.fixedIncomes,
+            initialEntries: vm.currentMonthlyIncomeEntries,
             onComplete: (items, total) {
-              context.read<PlanEditViewModel>().updateFixedIncomeEntries(items);
+              stagedEntries = List<Entry>.from(items);
             },
           ),
         );
       },
     );
+    if (!mounted || stagedEntries == null) return;
+
+    final DateTime? applyDate = await _resolveApplyDate(
+      vm: vm,
+      title: '월 수입 적용일을 선택하세요',
+      initialDate: vm.pendingFixedIncomeApplyDate ?? DateTime.now(),
+    );
+    if (applyDate == null) return;
+    vm.applyFixedIncomeEdit(entries: stagedEntries!, applyDate: applyDate);
   }
 
   Future<void> _openFixedCostModal(BuildContext context, PlanEditViewModel vm) async {
+    List<Entry>? stagedEntries;
     await showDialog(
       context: context,
       useRootNavigator: false,
@@ -110,17 +125,27 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '고정 소비 입력하기',
             placeholder: '고정 소비 항목',
             type: EntryType.fixed,
-            initialEntries: vm.refData.fixedConsumptions,
+            initialEntries: vm.currentMonthlyConsumeEntries,
             onComplete: (items, total) {
-              context.read<PlanEditViewModel>().updateFixedCostEntries(items);
+              stagedEntries = List<Entry>.from(items);
             },
           ),
         );
       },
     );
+    if (!mounted || stagedEntries == null) return;
+
+    final DateTime? applyDate = await _resolveApplyDate(
+      vm: vm,
+      title: '고정 소비 적용일을 선택하세요',
+      initialDate: vm.pendingFixedConsumeApplyDate ?? DateTime.now(),
+    );
+    if (applyDate == null) return;
+    vm.applyFixedConsumeEdit(entries: stagedEntries!, applyDate: applyDate);
   }
 
   Future<void> _openDailyModal(BuildContext context, PlanEditViewModel vm) async {
+    List<Entry>? stagedEntries;
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -138,20 +163,28 @@ class _PlanEditPageState extends State<PlanEditPage> {
             title: '하루 사용 금액',
             placeholder: '하루 소비 항목',
             type: EntryType.daily,
-            initialEntries: vm.refData.dailyConsumptions,
-            // ✅ 여기 추가!
+            initialEntries: vm.currentDailyConsumeEntries,
             monthlyIncome: availableMonthly,
             onComplete: (items, total) {
-              context.read<PlanEditViewModel>().updateDailyCostEntries(items);
+              stagedEntries = List<Entry>.from(items);
             },
           ),
         );
       },
     );
+    if (!mounted || stagedEntries == null) return;
+
+    final DateTime? applyDate = await _resolveApplyDate(
+      vm: vm,
+      title: '일일 소비 적용일을 선택하세요',
+      initialDate: vm.pendingDailyConsumeApplyDate ?? DateTime.now(),
+    );
+    if (applyDate == null) return;
+    vm.applyDailyConsumeEdit(entries: stagedEntries!, applyDate: applyDate);
   }
 
   // ----------------- 저장 -----------------
-  void _save(PlanEditViewModel vm) {
+  Future<void> _save(PlanEditViewModel vm) async {
     final msg = _blockingMessage(vm);
     if (msg != null) return;
 
@@ -163,8 +196,91 @@ class _PlanEditPageState extends State<PlanEditPage> {
       return;
     }
 
-    final updated = vm.createUpdatedPlan(widget.initialPlan);
-    Navigator.of(context).pop(updated);
+    vm.createUpdatedPlan(widget.initialPlan);
+
+    final result = vm.finalizeEdits();
+    Navigator.of(context).pop(result);
+  }
+
+  Future<DateTime?> _resolveApplyDate({
+    required PlanEditViewModel vm,
+    required String title,
+    required DateTime initialDate,
+  }) async {
+    if (!widget.requireApplyDate) {
+      final now = DateTime.now();
+      return DateTime(now.year, now.month, now.day);
+    }
+    return _pickApplyDate(
+      vm: vm,
+      title: title,
+      initialDate: initialDate,
+    );
+  }
+
+  Future<DateTime?> _pickApplyDate({
+    required PlanEditViewModel vm,
+    required String title,
+    DateTime? initialDate,
+  }) async {
+    final now = DateTime.now();
+    final startSource = vm.totalPlan.startDate ?? now;
+    final planStart = DateTime(startSource.year, startSource.month, startSource.day);
+    final endSource = vm.projectedGoalDate ??
+        vm.totalPlan.modEndDate ??
+        vm.totalPlan.endDate ??
+        startSource;
+    DateTime planEnd = DateTime(endSource.year, endSource.month, endSource.day);
+    if (planEnd.isBefore(planStart)) {
+      planEnd = planStart;
+    }
+
+    DateTime initial = initialDate != null
+        ? DateTime(initialDate.year, initialDate.month, initialDate.day)
+        : DateTime(now.year, now.month, now.day);
+    if (initial.isBefore(planStart)) {
+      initial = planStart;
+    }
+    if (initial.isAfter(planEnd)) {
+      initial = planEnd;
+    }
+
+    DateTime tempSelected = initial;
+
+    final result = await showDialog<DateTime>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return AlertDialog(
+          title: Text(title),
+          content: SizedBox(
+            height: 320,
+            width: 320,
+            child: CalendarDatePicker(
+              initialDate: initial,
+              firstDate: planStart,
+              lastDate: planEnd,
+              onDateChanged: (value) {
+                tempSelected = value;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('취소'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, tempSelected),
+              child: const Text('적용'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == null) return null;
+    return DateTime(result.year, result.month, result.day);
   }
 
   // ----------------- UI -----------------
@@ -264,7 +380,13 @@ class _PlanEditPageState extends State<PlanEditPage> {
           color: isSelected ? Colors.white : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           boxShadow: isSelected
-              ? [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))]
+              ? [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            )
+          ]
               : null,
         ),
         child: Text(
@@ -288,10 +410,12 @@ class _SyncBridgeForChartOrAdvice extends StatefulWidget {
   const _SyncBridgeForChartOrAdvice({Key? key}) : super(key: key);
 
   @override
-  State<_SyncBridgeForChartOrAdvice> createState() => _SyncBridgeForChartOrAdviceState();
+  State<_SyncBridgeForChartOrAdvice> createState() =>
+      _SyncBridgeForChartOrAdviceState();
 }
 
-class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice> {
+class _SyncBridgeForChartOrAdviceState
+    extends State<_SyncBridgeForChartOrAdvice> {
   Timer? _debounce;
   String _lastSignature = '';
 
@@ -318,16 +442,20 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
       dly.toStringAsFixed(2),
       target.toStringAsFixed(2),
       current.toStringAsFixed(2),
-      vm.refData.fixedIncomes.length,
-      _sum(vm.refData.fixedIncomes).toStringAsFixed(2),
-      vm.refData.fixedConsumptions.length,
-      _sum(vm.refData.fixedConsumptions).toStringAsFixed(2),
-      vm.refData.dailyConsumptions.length,
-      _sum(vm.refData.dailyConsumptions).toStringAsFixed(2),
+      vm.currentMonthlyIncomeEntries.length,
+      _sum(vm.currentMonthlyIncomeEntries).toStringAsFixed(2),
+      vm.currentMonthlyConsumeEntries.length,
+      _sum(vm.currentMonthlyConsumeEntries).toStringAsFixed(2),
+      vm.currentDailyConsumeEntries.length,
+      _sum(vm.currentDailyConsumeEntries).toStringAsFixed(2),
     ].join('|');
   }
 
-  void _syncNow(BuildContext context, PlanEditViewModel editVM, ChatPlanViewModel chatVM) {
+  void _syncNow(
+      BuildContext context,
+      PlanEditViewModel editVM,
+      ChatPlanViewModel chatVM,
+      ) {
     double _parse(String s) => double.tryParse(s.replaceAll(',', '')) ?? 0.0;
 
     chatVM.updatePlanInfo(
@@ -337,11 +465,6 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
       fixedIncomeSum: editVM.monthlyIncome,
       fixedConsumptionSum: editVM.monthlyFixedCost,
       dailyConsumptionSum: editVM.dailySpendingLimit,
-    );
-    chatVM.updateRefData(
-      fixedIncomes: editVM.refData.fixedIncomes,
-      fixedConsumptions: editVM.refData.fixedConsumptions,
-      dailyConsumptions: editVM.refData.dailyConsumptions,
     );
     chatVM.calculate();
   }
@@ -364,7 +487,8 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
         // 문제 여부 판정
         final income = editVM.monthlyIncome;
         final fixed = editVM.monthlyFixedCost;
-        final daily30 = editVM.dailySpendingLimit * 30.0;
+        final daily = editVM.dailySpendingLimit;
+        final daily30 = daily * 30.0;
         final leftover = income - fixed;
         final monthlySaving = income - fixed - daily30;
 
@@ -373,56 +497,79 @@ class _SyncBridgeForChartOrAdviceState extends State<_SyncBridgeForChartOrAdvice
         final current = _parse(editVM.currentAssetController.text);
 
         final List<_AdviceItem> issues = [];
-        String _fmt(num v) => NumberFormat.decimalPattern('ko_KR').format(v.round());
+        String _fmt(num v) =>
+            NumberFormat.decimalPattern('ko_KR').format(v.round());
 
         if (income <= 0) {
-          issues.add(_AdviceItem(
-            title: '월 수입이 0원이에요.',
-            tips: const ['수입 항목을 입력해 주세요', '정확한 금액이 어렵다면 추정치로 입력도 OK'],
-          ));
+          issues.add(
+            _AdviceItem(
+              title: '월 수입이 0원이에요.',
+              tips: const [
+                '수입 항목을 입력해 주세요',
+                '정확한 금액이 어렵다면 추정치로 입력도 OK',
+              ],
+            ),
+          );
         }
         if (fixed > income) {
-          issues.add(_AdviceItem(
-            title: '고정소비가 수입을 초과했어요.',
-            subtitle: '고정소비 ${_fmt(fixed)}원 > 수입 ${_fmt(income)}원',
-            tips: const ['고정 소비 점검', '수입 항목 추가 고려'],
-          ));
+          issues.add(
+            _AdviceItem(
+              title: '고정소비가 수입을 초과했어요.',
+              subtitle:
+              '고정소비 ${_fmt(fixed)}원 > 수입 ${_fmt(income)}원',
+              tips: const ['고정 소비 점검', '수입 항목 추가 고려'],
+            ),
+          );
         } else if (daily30 > (leftover > 0 ? leftover : 0)) {
-          issues.add(_AdviceItem(
-            title: '하루 소비(×30)가 남는 금액을 초과했어요.',
-            subtitle: '남는 금액 ${_fmt(leftover)}원, 변동소비 ${_fmt(daily30)}원',
-            tips: const ['하루 한도를 낮추기', '고정소비 줄이기', '수입 늘리기 검토'],
-          ));
+          issues.add(
+            _AdviceItem(
+              title: '하루 소비(×30)가 남는 금액을 초과했어요.',
+              subtitle:
+              '남는 금액 ${_fmt(leftover)}원, 변동소비 ${_fmt(daily30)}원',
+              tips: const ['하루 한도를 낮추기', '고정소비 줄이기', '수입 늘리기 검토'],
+            ),
+          );
         } else if (monthlySaving <= 0) {
-          issues.add(_AdviceItem(
-            title: '현재 설정으로 월 저축액이 0원 이하예요.',
-            subtitle: '월저축 = 수입 − 고정 − 변동',
-            tips: const ['하루 한도를 5~10% 낮추기', '불필요한 구독/고정비 정리'],
-          ));
+          issues.add(
+            _AdviceItem(
+              title: '현재 설정으로 월 저축액이 0원 이하예요.',
+              subtitle: '월저축 = 수입 − 고정 − 변동',
+              tips: const ['하루 한도를 5~10% 낮추기', '불필요한 구독/고정비 정리'],
+            ),
+          );
         }
         if (target > 0 && current >= target) {
-          issues.add(_AdviceItem(
-            title: '보유 자산이 목표 금액을 넘었어요.',
-            subtitle: '보유 ${_fmt(current)}원 ≥ 목표 ${_fmt(target)}원',
-            tips: const ['목표 금액 상향', '해당 목표 달성 처리'],
-          ));
+          issues.add(
+            _AdviceItem(
+              title: '보유 자산이 목표 금액을 넘었어요.',
+              subtitle:
+              '보유 ${_fmt(current)}원 ≥ 목표 ${_fmt(target)}원',
+              tips: const ['목표 금액 상향', '해당 목표 달성 처리'],
+            ),
+          );
         }
 
         if (issues.isNotEmpty) {
           return _BudgetAdviceBanner(items: issues);
         }
 
+        // ✅ 차트에 들어갈 값도 여기서 계산
+        final double variableCost = daily30;
+        final double savingForChart =
+        (income - fixed - variableCost) > 0 ? (income - fixed - variableCost) : 0.0;
+
         return RepaintBoundary(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // 도넛 차트
               FlDonutColoredBudgetChart(
-                income: editVM.monthlyIncome,
-                fixed: editVM.monthlyFixedCost,
-                variable: editVM.monthlyVariableCost,
-                saving: editVM.monthlySaving,
-                  centerSpace: 30,
-                  chartHeight: 120,
+                income: income,
+                fixed: fixed,
+                variable: variableCost,
+                saving: savingForChart,
+                centerSpace: 30,
+                chartHeight: 120,
               ),
               const SizedBox(height: 50),
 
@@ -458,7 +605,7 @@ class _PlanBasicInfoTab extends StatelessWidget {
                 label: '플랜 이름',
                 controller: vm.planNameController,
                 hint: '예: 여름휴가 프로젝트',
-                onChanged: (_) {}, // 리스너가 이미 notify 처리
+                onChanged: (_) {},
               ),
               MinimalField(
                 label: '목표 금액',
@@ -473,6 +620,7 @@ class _PlanBasicInfoTab extends StatelessWidget {
                 isNumber: true,
                 hint: '예: 5,000,000 또는 -300,000',
                 onChanged: (_) {},
+
               ),
             ],
           ),
@@ -562,7 +710,8 @@ class _BudgetAdviceBanner extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 '외 ${items.length - 3}개 항목 더 있음',
-                style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                style:
+                const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
               ),
             ),
         ],
@@ -594,7 +743,11 @@ class _AdviceTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SubText(text: item.title, fontWeight: FontWeight.bold, color: Colors.black),
+                SubText(
+                  text: item.title,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
                 if (item.subtitle != null) ...[
                   const SizedBox(height: 4),
                   SubText(text: item.subtitle!),
@@ -605,12 +758,16 @@ class _AdviceTile extends StatelessWidget {
                   runSpacing: 4,
                   children: item.tips.map((t) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: SubText(text: t, color: AppColors.redText),
+                      child: SubText(
+                        text: t,
+                        color: AppColors.redText,
+                      ),
                     );
                   }).toList(),
                 ),
@@ -624,7 +781,7 @@ class _AdviceTile extends StatelessWidget {
 }
 
 /// =========================
-/// 차트 하단 한 줄 3타일
+/// 차트 하단 한 줄 (목표 도달 예정일 텍스트)
 /// =========================
 class _PlanStatsBelowChart extends StatelessWidget {
   final String? reachDateStr;
@@ -642,31 +799,8 @@ class _PlanStatsBelowChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget tile(String title, String value, {Color? valueColor}) {
-      return Expanded(
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          decoration: BoxDecoration(
-            color: AppColors.lightBlue,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SubText(text: title, fontWeight: FontWeight.bold),
-              const SizedBox(height: 6),
-              SubText(
-                text: value,
-                color: valueColor ?? Colors.black,
-                fontWeight: FontWeight.bold,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final show = hasGoal && canSave && reachDateStr != null && durationStr != null;
+    final show =
+        hasGoal && canSave && reachDateStr != null && durationStr != null;
 
     if (show) {
       return Align(
@@ -674,15 +808,19 @@ class _PlanStatsBelowChart extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.flag_rounded, size: 16, color: Colors.black54),
+            const Icon(Icons.flag_rounded,
+                size: 16, color: Colors.black54),
             const SizedBox(width: 6),
             RichText(
               text: TextSpan(
-                style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.2),
+                style: const TextStyle(
+                    fontSize: 13,
+                    color: Colors.black87,
+                    height: 1.2),
                 children: [
                   const TextSpan(text: '목표 도달 예정일: '),
                   TextSpan(
-                    text: reachDateStr!, // 예: "2026.04.28"
+                    text: reachDateStr!,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary,
@@ -696,8 +834,6 @@ class _PlanStatsBelowChart extends StatelessWidget {
       );
     }
 
-
-    // 표시 조건이 안 되면 빈 자리
     return const SizedBox.shrink();
   }
 }

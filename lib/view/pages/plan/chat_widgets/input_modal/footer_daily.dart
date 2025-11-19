@@ -10,10 +10,10 @@ import 'package:sotong_local/component/theme/app_spacing.dart';
 import '../../../../../view_model/plan/chat_plan_viewmodel.dart';
 
 class FooterDaily extends StatefulWidget {
-  final double total;           // 일일 합계
+  final double total;           // 일일 총합
   final VoidCallback onComplete;
-  final bool isOverBudget;      // 예산 초과 여부 (일×30 > monthlyIncome)
-  final double monthlyIncome;   // 월 잔여 예산(= 수입 - 고정비)
+  final bool isOverBudget;      // 하루×30 > 월 가용 예산(수입-고정비)
+  final double monthlyIncome;   // 월 가용 예산 (= 수입 - 고정비)
 
   const FooterDaily({
     Key? key,
@@ -46,7 +46,8 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
   @override
   void didUpdateWidget(covariant FooterDaily oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // false -> true로 넘어갈 때 흔들림
+
+    // 예산 초과 false → true 순간 흔들림
     if (widget.isOverBudget && !oldWidget.isOverBudget) {
       _shakeController.forward().then((_) => _shakeController.reverse());
     }
@@ -60,38 +61,34 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final monthlySpending = (widget.total * 30).toInt(); // 월환산 소비
+    final monthlySpending = (widget.total * 30).toInt();
     final over = widget.isOverBudget;
 
-    // ✅ ViewModel에서 목표/보유금액 읽기
+    // ViewModel에서 목표/보유 금액 가져오기
     final vm = context.watch<ChatPlanViewModel>();
-    final target = vm.planInfo.targetAmount;           // 목표 금액 (nullable)
-    final current = vm.planInfo.currentAsset ?? 0.0;   // 보유 자산 (기본 0)
+    final target = vm.totalPlan.targetAmount?.toDouble();
+    final current = vm.totalPlan.currentAsset.toDouble();
 
-    // ✅ 월 저축액 = (월 잔여 예산) - (월환산 일일소비)
-    //   monthlyIncome은 ChatPlanPage에서 (수입 - 고정비)로 넘겨주는 값
     final monthlySaving = (widget.monthlyIncome - monthlySpending).toDouble();
 
-    // ✅ 예상 소요 기간 문구 조립
+    // 예상 도달 안내문
     String? helperLine;
+
     if (over) {
-      // 예산 초과
       helperLine =
       '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome)}원을 초과했어요.';
     } else if (target != null && target > 0) {
       final remaining = target - current;
+
       if (remaining <= 0) {
         helperLine = '🎉 이미 목표를 달성했어요!';
       } else if (monthlySaving > 0) {
-        // 개월 수 = 남은금액 / 월저축액 → 올림
-        final monthsNeeded = (remaining / monthlySaving).ceil();
-        helperLine = '목표 금액까지 약 ${monthsNeeded}개월 소요!';
-      } else if (monthlySaving < 0) {
-        // 저축 불가(0 이하)
-        helperLine = '⚠️ 현재 금액으로는 저축이 어려워요. 일일 소비를 조금 줄여볼까요?';
+        final months = (remaining / monthlySaving).ceil();
+        helperLine = '목표 금액까지 약 ${months}개월 소요!';
+      } else {
+        helperLine = '⚠️ 현재 금액으로는 저축이 어려워요. 일일 소비를 조정해볼까요?';
       }
     } else {
-      // 목표 미입력 시 가벼운 안내
       helperLine = '목표 금액을 입력하면 예상 소요 기간을 계산해드려요.';
     }
 
@@ -164,6 +161,7 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
           ),
 
           const SizedBox(height: 12),
+
           Padding(
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
             child: Center(
@@ -174,17 +172,14 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
                   fontFamily: 'Pretendard Variable',
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: over || monthlySaving <= 0
-                      ? AppColors.redText
-                      : AppColors.subText,
+                  color: over || monthlySaving <= 0 ? AppColors.redText : AppColors.subText,
                 ),
               ),
             ),
           ),
 
-
           const SizedBox(height: AppSpacing.sectionSpacing),
-          // 예산 초과 시 버튼 비활성화
+
           CustomButton(
             text: over ? '예산을 초과했어요' : '완료',
             onPressed: over ? () {} : widget.onComplete,

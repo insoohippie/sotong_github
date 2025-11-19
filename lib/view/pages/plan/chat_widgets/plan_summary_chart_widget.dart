@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 
 import '../../../../component/chart/animated_budget_bar_chart.dart';
-import '../../../../model/plan_info.dart';
+import '../../../../model/plan/plan_metrics.dart';
+import '../../../../model/plan/total_plan.dart';
 import '../../../../model/saving_calculation_result.dart';
 
 class PlanSummaryChartWidget extends StatefulWidget {
-  final PlanInfo planInfo;
+  final TotalPlan plan;
   final SavingCalculationResult? calculation;
   final VoidCallback? onEdit;
   final String userName;
 
   const PlanSummaryChartWidget({
     Key? key,
-    required this.planInfo,
+    required this.plan,
     required this.calculation,
     this.onEdit,
     required this.userName,
@@ -27,9 +28,11 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
   // ⬇️ 추가: 1초마다 다시 그리기 위한 타이머
   Timer? _ticker;
 
-  double get monthlyIncome => widget.planInfo.fixedIncomeSum!;
-  double get monthlyFixedCost => widget.planInfo.fixedConsumptionSum!;
-  double get dailySpendingLimit => widget.planInfo.dailyConsumptionSum!;
+  PlanMetrics get _metrics => widget.plan.result.totalMetrics;
+
+  double get monthlyIncome => _metrics.sumMonthlyIncome.toDouble();
+  double get monthlyFixedCost => _metrics.sumMonthlyConsume.toDouble();
+  double get dailySpendingLimit => _metrics.sumDailyConsume.toDouble();
   double get fixedRatio => (monthlyFixedCost / (monthlyIncome == 0 ? 1 : monthlyIncome)).clamp(0.0, 1.0);
   double get monthlyVariableCost => dailySpendingLimit * 30;
   double get variableRatio => (monthlyVariableCost / (monthlyIncome == 0 ? 1 : monthlyIncome)).clamp(0.0, 1.0);
@@ -89,7 +92,7 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AnimatedBudgetBarChart(
-            planInfo: widget.planInfo,
+            plan: widget.plan,
             calculation: widget.calculation,
             height: 35,
             showPercentages: true,
