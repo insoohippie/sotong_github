@@ -25,10 +25,12 @@ class PlanSummaryDonutChartWidget extends StatefulWidget {
   });
 
   @override
-  State<PlanSummaryDonutChartWidget> createState() => _PlanSummaryDonutChartWidgetState();
+  State<PlanSummaryDonutChartWidget> createState() =>
+      _PlanSummaryDonutChartWidgetState();
 }
 
-class _PlanSummaryDonutChartWidgetState extends State<PlanSummaryDonutChartWidget> {
+class _PlanSummaryDonutChartWidgetState
+    extends State<PlanSummaryDonutChartWidget> {
   Timer? _ticker;
 
   PlanMetrics get _metrics => widget.plan.result.totalMetrics;
@@ -91,7 +93,6 @@ class _PlanSummaryDonutChartWidgetState extends State<PlanSummaryDonutChartWidge
             centerSpace: 30,
             minRatio: 0.15,
           ),
-
           const SizedBox(height: 50),
 
           // 목표/카운트다운
@@ -99,13 +100,10 @@ class _PlanSummaryDonutChartWidgetState extends State<PlanSummaryDonutChartWidge
             child: Column(
               children: [
                 ParagraphText(
-                    text: '목표 달성 예정일: ${goalDate.year}년 ${goalDate.month}월 ${goalDate.day}일',
-                    // fontWeight: FontWeight.bold,
-                    color: AppColors.primary),
-                // Text(
-                //   '목표 달성 예정일: ${goalDate.year}년 ${goalDate.month}월 ${goalDate.day}일',
-                //   style: const TextStyle(fontSize: 15, color: Color(0xFF3B82F6)),
-                // ),
+                  text:
+                  '목표 달성 예정일: ${goalDate.year}년 ${goalDate.month}월 ${goalDate.day}일',
+                  color: AppColors.primary,
+                ),
                 const SizedBox(height: 2),
                 Text(
                   '목표까지 ${days}일 ${hours}시간 ${minutes}분 ${seconds}초 남았어요!',
@@ -126,16 +124,20 @@ class _PlanSummaryDonutChartWidgetState extends State<PlanSummaryDonutChartWidge
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF3B82F6),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                padding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
               child: const Text(
                 '수정하기',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600),
               ),
             ),
           ),
-
           const SizedBox(height: 24),
         ],
       ),
