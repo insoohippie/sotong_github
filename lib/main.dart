@@ -29,7 +29,7 @@ import 'view_model/setting/setting_view_model.dart';
 import 'view_model/setting/alarm_view_model.dart';
 import 'view_model/notification/notification_view_model.dart';
 import 'view_model/communication/communication_view_model.dart';
-import 'view_model/home/home_viewmodel.dart';
+import 'view_model/home/home_view_model.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

@@ -8,7 +8,7 @@ import '../../../../component/texts/header_text.dart';
 import '../../../../component/texts/paragraph_text.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart';
-import '../../../../view_model/home/home_viewmodel.dart';
+import '../../../../view_model/home/home_view_model.dart';
 
 /// 바텀시트를 띄우는 헬퍼 함수
 Future<void> showPlanNameEditSheet(BuildContext context) {
