@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-import 'package:sotong_local/component/theme/app_colors.dart';
-
 class CommunicationTestPage extends StatefulWidget {
   const CommunicationTestPage({super.key});
 
@@ -20,16 +18,19 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
 
   // 월 선택
   int selectedMonth = 10; // 10월부터 시작
+  int selectedYear = DateTime.now().year;
+  int _monthSlideDirection = 0;
 
   // 감정/금액 다이얼
   String selectedMode = '감정'; // '감정' 또는 '금액'
+  late final PageController _modePageController;
 
   // 하루 소비 한도 금액
   final int dailySpendingLimit = 10000; // 10,000원
 
   // 감정별 소비 분석용
   String selectedEmotionForAnalysis = '기쁨'; // 분석할 감정 선택
-  String selectedPeriod = '이번 달'; // 기간 선택
+  String selectedAnalysisPeriod = '주간';
 
   // 드롭다운 상태 관리
   bool isEmotionDropdownOpen = false;
@@ -44,6 +45,7 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
   void initState() {
     super.initState();
     _communicationPageController = PageController();
+    _modePageController = PageController(initialPage: 0);
 
     // 숫자 애니메이션 컨트롤러 초기화
     _amountAnimationController = AnimationController(
@@ -112,6 +114,7 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
   void dispose() {
     _communicationTimer?.cancel();
     _communicationPageController.dispose();
+    _modePageController.dispose();
     _amountAnimationController.dispose();
     super.dispose();
   }
@@ -128,6 +131,19 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
         );
       }
     });
+  }
+
+  void _changeMode(String mode) {
+    if (mode == selectedMode) return;
+    setState(() {
+      selectedMode = mode;
+    });
+    final targetIndex = mode == '감정' ? 0 : 1;
+    _modePageController.animateToPage(
+      targetIndex,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
   }
 
   // 금액 애니메이션 실행
@@ -170,9 +186,9 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 16),
-                    _buildCalendarAndLogsContainer(),
+                    _buildCalendarContainer(),
                     const SizedBox(height: 20),
-                    _buildMonthlyEmotionSummaryWidget(),
+                    _buildEmotionSpendingAnalysis(),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -238,7 +254,7 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
     );
   }
 
-  Widget _buildCalendarAndLogsContainer() {
+  Widget _buildCalendarContainer() {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -262,258 +278,6 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
 
           // 달력과 모드 다이얼 컨테이너
           _buildCalendarWithModeDials(),
-          const SizedBox(height: 16),
-
-          // 감정별 소비 분석 컨테이너
-          _buildEmotionSpendingAnalysis(),
-          const SizedBox(height: 16),
-
-          // 소통일지 모아보기 링크
-          GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('테스트 페이지에서는 이동할 수 없습니다'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.primary.withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.insights, color: AppColors.primary, size: 24),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '소통 일지 모아보기',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '감정과 소비 패턴을 한눈에 확인해보세요',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios,
-                    color: AppColors.primary,
-                    size: 16,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMonthlyEmotionSummaryWidget() {
-    // 테스트용 하드코딩된 데이터
-    final happyCount = 8;
-    final normalCount = 12;
-    final gloomyCount = 5;
-    final overallMessage = '긍정적인 한 달을 보내고 계시네요';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '이번 달 감정 요약',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          // 감정 카드들
-          Row(
-            children: [
-              // 행복한 날 카드
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE6FAE6),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('😊', style: TextStyle(fontSize: 32)),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '행복한 날',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$happyCount일',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF4CAF50),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // 평범한 날 카드
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F8F8),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('😐', style: TextStyle(fontSize: 32)),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '평범한 날',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$normalCount일',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // 우울한 날 카드
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFE6E6),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 5,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('😢', style: TextStyle(fontSize: 32)),
-                      const SizedBox(height: 8),
-                      const Text(
-                        '우울한 날',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$gloomyCount일',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFFE57373),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // 결론 메시지
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withOpacity(0.3), width: 1),
-            ),
-            child: Text(
-              overallMessage,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-          ),
         ],
       ),
     );
@@ -535,181 +299,163 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            // 헤더 (제목 + 기간 선택)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '감정별 소비 분석',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '감정별 소비 분석',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    _buildAnalysisPeriodToggle(),
+                  ],
                 ),
-                // 기간 선택 버튼
-                GestureDetector(
-                  onTap: () {
-                    _showPeriodSelector();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          selectedPeriod,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.grey[700],
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 150,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            isEmotionDropdownOpen = !isEmotionDropdownOpen;
+                          });
+                        },
+                        child: Container(
+                          height: 60,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: const Color(0xFFE0E0E0),
+                              width: 1.2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 6,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                _getEmotionEmojiForAnalysis(
+                                  selectedEmotionForAnalysis,
+                                ),
+                                style: const TextStyle(fontSize: 18),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  selectedEmotionForAnalysis,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    color: Colors.black,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Icon(
+                                isEmotionDropdownOpen
+                                    ? Icons.keyboard_arrow_up
+                                    : Icons.keyboard_arrow_down,
+                                size: 20,
+                                color: Colors.black.withOpacity(0.7),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.keyboard_arrow_down,
-                          size: 16,
-                          color: Colors.grey[600],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: AnimatedBuilder(
+                        animation: _amountAnimation,
+                        builder: (context, child) {
+                          return Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  _formatAmount(_amountAnimation.value.toInt()),
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  '원',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                SizedBox(height: isEmotionDropdownOpen ? 220 : 12),
+              ],
+            ),
+            if (isEmotionDropdownOpen)
+              Positioned(
+                top: 92,
+                left: 0,
+                child: Material(
+                  color: Colors.transparent,
+                  child: Container(
+                    width: 165,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: const Color(0xFFE0E0E0),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 14,
+                          offset: const Offset(0, 10),
                         ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildNewDropdownOption('기쁨', isFirst: true),
+                        _buildNewDropdownOption('혼란'),
+                        _buildNewDropdownOption('슬픔'),
+                        _buildNewDropdownOption('피곤'),
+                        _buildNewDropdownOption('화남'),
+                        _buildNewDropdownOption('플렉스', isLast: true),
                       ],
                     ),
                   ),
                 ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // 감정 선택 및 금액 표시 (1개 감정 + 금액)
-            Row(
-              children: [
-                // 감정 선택 버튼 (드롭다운)
-                SizedBox(
-                  width: 120,
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        isEmotionDropdownOpen = !isEmotionDropdownOpen;
-                      });
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey[300]!, width: 1),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            _getEmotionEmojiForAnalysis(
-                              selectedEmotionForAnalysis,
-                            ),
-                            style: const TextStyle(fontSize: 18),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              selectedEmotionForAnalysis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                          Icon(
-                            isEmotionDropdownOpen
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
-                            size: 18,
-                            color: Colors.grey[600],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(width: 16),
-
-                // 금액 표시 - 중앙 정렬, 천 단위 구분자, 애니메이션
-                Expanded(
-                  child: Center(
-                    child: AnimatedBuilder(
-                      animation: _amountAnimation,
-                      builder: (context, child) {
-                        return Text(
-                          '${_formatAmount(_amountAnimation.value.toInt())}원',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            // 드롭다운 감정 리스트 - 새로운 방식
-            if (isEmotionDropdownOpen)
-              Container(
-                width: 120,
-                margin: const EdgeInsets.only(top: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey[300]!, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: [
-                    _buildNewDropdownOption('기쁨', '😊'),
-                    _buildNewDropdownOption('혼란', '😵‍💫'),
-                    _buildNewDropdownOption('슬픔', '😢'),
-                    _buildNewDropdownOption('피곤', '😴'),
-                    _buildNewDropdownOption('화남', '😠'),
-                    _buildNewDropdownOption('플렉스', '😎'),
-                  ],
-                ),
               ),
-
-            // 평균 소비 텍스트
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                '${selectedEmotionForAnalysis}이 선택된 날엔 평균적으로 ${_formatAmount(_getEmotionSpendingAmount(selectedEmotionForAnalysis))}원만큼 소비해요.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.bold,
-                  height: 1.4,
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -717,41 +463,164 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
   }
 
   // 새로운 드롭다운 옵션 위젯
-  Widget _buildNewDropdownOption(String emotion, String emoji) {
+  Widget _buildNewDropdownOption(
+    String emotion, {
+    bool isFirst = false,
+    bool isLast = false,
+  }) {
     final isSelected = selectedEmotionForAnalysis == emotion;
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         setState(() {
           selectedEmotionForAnalysis = emotion;
           isEmotionDropdownOpen = false;
         });
-        // 새 감정의 금액으로 애니메이션 실행
-        int newAmount = _getEmotionSpendingAmount(emotion);
+        final newAmount = _getEmotionSpendingAmount(emotion);
         _animateAmount(newAmount);
       },
+      borderRadius: BorderRadius.only(
+        topLeft: Radius.circular(isFirst ? 22 : 0),
+        topRight: Radius.circular(isFirst ? 22 : 0),
+        bottomLeft: Radius.circular(isLast ? 22 : 0),
+        bottomRight: Radius.circular(isLast ? 22 : 0),
+      ),
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue[50] : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(isFirst ? 22 : 0),
+            topRight: Radius.circular(isFirst ? 22 : 0),
+            bottomLeft: Radius.circular(isLast ? 22 : 0),
+            bottomRight: Radius.circular(isLast ? 22 : 0),
+          ),
+          color: isSelected ? const Color(0xFFE9F2FF) : Colors.white,
+          border: Border(
+            bottom: BorderSide(
+              color: isLast ? Colors.transparent : const Color(0xFFE5E5E8),
+              width: 1,
+            ),
+          ),
         ),
         child: Row(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 16)),
-            const SizedBox(width: 8),
             Text(
               emotion,
               style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: isSelected ? Colors.blue[700] : Colors.black87,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? const Color(0xFF0D6EFF) : Colors.black,
               ),
+            ),
+            const Spacer(),
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF0D6EFF)
+                      : const Color(0xFFD3D3D6),
+                  width: 2,
+                ),
+              ),
+              child: isSelected
+                  ? Container(
+                      margin: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Color(0xFF0D6EFF),
+                      ),
+                    )
+                  : null,
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildAnalysisPeriodToggle() {
+    const periods = ['주간', '월간'];
+    final selectedIndex = periods.indexOf(selectedAnalysisPeriod);
+
+    Alignment _alignmentForIndex(int index) {
+      switch (index) {
+        case 0:
+          return Alignment.centerLeft;
+        case 1:
+          return Alignment.centerRight;
+        default:
+          return Alignment.centerLeft;
+      }
+    }
+
+    return Container(
+      width: 100,
+      height: 28,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[300]!, width: 1),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            alignment: _alignmentForIndex(selectedIndex),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+              child: Container(
+                width: 44,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Row(
+            children: List.generate(periods.length, (index) {
+              final period = periods[index];
+              final isSelected = selectedAnalysisPeriod == period;
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _changeAnalysisPeriod(period),
+                  child: Center(
+                    child: Text(
+                      period,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? Colors.black87 : Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _changeAnalysisPeriod(String period) {
+    if (selectedAnalysisPeriod == period) return;
+    setState(() {
+      selectedAnalysisPeriod = period;
+    });
+    _animateAmount(_getEmotionSpendingAmount(selectedEmotionForAnalysis));
   }
 
   // 천 단위 구분자 포맷 함수
@@ -764,17 +633,54 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
 
   // 날짜 상세 모달 표시
   void _showDateDetailModal(int day, bool hasRecord) {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        final mediaQuery = MediaQuery.of(context);
+        final maxHeight = mediaQuery.size.height * 0.8;
+
+        final content = hasRecord
+            ? _buildRecordedDateContent(day)
+            : _buildEmptyDateContent(day);
+
+        return FractionallySizedBox(
+          heightFactor: 0.8,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[300],
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      content,
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
-          contentPadding: const EdgeInsets.all(20),
-          content: hasRecord
-              ? _buildRecordedDateContent(day)
-              : _buildEmptyDateContent(day),
         );
       },
     );
@@ -902,34 +808,41 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
   Widget _buildEmptyDateContent(int day) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           '$selectedMonth월 ${day}일',
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         const Text(
           '소비를 기록해주세요',
           style: TextStyle(fontSize: 16, color: Colors.grey),
         ),
-        const SizedBox(height: 20),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.of(context).pop();
-            // 소비 입력 페이지로 이동 (추후 구현)
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(const SnackBar(content: Text('소비 입력 페이지로 이동합니다')));
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // 소비 입력 페이지로 이동 (추후 구현)
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text('소비 입력 페이지로 이동합니다')));
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text(
+              '소비입력하러 가기',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
             ),
           ),
-          child: const Text('소비입력하러 가기'),
         ),
       ],
     );
@@ -970,46 +883,6 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
       default:
         return '알 수 없음';
     }
-  }
-
-  // 기간 선택 다이얼로그
-  void _showPeriodSelector() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            '기간 선택',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildPeriodOption('이번 주'),
-              _buildPeriodOption('이번 달'),
-              _buildPeriodOption('지난 달'),
-              _buildPeriodOption('최근 3개월'),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  // 기간 옵션 위젯
-  Widget _buildPeriodOption(String period) {
-    return ListTile(
-      title: Text(period),
-      onTap: () {
-        setState(() {
-          selectedPeriod = period;
-        });
-        Navigator.of(context).pop();
-      },
-    );
   }
 
   // 감정별 이모지 반환
@@ -1065,97 +938,95 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
         children: [
           // 상단: 모드 다이얼 (On/Off 스위치 스타일)
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                Text(
+                  '${selectedYear}년',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
                 Container(
+                  width: 100,
+                  height: 28,
                   decoration: BoxDecoration(
                     color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.grey[300]!, width: 1),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      // 감정 버튼
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            selectedMode = '감정';
-                          });
-                        },
-                        child: Container(
+                      AnimatedAlign(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOutCubic,
+                        alignment: selectedMode == '감정'
+                            ? Alignment.centerLeft
+                            : Alignment.centerRight,
+                        child: Padding(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                            horizontal: 3,
+                            vertical: 3,
                           ),
-                          decoration: BoxDecoration(
-                            color: selectedMode == '감정'
-                                ? Colors.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: selectedMode == '감정'
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Text(
-                            '감정',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: selectedMode == '감정'
-                                  ? Colors.black87
-                                  : Colors.grey[600],
+                          child: Container(
+                            width: 44,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.1),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-
-                      // 금액 버튼
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            selectedMode = '금액';
-                          });
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: selectedMode == '금액'
-                                ? Colors.white
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: selectedMode == '금액'
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.1),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Text(
-                            '금액',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: selectedMode == '금액'
-                                  ? Colors.black87
-                                  : Colors.grey[600],
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _changeMode('감정'),
+                              behavior: HitTestBehavior.opaque,
+                              child: Center(
+                                child: Text(
+                                  '감정',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: selectedMode == '감정'
+                                        ? Colors.black87
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
-                        ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _changeMode('금액'),
+                              behavior: HitTestBehavior.opaque,
+                              child: Center(
+                                child: Text(
+                                  '금액',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: selectedMode == '금액'
+                                        ? Colors.black87
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -1174,112 +1045,190 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
   // 달력 위젯
   Widget _buildCalendar() {
     final now = DateTime.now();
-    final firstDayOfMonth = DateTime(now.year, selectedMonth, 1);
-    final lastDayOfMonth = DateTime(now.year, selectedMonth + 1, 0);
+    final firstDayOfMonth = DateTime(selectedYear, selectedMonth, 1);
+    final lastDayOfMonth = DateTime(selectedYear, selectedMonth + 1, 0);
     final firstWeekday = firstDayOfMonth.weekday;
     final daysInMonth = lastDayOfMonth.day;
 
     return Container(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // 요일 헤더
-          Row(
-            children: ['일', '월', '화', '수', '목', '금', '토']
-                .map(
-                  (day) => Expanded(
-                    child: Text(
-                      day,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: day == '일' ? Colors.red : Colors.black87,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 500),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        transitionBuilder: (child, animation) {
+          final key = child.key;
+          final isIncoming = key is ValueKey<int> && key.value == selectedMonth;
+
+          final incomingOffset = _monthSlideDirection == 1
+              ? const Offset(0, 1)
+              : _monthSlideDirection == -1
+              ? const Offset(0, -1)
+              : Offset.zero;
+          final outgoingOffset = _monthSlideDirection == 1
+              ? const Offset(0, -1)
+              : _monthSlideDirection == -1
+              ? const Offset(0, 1)
+              : Offset.zero;
+
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOutCubic,
+          );
+
+          final Animation<Offset> slideAnimation = isIncoming
+              ? Tween<Offset>(
+                  begin: incomingOffset,
+                  end: Offset.zero,
+                ).animate(curved)
+              : Tween<Offset>(
+                  begin: Offset.zero,
+                  end: outgoingOffset,
+                ).animate(ReverseAnimation(curved));
+
+          return ClipRect(
+            child: SlideTransition(position: slideAnimation, child: child),
+          );
+        },
+        child: Column(
+          key: ValueKey<int>(selectedMonth),
+          children: [
+            Row(
+              children: ['일', '월', '화', '수', '목', '금', '토']
+                  .map(
+                    (day) => Expanded(
+                      child: Text(
+                        day,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: day == '일' ? Colors.red : Colors.black87,
+                        ),
                       ),
                     ),
-                  ),
-                )
-                .toList(),
-          ),
-
-          const SizedBox(height: 8),
-
-          // 달력 그리드
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
-              childAspectRatio: 1,
+                  )
+                  .toList(),
             ),
-            itemCount: 42, // 6주 * 7일
-            itemBuilder: (context, index) {
-              final day = index - firstWeekday + 1;
-              final isCurrentMonth = day > 0 && day <= daysInMonth;
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cellSize = constraints.maxWidth / 7;
+                final estimatedHeight = cellSize * 6 + 16;
 
-              if (!isCurrentMonth) {
-                return const SizedBox();
-              }
-
-              return GestureDetector(
-                onTap: () {
-                  // 날짜 클릭 시 팝업 모달 표시
-                  final hasEmotion = _getEmotionEmoji(day).isNotEmpty;
-                  final hasAmount = _getSpendingAmount(day) > 0;
-                  final hasRecord = hasEmotion || hasAmount;
-                  _showDateDetailModal(day, hasRecord);
-                },
-                child: Container(
-                  margin: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    color: Colors.transparent, // 오늘 날짜 하이라이트 제거
-                    borderRadius: BorderRadius.circular(8),
+                return SizedBox(
+                  height: estimatedHeight,
+                  child: PageView(
+                    controller: _modePageController,
+                    physics: const ClampingScrollPhysics(),
+                    onPageChanged: (index) {
+                      final mode = index == 0 ? '감정' : '금액';
+                      if (mode != selectedMode) {
+                        setState(() {
+                          selectedMode = mode;
+                        });
+                      }
+                    },
+                    children: [
+                      _buildCalendarGrid(
+                        firstWeekday: firstWeekday,
+                        daysInMonth: daysInMonth,
+                        showEmotion: true,
+                      ),
+                      _buildCalendarGrid(
+                        firstWeekday: firstWeekday,
+                        daysInMonth: daysInMonth,
+                        showEmotion: false,
+                      ),
+                    ],
                   ),
-                  child: Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$day',
-                          style: TextStyle(
-                            fontSize: _getEmotionEmoji(day).isEmpty ? 16 : 12,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.black87,
-                          ),
-                        ),
-                        // 모드에 따라 다른 내용 표시 (10월 27일까지)
-                        if (selectedMonth == 10 &&
-                            day <= 27 &&
-                            _getEmotionEmoji(day).isNotEmpty)
-                          selectedMode == '감정'
-                              ? Text(
-                                  _getEmotionEmoji(day),
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.black87,
-                                  ),
-                                )
-                              : Text(
-                                  '${_getSpendingAmount(day)}원',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color:
-                                        _getSpendingAmount(day) >
-                                            dailySpendingLimit
-                                        ? Colors.red
-                                        : Colors.black87,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                      ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCalendarGrid({
+    required int firstWeekday,
+    required int daysInMonth,
+    required bool showEmotion,
+  }) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 7,
+        childAspectRatio: 1,
+      ),
+      itemCount: 42,
+      itemBuilder: (context, index) {
+        final day = index - firstWeekday + 1;
+        final isCurrentMonth = day > 0 && day <= daysInMonth;
+
+        if (!isCurrentMonth) {
+          return const SizedBox();
+        }
+
+        final selectedDate = DateTime(selectedYear, selectedMonth, day);
+        final bool isRecordedMonth =
+            selectedYear == DateTime.now().year && selectedMonth == 10;
+        final hasEmotion = isRecordedMonth && _getEmotionEmoji(day).isNotEmpty;
+        final hasAmount = isRecordedMonth && _getSpendingAmount(day) > 0;
+        final hasRecord = hasEmotion || hasAmount;
+
+        return GestureDetector(
+          onTap: () {
+            _showDateDetailModal(day, hasRecord);
+          },
+          child: Container(
+            margin: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isRecordedMonth && showEmotion && hasEmotion)
+                    const SizedBox(height: 2),
+                  Text(
+                    '$day',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
                     ),
                   ),
-                ),
-              );
-            },
+                  if (isRecordedMonth && showEmotion && hasEmotion)
+                    Text(
+                      _getEmotionEmoji(day),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                      ),
+                    )
+                  else if (isRecordedMonth && !showEmotion && hasAmount)
+                    Text(
+                      '${_getSpendingAmount(day)}원',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: _getSpendingAmount(day) > dailySpendingLimit
+                            ? Colors.red
+                            : Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1393,9 +1342,11 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
           GestureDetector(
             onTap: () {
               setState(() {
+                _monthSlideDirection = -1;
                 selectedMonth--;
                 if (selectedMonth < 1) {
-                  selectedMonth = 12; // 12월로 순환
+                  selectedMonth = 12;
+                  selectedYear--;
                 }
               });
             },
@@ -1427,9 +1378,11 @@ class _CommunicationTestPageState extends State<CommunicationTestPage>
           GestureDetector(
             onTap: () {
               setState(() {
+                _monthSlideDirection = 1;
                 selectedMonth++;
                 if (selectedMonth > 12) {
                   selectedMonth = 1; // 1월로 순환
+                  selectedYear++;
                 }
               });
             },
