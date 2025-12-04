@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/component/texts/header_text.dart';
+
 import 'package:sotong_local/component/texts/paragraph_text.dart';
 import '../../../component/appbars/custom_app_bar_home.dart';
 import '../../../component/buttons/small_rounded_button.dart';
+import '../../../component/chart/half_donut_chart.dart';
 import '../../../component/containers/rounded_info_container.dart';
-import '../../../component/progressionBars/saving_progress_bar.dart';
-import '../../../component/texts/multi_color_text.dart';
-import '../../../component/texts/subtext.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
-import '../../../component/theme/app_text_styles.dart';
+
 import '../../../view_model/communication/communication_view_model.dart';
-import '../../../view_model/home/home_viewmodel.dart';
-import '../../../view_model/services/saving_calculator.dart';
+import '../../../view_model/home/home_view_model.dart';
 import 'home_widgets/plan_name_edit_widget.dart';
 
 class HomePage extends StatefulWidget {
@@ -29,7 +26,6 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     Future.microtask(() {
       context.read<HomeViewModel>().load();
-      context.read<CommunicationViewModel>().loadMonth(DateTime.now());
     });
   }
 
@@ -40,25 +36,105 @@ class _HomePageState extends State<HomePage> {
   }
 
   String _getSpendingForDate(DateTime date) {
-    final comm = context.read<CommunicationViewModel>();
-    final amount = comm.spendingFor(date);
-    return '${amount.toStringAsFixed(0)}원';
+    final home = context.read<HomeViewModel>();
+    return '${home.todaySpending}원';
   }
 
   void _changeDate(int days) {
     setState(() {
       _selectedDate = _selectedDate.add(Duration(days: days));
     });
+    context.read<HomeViewModel>().loadDailySpending(_selectedDate);
+  }
+
+  /// D-Day 표시
+  String _buildDDayText(HomeViewModel vm) {
+    final remain = vm.liveRemaining;
+    if (remain == null) return '목표일 없음';
+    if (remain.isNegative) return 'D-Day 달성';
+    return 'D-${remain.inDays}';
+  }
+
+  /// D-Day 카운트다운 상세 보기
+  void _showCountdownDialog(HomeViewModel vm) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          contentPadding:
+          const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ValueListenableBuilder<int>(
+                valueListenable: vm.secondTick,
+                builder: (_, __, ___) {
+                  final remain = vm.liveRemaining ?? Duration.zero;
+                  final clamped =
+                  remain.isNegative ? Duration.zero : remain;
+
+                  final days = clamped.inDays;
+                  final hours = clamped.inHours % 24;
+                  final minutes = clamped.inMinutes % 60;
+                  final seconds = clamped.inSeconds % 60;
+
+                  String twoDigits(int v) => v.toString().padLeft(2, '0');
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 18,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.black12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      '$days일 ${twoDigits(hours)}:'
+                          '${twoDigits(minutes)}:${twoDigits(seconds)}',
+                      style: const TextStyle(
+                        fontFamily: 'RobotoMono',
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
+              Text(
+                '1초마다 ${vm.perSecondSaving}원이 증가해요',
+                style:
+                const TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<HomeViewModel>();
 
-    final comm = context.watch<CommunicationViewModel>();
-    final entry = comm.firstEntryFor(_selectedDate);
-
-    // 로딩/에러 처리
     if (vm.isLoading) {
       return const Scaffold(
         body: SafeArea(child: Center(child: CircularProgressIndicator())),
@@ -70,26 +146,40 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    final userName = vm.name; // ✔ 사용자명
-    final planName = vm.planTitle; // ✔ 플랜명
-    final savingPerSec = vm.perSecondSaving; // ✔ 1초당 저축
-    final currentRate = vm.progressRatio; // ✔ 진행율(저축비중)
-    final baseRate = 0.50; // 수정 필요
-    final fixedSpending = vm.dailyLimitText; // ✔ 하루 소비한도
+    final userName = vm.name;
+    final planName = vm.planTitle;
+    final currentRate = vm.progressRatio;
+    final fixedSpending = vm.dailyLimitText;
 
-    // (오늘 지출 동작은 기존 CommunicationViewModel 로직 유지)
     final displayDate = _formatDate(_selectedDate);
     final todaySpending = _getSpendingForDate(_selectedDate);
-    final bool hasSpendingRecord = todaySpending != '0원';
+    final actualSpent = vm.todaySpending.toDouble();
+    final dailyLimit = double.tryParse(
+      fixedSpending.replaceAll(RegExp(r'[^0-9]'), ''),
+    ) ?? 0.0;
+
+    final hasRecord = actualSpent > 0;
+    final isOverLimit = hasRecord && dailyLimit > 0 && actualSpent > dailyLimit;
+
+    final containerBackgroundColor = !hasRecord
+        ? Colors.grey[200]!
+        : isOverLimit
+        ? const Color(0xFFFFEFEF)
+        : const Color(0xFFEFF5FF);
+
+    final spentTextColor = !hasRecord
+        ? AppColors.text
+        : isOverLimit
+        ? const Color(0xFFFF5F5F)
+        : const Color(0xFF0062FF);
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            // 상단 앱바 (예시)
             CustomAppBarHome(
-              text: '${vm.name} 님',
+              text: '$userName 님',
               unreadCount: 3,
               onNotifications: () =>
                   Navigator.pushNamed(context, '/notification'),
@@ -102,100 +192,111 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.screenPadding,
-                  ),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      /// 🔹 플랜 정보 + 목표 진행률
                       RoundedInfoContainer(
+                        backgroundColor: const Color(0xFFF5F5F5),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.planTagBackground,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: ParagraphText(
-                                    text: '$planName',
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.planTagBackground,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: ParagraphText(
+                                        text: planName,
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    InkWell(
+                                      onTap: () async =>
+                                      await showPlanNameEditSheet(context),
+                                      child: const Icon(
+                                        Icons.edit,
+                                        size: 20,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 8),
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(20),
-                                    onTap: () async {
-                                      await showPlanNameEditSheet(context);
-                                    },
-                                    child: const Icon(
-                                      Icons.edit,
-                                      size: 20,
+                                InkWell(
+                                  onTap: () => _showCountdownDialog(vm),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    child: ParagraphText(
+                                      text: _buildDDayText(vm),
                                       color: AppColors.primary,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            SizedBox(height: AppSpacing.fieldSpacing),
-                            // 목표까지 남은 시간 (1초마다 갱신)
-                            ParagraphText(
-                              text: '목표 금액까지',
-                              fontWeight: FontWeight.bold,
-                            ),
-                            ValueListenableBuilder<int>(
-                              valueListenable: vm.secondTick,
-                              builder: (_, __, ___) => ParagraphText(
-                                text: vm.liveCountdownText,
-                                color: AppColors.primary,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            SizedBox(height: AppSpacing.sectionSpacing2),
-                            Center(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  ValueListenableBuilder<int>(
-                                    valueListenable: vm.secondTick,
-                                    builder: (_, __, ___) => HeaderText(
-                                      text: vm
-                                          .liveSavedAmountText, // 예: "345,132원"
-                                    ),
+                            const SizedBox(height: 12),
+
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const ParagraphText(
+                                  text: '모인 금액',
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                const SizedBox(height: 6),
+                                ValueListenableBuilder<int>(
+                                  valueListenable: vm.secondTick,
+                                  builder: (_, __, ___) {
+                                    return Text(
+                                      vm.liveSavedAmountText,
+                                      style: const TextStyle(
+                                        fontSize: 32,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 24),
+                                Center(
+                                  child: HalfDonutChart(
+                                    outerProgress: 100,
+                                    innerProgress:
+                                    (currentRate * 100).round(),
+                                    state: true,
+                                    width: 300,
+                                    height: 180,
+                                    showLegend: true,
                                   ),
-                                  SubText(
-                                    text: '1초씩 $savingPerSec원이 증가해요',
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(height: AppSpacing.sectionSpacing2),
-                            BubbleSavingProgressBar(
-                              currentRate: currentRate,
-                              baseRate: baseRate,
+                                ),
+                              ],
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.fieldSpacing),
+
+                      const SizedBox(height: 24),
+
+                      /// 🔹 오늘 지출 UI
                       RoundedInfoContainer(
-                        backgroundColor: AppColors.greyBackground,
+                        backgroundColor: containerBackgroundColor,
                         padding: 20,
                         child: Column(
-                          crossAxisAlignment: hasSpendingRecord
-                              ? CrossAxisAlignment.start
-                              : CrossAxisAlignment.center,
+                          crossAxisAlignment:
+                          hasRecord ? CrossAxisAlignment.start : CrossAxisAlignment.center,
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -207,142 +308,81 @@ class _HomePageState extends State<HomePage> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                     const SizedBox(width: 8),
-                                    GestureDetector(
-                                      onTap: () {
-                                        Navigator.of(
-                                          context,
-                                          rootNavigator: true,
-                                        ).pushNamed('/add_income_edit');
-                                      },
+                                    InkWell(
+                                      onTap: () =>
+                                          Navigator.of(context, rootNavigator: true)
+                                              .pushNamed('/add_income_edit'),
                                       child: Container(
-                                        height: 32,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
+                                        padding: const EdgeInsets.all(6),
                                         decoration: BoxDecoration(
-                                          color: Colors.green,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
+                                          color: Colors.grey[100],
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(
+                                            color: Colors.grey[300]!,
+                                            width: 1,
                                           ),
                                         ),
-                                        child: const Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.add,
-                                              color: Colors.white,
-                                              size: 16,
-                                            ),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              '저축',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                        child: const Icon(Icons.add,
+                                            size: 18,
+                                            color: AppColors.primary),
                                       ),
                                     ),
                                   ],
                                 ),
                                 Row(
                                   children: [
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(
-                                          100,
-                                        ),
-                                        onTap: () => _changeDate(-1),
-                                        child: const Padding(
-                                          padding: EdgeInsets.all(8.0),
-                                          child: Icon(
-                                            Icons.chevron_left,
-                                            size: 24,
-                                          ),
-                                        ),
-                                      ),
+                                    InkWell(
+                                      onTap: () => _changeDate(-1),
+                                      child: const Icon(Icons.chevron_left),
                                     ),
                                     const SizedBox(width: 4),
-                                    Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(
-                                          100,
-                                        ),
-                                        onTap: () => _changeDate(1),
-                                        child: const Padding(
-                                          padding: EdgeInsets.all(8.0),
-                                          child: Icon(
-                                            Icons.chevron_right,
-                                            size: 24,
-                                          ),
-                                        ),
-                                      ),
+                                    InkWell(
+                                      onTap: () => _changeDate(1),
+                                      child: const Icon(Icons.chevron_right),
                                     ),
                                   ],
                                 ),
                               ],
                             ),
-                            SizedBox(height: AppSpacing.fieldSpacing),
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (!hasSpendingRecord) ...[
-                                  SmallRoundedButton(
-                                    text: "소비 기록하러 가기",
-                                    onPressed: () {
-                                      Navigator.of(
-                                        context,
-                                        rootNavigator: true,
-                                      ).pushNamed('/record_spending');
-                                    },
-                                  ),
-                                  // SubText(
-                                  //   text: "아직 소비를 기록하지 않았어요",
-                                  //   fontWeight: FontWeight.bold,
-                                  // ),
-                                ] else ...[
-                                  Material(
-                                    color: Colors.transparent,
-                                    child: InkWell(
-                                      onTap: () {
-                                        Navigator.of(
-                                          context,
-                                          rootNavigator: true,
-                                        ).pushNamed('/today_spending');
-                                      },
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 8.0,
-                                        ),
-                                        child: MultiColorText(
-                                          baseStyle: AppTextStyles.paragraph,
-                                          parts: [
-                                            TextPart(
-                                              '$todaySpending ',
-                                              AppColors.primary,
-                                              bold: true,
-                                            ),
-                                            TextPart(
-                                              '/ $fixedSpending',
-                                              AppColors.text,
-                                              bold: true,
-                                            ),
-                                          ],
-                                        ),
+                            const SizedBox(height: 12),
+
+                            if (!hasRecord)
+                              SmallRoundedButton(
+                                text: "소비 기록하러 가기",
+                                onPressed: () {
+                                  Navigator.of(context, rootNavigator: true)
+                                      .pushNamed('/record_spending');
+                                },
+                              )
+                            else
+                              InkWell(
+                                onTap: () {
+                                  Navigator.of(context, rootNavigator: true)
+                                      .pushNamed('/today_spending');
+                                },
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      todaySpending,
+                                      style: TextStyle(
+                                        color: spentTextColor,
+                                        fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                                    const Text(' / ',
+                                        style: TextStyle(
+                                            color: AppColors.text,
+                                            fontWeight: FontWeight.bold)),
+                                    Text(
+                                      fixedSpending,
+                                      style: const TextStyle(
+                                        color: AppColors.text,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                           ],
                         ),
                       ),

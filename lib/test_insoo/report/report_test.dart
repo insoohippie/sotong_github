@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
@@ -22,7 +24,14 @@ class _ReportTestPageState extends State<ReportTestPage>
   late List<Map<String, dynamic>> insights;
 
   // 선택된 월
-  int selectedMonth = 10; // 기본값: 10월
+  int selectedMonth = 10; // 10월부터 시작
+  int selectedYear = DateTime.now().year;
+  String? _selectedChartCategory;
+  bool _isCollapsing = false;
+  bool _showSelectionLayout = false;
+  bool _showPopup = false;
+  Timer? _selectionTimer;
+  Timer? _popupTimer;
 
   // 선택된 카테고리
   String selectedCategory = '저축'; // 기본값: 저축
@@ -135,6 +144,8 @@ class _ReportTestPageState extends State<ReportTestPage>
 
   @override
   void dispose() {
+    _selectionTimer?.cancel();
+    _popupTimer?.cancel();
     _timer?.cancel();
     _pageController.dispose();
     _amountAnimationController.dispose();
@@ -274,6 +285,25 @@ class _ReportTestPageState extends State<ReportTestPage>
 
   Widget _buildCategoryBudgetChartContainer() {
     final currentData = categoryBudgetData[budgetPeriod] ?? [];
+    final chartData = [...currentData];
+    if (currentData.isNotEmpty) {
+      final totalBudget = currentData
+          .map((item) => item['budget'] as int)
+          .fold<int>(0, (sum, value) => sum + value);
+      final totalSpent = currentData
+          .map((item) => item['spent'] as int)
+          .fold<int>(0, (sum, value) => sum + value);
+      chartData.add({
+        'category': '총예산',
+        'budget': totalBudget,
+        'spent': totalSpent,
+        'isTotal': true,
+      });
+    }
+
+    final displayData = _reorderChartData(chartData);
+
+    final maxY = _getMaxY(displayData);
 
     return Container(
       width: double.infinity,
@@ -292,156 +322,157 @@ class _ReportTestPageState extends State<ReportTestPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 헤더: 제목 + 토글
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                '카테고리별 남은 예산',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              // 토글 버튼 [일간 | 주간 | 월간]
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0F0F0),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: ['일간', '주간', '월간'].map((period) {
-                    final isSelected = budgetPeriod == period;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          budgetPeriod = period;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          period,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: isSelected ? Colors.white : Colors.grey[600],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: _buildPeriodToggle(),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
           // 세로 막대 차트 with 라벨
           SizedBox(
             height: 320,
-            child: Stack(
-              children: [
-                // 막대 차트
-                Padding(
-                  padding: const EdgeInsets.only(top: 20),
-                  child: BarChart(
-                    BarChartData(
-                      alignment: BarChartAlignment.spaceAround,
-                      maxY: _getMaxY(currentData),
-                      minY: 0,
-                      barTouchData: BarTouchData(
-                        enabled: true,
-                        touchTooltipData: BarTouchTooltipData(
-                          getTooltipColor: (group) =>
-                              Colors.black.withOpacity(0.8),
-                          tooltipPadding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          tooltipMargin: 8,
-                          tooltipRoundedRadius: 6,
-                          direction: TooltipDirection.bottom,
-                          getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                            if (groupIndex >= currentData.length) return null;
+            child: Padding(
+              padding: const EdgeInsets.only(top: 20, left: 16, right: 16),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  Map<String, dynamic>? popupData;
+                  if (_showPopup && _selectedChartCategory != null) {
+                    final match = displayData.firstWhere(
+                      (item) => item['category'] == _selectedChartCategory,
+                      orElse: () => <String, dynamic>{},
+                    );
+                    if (match.isNotEmpty) {
+                      popupData = match;
+                    }
+                  }
 
-                            final item = currentData[groupIndex];
-                            final budget = item['budget'] as int;
-                            final spent = item['spent'] as int;
-                            final remaining = budget - spent;
-
-                            // 간단한 메시지
-                            final message = remaining >= 0
-                                ? '${_formatAmount(remaining)}원 미달!'
-                                : '${_formatAmount(remaining.abs())}원 초과!';
-
-                            return BarTooltipItem(
-                              message,
-                              const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 12,
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: BarChart(
+                          BarChartData(
+                            alignment: BarChartAlignment.spaceBetween,
+                            maxY: maxY,
+                            minY: 0,
+                            barTouchData: BarTouchData(
+                              enabled: true,
+                              touchTooltipData: BarTouchTooltipData(
+                                tooltipPadding: EdgeInsets.zero,
+                                tooltipMargin: 0,
+                                tooltipBorder: BorderSide.none,
+                                getTooltipColor: (_) => Colors.transparent,
+                                getTooltipItem: (a, b, c, d) => null,
                               ),
-                            );
-                          },
+                              touchCallback: (event, response) {
+                                if (event is! FlTapUpEvent) return;
+                                if (response == null ||
+                                    response.spot == null) {
+                                  _resetSelectionState();
+                                  return;
+                                }
+                                final index = response.spot!.touchedBarGroupIndex;
+                                if (index < 0 || index >= displayData.length) {
+                                  _resetSelectionState();
+                                  return;
+                                }
+                                final category =
+                                    displayData[index]['category'] as String?;
+                                if (category == null) {
+                                  _resetSelectionState();
+                                  return;
+                                }
+                                _startSelectionTransition(category);
+                              },
+                            ),
+                            titlesData: FlTitlesData(
+                              show: true,
+                              bottomTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  reservedSize: 36,
+                                  getTitlesWidget: (value, meta) {
+                                    final idx = value.toInt();
+                                    if (idx >= 0 && idx < displayData.length) {
+                                      final category = displayData[idx]
+                                          ['category'] as String?;
+                                      final bool isSelected = _showSelectionLayout &&
+                                          category != null &&
+                                          category == _selectedChartCategory;
+                                      return Padding(
+                                        padding: const EdgeInsets.only(top: 8),
+                                        child: Text(
+                                          category ?? '',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: isSelected
+                                                ? FontWeight.w700
+                                                : FontWeight.w500,
+                                            color: isSelected
+                                                ? Colors.black
+                                                : Colors.black87,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    return const SizedBox.shrink();
+                                  },
+                                ),
+                              ),
+                              leftTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              topTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                              rightTitles: AxisTitles(
+                                sideTitles: SideTitles(showTitles: false),
+                              ),
+                            ),
+                            gridData: FlGridData(
+                              show: true,
+                              drawVerticalLine: false,
+                              horizontalInterval:
+                                  maxY == 0 ? 1 : maxY / 4,
+                              getDrawingHorizontalLine: (value) => FlLine(
+                                color: Colors.grey[200],
+                                strokeWidth: 1,
+                              ),
+                            ),
+                            borderData: FlBorderData(show: false),
+                            barGroups: _buildBarGroups(displayData, maxY),
+                            extraLinesData:
+                                const ExtraLinesData(horizontalLines: []),
+                          ),
+                          swapAnimationDuration:
+                              const Duration(milliseconds: 260),
+                          swapAnimationCurve: Curves.easeOutCubic,
                         ),
                       ),
-                      titlesData: FlTitlesData(
-                        show: true,
-                        bottomTitles: AxisTitles(
-                          sideTitles: SideTitles(
-                            showTitles: true,
-                            getTitlesWidget: (value, meta) {
-                              if (value.toInt() >= 0 &&
-                                  value.toInt() < currentData.length) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text(
-                                    currentData[value.toInt()]['category'],
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                );
-                              }
-                              return const Text('');
-                            },
+                      if (popupData != null)
+                      Positioned(
+                          top: 16,
+                          left: 100,
+                          child: AnimatedOpacity(
+                            opacity: _showPopup ? 1 : 0,
+                            duration: const Duration(milliseconds: 200),
+                            child: _SelectedChartPopup(
+                              category: popupData['category'] as String? ?? '',
+                            budget: (popupData['budget'] as num?)?.toInt() ?? 0,
+                            spent: (popupData['spent'] as num?)?.toInt() ?? 0,
+                            isOverBudget: (popupData['spent'] as num?) != null &&
+                                (popupData['budget'] as num?) != null &&
+                                (popupData['spent'] as num?)! >
+                                    (popupData['budget'] as num?)!,
+                              formatter: _formatAmount,
+                              periodLabel: budgetPeriod,
+                            ),
                           ),
                         ),
-                        leftTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        topTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        rightTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                      ),
-                      gridData: FlGridData(show: false),
-                      borderData: FlBorderData(show: false),
-                      barGroups: _buildBarGroups(currentData),
-                    ),
-                  ),
-                ),
-
-                // 막대 위에 텍스트 라벨
-                _buildBarLabels(currentData),
-              ],
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ],
@@ -461,99 +492,194 @@ class _ReportTestPageState extends State<ReportTestPage>
     return (max * 1.2).ceilToDouble();
   }
 
-  List<BarChartGroupData> _buildBarGroups(List<Map<String, dynamic>> data) {
+  void _resetSelectionState() {
+    _selectionTimer?.cancel();
+    _popupTimer?.cancel();
+    setState(() {
+      _selectedChartCategory = null;
+      _isCollapsing = false;
+      _showSelectionLayout = false;
+      _showPopup = false;
+    });
+  }
+
+  void _changePeriod(String period) {
+    if (budgetPeriod == period) return;
+    _selectionTimer?.cancel();
+    _popupTimer?.cancel();
+    setState(() {
+      budgetPeriod = period;
+      _selectedChartCategory = null;
+      _isCollapsing = false;
+      _showSelectionLayout = false;
+      _showPopup = false;
+    });
+  }
+
+  void _changeMonth(int direction) {
+    if (direction == 0) return;
+    setState(() {
+      selectedMonth += direction;
+      if (selectedMonth < 1) {
+        selectedMonth = 12;
+        selectedYear--;
+      } else if (selectedMonth > 12) {
+        selectedMonth = 1;
+        selectedYear++;
+      }
+      _resetSelectionState();
+    });
+    int newAmount = _getAmountForCategory(selectedCategory);
+    _animateAmount(newAmount);
+  }
+
+  void _startSelectionTransition(String category) {
+    _selectionTimer?.cancel();
+    _popupTimer?.cancel();
+    setState(() {
+      _selectedChartCategory = category;
+      _isCollapsing = true;
+      _showSelectionLayout = false;
+      _showPopup = false;
+    });
+    _selectionTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      setState(() {
+        _isCollapsing = false;
+        _showSelectionLayout = true;
+      });
+      _popupTimer = Timer(const Duration(milliseconds: 50), () {
+        if (!mounted) return;
+        setState(() {
+          _showPopup = true;
+        });
+      });
+    });
+  }
+
+  List<Map<String, dynamic>> _reorderChartData(
+    List<Map<String, dynamic>> data,
+  ) {
+    if (_selectedChartCategory == null || !_showSelectionLayout) {
+      return List<Map<String, dynamic>>.from(data);
+    }
+    final index = data.indexWhere(
+      (item) => item['category'] == _selectedChartCategory,
+    );
+    if (index <= 0) {
+      return List<Map<String, dynamic>>.from(data);
+    }
+    final reordered = List<Map<String, dynamic>>.from(data);
+    final selected = reordered.removeAt(index);
+    reordered.insert(0, selected);
+    return reordered;
+  }
+
+  List<BarChartGroupData> _buildBarGroups(
+    List<Map<String, dynamic>> data,
+    double maxY,
+  ) {
     return List.generate(data.length, (index) {
       final item = data[index];
       final budget = (item['budget'] as num).toDouble();
       final spent = (item['spent'] as num).toDouble();
       final isOverBudget = spent > budget;
+      final isTotal = item['isTotal'] == true;
+      final String? category = item['category'] as String?;
+
+      final bool hasSelection = _selectedChartCategory != null;
+      final bool collapsePhase =
+          hasSelection && (_isCollapsing || !_showSelectionLayout);
+      final bool layoutActive =
+          hasSelection && _showSelectionLayout && !_isCollapsing;
+      final bool isSelected =
+          layoutActive && category == _selectedChartCategory;
+
+      final double baseWidth = isTotal ? 48.0 : 36.0;
+      final double rodWidth = layoutActive
+          ? (isSelected ? baseWidth + 12 : baseWidth - 8)
+          : baseWidth;
+
+      double scaledBudget;
+      double scaledSpent;
+
+      if (!hasSelection) {
+        scaledBudget = budget;
+        scaledSpent = spent;
+      } else if (collapsePhase) {
+        scaledBudget = 0;
+        scaledSpent = 0;
+      } else if (layoutActive) {
+        if (isSelected) {
+          final double baseMax = math.max(budget, spent);
+          final double factor = baseMax > 0 ? maxY / baseMax : 0;
+          scaledBudget = budget * factor;
+          scaledSpent = spent * factor;
+        } else {
+          scaledBudget = budget * 0.4;
+          scaledSpent = spent * 0.4;
+        }
+      } else {
+        scaledBudget = budget;
+        scaledSpent = spent;
+      }
+
+      final double effectiveSpent = scaledSpent.clamp(0.0, maxY);
+      final double effectiveBudget = scaledBudget.clamp(0.0, maxY);
+
+      final double lowerHeight = math.min(effectiveSpent, effectiveBudget);
+      final double upperHeight = math.max(effectiveSpent, effectiveBudget);
+
+      const Color hoverRed = Color(0xFFFF5F5F);
+
+      final double radiusValue = isSelected ? 16 : 8;
+      final Radius topRadius = Radius.circular(radiusValue);
+      const double epsilon = 0.0001;
+
+      final List<BarChartRodStackItem> stackItems = [];
+
+      if (lowerHeight > epsilon) {
+        final Color lowerColor = isOverBudget
+            ? Colors.grey[300]!
+            : (isSelected
+                ? AppColors.primary.withOpacity(0.92)
+                : AppColors.primary);
+        stackItems.add(
+          BarChartRodStackItem(0, lowerHeight, lowerColor),
+        );
+      }
+
+      final double upperSegmentHeight = (upperHeight - lowerHeight).clamp(0.0, maxY);
+      if (upperSegmentHeight > epsilon) {
+        final Color upperColor = isOverBudget
+            ? hoverRed
+            : Colors.grey[300]!;
+        stackItems.add(
+          BarChartRodStackItem(lowerHeight, upperHeight, upperColor),
+        );
+      }
+
+      if (stackItems.isEmpty) {
+        stackItems.add(BarChartRodStackItem(0, 0, Colors.transparent));
+      }
 
       return BarChartGroupData(
         x: index,
         barRods: [
           BarChartRodData(
-            toY: spent,
-            color: isOverBudget ? Colors.red : AppColors.primary,
-            width: 40,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(6),
-              topRight: Radius.circular(6),
-            ),
-            rodStackItems: isOverBudget
-                ? [
-                    BarChartRodStackItem(0, budget, Colors.grey[300]!),
-                    BarChartRodStackItem(budget, spent, Colors.red),
-                  ]
-                : [BarChartRodStackItem(0, spent, AppColors.primary)],
-            backDrawRodData: BackgroundBarChartRodData(
-              show: true,
-              toY: budget,
-              color: Colors.grey[300],
+            fromY: 0,
+            toY: upperHeight,
+            width: rodWidth,
+            color: stackItems.last.color,
+            rodStackItems: stackItems,
+            borderRadius: BorderRadius.vertical(
+              top: topRadius,
+              bottom: Radius.zero,
             ),
           ),
         ],
       );
     });
-  }
-
-  // 막대 위에 텍스트 표시를 위한 위젯 오버레이
-  Widget _buildBarLabels(List<Map<String, dynamic>> data) {
-    final maxY = _getMaxY(data);
-
-    return Positioned.fill(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 20, bottom: 40),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: List.generate(data.length, (index) {
-            final item = data[index];
-            final budget = item['budget'] as int;
-            final spent = item['spent'] as int;
-
-            // 막대의 실제 높이 (budget과 spent 중 더 큰 값)
-            final barHeight = spent > budget ? spent : budget;
-
-            // 전체 차트 높이 대비 막대 높이의 비율
-            final heightRatio = barHeight / maxY;
-
-            return Expanded(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: FractionallySizedBox(
-                  heightFactor: 1.0,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      // 막대 위에 예산 금액 표시
-                      SizedBox(
-                        height: (1.0 - heightRatio) * (320 - 60),
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              '₩${_formatAmount(budget)}',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      // 막대가 차지하는 공간 (실제 막대는 BarChart에서 그림)
-                      SizedBox(height: heightRatio * (320 - 60)),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ),
-      ),
-    );
   }
 
   // 카테고리에 따른 금액 가져오기
@@ -633,16 +759,7 @@ class _ReportTestPageState extends State<ReportTestPage>
         children: [
           // 왼쪽 화살표 (이전 달)
           GestureDetector(
-            onTap: () {
-              selectedMonth--;
-              if (selectedMonth < 1) {
-                selectedMonth = 12; // 12월로 순환
-              }
-
-              // 선택된 카테고리의 새 금액으로 애니메이션
-              int newAmount = _getAmountForCategory(selectedCategory);
-              _animateAmount(newAmount);
-            },
+            onTap: () => _changeMonth(-1),
             child: Container(
               padding: const EdgeInsets.all(4),
               child: Icon(
@@ -669,16 +786,7 @@ class _ReportTestPageState extends State<ReportTestPage>
 
           // 오른쪽 화살표 (다음 달)
           GestureDetector(
-            onTap: () {
-              selectedMonth++;
-              if (selectedMonth > 12) {
-                selectedMonth = 1; // 1월로 순환
-              }
-
-              // 선택된 카테고리의 새 금액으로 애니메이션
-              int newAmount = _getAmountForCategory(selectedCategory);
-              _animateAmount(newAmount);
-            },
+            onTap: () => _changeMonth(1),
             child: Container(
               padding: const EdgeInsets.all(4),
               child: Icon(
@@ -794,5 +902,165 @@ class _ReportTestPageState extends State<ReportTestPage>
         ),
       ),
     );
+  }
+
+  Widget _buildPeriodToggle() {
+    const periods = ['주간', '월간'];
+    final selectedIndex = periods.indexOf(budgetPeriod);
+
+    Alignment _alignmentForIndex(int index) {
+      switch (index) {
+        case 0:
+          return Alignment.centerLeft;
+        case 1:
+          return Alignment.centerRight;
+        default:
+          return Alignment.centerLeft;
+      }
+    }
+
+    return Container(
+      width: 120,
+      height: 34,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.grey[300]!, width: 1),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          AnimatedAlign(
+            duration: const Duration(milliseconds: 280),
+            curve: Curves.easeOutCubic,
+            alignment: _alignmentForIndex(selectedIndex),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
+              child: Container(
+                width: 52,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Row(
+            children: List.generate(periods.length, (index) {
+              final period = periods[index];
+              final isSelected = budgetPeriod == period;
+              return Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _changePeriod(period),
+                  child: Center(
+                    child: Text(
+                      period,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isSelected ? Colors.black87 : Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedChartPopup extends StatelessWidget {
+  const _SelectedChartPopup({
+    required this.category,
+    required this.budget,
+    required this.spent,
+    required this.isOverBudget,
+    required this.formatter,
+    required this.periodLabel,
+  });
+
+  final String category;
+  final int budget;
+  final int spent;
+  final bool isOverBudget;
+  final String Function(int) formatter;
+  final String periodLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            category,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '$periodLabel 총 예산: ₩${formatter(budget)}',
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 2),
+          _buildUsageText(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUsageText() {
+    final int diff = spent - budget;
+    if (isOverBudget) {
+      return Text(
+        '초과 사용액: ₩${formatter(diff.abs())}',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFFFF5F5F),
+        ),
+      );
+    } else {
+      final int remaining = budget - spent;
+      return Text(
+        '미달 사용액: ₩${formatter(remaining)}',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: Color(0xFF0062FF),
+        ),
+      );
+    }
   }
 }

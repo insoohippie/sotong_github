@@ -96,7 +96,7 @@ Widget _buildSummaryChartWithRecommendation(
           if (editResult != null) {
             viewModel.applyPlanEditResult(editResult);
           }
-        } : null, // ← autoService면 null로 넘겨 비활성화
+        } : null,
       ),
 
       const SizedBox(height: 16),

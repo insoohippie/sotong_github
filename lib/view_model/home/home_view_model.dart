@@ -16,10 +16,10 @@ class HomeViewModel extends ChangeNotifier {
   StreamSubscription<void>? _planSavedSub;
 
   HomeViewModel(
-    this._authRepo,
-    this._planRepo,
-    this._planSavedBus,
-  ) {
+      this._authRepo,
+      this._planRepo,
+      this._planSavedBus,
+      ) {
     _planSavedSub = _planSavedBus.stream.listen((_) {
       refresh();
     });
@@ -49,11 +49,15 @@ class HomeViewModel extends ChangeNotifier {
   final ValueNotifier<int> secondTick = ValueNotifier<int>(0);
   Timer? _ticker;
 
-  // 실시간 계산 기준점(로드 완료 시 고정)
+  // 실시간 계산 기준점
   DateTime _baseNow = DateTime.now();
-  double _baseSaved = 0;              // 스냅샷 시점 누적 저축액(있으면 반영, 없으면 0)
-  double _savingPerSecond = 0;        // 초당 저축액
-  DateTime? _goalDate;                // 목표일
+  double _baseSaved = 0;
+  double _savingPerSecond = 0;
+  DateTime? _goalDate;
+
+  // 🔥 추가: 선택한 날짜 지출 관리
+  int _todaySpending = 0;
+  int get todaySpending => _todaySpending;
 
   // ---------- 로드 ----------
   Future<void> load() async {
@@ -63,26 +67,25 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1) 사용자 이름
       _name = await _authRepo.getUserName();
-
-      // 2) 최신 플랜
       _latestPlan = await _planRepo.getLatestPlanForCurrentUser();
 
-      // 3) 계산 스냅샷
       if (_latestPlan != null && _hasMetrics(_latestPlan!)) {
         _calc = SavingPlanCalculator(plan: _latestPlan!).calculate();
       } else {
         _calc = null;
       }
 
-      // 4) 실시간 계산 기준 설정
       _baseNow = DateTime.now();
       _baseSaved = (_latestPlan?.currentAmount ?? 0).toDouble();
       _savingPerSecond = _calc?.savingPerSecond ?? 0;
       _goalDate = _calc?.goalDateTime;
 
       _startTicker();
+
+      // 🔥 오늘 지출 하드코딩 로드
+      await loadDailySpending(DateTime.now());
+
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
     } finally {
@@ -91,62 +94,6 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
-  void _startTicker() {
-    _ticker?.cancel();
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      secondTick.value++; // 이걸 리스닝하는 위젯만 리빌드됨
-    });
-  }
-
-  // ---------- 실시간 Getter ----------
-  Duration? get liveRemaining {
-    if (_goalDate == null) return null;
-    return _goalDate!.difference(DateTime.now());
-  }
-
-  String get liveCountdownText {
-    final remain = liveRemaining;
-    if (remain == null) return '—';
-    if (remain.isNegative) return '달성 완료';
-    final d = remain.inDays;
-    final h = remain.inHours % 24;
-    final m = remain.inMinutes % 60;
-    final s = remain.inSeconds % 60;
-    return '${d}일 : ${h.toString().padLeft(2, '0')}시 : '
-        '${m.toString().padLeft(2, '0')}분 : ${s.toString().padLeft(2, '0')}초';
-  }
-
-  double get liveSavedAmount {
-    final secs = max(0, DateTime.now().difference(_baseNow).inSeconds);
-    return _baseSaved + _savingPerSecond * secs;
-  }
-
-  String get liveSavedAmountText {
-    return SavingPlanCalculator.formatAmount(liveSavedAmount) + '원';
-  }
-
-  // ---------- UI 헬퍼 ----------
-  String get planTitle => _latestPlan?.planName ?? '플랜 없음';
-
-  String get dailyLimitText {
-    final metrics = _latestPlan?.result.totalMetrics;
-    if (metrics == null) return '—';
-    return SavingPlanCalculator.formatAmount(metrics.sumDailyConsume.toDouble()) + '원';
-  }
-
-  String get perSecondSaving => _savingPerSecond.toStringAsFixed(2);
-
-  double get progressRatio => _calc?.savingRatio ?? 0.0;
-
-  bool _hasMetrics(TotalPlan plan) {
-    final metrics = plan.result.totalMetrics;
-    final hasIncome = metrics.sumMonthlyIncome > 0;
-    final hasTarget = (plan.targetAmount ?? 0) > 0;
-    final hasDaily = metrics.sumDailyConsume >= 0;
-    return hasIncome && hasTarget && hasDaily;
-  }
-
-  // ---------- 최신 플랜 이름 변경 ----------
   Future<bool> updatePlanName(String newName) async {
     final trimmed = newName.trim();
     if (trimmed.isEmpty) return false;
@@ -156,10 +103,8 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 서버 반영
       await _planRepo.updateLatestPlanName(trimmed);
 
-      // 로컬 상태 즉시 반영(낙관적 업데이트)
       if (_latestPlan != null) {
         _latestPlan = _latestPlan!.copyWith(planName: trimmed);
       }
@@ -174,6 +119,73 @@ class HomeViewModel extends ChangeNotifier {
       _isRenaming = false;
       notifyListeners();
     }
+  }
+
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      secondTick.value++;
+    });
+  }
+
+  // 🔥 하드코딩된 지출 불러오기
+  Future<void> loadDailySpending(DateTime date) async {
+    await Future.delayed(const Duration(milliseconds: 200)); // UI 부드럽게
+    // TODO: Firestore 연결되면 아래 라인 교체 예정
+    _todaySpending = _mockDailySpending(date);
+    notifyListeners();
+  }
+
+  /// 단순 데모용 하드코딩 로직
+  int _mockDailySpending(DateTime date) {
+    final day = date.day;
+    const amounts = {
+      1: 8500,
+      2: 6200,
+      3: 0,
+      4: 12000,
+      5: 5600,
+      6: 7800,
+      7: 0,
+      8: 4500,
+      9: 9200,
+      10: 6800,
+    };
+    return amounts[day] ?? 0;
+  }
+
+  // ---------- 실시간 Getter ----------
+  Duration? get liveRemaining {
+    if (_goalDate == null) return null;
+    return _goalDate!.difference(DateTime.now());
+  }
+
+  String get liveSavedAmountText {
+    return SavingPlanCalculator.formatAmount(liveSavedAmount) + '원';
+  }
+
+  double get liveSavedAmount {
+    final secs = max(0, DateTime.now().difference(_baseNow).inSeconds);
+    return _baseSaved + _savingPerSecond * secs;
+  }
+
+  String get planTitle => _latestPlan?.planName ?? '플랜 없음';
+
+  String get dailyLimitText {
+    final metrics = _latestPlan?.result.totalMetrics;
+    if (metrics == null) return '—';
+    return SavingPlanCalculator.formatAmount(metrics.sumDailyConsume.toDouble()) + '원';
+  }
+
+  String get perSecondSaving => _savingPerSecond.toStringAsFixed(2);
+  double get progressRatio => _calc?.savingRatio ?? 0.0;
+
+  bool _hasMetrics(TotalPlan plan) {
+    final metrics = plan.result.totalMetrics;
+    final hasIncome = metrics.sumMonthlyIncome > 0;
+    final hasTarget = (plan.targetAmount ?? 0) > 0;
+    final hasDaily = metrics.sumDailyConsume >= 0;
+    return hasIncome && hasTarget && hasDaily;
   }
 
   Future<void> refresh() => load();
