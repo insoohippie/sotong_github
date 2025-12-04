@@ -9,6 +9,7 @@ import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
 import '../../../view_model/auth/login_view_model.dart';
+import '../../../view_model/plan/chat_plan_viewmodel.dart';
 
 class EmailLoginPage extends StatelessWidget {
   const EmailLoginPage({super.key});
@@ -112,10 +113,13 @@ class EmailLoginPage extends StatelessWidget {
                           .login(); // ← ViewModel에서 true/false 리턴
 
                       if (success) {
-                        Navigator.pushReplacementNamed(
-                          context,
-                          '/home_tab_navigator',
-                        ); // 성공 시 홈으로 이동
+                        await context.read<ChatPlanViewModel>().loadRemoteRefData();
+                        if (context.mounted) {
+                          Navigator.pushReplacementNamed(
+                            context,
+                            '/home_tab_navigator',
+                          );
+                        }
                       }
                       // 실패 시 에러 메시지는 ViewModel에서 처리되고 화면에 표시됨
                     },

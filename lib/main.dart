@@ -8,6 +8,7 @@ import 'package:sotong_local/view_model/record/daily_category_viewmodel.dart';
 
 import 'component/theme/app_colors.dart';
 import 'data_source/communication_data_source.dart';
+import 'data_source/ref_data_data_source.dart';
 import 'firebase_options.dart';
 import 'route.dart';
 
@@ -18,6 +19,7 @@ import 'data_source/plan_data_source.dart';
 // Repositories
 import 'repository/auth_repository.dart';
 import 'repository/plan_repository.dart';
+import 'repository/ref_data_repository.dart';
 import 'services/plan_saved_event_bus.dart';
 
 // ViewModels
@@ -56,6 +58,7 @@ class MyApp extends StatelessWidget {
         Provider<CommunicationDataSource>(
           create: (_) => CommunicationDataSource(),
         ),
+        Provider<RefDataDataSource>(create: (_) => RefDataDataSource()),
 
         // 3) Repositories
         Provider<AuthRepository>(
@@ -64,6 +67,12 @@ class MyApp extends StatelessWidget {
         Provider<PlanRepository>(
           create: (ctx) => PlanRepository(
             ctx.read<PlanDataSource>(),
+            ctx.read<AuthDataSource>(),
+          ),
+        ),
+        Provider<RefDataRepository>(
+          create: (ctx) => RefDataRepository(
+            ctx.read<RefDataDataSource>(),
             ctx.read<AuthDataSource>(),
           ),
         ),
@@ -85,6 +94,7 @@ class MyApp extends StatelessWidget {
           create: (ctx) => ChatPlanViewModel(
             ctx.read<AuthRepository>(),
             ctx.read<PlanRepository>(),
+            ctx.read<RefDataRepository>(),
             planSavedBus: ctx.read<PlanSavedEventBus>(),
           ),
         ),

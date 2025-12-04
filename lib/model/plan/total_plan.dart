@@ -45,6 +45,10 @@ class TotalPlan {
       sumMonthlyConsume: 0,
       sumDailyConsume: 0,
     );
+    final initialSubPlans = _bootstrapSubPlans(
+      metrics: metrics,
+      planStart: now,
+    );
     return TotalPlan(
       planId: '',
       planName: '',
@@ -56,10 +60,14 @@ class TotalPlan {
       modEndDate: null,
       creationDate: now,
       autoService: false,
-      subPlans: const {},
+      subPlans: initialSubPlans,
       result: TotalResult(
         totalMetrics: metrics,
-        subResult: const SubPlanResult(subMetrics: [], subPlanList: []),
+        subResult: SubPlanResult(
+          subMetrics:
+              initialSubPlans.values.map((sub) => sub.monthlySummary()).toList(),
+          subPlanList: initialSubPlans.values.toList(),
+        ),
       ),
     );
   }
@@ -69,6 +77,9 @@ class TotalPlan {
     final planStartDate = _parseDate(map['startDate']);
     final metrics = _parseMetrics(map['result']?['totalMetrics']);
     final subPlans = _parseSubPlans(map['subPlans']);
+    final normalizedSubPlans = subPlans.isNotEmpty
+        ? subPlans
+        : _bootstrapSubPlans(metrics: metrics, planStart: planStartDate);
     return TotalPlan(
       planId: id,
       planName: map['planName'] as String?,
@@ -80,10 +91,13 @@ class TotalPlan {
       modEndDate: _parseDate(map['modEndDate']),
       creationDate: _parseDate(map['creationDate']),
       autoService: map['autoService'] as bool?,
-      subPlans: subPlans,
+      subPlans: normalizedSubPlans,
       result: TotalResult(
         totalMetrics: metrics,
-        subResult: _parseSubResult(map['result']?['subResult'], subPlans),
+        subResult: _parseSubResult(
+          map['result']?['subResult'],
+          normalizedSubPlans,
+        ),
       ),
     );
   }
@@ -184,6 +198,43 @@ class TotalPlan {
       sumDailyConsume: 0,
     );
   }
+
+  static Map<String, SubPlan> _bootstrapSubPlans({
+    required PlanMetrics metrics,
+    required DateTime? planStart,
+  }) {
+    final baseline = planStart ?? DateTime.now();
+    final monthStart = DateTime(baseline.year, baseline.month, 1);
+    final monthEnd = DateTime(baseline.year, baseline.month + 1, 0);
+    final key = _formatYearMonth(monthStart);
+    final miniId = '${key}_mini_head';
+    final mini = MiniPlan(
+      docId: miniId,
+      yearMonth: monthStart,
+      startDate: monthStart,
+      endDate: monthEnd,
+      monthlyIncomeId: '${key}_income_bootstrap',
+      monthlyConsumeId: '${key}_consume_bootstrap',
+      dailyConsumeId: '${key}_daily_bootstrap',
+      sumMonthlyIncome: metrics.sumMonthlyIncome,
+      sumMonthlyConsume: metrics.sumMonthlyConsume,
+      sumDailyConsume: metrics.sumDailyConsume,
+    );
+    final subPlan = SubPlan(
+      yearMonth: monthStart,
+      headDocId: miniId,
+      miniPlans: {miniId: mini},
+      miniResult: MiniPlanResult(
+        headDocId: miniId,
+        miniMetrics: [mini.toMetrics()],
+        miniPlanHead: mini,
+      ),
+    );
+    return {key: subPlan};
+  }
+
+  static String _formatYearMonth(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}';
 
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;

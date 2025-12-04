@@ -193,7 +193,7 @@ class PlanEditViewModel extends ChangeNotifier {
     return totalPlan;
   }
 
-  UpdateMonthlyCommand buildMonthlyCommand({
+  UpdateMonthlyCommand buildMonthlyCommand({ // 월 단위 변경
     required DateTime applyMonth,
     required DateTime modEndMonth,
     required List<Entry> entries,
@@ -211,7 +211,7 @@ class PlanEditViewModel extends ChangeNotifier {
     );
   }
 
-  UpdateDailyCommand buildDailyCommand({
+  UpdateDailyCommand buildDailyCommand({ // 일 단위 변경
     required DateTime applyDate,
     required DateTime modEndDate,
     required List<Entry> entries,
@@ -235,7 +235,7 @@ class PlanEditViewModel extends ChangeNotifier {
   double _sumEntries(List<Entry> entries) =>
       entries.fold(0.0, (sum, e) => sum + e.amount);
 
-  PlanEditResult finalizeEdits() {
+  PlanEditResult finalizeEdits() { //
     final projected = projectedGoalDate ??
         totalPlan.modEndDate ??
         totalPlan.endDate ??
@@ -257,7 +257,8 @@ class PlanEditViewModel extends ChangeNotifier {
       }
     }
 
-    if (_pendingFixedIncomeEntries != null) {
+    if (_pendingFixedIncomeEntries != null &&
+        !_isSameEntries(_pendingFixedIncomeEntries!, refData.primaryMonthlyIncomeEntries)) {
       final applyDate = _pendingFixedIncomeApplyDate;
       if (applyDate == null) {
         throw StateError('월 수입 적용일이 설정되어 있지 않습니다.');
@@ -284,7 +285,8 @@ class PlanEditViewModel extends ChangeNotifier {
       _pendingFixedIncomeApplyDate = null;
     }
 
-    if (_pendingFixedConsumeEntries != null) {
+    if (_pendingFixedConsumeEntries != null &&
+        !_isSameEntries(_pendingFixedConsumeEntries!, refData.primaryMonthlyConsumeEntries)) {
       final applyDate = _pendingFixedConsumeApplyDate;
       if (applyDate == null) {
         throw StateError('고정 소비 적용일이 설정되어 있지 않습니다.');
@@ -311,7 +313,8 @@ class PlanEditViewModel extends ChangeNotifier {
       _pendingFixedConsumeApplyDate = null;
     }
 
-    if (_pendingDailyConsumeEntries != null) {
+    if (_pendingDailyConsumeEntries != null &&
+        !_isSameEntries(_pendingDailyConsumeEntries!, refData.primaryDailyConsumeEntries)) {
       final applyDate = _pendingDailyConsumeApplyDate;
       if (applyDate == null) {
         throw StateError('일일 소비 적용일이 설정되어 있지 않습니다.');
@@ -430,5 +433,19 @@ class PlanEditViewModel extends ChangeNotifier {
     targetAmountController.dispose();
     currentAssetController.dispose();
     super.dispose();
+  }
+
+  bool _isSameEntries(List<Entry> a, List<Entry> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final lhs = a[i];
+      final rhs = b[i];
+      if (lhs.amount != rhs.amount ||
+          lhs.category != rhs.category ||
+          lhs.note != rhs.note) {
+        return false;
+      }
+    }
+    return true;
   }
 }

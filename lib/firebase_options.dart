@@ -51,29 +51,29 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCDMYdXrOAKJKn57F4cJIoTE590D3-4Rhk',
-    appId: '1:355560484884:android:7436467d863e05d8763701',
-    messagingSenderId: '355560484884',
-    projectId: 'sotong-db',
-    storageBucket: 'sotong-db.firebasestorage.app',
+    apiKey: 'AIzaSyBaH88k55rAQkiZCFNyTZ8hzMnrsu8HKgs',
+    appId: '1:421086465432:android:53ac68e554a9a04d476fed',
+    messagingSenderId: '421086465432',
+    projectId: 'sotongmoneymanageapp',
+    storageBucket: 'sotongmoneymanageapp.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBysRLq2HlsB-2ZeaxpiilA8QeGwMwWSAU',
-    appId: '1:355560484884:ios:359f36a37f31cd7c763701',
-    messagingSenderId: '355560484884',
-    projectId: 'sotong-db',
-    storageBucket: 'sotong-db.firebasestorage.app',
-    iosBundleId: 'com.example.sotongLocal',
+    apiKey: 'AIzaSyB7trDtAPJR3BCmdO1wupqmFPSTTgLpPms',
+    appId: '1:421086465432:ios:80d560226c019763476fed',
+    messagingSenderId: '421086465432',
+    projectId: 'sotongmoneymanageapp',
+    storageBucket: 'sotongmoneymanageapp.firebasestorage.app',
+    iosBundleId: 'com.example.sotong',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyBysRLq2HlsB-2ZeaxpiilA8QeGwMwWSAU',
-    appId: '1:355560484884:ios:359f36a37f31cd7c763701',
-    messagingSenderId: '355560484884',
-    projectId: 'sotong-db',
-    storageBucket: 'sotong-db.firebasestorage.app',
-    iosBundleId: 'com.example.sotongLocal',
+    apiKey: 'AIzaSyB7trDtAPJR3BCmdO1wupqmFPSTTgLpPms',
+    appId: '1:421086465432:ios:80d560226c019763476fed',
+    messagingSenderId: '421086465432',
+    projectId: 'sotongmoneymanageapp',
+    storageBucket: 'sotongmoneymanageapp.firebasestorage.app',
+    iosBundleId: 'com.example.sotong',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

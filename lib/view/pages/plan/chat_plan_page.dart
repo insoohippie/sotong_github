@@ -93,6 +93,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
       if (viewModel.messages.isEmpty) {
         viewModel.initializeChat();
       }
+      viewModel.loadRemoteRefData();
     });
   }
 

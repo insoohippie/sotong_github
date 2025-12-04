@@ -13,7 +13,9 @@ class AuthRepository {
 
   //로그인
   Future<bool> login(String email, String password) {
-    return _dataSource.loginWithFirestore(email, password);
+    return _dataSource
+        .loginWithAuth(email, password)
+        .then((_) => true);
   }
 
   //이메일 중복 확인

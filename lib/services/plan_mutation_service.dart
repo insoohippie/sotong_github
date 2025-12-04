@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../model/commands/update_daily_command.dart';
 import '../model/commands/update_monthly_command.dart';
 import '../model/plan/plan_mutation_exception.dart';
@@ -17,11 +19,21 @@ class PlanMutationService {
     required UpdateMonthlyCommand command,
     required PlanSnapshot snapshot,
   }) {
+    developer.log(
+      '[applyMonthly] month=${command.applyMonth} '
+      'modEnd=${command.modEndMonth} '
+      'newId=${command.newDocumentId} prev=${command.previousDocumentId}',
+      name: 'PlanMutationService',
+    );
     final plan = snapshot.totalPlan;
     final startOfMonth =
         DateTime(command.applyMonth.year, command.applyMonth.month, 1);
     final boundaryCheck = ensureWithinPlan(startOfMonth, plan);
     if (!boundaryCheck.isValid) {
+      developer.log(
+        'applyMonthly boundary fail: ${boundaryCheck.message} (plan start=${plan.startDate}, end=${plan.modEndDate ?? plan.endDate})',
+        name: 'PlanMutationService',
+      );
       throw PlanMutationException(boundaryCheck.message ?? 'OUT_OF_RANGE');
     }
 
@@ -31,6 +43,11 @@ class PlanMutationService {
       consumes: snapshot.monthlyConsumes.values,
     );
     if (!uniqueness.isValid && command.previousDocumentId == null) {
+      developer.log(
+        'applyMonthly uniqueness fail: ${uniqueness.message} '
+        '(existing income=${snapshot.monthlyIncomes.keys} consumes=${snapshot.monthlyConsumes.keys})',
+        name: 'PlanMutationService',
+      );
       throw PlanMutationException(uniqueness.message ?? 'MONTH_DUPLICATION');
     }
 
@@ -60,8 +77,17 @@ class PlanMutationService {
     required UpdateDailyCommand command,
     required PlanSnapshot snapshot,
   }) {
+    developer.log(
+      '[applyDaily] apply=${command.applyDate} end=${command.modEndDate} '
+      'newId=${command.newDailyId} prev=${command.previousDailyId}',
+      name: 'PlanMutationService',
+    );
     final boundaryCheck = ensureWithinPlan(command.applyDate, snapshot.totalPlan);
     if (!boundaryCheck.isValid) {
+      developer.log(
+        'applyDaily boundary fail: ${boundaryCheck.message}',
+        name: 'PlanMutationService',
+      );
       throw PlanMutationException(boundaryCheck.message ?? 'OUT_OF_RANGE');
     }
 
@@ -70,6 +96,10 @@ class PlanMutationService {
       dailyConsumes: snapshot.dailyConsumes.values,
     );
     if (!preOverlap.isValid && command.previousDailyId == null) {
+      developer.log(
+        'applyDaily overlap fail: ${preOverlap.message}',
+        name: 'PlanMutationService',
+      );
       throw PlanMutationException(preOverlap.message ?? 'OVERLAPPING_DAILY_RANGE');
     }
 

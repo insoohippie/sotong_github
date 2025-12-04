@@ -91,16 +91,11 @@ class SavingPlanCalculator {
     }
 
     if (insufficient || totalSeconds <= 0) {
-      return SavingCalculationResult(
-        monthlySaving: monthlySavingDisplay,
-        dailySaving: dailySavingBeforeVariable,
-        savingRatio: savingRatioDisplay.clamp(0.0, 1.0),
-        dailyNetSaving: 0,
+      return _simpleCalculation(
         requiredSaving: requiredSaving,
-        daysToGoal: 0,
-        totalSeconds: 0,
-        goalDateTime: null,
-        savingPerSecond: 0,
+        monthlySavingDisplay: monthlySavingDisplay,
+        dailySavingBeforeVariable: dailySavingBeforeVariable,
+        savingRatioDisplay: savingRatioDisplay,
       );
     }
 
