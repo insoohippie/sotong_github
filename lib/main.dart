@@ -134,7 +134,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/home_tab_navigator',
+        initialRoute: '/login',
         routes: appRoutes,
       ),
     );

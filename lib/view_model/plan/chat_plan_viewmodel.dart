@@ -107,6 +107,7 @@ class ChatPlanViewModel extends ChangeNotifier {
   bool _hasSavedPlan = false;
   bool _printedInitialPlanTree = false;
 
+
   // --------------------------------------
   // 메시지
   // --------------------------------------
@@ -248,7 +249,8 @@ class ChatPlanViewModel extends ChangeNotifier {
       '[updateRefData] apply=$apply end=$endDate '
       'incomes=${fixedIncomes?.length ?? 0} '
       'consumes=${fixedConsumptions?.length ?? 0} '
-      'daily=${dailyConsumptions?.length ?? 0}',
+      'daily=${dailyConsumptions?.length ?? 0} '
+      '(_hasSavedPlan=$_hasSavedPlan)',
     );
 
     if (fixedIncomes != null && fixedIncomes.isNotEmpty) {
@@ -265,18 +267,17 @@ class ChatPlanViewModel extends ChangeNotifier {
       debugPrint(
         '[updateRefData] new monthlyIncome ${newIncome.id} from $applyMonth to $modEndMonth',
       );
-      if (_hasSavedPlan) {
-        _pendingAutoMonthlyInputs.add(
-          _PendingMonthlyInput(
-            applyMonth: applyMonth,
-            modEndMonth: modEndMonth,
-            entries: List<Entry>.from(fixedIncomes),
-            newDocumentId: newIncome.id,
-            previousDocumentId: previousId,
-            isIncome: true,
-          ),
-        );
-      }
+      _pendingAutoMonthlyInputs.add(
+        _PendingMonthlyInput(
+          applyMonth: applyMonth,
+          modEndMonth: modEndMonth,
+          entries: List<Entry>.from(fixedIncomes),
+          newDocumentId: newIncome.id,
+          previousDocumentId: previousId,
+          isIncome: true,
+          allowBeforePlanStart: !_hasSavedPlan,
+        ),
+      );
     }
 
     if (fixedConsumptions != null && fixedConsumptions.isNotEmpty) {
@@ -293,18 +294,17 @@ class ChatPlanViewModel extends ChangeNotifier {
       debugPrint(
         '[updateRefData] new monthlyConsume ${newConsume.id} from $applyMonth to $modEndMonth',
       );
-      if (_hasSavedPlan) {
-        _pendingAutoMonthlyInputs.add(
-          _PendingMonthlyInput(
-            applyMonth: applyMonth,
-            modEndMonth: modEndMonth,
-            entries: List<Entry>.from(fixedConsumptions),
-            newDocumentId: newConsume.id,
-            previousDocumentId: previousId,
-            isIncome: false,
-          ),
-        );
-      }
+      _pendingAutoMonthlyInputs.add(
+        _PendingMonthlyInput(
+          applyMonth: applyMonth,
+          modEndMonth: modEndMonth,
+          entries: List<Entry>.from(fixedConsumptions),
+          newDocumentId: newConsume.id,
+          previousDocumentId: previousId,
+          isIncome: false,
+          allowBeforePlanStart: !_hasSavedPlan,
+        ),
+      );
     }
 
     if (dailyConsumptions != null && dailyConsumptions.isNotEmpty) {
@@ -321,18 +321,17 @@ class ChatPlanViewModel extends ChangeNotifier {
       debugPrint(
         '[updateRefData] new dailyConsume ${newDaily.id} from $apply to $endDate',
       );
-      if (_hasSavedPlan) {
-        _pendingAutoDailyInputs.add(
-          _PendingDailyInput(
-            applyDate: DateTime(apply.year, apply.month, apply.day),
-            modEndDate: DateTime(endDate.year, endDate.month, endDate.day),
-            entries: List<Entry>.from(dailyConsumptions),
-            newDailyId: newDaily.id,
-            previousDailyId: previousId,
-            newMiniDocId: _nextMiniDocId(apply),
-          ),
-        );
-      }
+      _pendingAutoDailyInputs.add(
+        _PendingDailyInput(
+          applyDate: DateTime(apply.year, apply.month, apply.day),
+          modEndDate: DateTime(endDate.year, endDate.month, endDate.day),
+          entries: List<Entry>.from(dailyConsumptions),
+          newDailyId: newDaily.id,
+          previousDailyId: previousId,
+          newMiniDocId: _nextMiniDocId(apply),
+          allowBeforePlanStart: !_hasSavedPlan,
+        ),
+      );
     }
 
     updatePlanInfo(
@@ -371,7 +370,9 @@ class ChatPlanViewModel extends ChangeNotifier {
       _pendingDailyCommands = List<UpdateDailyCommand>.from(
         result.dailyCommands.where((cmd) => cmd.entries.isNotEmpty),
       );
+      debugPrint('[applyPlanEditResult] commands captured (hasSavedPlan=true)');
     } else {
+      debugPrint('[applyPlanEditResult] skipping commands (_hasSavedPlan=false)');
       _pendingMonthlyCommands.clear();
       _pendingDailyCommands.clear();
     }
@@ -673,22 +674,20 @@ class ChatPlanViewModel extends ChangeNotifier {
     if (_isSaving) return false;
     _isSaving = true;
     notifyListeners();
-    if (!_printedInitialPlanTree) {
-      debugPrint('--- First Plan Tree ---\n${debugPlanTree()}');
-      _printedInitialPlanTree = true;
-    }
     debugPrint(
       '[savePlan] pendingMonthly=${_pendingMonthlyCommands.length} '
       'pendingDaily=${_pendingDailyCommands.length} '
       'autoMonthly=${_pendingAutoMonthlyInputs.length} '
-      'autoDaily=${_pendingAutoDailyInputs.length}',
+      'autoDaily=${_pendingAutoDailyInputs.length} '
+      '(_hasSavedPlan=$_hasSavedPlan)',
     );
     try {
       await _preparePlanStructureForSave();
       await _planRepo.saveCurrentUserPlan(_totalPlan);
       print('--- Plan Tree After Save ---\n${debugPlanTree()}');
       _planSavedBus?.notify();
-      _hasSavedPlan = true;
+      debugPrint('[savePlan] success: _hasSavedPlan $_hasSavedPlan -> true');
+      _setHasSavedPlan(true);
       return true;
     } catch (e, stack) {
       debugPrint('[savePlan] failed: $e');
@@ -721,19 +720,37 @@ class ChatPlanViewModel extends ChangeNotifier {
     final calc = calculate();
     final now = DateTime.now();
     final start = _totalPlan.startDate ?? DateTime(now.year, now.month, now.day);
-    final goal = calc?.goalDateTime ?? start.add(const Duration(days: 120));
-    debugPrint('[preparePlan] startDate=$start goal=$goal');
+    final computedGoal = calc?.goalDateTime ?? start.add(const Duration(days: 120));
+    final previousModEnd = _totalPlan.modEndDate;
+    _totalPlan = _totalPlan.copyWith(modEndDate: computedGoal);
+    final planEnd = _totalPlan.modEndDate ?? computedGoal;
+    debugPrint(
+      '[preparePlan] startDate=$start goal=$computedGoal modEnd=${_totalPlan.modEndDate}',
+    );
+    if (_totalPlan.modEndDate != null && computedGoal != _totalPlan.modEndDate) {
+      debugPrint(
+        '[preparePlan] WARNING goal!=modEnd (${computedGoal.toIso8601String()} vs ${_totalPlan.modEndDate!.toIso8601String()})',
+      );
+    }
+    if (previousModEnd != _totalPlan.modEndDate) {
+      debugPrint(
+        '[preparePlan] modEnd changed: prev=${previousModEnd?.toIso8601String() ?? '-'} '
+        'next=${_totalPlan.modEndDate?.toIso8601String() ?? '-'} '
+        'endDate=${_totalPlan.endDate?.toIso8601String() ?? '-'}',
+      );
+    }
 
     // ⭐ 1) 먼저 RefData coverage 확장 (항상 실행)
-    await _ensureRefDataCoverage(start, goal);
+    await _ensureRefDataCoverage(start, planEnd);
 
-    // ⭐ 2) subPlans가 비어있으면 skeleton 생성 (항상 실행)
-    if (_totalPlan.subPlans.isEmpty) {
+    // ⭐ 2) 아직 저장되지 않은 플랜이면 skeleton 재생성
+    final shouldRebuildSkeleton = !_hasSavedPlan || _totalPlan.subPlans.isEmpty;
+    if (shouldRebuildSkeleton) {
       _totalPlan = _totalPlan.copyWith(
         startDate: start,
-        endDate: goal,
-        modEndDate: goal,
-        subPlans: _buildInitialSubPlanSkeleton(start, goal),
+        endDate: planEnd,
+        modEndDate: planEnd,
+        subPlans: _buildInitialSubPlanSkeleton(start, planEnd),
       );
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
       _calculationVM.updatePlan(_totalPlan);
@@ -756,8 +773,8 @@ class ChatPlanViewModel extends ChangeNotifier {
       // 커맨드가 없으면 기간만 업데이트하고 종료
       _totalPlan = _totalPlan.copyWith(
         startDate: start,
-        endDate: goal,
-        modEndDate: goal,
+        endDate: planEnd,
+        modEndDate: planEnd,
       );
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
       _calculationVM.updatePlan(_totalPlan);
@@ -771,11 +788,12 @@ class ChatPlanViewModel extends ChangeNotifier {
       ..._pendingAutoMonthlyInputs.map(
             (input) => UpdateMonthlyCommand(
           applyMonth: input.applyMonth,
-          modEndMonth: input.modEndMonth,
+          modEndMonth: DateTime(planEnd.year, planEnd.month, 1),
           entries: List<Entry>.from(input.entries),
           newDocumentId: input.newDocumentId,
           previousDocumentId: input.previousDocumentId,
           isIncome: input.isIncome,
+          allowBeforePlanStart: input.allowBeforePlanStart,
         ),
       ),
     ];
@@ -785,11 +803,12 @@ class ChatPlanViewModel extends ChangeNotifier {
       ..._pendingAutoDailyInputs.map(
             (input) => UpdateDailyCommand(
           applyDate: input.applyDate,
-          modEndDate: input.modEndDate,
+          modEndDate: DateTime(planEnd.year, planEnd.month, planEnd.day),
           entries: List<Entry>.from(input.entries),
           newDailyId: input.newDocumentId,
           newMiniDocId: input.newMiniDocId ?? _nextMiniDocId(input.applyDate),
           previousDailyId: input.previousDocumentId,
+          allowBeforePlanStart: input.allowBeforePlanStart,
         ),
       ),
     ];
@@ -808,8 +827,8 @@ class ChatPlanViewModel extends ChangeNotifier {
     if (monthlyCommands.isEmpty && dailyCommands.isEmpty) {
       _totalPlan = _totalPlan.copyWith(
         startDate: start,
-        endDate: goal,
-        modEndDate: goal,
+        endDate: planEnd,
+        modEndDate: planEnd,
       );
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
       _calculationVM.updatePlan(_totalPlan);
@@ -819,7 +838,7 @@ class ChatPlanViewModel extends ChangeNotifier {
 
     final TotalPlan basePlan = _totalPlan.subPlans.isEmpty
         ? _totalPlan.copyWith(
-      subPlans: _buildInitialSubPlanSkeleton(start, goal),
+      subPlans: _buildInitialSubPlanSkeleton(start, planEnd),
     )
         : _totalPlan;
 
@@ -997,6 +1016,11 @@ class ChatPlanViewModel extends ChangeNotifier {
     return '$key-$nextSeq';
   }
 
+  void _setHasSavedPlan(bool value) {
+    if (_hasSavedPlan == value) return;
+    debugPrint('[ChatPlanViewModel] _hasSavedPlan: $_hasSavedPlan -> $value');
+    _hasSavedPlan = value;
+  }
 }
 
 class _PendingMonthlyInput {
@@ -1007,6 +1031,7 @@ class _PendingMonthlyInput {
     required this.newDocumentId,
     required this.previousDocumentId,
     required this.isIncome,
+    required this.allowBeforePlanStart,
   });
 
   final DateTime applyMonth;
@@ -1015,6 +1040,7 @@ class _PendingMonthlyInput {
   final String newDocumentId;
   final String? previousDocumentId;
   final bool isIncome;
+  final bool allowBeforePlanStart;
 }
 
 class _PendingDailyInput {
@@ -1025,6 +1051,7 @@ class _PendingDailyInput {
     required this.newDailyId,
     required this.previousDailyId,
     this.newMiniDocId,
+    required this.allowBeforePlanStart,
   });
 
   final DateTime applyDate;
@@ -1033,6 +1060,7 @@ class _PendingDailyInput {
   final String newDailyId;
   final String? previousDailyId;
   final String? newMiniDocId;
+  final bool allowBeforePlanStart;
   String get newDocumentId => newDailyId;
   String? get previousDocumentId => previousDailyId;
 }

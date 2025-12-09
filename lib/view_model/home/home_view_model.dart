@@ -69,6 +69,15 @@ class HomeViewModel extends ChangeNotifier {
     try {
       _name = await _authRepo.getUserName();
       _latestPlan = await _planRepo.getLatestPlanForCurrentUser();
+      if (_latestPlan != null) {
+        final plan = _latestPlan!;
+        debugPrint('[HomeViewModel] latest plan loaded: '
+            'name=${plan.planName ?? '-'} target=${plan.targetAmount ?? 0} '
+            'current=${plan.currentAsset} start=${plan.startDate} '
+            'end=${plan.endDate} modEnd=${plan.modEndDate} ');
+      } else {
+        debugPrint('[HomeViewModel] latest plan loaded: none');
+      }
 
       if (_latestPlan != null && _hasMetrics(_latestPlan!)) {
         _calc = SavingPlanCalculator(plan: _latestPlan!).calculate();

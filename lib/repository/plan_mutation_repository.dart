@@ -177,9 +177,18 @@ class PlanMutationRepository {
         sumDailyConsume: dailySum,
         endDate: rightEnd,
       );
-      patchedSubPlan = applySubPlan.replaceMini(left);
+      final updatedMinis = Map<String, MiniPlan>.from(applySubPlan.miniPlans);
+      updatedMinis[left.docId] = left;
+      updatedMinis[right.docId] = right;
+      if (right.nextDocId != null) {
+        final next = updatedMinis[right.nextDocId!];
+        if (next != null) {
+          updatedMinis[right.nextDocId!] =
+              next.copyWith(prevDocId: right.docId);
+        }
+      }
       patchedSubPlan =
-          patchedSubPlan.insertAfter(prevDocId: left.docId, newMini: right);
+          applySubPlan.copyWith(miniPlans: updatedMinis).recalculate();
       if (_isSameMonth(normalizedApply, command.modEndDate)) {
         patchedSubPlan = _truncateSubPlan(patchedSubPlan, command.modEndDate);
       }
