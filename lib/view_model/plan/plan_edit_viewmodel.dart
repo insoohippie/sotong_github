@@ -20,6 +20,7 @@ class PlanEditViewModel extends ChangeNotifier {
   late TotalPlanViewModel totalPlanVM;
   late RefData refData;
   late RefDataViewModel refDataVM;
+  DateTime? _initialEndDate;
 
   List<Entry>? _pendingFixedIncomeEntries;
   List<Entry>? _pendingFixedConsumeEntries;
@@ -116,6 +117,7 @@ class PlanEditViewModel extends ChangeNotifier {
     refData = initialRefData ?? RefData(planId: initialPlan.planId);
     refData.planId = initialPlan.planId;
     refDataVM = RefDataViewModel(refData);
+    _initialEndDate = initialPlan.endDate;
 
     planNameController = TextEditingController(text: initialPlan.planName ?? '');
 
@@ -189,7 +191,12 @@ class PlanEditViewModel extends ChangeNotifier {
       monthlyConsume: monthlyFixedCost,
       dailyConsume: dailySpendingLimit,
     );
-    totalPlan = totalPlanVM.plan;
+    var updated = totalPlanVM.plan;
+    if (_initialEndDate != null) {
+      updated = updated.copyWith(endDate: _initialEndDate);
+      totalPlanVM.plan = updated;
+    }
+    totalPlan = updated;
     return totalPlan;
   }
 

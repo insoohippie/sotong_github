@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-
+import 'package:flutter/foundation.dart';
 import '../../model/plan/total_plan.dart';
 import '../../model/saving_calculation_result.dart';
 import '../../repository/auth_repository.dart';
@@ -68,7 +68,10 @@ class HomeViewModel extends ChangeNotifier {
 
     try {
       _name = await _authRepo.getUserName();
+      final currentUid = _authRepo.currentUserId ?? '-';
       _latestPlan = await _planRepo.getLatestPlanForCurrentUser();
+      debugPrint('[HomeViewModel] load() uid=$currentUid '
+          'fetchedPlanId=${_latestPlan?.planId ?? '-'}');
       if (_latestPlan != null) {
         final plan = _latestPlan!;
         debugPrint('[HomeViewModel] latest plan loaded: '

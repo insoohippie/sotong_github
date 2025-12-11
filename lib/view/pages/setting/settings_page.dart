@@ -100,8 +100,7 @@ class SettingsPage extends StatelessWidget {
                           final result = await navigator.push<PlanEditResult>(
                             MaterialPageRoute(
                               builder: (_) => PlanEditPage(
-                                initialPlan: chatVm.totalPlan,
-                                initialRefData: chatVm.refData,
+                                useLocalDraft: false,
                                 requireApplyDate: true,
                               ),
                             ),

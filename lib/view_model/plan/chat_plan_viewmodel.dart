@@ -363,6 +363,11 @@ class ChatPlanViewModel extends ChangeNotifier {
     _refData = result.updatedRefData;
     _refData.planId = _totalPlan.planId;
     _refDataVM = RefDataViewModel(_refData);
+    debugPrint('[applyPlanEditResult] updated totalPlan planId=${_totalPlan.planId}');
+    if (_totalPlan.planId.isNotEmpty && !_hasSavedPlan) {
+      debugPrint('[applyPlanEditResult] detected existing plan, setting _hasSavedPlan true');
+      _setHasSavedPlan(true);
+    }
     if (_hasSavedPlan) {
       _pendingMonthlyCommands = List<UpdateMonthlyCommand>.from(
         result.monthlyCommands.where((cmd) => cmd.entries.isNotEmpty),
@@ -683,7 +688,18 @@ class ChatPlanViewModel extends ChangeNotifier {
     );
     try {
       await _preparePlanStructureForSave();
-      await _planRepo.saveCurrentUserPlan(_totalPlan);
+      if (_totalPlan.planId.isEmpty || !_hasSavedPlan) {
+        final savedId = await _planRepo.saveCurrentUserPlan(_totalPlan);
+        debugPrint('[savePlan] created new plan docId=$savedId');
+        if (savedId.isNotEmpty) {
+          _totalPlan = _totalPlan.copyWith(planId: savedId);
+          _refData.planId = savedId;
+          _refDataVM = RefDataViewModel(_refData);
+        }
+      } else {
+        debugPrint('[savePlan] replace existing planId=${_totalPlan.planId}');
+        await _planRepo.replacePlan(_totalPlan);
+      }
       print('--- Plan Tree After Save ---\n${debugPlanTree()}');
       _planSavedBus?.notify();
       debugPrint('[savePlan] success: _hasSavedPlan $_hasSavedPlan -> true');
@@ -724,6 +740,8 @@ class ChatPlanViewModel extends ChangeNotifier {
     final previousModEnd = _totalPlan.modEndDate;
     _totalPlan = _totalPlan.copyWith(modEndDate: computedGoal);
     final planEnd = _totalPlan.modEndDate ?? computedGoal;
+    final persistedEnd =
+        _hasSavedPlan && _totalPlan.endDate != null ? _totalPlan.endDate! : planEnd;
     debugPrint(
       '[preparePlan] startDate=$start goal=$computedGoal modEnd=${_totalPlan.modEndDate}',
     );
@@ -748,7 +766,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     if (shouldRebuildSkeleton) {
       _totalPlan = _totalPlan.copyWith(
         startDate: start,
-        endDate: planEnd,
+        endDate: persistedEnd,
         modEndDate: planEnd,
         subPlans: _buildInitialSubPlanSkeleton(start, planEnd),
       );
@@ -773,7 +791,7 @@ class ChatPlanViewModel extends ChangeNotifier {
       // 커맨드가 없으면 기간만 업데이트하고 종료
       _totalPlan = _totalPlan.copyWith(
         startDate: start,
-        endDate: planEnd,
+        endDate: persistedEnd,
         modEndDate: planEnd,
       );
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
@@ -827,7 +845,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     if (monthlyCommands.isEmpty && dailyCommands.isEmpty) {
       _totalPlan = _totalPlan.copyWith(
         startDate: start,
-        endDate: planEnd,
+        endDate: persistedEnd,
         modEndDate: planEnd,
       );
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
@@ -856,6 +874,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     );
 
     _totalPlan = result.totalPlan;
+    debugPrint('[applyPlanEditResult] updated totalPlan planId=${_totalPlan.planId}');
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
     _calculationVM.updatePlan(_totalPlan);
     _refData = RefData(
