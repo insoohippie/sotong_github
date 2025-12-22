@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 
 import '../../model/plan/mini_plan.dart';
 import '../../model/plan/plan_metrics.dart';
@@ -50,7 +51,12 @@ class SavingPlanCalculator {
     }
 
     final timeline = _generateTimeline();
+    final fractionalSeconds = _fractionalEndSeconds();
     if (timeline.isEmpty) {
+      debugPrint('[SavingCalc] timeline empty '
+          '(planId=${_plan.planId}) start=$_planStart target=$requiredSaving '
+          'monthlyIncome=$_monthlyIncome monthlyFixed=$_monthlyFixedCost '
+          'dailyLimit=$_dailyLimit');
       return _simpleCalculation(
         requiredSaving: requiredSaving,
         monthlySavingDisplay: monthlySavingDisplay,
@@ -58,6 +64,10 @@ class SavingPlanCalculator {
         savingRatioDisplay: savingRatioDisplay,
       );
     }
+    debugPrint('[SavingCalc] timeline stats '
+        'len=${timeline.length} '
+        'range=${timeline.first.date}~${timeline.last.date} '
+        'planStart=$_planStart target=$requiredSaving');
 
     double accumulated = 0.0;
     double totalSeconds = 0.0;
@@ -67,6 +77,8 @@ class SavingPlanCalculator {
     for (final slice in timeline) {
       final dailyNet = slice.dailyNet;
       if (dailyNet <= 0) {
+        debugPrint('[SavingCalc] non-positive dailyNet '
+            'date=${slice.date} dailyNet=$dailyNet');
         insufficient = true;
         break;
       }
@@ -86,11 +98,44 @@ class SavingPlanCalculator {
       }
     }
 
+    if (accumulated < requiredSaving &&
+        fractionalSeconds > 0 &&
+        timeline.isNotEmpty) {
+      final lastSlice = timeline.last;
+      final lastDailyNet = lastSlice.dailyNet;
+      if (lastDailyNet > 0) {
+        final fractionalRatio = fractionalSeconds / 86400.0;
+        final extra = lastDailyNet * fractionalRatio;
+        if (accumulated + extra >= requiredSaving) {
+          final remaining = requiredSaving - accumulated;
+          final neededSeconds =
+              (remaining / lastDailyNet * 86400.0).clamp(
+            0.0,
+            fractionalSeconds.toDouble(),
+          );
+          totalSeconds += neededSeconds;
+          accumulated = requiredSaving;
+          goalDate = lastSlice.date.add(
+            Duration(seconds: neededSeconds.round()),
+          );
+          insufficient = false;
+        } else {
+          accumulated += extra;
+          totalSeconds += fractionalSeconds;
+        }
+      }
+    }
+
     if (accumulated < requiredSaving) {
+      debugPrint('[SavingCalc] insufficient accumulation '
+          'accumulated=$accumulated required=$requiredSaving '
+          'timelineLen=${timeline.length}');
       insufficient = true;
     }
 
     if (insufficient || totalSeconds <= 0) {
+      debugPrint('[SavingCalc] fallback simple calculation '
+          'insufficient=$insufficient totalSeconds=$totalSeconds');
       return _simpleCalculation(
         requiredSaving: requiredSaving,
         monthlySavingDisplay: monthlySavingDisplay,
@@ -159,6 +204,13 @@ class SavingPlanCalculator {
       result.addAll(subPlan.orderedMinis());
     }
     return result;
+  }
+
+  int _fractionalEndSeconds() {
+    if (_plan.subPlans.isEmpty) return 0;
+    final entries = _plan.subPlans.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+    return entries.last.value.fractionalEndSeconds;
   }
 
   static int _daysInMonth(int year, int month) {

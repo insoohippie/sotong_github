@@ -220,16 +220,16 @@ class TotalPlan {
       sumMonthlyConsume: metrics.sumMonthlyConsume,
       sumDailyConsume: metrics.sumDailyConsume,
     );
-    final subPlan = SubPlan(
-      yearMonth: monthStart,
-      headDocId: miniId,
-      miniPlans: {miniId: mini},
-      miniResult: MiniPlanResult(
+      final subPlan = SubPlan(
+        yearMonth: monthStart,
         headDocId: miniId,
-        miniMetrics: [mini.toMetrics()],
-        miniPlanHead: mini,
-      ),
-    );
+        miniPlans: {miniId: mini},
+        miniResult: MiniPlanResult(
+          headDocId: miniId,
+          miniMetrics: [mini.toMetrics()],
+          miniPlanHead: mini,
+        ),
+      );
     return {key: subPlan};
   }
 
@@ -303,6 +303,8 @@ class TotalPlan {
               miniMetrics: const [],
               miniPlanHead: headMini,
             ),
+            fractionalEndSeconds:
+                subPlanMap['fractionalEndSeconds'] as int? ?? 0,
           ),
         );
       });
@@ -354,6 +356,7 @@ class TotalPlan {
         'headDocId': subPlan.headDocId,
         'miniPlans':
             subPlan.miniPlans.map((docId, mini) => MapEntry(docId, mini.toMap())),
+        'fractionalEndSeconds': subPlan.fractionalEndSeconds,
       };
     });
     return result;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 
@@ -735,8 +736,20 @@ class ChatPlanViewModel extends ChangeNotifier {
     debugPrint('[preparePlan] start');
     final calc = calculate();
     final now = DateTime.now();
-    final start = _totalPlan.startDate ?? DateTime(now.year, now.month, now.day);
+    final rawStart = _totalPlan.startDate ?? DateTime(now.year, now.month, now.day);
+    final start = DateTime(rawStart.year, rawStart.month, rawStart.day);
+    if (_totalPlan.startDate == null ||
+        !_isSameDay(_totalPlan.startDate!, start)) {
+      debugPrint(
+        '[preparePlan] normalizing startDate '
+        '${_totalPlan.startDate?.toIso8601String() ?? 'null'} -> ${start.toIso8601String()}',
+      );
+      _totalPlan = _totalPlan.copyWith(startDate: start);
+      _totalPlanVM = TotalPlanViewModel(_totalPlan);
+      _calculationVM.updatePlan(_totalPlan);
+    }
     final computedGoal = calc?.goalDateTime ?? start.add(const Duration(days: 120));
+    final exactPlanEnd = computedGoal;
     final previousModEnd = _totalPlan.modEndDate;
     _totalPlan = _totalPlan.copyWith(modEndDate: computedGoal);
     final planEnd = _totalPlan.modEndDate ?? computedGoal;
@@ -794,6 +807,7 @@ class ChatPlanViewModel extends ChangeNotifier {
         endDate: persistedEnd,
         modEndDate: planEnd,
       );
+      _totalPlan = _applyExactPlanEnd(_totalPlan, exactPlanEnd);
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
       _calculationVM.updatePlan(_totalPlan);
        debugPrint('[preparePlan] no pending commands, only updated period');
@@ -848,6 +862,7 @@ class ChatPlanViewModel extends ChangeNotifier {
         endDate: persistedEnd,
         modEndDate: planEnd,
       );
+      _totalPlan = _applyExactPlanEnd(_totalPlan, exactPlanEnd);
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
       _calculationVM.updatePlan(_totalPlan);
       debugPrint('[preparePlan] commands filtered out, nothing to mutate');
@@ -873,7 +888,7 @@ class ChatPlanViewModel extends ChangeNotifier {
       snapshot: snapshot,
     );
 
-    _totalPlan = result.totalPlan;
+    _totalPlan = _applyExactPlanEnd(result.totalPlan, exactPlanEnd);
     debugPrint('[applyPlanEditResult] updated totalPlan planId=${_totalPlan.planId}');
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
     _calculationVM.updatePlan(_totalPlan);
@@ -971,9 +986,13 @@ class ChatPlanViewModel extends ChangeNotifier {
       final actualStart = _isSameMonth(monthStart, start)
           ? DateTime(start.year, start.month, start.day)
           : monthStart;
-      final actualEnd = _isSameMonth(monthStart, end)
-          ? DateTime(end.year, end.month, end.day)
-          : monthEnd;
+      final isFinalMonth = _isSameMonth(monthStart, end);
+      final normalizedEnd =
+          isFinalMonth ? DateTime(end.year, end.month, end.day) : monthEnd;
+      final actualEnd = normalizedEnd;
+      final fractionalSeconds = isFinalMonth
+          ? min(86399, max(0, end.difference(normalizedEnd).inSeconds))
+          : 0;
       final key = _formatYearMonth(monthStart);
       final miniId = '${key}_mini_seed';
       final mini = MiniPlan(
@@ -997,6 +1016,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           miniMetrics: [mini.toMetrics()],
           miniPlanHead: mini,
         ),
+        fractionalEndSeconds: fractionalSeconds,
       );
     }
     return result;
@@ -1013,6 +1033,9 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   String _fallbackDocId(String kind) => 'bootstrap_$kind';
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   bool _isSameMonth(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month;
@@ -1039,6 +1062,37 @@ class ChatPlanViewModel extends ChangeNotifier {
     if (_hasSavedPlan == value) return;
     debugPrint('[ChatPlanViewModel] _hasSavedPlan: $_hasSavedPlan -> $value');
     _hasSavedPlan = value;
+  }
+
+  TotalPlan _applyExactPlanEnd(TotalPlan plan, DateTime exactEnd) {
+    final normalized = DateTime(exactEnd.year, exactEnd.month, exactEnd.day);
+    final fractionalSeconds =
+        min(86399, max(0, exactEnd.difference(normalized).inSeconds));
+    final key = _formatYearMonth(normalized);
+    final subPlan = plan.subPlans[key];
+    if (subPlan == null) {
+      return plan.copyWith(modEndDate: exactEnd);
+    }
+    if (subPlan.fractionalEndSeconds == fractionalSeconds &&
+        plan.modEndDate == exactEnd) {
+      return plan;
+    }
+    final updatedSubPlans = Map<String, SubPlan>.from(plan.subPlans)
+      ..[key] = subPlan.copyWith(fractionalEndSeconds: fractionalSeconds);
+    return plan.copyWith(
+      subPlans: updatedSubPlans,
+      modEndDate: exactEnd,
+    );
+  }
+
+  void prepareSkeletonForSummary() {
+    final start = _totalPlan.startDate ?? DateTime.now();
+    final modEnd = _totalPlan.modEndDate ?? DateTime.now();
+    final skeleton = _buildInitialSubPlanSkeleton(start, modEnd);
+    _totalPlan = _totalPlan.copyWith(subPlans: skeleton);
+    _totalPlanVM = TotalPlanViewModel(_totalPlan);
+    _calculationVM.updatePlan(_totalPlan);
+    calculate();
   }
 }
 

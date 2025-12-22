@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import '../model/commands/update_daily_command.dart';
 import '../model/commands/update_monthly_command.dart';
 import '../model/refData/entry.dart';
@@ -279,17 +281,23 @@ class PlanMutationRepository {
   }
 
   SubPlan _truncateSubPlan(SubPlan subPlan, DateTime cutoff) {
+    final normalizedCutoff =
+        DateTime(cutoff.year, cutoff.month, cutoff.day);
+    final fractionalSeconds = min(
+      86399,
+      max(0, cutoff.difference(normalizedCutoff).inSeconds),
+    );
     final ordered = subPlan.orderedMinis();
     final updated = <String, MiniPlan>{};
     MiniPlan? previous;
     String? headId;
     for (final mini in ordered) {
-      if (mini.startDate.isAfter(cutoff)) {
+      if (mini.startDate.isAfter(normalizedCutoff)) {
         continue;
       }
       var current = mini;
-      if (mini.endDate.isAfter(cutoff)) {
-        current = current.copyWith(endDate: cutoff);
+      if (mini.endDate.isAfter(normalizedCutoff)) {
+        current = current.copyWith(endDate: normalizedCutoff);
       }
       current = current.copyWith(
         prevDocId: previous?.docId,
@@ -302,7 +310,7 @@ class PlanMutationRepository {
       updated[current.docId] = current;
       previous = current;
       headId ??= current.docId;
-      if (current.endDate.isAtSameMomentAs(cutoff)) {
+      if (current.endDate.isAtSameMomentAs(normalizedCutoff)) {
         break;
       }
     }
@@ -313,6 +321,7 @@ class PlanMutationRepository {
         .copyWith(
           headDocId: headId!,
           miniPlans: updated,
+          fractionalEndSeconds: fractionalSeconds,
         )
         .recalculate();
   }

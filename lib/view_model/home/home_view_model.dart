@@ -78,6 +78,25 @@ class HomeViewModel extends ChangeNotifier {
             'name=${plan.planName ?? '-'} target=${plan.targetAmount ?? 0} '
             'current=${plan.currentAsset} start=${plan.startDate} '
             'end=${plan.endDate} modEnd=${plan.modEndDate} ');
+        final subPlanCount = plan.subPlans.length;
+        final miniList = plan.subPlans.values
+            .expand((sub) => sub.miniPlans.values)
+            .toList(growable: false);
+        final zeroMetricMinis = miniList
+            .where((mini) =>
+                mini.sumMonthlyIncome == 0 || mini.sumDailyConsume == 0)
+            .map((mini) => mini.docId)
+            .toList(growable: false);
+        debugPrint('[HomeViewModel] plan structure: '
+            'startDate=${plan.startDate?.toIso8601String() ?? 'null'} '
+            'subPlans=$subPlanCount subPlansEmpty=${subPlanCount == 0} '
+            'minis=${miniList.length} '
+            'zeroMetricMinis=${zeroMetricMinis.length > 5 ? zeroMetricMinis.take(5).toList() : zeroMetricMinis}');
+        final metrics = plan.result.totalMetrics;
+        debugPrint('[HomeViewModel] metrics snapshot: '
+            'monthlyIncome=${metrics.sumMonthlyIncome} '
+            'dailyConsume=${metrics.sumDailyConsume} '
+            'target=${plan.targetAmount ?? 0}');
       } else {
         debugPrint('[HomeViewModel] latest plan loaded: none');
       }

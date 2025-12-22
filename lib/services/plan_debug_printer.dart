@@ -64,7 +64,8 @@ class PlanDebugPrinter {
     );
     buffer.writeln(
       '$childIndent summary: minis=${subPlan.miniPlans.length} '
-      'dailyNet=${subPlan.monthlySummary().dailyNetSaving}',
+      'dailyNet=${subPlan.monthlySummary().dailyNetSaving} '
+      'fractional=${subPlan.fractionalEndSeconds}',
     );
 
     final miniList = subPlan.orderedMinis();
