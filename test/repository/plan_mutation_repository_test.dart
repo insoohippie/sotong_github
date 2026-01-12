@@ -28,7 +28,7 @@ MiniPlan _buildMini({
     sumMonthlyIncome: 0,
     sumMonthlyConsume: 0,
     sumDailyConsume: 0,
-  );
+  ).recalculateNetAmounts();
 }
 
 SubPlan _buildSubPlan(String key, MiniPlan mini) {
@@ -39,7 +39,7 @@ SubPlan _buildSubPlan(String key, MiniPlan mini) {
     miniResult: MiniPlanResult(
       headDocId: mini.docId,
       miniMetrics: const [],
-      headMiniPlan: mini,
+      miniPlanHead: mini,
     ),
   );
 }
@@ -265,5 +265,130 @@ void main() {
       expect(updatedMini.dailyConsumeId, equals('day-202509-002'));
       expect(updatedMini.startDate, equals(DateTime(2025, 9, 15)));
     });
+  });
+
+  test('MiniPlan recalculates net amounts based on its duration', () {
+    final mini = MiniPlan(
+      docId: 'm-202504',
+      yearMonth: DateTime(2025, 4),
+      startDate: DateTime(2025, 4, 1),
+      endDate: DateTime(2025, 4, 15),
+      monthlyIncomeId: 'income',
+      monthlyConsumeId: 'consume',
+      dailyConsumeId: 'daily',
+      sumMonthlyIncome: 600000,
+      sumMonthlyConsume: 300000,
+      sumDailyConsume: 20000,
+    ).recalculateNetAmounts();
+
+    expect(mini.monthlyNetIncome, 300000);
+    expect(mini.monthlyNetConsume, 150000);
+    expect(mini.dailyNetConsume, 300000);
+  });
+
+  test('SubPlan monthlySummary aggregates mini net values', () {
+    final mini1 = MiniPlan(
+      docId: 'm1',
+      yearMonth: DateTime(2025, 5),
+      startDate: DateTime(2025, 5, 1),
+      endDate: DateTime(2025, 5, 15),
+      monthlyIncomeId: 'income',
+      monthlyConsumeId: 'consume',
+      dailyConsumeId: 'daily',
+      nextDocId: 'm2',
+      sumMonthlyIncome: 900000,
+      sumMonthlyConsume: 300000,
+      sumDailyConsume: 20000,
+    ).recalculateNetAmounts();
+    final mini2 = MiniPlan(
+      docId: 'm2',
+      yearMonth: DateTime(2025, 5),
+      startDate: DateTime(2025, 5, 16),
+      endDate: DateTime(2025, 5, 31),
+      monthlyIncomeId: 'income',
+      monthlyConsumeId: 'consume',
+      dailyConsumeId: 'daily',
+      prevDocId: 'm1',
+      sumMonthlyIncome: 900000,
+      sumMonthlyConsume: 300000,
+      sumDailyConsume: 20000,
+    ).recalculateNetAmounts();
+    final subPlan = SubPlan(
+      yearMonth: DateTime(2025, 5),
+      headDocId: 'm1',
+      miniPlans: {'m1': mini1, 'm2': mini2},
+      miniResult: MiniPlanResult(
+        headDocId: 'm1',
+        miniMetrics: const [],
+        miniPlanHead: mini1,
+      ),
+    );
+
+    final summary = subPlan.monthlySummary();
+
+    expect(
+      summary.monthlyNetIncome,
+      mini1.monthlyNetIncome + mini2.monthlyNetIncome,
+    );
+    expect(
+      summary.monthlyNetConsume,
+      mini1.monthlyNetConsume + mini2.monthlyNetConsume,
+    );
+    expect(
+      summary.dailyNetConsume,
+      mini1.dailyNetConsume + mini2.dailyNetConsume,
+    );
+  });
+
+  test('TotalPlan metrics aggregate sub plan net values', () {
+    final septemberMini = MiniPlan(
+      docId: 'm1',
+      yearMonth: DateTime(2025, 9),
+      startDate: DateTime(2025, 9, 1),
+      endDate: DateTime(2025, 9, 30),
+      monthlyIncomeId: 'income',
+      monthlyConsumeId: 'consume',
+      dailyConsumeId: 'daily',
+      sumMonthlyIncome: 1000000,
+      sumMonthlyConsume: 300000,
+      sumDailyConsume: 15000,
+    ).recalculateNetAmounts();
+    final octoberMini = MiniPlan(
+      docId: 'm2',
+      yearMonth: DateTime(2025, 10),
+      startDate: DateTime(2025, 10, 1),
+      endDate: DateTime(2025, 10, 31),
+      monthlyIncomeId: 'income',
+      monthlyConsumeId: 'consume',
+      dailyConsumeId: 'daily',
+      sumMonthlyIncome: 900000,
+      sumMonthlyConsume: 200000,
+      sumDailyConsume: 12000,
+    ).recalculateNetAmounts();
+    final septemberSub = _buildSubPlan('202509', septemberMini).recalculate();
+    final octoberSub = _buildSubPlan('202510', octoberMini).recalculate();
+    var totalPlan = _buildTotalPlan(
+      subPlans: {
+        '202509': septemberSub,
+        '202510': octoberSub,
+      },
+    );
+    totalPlan = totalPlan.recalculateTotals();
+    final totalMetrics = totalPlan.result.totalMetrics;
+    expect(
+      totalMetrics.monthlyNetIncome,
+      septemberSub.monthlySummary().monthlyNetIncome +
+          octoberSub.monthlySummary().monthlyNetIncome,
+    );
+    expect(
+      totalMetrics.monthlyNetConsume,
+      septemberSub.monthlySummary().monthlyNetConsume +
+          octoberSub.monthlySummary().monthlyNetConsume,
+    );
+    expect(
+      totalMetrics.dailyNetConsume,
+      septemberSub.monthlySummary().dailyNetConsume +
+          octoberSub.monthlySummary().dailyNetConsume,
+    );
   });
 }

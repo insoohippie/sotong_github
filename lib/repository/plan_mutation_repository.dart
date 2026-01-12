@@ -49,11 +49,13 @@ class PlanMutationRepository {
         }
         final patched = <String, MiniPlan>{};
         subPlan.miniPlans.forEach((docId, mini) {
-          patched[docId] = mini.copyWith(
-            monthlyIncomeId: newIncome.id,
-            monthlyIncomeRef: newIncome,
-            sumMonthlyIncome: monthlySum,
-          );
+          patched[docId] = mini
+              .copyWith(
+                monthlyIncomeId: newIncome.id,
+                monthlyIncomeRef: newIncome,
+                sumMonthlyIncome: monthlySum,
+              )
+              .recalculateNetAmounts();
         });
         updatedSubPlans[key] =
             subPlan.copyWith(miniPlans: patched).recalculate();
@@ -79,11 +81,13 @@ class PlanMutationRepository {
         }
         final patched = <String, MiniPlan>{};
         subPlan.miniPlans.forEach((docId, mini) {
-          patched[docId] = mini.copyWith(
-            monthlyConsumeId: newConsume.id,
-            monthlyConsumeRef: newConsume,
-            sumMonthlyConsume: monthlySum,
-          );
+          patched[docId] = mini
+              .copyWith(
+                monthlyConsumeId: newConsume.id,
+                monthlyConsumeRef: newConsume,
+                sumMonthlyConsume: monthlySum,
+              )
+              .recalculateNetAmounts();
         });
         updatedSubPlans[key] =
             subPlan.copyWith(miniPlans: patched).recalculate();
@@ -173,12 +177,14 @@ class PlanMutationRepository {
       final rightEnd = _isSameMonth(normalizedApply, command.modEndDate)
           ? _minDate(split.right.endDate, command.modEndDate)
           : split.right.endDate;
-      final right = split.right.copyWith(
-        dailyConsumeId: newDaily.id,
-        dailyConsumeRef: newDaily,
-        sumDailyConsume: dailySum,
-        endDate: rightEnd,
-      );
+      final right = split.right
+          .copyWith(
+            dailyConsumeId: newDaily.id,
+            dailyConsumeRef: newDaily,
+            sumDailyConsume: dailySum,
+            endDate: rightEnd,
+          )
+          .recalculateNetAmounts();
       final updatedMinis = Map<String, MiniPlan>.from(applySubPlan.miniPlans);
       updatedMinis[left.docId] = left;
       updatedMinis[right.docId] = right;
@@ -198,12 +204,14 @@ class PlanMutationRepository {
       final endDate = _isSameMonth(normalizedApply, command.modEndDate)
           ? _minDate(targetMini.endDate, command.modEndDate)
           : targetMini.endDate;
-      final updatedMini = targetMini.copyWith(
-        dailyConsumeId: newDaily.id,
-        dailyConsumeRef: newDaily,
-        sumDailyConsume: dailySum,
-        endDate: endDate,
-      );
+      final updatedMini = targetMini
+          .copyWith(
+            dailyConsumeId: newDaily.id,
+            dailyConsumeRef: newDaily,
+            sumDailyConsume: dailySum,
+            endDate: endDate,
+          )
+          .recalculateNetAmounts();
       patchedSubPlan = applySubPlan.replaceMini(updatedMini);
       if (_isSameMonth(normalizedApply, command.modEndDate)) {
         patchedSubPlan = _truncateSubPlan(patchedSubPlan, command.modEndDate);
@@ -219,11 +227,13 @@ class PlanMutationRepository {
       }
       final patched = <String, MiniPlan>{};
       subPlan.miniPlans.forEach((docId, mini) {
-        patched[docId] = mini.copyWith(
-          dailyConsumeId: newDaily.id,
-          dailyConsumeRef: newDaily,
-          sumDailyConsume: dailySum,
-        );
+        patched[docId] = mini
+            .copyWith(
+              dailyConsumeId: newDaily.id,
+              dailyConsumeRef: newDaily,
+              sumDailyConsume: dailySum,
+            )
+            .recalculateNetAmounts();
       });
       var truncatedSubPlan =
           subPlan.copyWith(miniPlans: patched).recalculate();
@@ -302,7 +312,7 @@ class PlanMutationRepository {
       current = current.copyWith(
         prevDocId: previous?.docId,
         nextDocId: null,
-      );
+      ).recalculateNetAmounts();
       if (previous != null) {
         updated[previous.docId] = updated[previous.docId]!
             .copyWith(nextDocId: current.docId);

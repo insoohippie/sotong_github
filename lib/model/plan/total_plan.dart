@@ -216,10 +216,10 @@ class TotalPlan {
       monthlyIncomeId: '${key}_income_bootstrap',
       monthlyConsumeId: '${key}_consume_bootstrap',
       dailyConsumeId: '${key}_daily_bootstrap',
-      sumMonthlyIncome: metrics.sumMonthlyIncome,
-      sumMonthlyConsume: metrics.sumMonthlyConsume,
-      sumDailyConsume: metrics.sumDailyConsume,
-    );
+      sumMonthlyIncome: metrics.monthlyIncomeAmount,
+      sumMonthlyConsume: metrics.monthlyConsumeAmount,
+      sumDailyConsume: metrics.dailyConsumeAmount,
+    ).recalculateNetAmounts();
       final subPlan = SubPlan(
         yearMonth: monthStart,
         headDocId: miniId,
@@ -252,12 +252,18 @@ class TotalPlan {
     if (map is Map<String, dynamic>) {
       final start = _parseDate(map['startDate']) ?? DateTime.now();
       final end = _parseDate(map['endDate']) ?? start.add(const Duration(days: 29));
+      final monthlyNetIncome = (map['monthlyNetIncome'] as num?)?.round() ?? 0;
+      final monthlyNetConsume = (map['monthlyNetConsume'] as num?)?.round() ?? 0;
+      final dailyNetConsume = (map['dailyNetConsume'] as num?)?.round() ?? 0;
       return PlanMetrics.fromRange(
         startDate: start,
         endDate: end,
         sumMonthlyIncome: (map['sumMonthlyIncome'] as num?)?.round() ?? 0,
         sumMonthlyConsume: (map['sumMonthlyConsume'] as num?)?.round() ?? 0,
         sumDailyConsume: (map['sumDailyConsume'] as num?)?.round() ?? 0,
+        monthlyNetIncome: monthlyNetIncome,
+        monthlyNetConsume: monthlyNetConsume,
+        dailyNetConsume: dailyNetConsume,
       ).copyWith(
         dailyNetSaving: (map['dailyNetSaving'] as num?)?.round(),
         monthlyNetSaving: (map['monthlyNetSaving'] as num?)?.round(),
@@ -337,9 +343,12 @@ class TotalPlan {
       'startDate': metrics.startDate.toIso8601String(),
       'endDate': metrics.endDate.toIso8601String(),
       'kDays': metrics.kDays,
-      'sumMonthlyIncome': metrics.sumMonthlyIncome,
-      'sumMonthlyConsume': metrics.sumMonthlyConsume,
-      'sumDailyConsume': metrics.sumDailyConsume,
+      'sumMonthlyIncome': metrics.monthlyIncomeAmount,
+      'sumMonthlyConsume': metrics.monthlyConsumeAmount,
+      'sumDailyConsume': metrics.dailyConsumeAmount,
+      'monthlyNetIncome': metrics.monthlyNetIncome,
+      'monthlyNetConsume': metrics.monthlyNetConsume,
+      'dailyNetConsume': metrics.dailyNetConsume,
       'dailyNetSaving': metrics.dailyNetSaving,
       'monthlyNetSaving': metrics.monthlyNetSaving,
       'perSecondSaving': metrics.perSecondSaving,

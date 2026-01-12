@@ -17,9 +17,9 @@ class SavingPlanCalculator {
 
   PlanMetrics get _metrics => _plan.result.totalMetrics;
 
-  double get _monthlyIncome => _metrics.sumMonthlyIncome.toDouble();
-  double get _monthlyFixedCost => _metrics.sumMonthlyConsume.toDouble();
-  double get _dailyLimit => _metrics.sumDailyConsume.toDouble();
+  double get _monthlyIncome => _metrics.monthlyIncomeAmount.toDouble();
+  double get _monthlyFixedCost => _metrics.monthlyConsumeAmount.toDouble();
+  double get _dailyLimit => _metrics.dailyConsumeAmount.toDouble();
   double get _targetAmount => (_plan.targetAmount ?? 0).toDouble();
   double get _currentAsset => _plan.currentAsset.toDouble();
   DateTime get _planStart => _plan.startDate ?? DateTime.now();
@@ -172,9 +172,9 @@ class SavingPlanCalculator {
 
     for (final mini in ordered) {
       final metrics = mini.toMetrics();
-      final monthlyIncome = metrics.sumMonthlyIncome.toDouble();
-      final monthlyConsume = metrics.sumMonthlyConsume.toDouble();
-      final dailyLimit = metrics.sumDailyConsume.toDouble();
+      final monthlyIncome = metrics.monthlyIncomeAmount.toDouble();
+      final monthlyConsume = metrics.monthlyConsumeAmount.toDouble();
+      final dailyLimit = metrics.dailyConsumeAmount.toDouble();
 
       var cursor = mini.startDate;
       while (!cursor.isAfter(mini.endDate)) {

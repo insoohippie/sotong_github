@@ -111,26 +111,35 @@ class SubPlan {
     final lastMetric = metrics.last;
     final double totalDaily = metrics.fold<double>(
       0,
-      (sum, metric) => sum + metric.sumDailyConsume * metric.kDays,
+      (sum, metric) => sum + metric.dailyConsumeAmount * metric.kDays,
     );
     final leadingGap =
         max(0, firstMetric.startDate.difference(monthStart).inDays);
     final trailingGap = max(0, monthEnd.difference(lastMetric.endDate).inDays);
     final normalizedTotal = totalDaily +
-        (firstMetric.sumDailyConsume * leadingGap) +
-        (lastMetric.sumDailyConsume * trailingGap) +
+        (firstMetric.dailyConsumeAmount * leadingGap) +
+        (lastMetric.dailyConsumeAmount * trailingGap) +
         (fractionalEndSeconds > 0
-            ? lastMetric.sumDailyConsume * (fractionalEndSeconds / 86400.0)
+            ? lastMetric.dailyConsumeAmount * (fractionalEndSeconds / 86400.0)
             : 0);
     final avgDaily = daysInMonth == 0
         ? 0
         : PlanMetrics.halfUp(normalizedTotal / daysInMonth);
+    final totalMonthlyNetIncome =
+        ordered.fold<int>(0, (sum, mini) => sum + mini.monthlyNetIncome);
+    final totalMonthlyNetConsume =
+        ordered.fold<int>(0, (sum, mini) => sum + mini.monthlyNetConsume);
+    final totalDailyNetConsume =
+        ordered.fold<int>(0, (sum, mini) => sum + mini.dailyNetConsume);
     return PlanMetrics.fromRange(
       startDate: monthStart,
       endDate: monthEnd,
-      sumMonthlyIncome: firstMetric.sumMonthlyIncome,
-      sumMonthlyConsume: firstMetric.sumMonthlyConsume,
+      sumMonthlyIncome: firstMetric.monthlyIncomeAmount,
+      sumMonthlyConsume: firstMetric.monthlyConsumeAmount,
       sumDailyConsume: avgDaily,
+      monthlyNetIncome: totalMonthlyNetIncome,
+      monthlyNetConsume: totalMonthlyNetConsume,
+      dailyNetConsume: totalDailyNetConsume,
     );
   }
 

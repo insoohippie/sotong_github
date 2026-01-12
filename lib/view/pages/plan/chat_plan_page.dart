@@ -552,7 +552,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   _addCustomFixedExpenseCategoryWithEmoji,
                   categoryEmojis: _fixedExpenseCategoryEmojis,
                   monthlyIncome:
-                  context.read<ChatPlanViewModel>().totalPlan.result.totalMetrics.sumMonthlyIncome.toDouble(),
+                  context.read<ChatPlanViewModel>().totalPlan.result.totalMetrics.monthlyIncomeAmount.toDouble(),
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
                     final now = DateTime.now();
@@ -600,8 +600,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   monthlyIncome: (() {
                     final vm = context.read<ChatPlanViewModel>();
                     final metrics = vm.totalPlan.result.totalMetrics;
-                    final double income = metrics.sumMonthlyIncome.toDouble();
-                    final double fixed = metrics.sumMonthlyConsume.toDouble();
+                    final double income = metrics.monthlyIncomeAmount.toDouble();
+                    final double fixed = metrics.monthlyConsumeAmount.toDouble();
                     final double leftover = income - fixed;
                     return leftover > 0 ? leftover : 0.0;
                   }()),

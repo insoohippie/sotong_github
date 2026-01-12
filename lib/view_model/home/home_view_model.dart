@@ -94,8 +94,8 @@ class HomeViewModel extends ChangeNotifier {
             'zeroMetricMinis=${zeroMetricMinis.length > 5 ? zeroMetricMinis.take(5).toList() : zeroMetricMinis}');
         final metrics = plan.result.totalMetrics;
         debugPrint('[HomeViewModel] metrics snapshot: '
-            'monthlyIncome=${metrics.sumMonthlyIncome} '
-            'dailyConsume=${metrics.sumDailyConsume} '
+            'monthlyIncome=${metrics.monthlyIncomeAmount} '
+            'dailyConsume=${metrics.dailyConsumeAmount} '
             'target=${plan.targetAmount ?? 0}');
       } else {
         debugPrint('[HomeViewModel] latest plan loaded: none');
@@ -205,7 +205,7 @@ class HomeViewModel extends ChangeNotifier {
   String get dailyLimitText {
     final metrics = _latestPlan?.result.totalMetrics;
     if (metrics == null) return '—';
-    return SavingPlanCalculator.formatAmount(metrics.sumDailyConsume.toDouble()) + '원';
+    return SavingPlanCalculator.formatAmount(metrics.dailyConsumeAmount.toDouble()) + '원';
   }
 
   String get perSecondSaving => _savingPerSecond.toStringAsFixed(2);
@@ -213,9 +213,9 @@ class HomeViewModel extends ChangeNotifier {
 
   bool _hasMetrics(TotalPlan plan) {
     final metrics = plan.result.totalMetrics;
-    final hasIncome = metrics.sumMonthlyIncome > 0;
+    final hasIncome = metrics.monthlyIncomeAmount > 0;
     final hasTarget = (plan.targetAmount ?? 0) > 0;
-    final hasDaily = metrics.sumDailyConsume >= 0;
+    final hasDaily = metrics.dailyConsumeAmount >= 0;
     return hasIncome && hasTarget && hasDaily;
   }
 
