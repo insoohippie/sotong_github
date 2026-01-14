@@ -10,11 +10,6 @@ class AuthRepository {
   final AuthDataSource _dataSource;
 
   AuthRepository(this._dataSource);
-
-  //로그인
-  // Future<bool> login(String email, String password) {
-  //   return _dataSource.loginWithFirestore(email, password);
-  // }
   Future<void> login(String email, String password) async {
     await _dataSource.loginWithAuth(email, password);
   }

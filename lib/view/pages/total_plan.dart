@@ -123,9 +123,9 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     _planName = _plan.planName;
     _targetAmount = (_plan.targetAmount ?? 0).toDouble();
     _currentAmount = _plan.currentAsset.toDouble();
-    _fixedIncomeSum = metrics.sumMonthlyIncome.toDouble();
-    _fixedCostSum = metrics.sumMonthlyConsume.toDouble();
-    _dailyConsumeSum = metrics.sumDailyConsume.toDouble();
+    _fixedIncomeSum = metrics.monthlyIncomeAmount.toDouble();
+    _fixedCostSum = metrics.monthlyConsumeAmount.toDouble();
+    _dailyConsumeSum = metrics.dailyConsumeAmount.toDouble();
   }
 
   void _applyPlanMetrics({
@@ -135,11 +135,11 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   }) {
     final metrics = _plan.result.totalMetrics;
     final nextMonthlyIncome =
-        monthlyIncome != null ? monthlyIncome.round() : metrics.sumMonthlyIncome;
+        monthlyIncome != null ? monthlyIncome.round() : metrics.monthlyIncomeAmount;
     final nextMonthlyConsume =
-        monthlyConsume != null ? monthlyConsume.round() : metrics.sumMonthlyConsume;
+        monthlyConsume != null ? monthlyConsume.round() : metrics.monthlyConsumeAmount;
     final nextDailyConsume =
-        dailyConsume != null ? dailyConsume.round() : metrics.sumDailyConsume;
+        dailyConsume != null ? dailyConsume.round() : metrics.dailyConsumeAmount;
     final updatedMetrics = PlanMetrics.fromRange(
       startDate: metrics.startDate,
       endDate: metrics.endDate,

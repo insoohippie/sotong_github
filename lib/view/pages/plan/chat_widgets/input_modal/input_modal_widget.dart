@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/model/refData/entry.dart';
 
@@ -10,6 +11,7 @@ import '../../../../../component/texts/caption_with_dot.dart';
 import '../../../../../component/texts/header_text.dart';
 import '../../../../../component/theme/app_spacing.dart';
 
+import '../../../../../view_model/plan/chat_plan_viewmodel.dart';
 import 'footer_daily.dart';
 import 'footer_default.dart';
 import 'category_utils.dart';
@@ -217,6 +219,12 @@ class _InputModalWidgetState extends State<InputModalWidget>
   double getTotalAmount() =>
       items.fold<double>(0.0, (sum, item) => sum + item.amount);
 
+  void _notifyPreview() {
+    if (_resolveKind() == ItemKind.daily && mounted) {
+      context.read<ChatPlanViewModel>().updateDailyPreview(getTotalAmount());
+    }
+  }
+
   void addItem() {
     final newIdx = DateTime.now().millisecondsSinceEpoch + items.length;
     setState(() {
@@ -226,6 +234,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
       _initializeControllers(newIdx, '', 0.0);
       if (error.isNotEmpty) error = '';
     });
+    _notifyPreview();
   }
 
   void updateItem(int idx, String field, dynamic value) {
@@ -239,6 +248,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
     setState(() {
       if (error.isNotEmpty) error = '';
     });
+    _notifyPreview();
   }
 
   void removeItem(int idx) {
@@ -250,6 +260,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
       _amountControllers.remove(idx);
       if (error.isNotEmpty) error = '';
     });
+    _notifyPreview();
   }
 
   Future<void> _closeWithAnimation() async {

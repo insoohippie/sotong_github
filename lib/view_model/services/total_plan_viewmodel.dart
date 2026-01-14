@@ -19,9 +19,9 @@ class TotalPlanViewModel {
     final nextMetrics = startDate != null
         ? _rebuildMetrics(
             startDate: startDate,
-            sumMonthlyIncome: metrics.sumMonthlyIncome,
-            sumMonthlyConsume: metrics.sumMonthlyConsume,
-            sumDailyConsume: metrics.sumDailyConsume,
+            sumMonthlyIncome: metrics.monthlyIncomeAmount,
+            sumMonthlyConsume: metrics.monthlyConsumeAmount,
+            sumDailyConsume: metrics.dailyConsumeAmount,
           )
         : metrics;
     plan = plan.copyWith(
@@ -64,9 +64,9 @@ class TotalPlanViewModel {
     return PlanMetrics.fromRange(
       startDate: baseStart,
       endDate: baseEnd,
-      sumMonthlyIncome: sumMonthlyIncome ?? metrics.sumMonthlyIncome,
-      sumMonthlyConsume: sumMonthlyConsume ?? metrics.sumMonthlyConsume,
-      sumDailyConsume: sumDailyConsume ?? metrics.sumDailyConsume,
+      sumMonthlyIncome: sumMonthlyIncome ?? metrics.monthlyIncomeAmount,
+      sumMonthlyConsume: sumMonthlyConsume ?? metrics.monthlyConsumeAmount,
+      sumDailyConsume: sumDailyConsume ?? metrics.dailyConsumeAmount,
     );
   }
 }

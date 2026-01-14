@@ -102,22 +102,22 @@ class SettingsPage extends StatelessWidget {
                           final result = await navigator.push<PlanEditResult>(
                             MaterialPageRoute(
                               builder: (_) => PlanEditPage(
-                                initialPlan: chatVm.totalPlan,
-                                initialRefData: chatVm.refData,
+                                useLocalDraft: false,
                                 requireApplyDate: true,
                               ),
                             ),
                           );
 
-                          if (!navigator.mounted || result == null) return;
+                          if (!navigator.mounted || result == null) {
+                            return;
+                          }
 
                           chatVm.applyPlanEditResult(result);
                           final ok = await chatVm.savePlan();
                           if (!navigator.mounted) return;
 
                           final rootContext =
-                              Navigator.of(context, rootNavigator: true)
-                                  .context;
+                              Navigator.of(context, rootNavigator: true).context;
                           ScaffoldMessenger.of(rootContext).showSnackBar(
                             SnackBar(
                               content: Text(

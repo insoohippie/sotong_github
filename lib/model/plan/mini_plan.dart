@@ -26,6 +26,9 @@ class MiniPlan {
     this.sumMonthlyIncome = 0,
     this.sumMonthlyConsume = 0,
     this.sumDailyConsume = 0,
+    this.monthlyNetIncome = 0,
+    this.monthlyNetConsume = 0,
+    this.dailyNetConsume = 0,
   }); //: assert(!startDate.isAfter(endDate), 'startDate must be <= endDate');
 
   final String docId;
@@ -43,6 +46,11 @@ class MiniPlan {
   final int sumMonthlyIncome;
   final int sumMonthlyConsume;
   final int sumDailyConsume;
+  final int monthlyNetIncome;
+  final int monthlyNetConsume;
+  final int dailyNetConsume;
+
+  int get kDays => endDate.difference(startDate).inDays + 1;
 
   MiniPlan clipToMonth() {
     final clippedStart = DateTime(yearMonth.year, yearMonth.month, 1);
@@ -50,7 +58,7 @@ class MiniPlan {
     return copyWith(
       startDate: startDate.isBefore(clippedStart) ? clippedStart : startDate,
       endDate: endDate.isAfter(clippedEnd) ? clippedEnd : endDate,
-    );
+    ).recalculateNetAmounts();
   }
 
   MiniPlan validateContinuity({MiniPlan? previous}) {
@@ -93,7 +101,7 @@ class MiniPlan {
     final left = copyWith(
       endDate: normalized.subtract(const Duration(days: 1)),
       nextDocId: newDocId,
-    );
+    ).recalculateNetAmounts();
     final right = MiniPlan(
       docId: newDocId,
       yearMonth: yearMonth,
@@ -110,7 +118,7 @@ class MiniPlan {
       sumMonthlyIncome: sumMonthlyIncome,
       sumMonthlyConsume: sumMonthlyConsume,
       sumDailyConsume: sumDailyConsume,
-    );
+    ).recalculateNetAmounts();
     return MiniPlanSplit(left: left, right: right);
   }
 
@@ -130,6 +138,9 @@ class MiniPlan {
       sumMonthlyIncome: monthlyIncomeSum,
       sumMonthlyConsume: monthlyConsumeSum,
       sumDailyConsume: dailyConsumeSum,
+      monthlyNetIncome: monthlyNetIncome,
+      monthlyNetConsume: monthlyNetConsume,
+      dailyNetConsume: dailyNetConsume,
     );
   }
 
@@ -144,6 +155,9 @@ class MiniPlan {
     int? sumMonthlyIncome,
     int? sumMonthlyConsume,
     int? sumDailyConsume,
+    int? monthlyNetIncome,
+    int? monthlyNetConsume,
+    int? dailyNetConsume,
     String? monthlyIncomeId,
     String? monthlyConsumeId,
     String? dailyConsumeId,
@@ -164,6 +178,9 @@ class MiniPlan {
       sumMonthlyIncome: sumMonthlyIncome ?? this.sumMonthlyIncome,
       sumMonthlyConsume: sumMonthlyConsume ?? this.sumMonthlyConsume,
       sumDailyConsume: sumDailyConsume ?? this.sumDailyConsume,
+      monthlyNetIncome: monthlyNetIncome ?? this.monthlyNetIncome,
+      monthlyNetConsume: monthlyNetConsume ?? this.monthlyNetConsume,
+      dailyNetConsume: dailyNetConsume ?? this.dailyNetConsume,
     );
   }
 
@@ -182,6 +199,9 @@ class MiniPlan {
       'sumMonthlyIncome': sumMonthlyIncome,
       'sumMonthlyConsume': sumMonthlyConsume,
       'sumDailyConsume': sumDailyConsume,
+      'monthlyNetIncome': monthlyNetIncome,
+      'monthlyNetConsume': monthlyNetConsume,
+      'dailyNetConsume': dailyNetConsume,
     };
   }
 
@@ -200,6 +220,31 @@ class MiniPlan {
       sumMonthlyIncome: map['sumMonthlyIncome'] as int? ?? 0,
       sumMonthlyConsume: map['sumMonthlyConsume'] as int? ?? 0,
       sumDailyConsume: map['sumDailyConsume'] as int? ?? 0,
+      monthlyNetIncome: map['monthlyNetIncome'] as int? ?? 0,
+      monthlyNetConsume: map['monthlyNetConsume'] as int? ?? 0,
+      dailyNetConsume: map['dailyNetConsume'] as int? ?? 0,
+    ).recalculateNetAmounts();
+  }
+
+  MiniPlan recalculateNetAmounts() {
+    final monthDays = _daysInMonth(yearMonth);
+    final durationDays = kDays;
+    if (durationDays <= 0 || monthDays <= 0) {
+      return copyWith(
+        monthlyNetIncome: 0,
+        monthlyNetConsume: 0,
+        dailyNetConsume: 0,
+      );
+    }
+    final scaledIncome =
+        PlanMetrics.halfUp((sumMonthlyIncome * durationDays) / monthDays);
+    final scaledConsume =
+        PlanMetrics.halfUp((sumMonthlyConsume * durationDays) / monthDays);
+    final scaledDaily = sumDailyConsume * durationDays;
+    return copyWith(
+      monthlyNetIncome: scaledIncome,
+      monthlyNetConsume: scaledConsume,
+      dailyNetConsume: scaledDaily,
     );
   }
 
@@ -250,4 +295,10 @@ class MiniPlanResult {
 extension _DateTimeEx on DateTime {
   bool isSameDayAs(DateTime other) =>
       year == other.year && month == other.month && day == other.day;
+}
+
+int _daysInMonth(DateTime date) {
+  final first = DateTime(date.year, date.month, 1);
+  final next = DateTime(date.year, date.month + 1, 1);
+  return next.difference(first).inDays;
 }

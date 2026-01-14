@@ -39,11 +39,13 @@ Widget _buildNoSavingWarning(
       const SizedBox(height: 16),
       ElevatedButton(
         onPressed: () async {
+          final requireDraft = viewModel.totalPlan.planId.isEmpty;
           final editResult = await Navigator.of(context).push<PlanEditResult>(
             MaterialPageRoute(
               builder: (_) => PlanEditPage(
-                initialPlan: viewModel.totalPlan,
-                initialRefData: viewModel.refData,
+                useLocalDraft: requireDraft,
+                initialPlan: requireDraft ? viewModel.totalPlan : null,
+                initialRefData: requireDraft ? viewModel.refData : null,
                 requireApplyDate: false,
               ),
             ),
@@ -84,11 +86,13 @@ Widget _buildSummaryChartWithRecommendation(
         calculation: viewModel.calculationResult,
         userName: viewModel.userName,
         onEdit: canEdit ? () async {
+          final requireDraft = viewModel.totalPlan.planId.isEmpty;
           final editResult = await Navigator.of(context).push<PlanEditResult>(
             MaterialPageRoute(
               builder: (_) => PlanEditPage(
-                initialPlan: viewModel.totalPlan,
-                initialRefData: viewModel.refData,
+                useLocalDraft: requireDraft,
+                initialPlan: requireDraft ? viewModel.totalPlan : null,
+                initialRefData: requireDraft ? viewModel.refData : null,
                 requireApplyDate: false,
               ),
             ),

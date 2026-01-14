@@ -13,6 +13,7 @@ class UpdateDailyCommand {
     required this.newDailyId,
     required this.newMiniDocId,
     this.previousDailyId,
+    this.allowBeforePlanStart = false,
   }) : assert(!applyDate.isAfter(modEndDate),
             'applyDate must be <= modEndDate');
 
@@ -22,6 +23,7 @@ class UpdateDailyCommand {
   final String newDailyId;
   final String newMiniDocId;
   final String? previousDailyId;
+  final bool allowBeforePlanStart;
 
   DateTime get applyMonth => DateTime(applyDate.year, applyDate.month);
 

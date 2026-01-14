@@ -63,11 +63,12 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final monthlySpending = (widget.total * 30).toInt();
-    final over = widget.isOverBudget;
+    final vm = context.watch<ChatPlanViewModel>();
+    final previewTotal = vm.computeEffectiveDailyTotal(widget.total);
+    final monthlySpending = (previewTotal * 30).toInt();
+    final over = previewTotal * 30 > widget.monthlyIncome && widget.monthlyIncome > 0;
 
     // ViewModel에서 목표/보유 금액 가져오기
-    final vm = context.watch<ChatPlanViewModel>();
     final target = vm.totalPlan.targetAmount?.toDouble();
     final current = vm.totalPlan.currentAsset.toDouble();
     final monthlySaving = (widget.monthlyIncome - monthlySpending).toDouble();
@@ -75,7 +76,9 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
     // 예상 도달 안내문
     String? helperLine;
 
-    if (over) {
+    if (widget.monthlyIncome <= 0) {
+      helperLine = null;
+    } else if (over) {
       helperLine =
       '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome)}원을 초과했어요.';
     } else if (target != null && target > 0) {
