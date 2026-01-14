@@ -34,14 +34,20 @@ class PlanRepository {
   /// 전체 플랜(최신순)
   Future<List<TotalPlan>> getUserPlans() async {
     final uid = _uidOrThrow();
-    final snaps = await _ds.query(uid, orderBy: 'createdAt', descending: true);
+    final snaps =
+    await _ds.query(uid, orderBy: 'createdAt', descending: true);
     return snaps.docs.map(_mapDocToTotalPlan).toList();
   }
 
   /// 최신 플랜 1개
   Future<TotalPlan?> getLatestPlanForCurrentUser() async {
     final uid = _uidOrThrow();
-    final snaps = await _ds.query(uid, orderBy: 'createdAt', descending: true, limit: 1);
+    final snaps = await _ds.query(
+      uid,
+      orderBy: 'createdAt',
+      descending: true,
+      limit: 1,
+    );
     if (snaps.docs.isEmpty) return null;
     return _mapDocToTotalPlan(snaps.docs.first);
   }
@@ -58,7 +64,12 @@ class PlanRepository {
   /// 최신 플랜 이름만 수정(편의 함수)
   Future<void> updateLatestPlanName(String newName) async {
     final uid = _uidOrThrow();
-    final snaps = await _ds.query(uid, orderBy: 'createdAt', descending: true, limit: 1);
+    final snaps = await _ds.query(
+      uid,
+      orderBy: 'createdAt',
+      descending: true,
+      limit: 1,
+    );
     if (snaps.docs.isEmpty) throw Exception('수정할 플랜이 없습니다.');
     final planId = snaps.docs.first.id;
     await updatePlanNameById(planId, newName);
@@ -79,9 +90,15 @@ class PlanRepository {
     await _ds.delete(uid, planId);
   }
 
+  /// ✅ HomeViewModel에서 liveSavedAmount 계산용 기준 값 로드
+  Future<Map<String, dynamic>?> getSavingStateForCurrentUser() async {
+    final uid = _uidOrThrow();           // 🔹 여기서 uid 가져옴
+    return _ds.getLatestSavingState(uid); // 🔹 여기서 dataSource 호출
+  }
+
   TotalPlan _mapDocToTotalPlan(
-    QueryDocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+      QueryDocumentSnapshot<Map<String, dynamic>> doc,
+      ) {
     return TotalPlan.fromMap(doc.id, doc.data());
   }
 }

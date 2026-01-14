@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primary = Color(0xFF0062FF); // 메인 파란색
+  // static const Color primary = Color(0xFF0062FF); // 메인 파란색
+  static const Color primary = Color(0xFF3C7BFF); // 메인 파란색
   static const Color background = Colors.white; // 배경색
 
   static const Color greyBackground = Color(0xFFEDEDED); // 입력 전 입력창 배경

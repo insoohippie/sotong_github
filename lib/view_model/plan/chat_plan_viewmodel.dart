@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../model/chat_message.dart';
+import '../../model/plan/chat_message.dart';
 import '../../model/refData/entry.dart';
 import '../../model/commands/update_daily_command.dart';
 import '../../model/commands/update_monthly_command.dart';
@@ -17,7 +17,6 @@ import '../services/saving_calculator.dart';
 import '../services/total_plan_viewmodel.dart';
 import '../../services/plan_mutation_service.dart';
 import '../../repository/plan_mutation_repository.dart';
-import '../../model/plan/plan_snapshot.dart';
 import 'enums/chat_step.dart';
 
 // 기본 회원가입 창의 viewmodel
@@ -27,15 +26,15 @@ class ChatPlanViewModel extends ChangeNotifier {
   final PlanSavedEventBus? _planSavedBus;
 
   ChatPlanViewModel(
-    this._authRepo,
-    this._planRepo, {
-    PlanSavedEventBus? planSavedBus,
-  })  : _planSavedBus = planSavedBus,
+      this._authRepo,
+      this._planRepo, {
+        PlanSavedEventBus? planSavedBus,
+      }) : _planSavedBus = planSavedBus,
         _mutationRepository = PlanMutationRepository() {
-    _mutationService = PlanMutationService(_mutationRepository);
-    _refDataVM = RefDataViewModel(_refData);
-    _totalPlanVM = TotalPlanViewModel(_totalPlan);
-    _calculationVM = SavingPlanCalculator(plan: _totalPlan);
+        _mutationService = PlanMutationService(_mutationRepository);
+        _refDataVM = RefDataViewModel(_refData);
+        _totalPlanVM = TotalPlanViewModel(_totalPlan);
+        _calculationVM = SavingPlanCalculator(plan: _totalPlan);
   }
 
   String _userName = '회원';
@@ -216,13 +215,13 @@ class ChatPlanViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateRefData({
+  Future<void> updateRefData({
     List<Entry>? fixedIncomes,
     List<Entry>? fixedConsumptions,
     List<Entry>? dailyConsumptions,
     DateTime? applyDate,
     DateTime? modEndDate,
-  }) {
+  }) async {
     final now = DateTime.now();
     final apply = applyDate ?? now;
     final endDate = modEndDate ?? (_totalPlan.modEndDate ?? _totalPlan.endDate ?? now);

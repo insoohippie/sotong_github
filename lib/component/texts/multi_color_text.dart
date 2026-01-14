@@ -1,4 +1,4 @@
-// lib/view/widgets/texts/multi_color_text.dart
+// lib/view/comm_widgets/texts/multi_color_text.dart
 import 'package:flutter/material.dart';
 
 class MultiColorText extends StatelessWidget {

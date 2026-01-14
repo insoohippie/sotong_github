@@ -20,6 +20,10 @@ class TotalPlan {
     this.modEndDate, // 변경된 종료일
     this.creationDate,
     this.autoService,
+    //하경 - 모인 금액 계산용
+    this.extraIncomeTotal = 0,
+    this.snapshotAmount = 0,
+    this.snapshotAt,
   });
 
   final String planId;
@@ -34,6 +38,10 @@ class TotalPlan {
   final bool? autoService;
   final Map<String, SubPlan> subPlans;
   final TotalResult result;
+  //하경 - 모인 금액 계산용
+  final int extraIncomeTotal;  // 플랜 중간 추가 수입 누적
+  final int snapshotAmount;    // snapshotAt 시점까지 자동저축 누적
+  final DateTime? snapshotAt;  // 스냅샷 기준 시각
 
   /// Factory for a blank plan used as a draft during onboarding.
   factory TotalPlan.empty() {
@@ -61,6 +69,10 @@ class TotalPlan {
         totalMetrics: metrics,
         subResult: const SubPlanResult(subMetrics: [], subPlanList: []),
       ),
+      //하경 - 모인 금액 계산용
+      extraIncomeTotal: 0,
+      snapshotAmount: 0,
+      snapshotAt: now,
     );
   }
 
@@ -85,6 +97,12 @@ class TotalPlan {
         totalMetrics: metrics,
         subResult: _parseSubResult(map['result']?['subResult'], subPlans),
       ),
+      //하경 - 모인 금액 계산용
+      extraIncomeTotal:
+      (map['extraIncomeTotal'] as num?)?.round() ?? 0,
+      snapshotAmount:
+      (map['snapshotAmount'] as num?)?.round() ?? 0,
+      snapshotAt: _parseDate(map['snapshotAt']),
     );
   }
 
@@ -104,6 +122,10 @@ class TotalPlan {
         'totalMetrics': _serializeMetrics(result.totalMetrics),
         'subResult': _serializeSubResult(result.subResult),
       },
+      //하경 - 모인 금액 계산용
+      'extraIncomeTotal': extraIncomeTotal,
+      'snapshotAmount': snapshotAmount,
+      'snapshotAt': snapshotAt?.toIso8601String(),
     };
   }
 
@@ -157,6 +179,10 @@ class TotalPlan {
     bool? autoService,
     Map<String, SubPlan>? subPlans,
     TotalResult? result,
+    //하경 - 모인 금액 계산용
+    int? extraIncomeTotal,
+    int? snapshotAmount,
+    DateTime? snapshotAt,
   }) {
     return TotalPlan(
       planId: planId ?? this.planId,
@@ -171,6 +197,10 @@ class TotalPlan {
       autoService: autoService ?? this.autoService,
       subPlans: subPlans ?? this.subPlans,
       result: result ?? this.result,
+      //하경 - 모인 금액 계산용
+      extraIncomeTotal: extraIncomeTotal ?? this.extraIncomeTotal,
+      snapshotAmount: snapshotAmount ?? this.snapshotAmount,
+      snapshotAt: snapshotAt ?? this.snapshotAt,
     );
   }
 

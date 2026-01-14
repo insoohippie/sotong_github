@@ -40,4 +40,15 @@ class PlanDataSource {
   Future<void> delete(String uid, String planId) {
     return _col(uid).doc(planId).delete();
   }
+
+  /// 최신 플랜 문서에서 모인 금액 관련 상태만 가져오기
+  Future<Map<String, dynamic>?> getLatestSavingState(String uid) async {
+    final snap = await _col(uid)
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) return null;
+    return snap.docs.first.data();
+  }
 }

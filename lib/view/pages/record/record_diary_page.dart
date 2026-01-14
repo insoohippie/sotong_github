@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 import '../../../component/appbars/custom_app_bar_title_subtitle.dart';
 import '../../../component/buttons/custom_button.dart';
@@ -8,6 +9,9 @@ import '../../../component/inputs/custom_text_area.dart';
 import '../../../component/inputs/selectable_emoji_selector.dart';
 import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_spacing.dart';
+import '../../../model/record/monthly_spending.dart';
+import '../../../model/record/spending_entry.dart';
+import '../../../view_model/home/home_view_model.dart';
 import '../../../view_model/record/record_view_model.dart';
 
 class RecordDiaryPage extends StatefulWidget {
@@ -30,20 +34,35 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
   }
 
   Future<void> _onSave(BuildContext context) async {
+    final vm = context.read<RecordViewModel>();
+    final selectedDate =
+    ModalRoute.of(context)!.settings.arguments as DateTime;
+
     setState(() => _isLoading = true);
 
-    await Future.delayed(const Duration(seconds: 2)); // 저장 처리
-    setState(() {
-      _isLoading = false;
-      _isDone = true;
-    });
+    try {
+      await vm.saveAllForDate(selectedDate);
 
-    await Future.delayed(const Duration(seconds: 2)); // 완료 애니메이션 표시 시간
-    if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/home_tab_navigator',
-        (route) => false,
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _isDone = true;
+      });
+
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/home_tab_navigator',
+              (route) => false,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('저장 중 오류가 발생했어요: $e')),
       );
     }
   }
@@ -51,7 +70,10 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<RecordViewModel>();
-    final date = '2025년 7월 28일';
+
+    final selectedDate =
+    ModalRoute.of(context)!.settings.arguments as DateTime;
+    final dateText = DateFormat('yyyy년 M월 d일').format(selectedDate);
 
     return Stack(
       children: [
@@ -61,8 +83,8 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
             child: Column(
               children: [
                 CustomAppBarTitleSubtitle(
-                  title: '감정과 소비 일지',
-                  subtitle: '$date · ${viewModel.formattedTotal}원 소비',
+                  title: '소비 일지 기록하기',
+                  subtitle: '$dateText · ${viewModel.formattedTotal}원 소비',
                   onBack: () => Navigator.pop(context),
                 ),
                 Expanded(
@@ -83,14 +105,14 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                           spacing: 12,
                           runSpacing: 12,
                           children: [
-                            ...['기쁨', '혼란', '슬픔', '피곤', '화남', '플렉스'].map((
-                              emotion,
-                            ) {
+                            ...['기쁨', '혼란', '슬픔', '피곤', '화남', '플렉스'].map((emotion) {
+                              final selected =
+                                  (viewModel.selectedEmotion ?? '') == emotion;
+
                               return SizedBox(
-                                width:
-                                    (MediaQuery.of(context).size.width -
-                                        AppSpacing.screenPadding * 2 -
-                                        24) /
+                                width: (MediaQuery.of(context).size.width -
+                                    AppSpacing.screenPadding * 2 -
+                                    24) /
                                     3,
                                 child: SelectableEmojiSelector(
                                   label: emotion,
@@ -100,11 +122,10 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                                     height: 40,
                                     fit: BoxFit.contain,
                                   ),
-                                  selected:
-                                      viewModel.selectedEmotion == emotion,
+                                  selected: selected,
                                   onTap: () {
-                                    if (viewModel.selectedEmotion == emotion) {
-                                      viewModel.setEmotion('');
+                                    if (selected) {
+                                      viewModel.resetEmotion();
                                     } else {
                                       viewModel.setEmotion(emotion);
                                     }
@@ -122,7 +143,8 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                         const SizedBox(height: 8),
                         CustomTextArea(
                           controller: viewModel.commentController,
-                          hintText: '오늘 소비한 것들에 대한 생각이나 느낌을 자유롭게 적어보세요...',
+                          hintText:
+                          '오늘 소비한 것들에 대한 생각이나 느낌을 자유롭게 적어보세요...',
                         ),
                         const SizedBox(height: AppSpacing.bottomSpacing),
                       ],
@@ -131,9 +153,9 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                 ),
                 CustomButton(
                   text: '저장하기',
-                  enabled: viewModel.selectedEmotion != '',
+                  enabled: (viewModel.selectedEmotion ?? '').isNotEmpty,
                   onPressed: () {
-                    if (viewModel.selectedEmotion != '') {
+                    if ((viewModel.selectedEmotion ?? '').isNotEmpty) {
                       _onSave(context);
                     }
                   },

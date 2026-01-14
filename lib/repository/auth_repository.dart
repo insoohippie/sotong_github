@@ -12,8 +12,11 @@ class AuthRepository {
   AuthRepository(this._dataSource);
 
   //로그인
-  Future<bool> login(String email, String password) {
-    return _dataSource.loginWithFirestore(email, password);
+  // Future<bool> login(String email, String password) {
+  //   return _dataSource.loginWithFirestore(email, password);
+  // }
+  Future<void> login(String email, String password) async {
+    await _dataSource.loginWithAuth(email, password);
   }
 
   //이메일 중복 확인
@@ -55,4 +58,10 @@ class AuthRepository {
 
   /// 현재 로그인 UID (필요시)
   String? get currentUserId => _dataSource.currentUser?.uid;
+
+  /// 로그아웃
+  Future<void> logout() async {
+    await _dataSource.signOut();
+  }
+
 }

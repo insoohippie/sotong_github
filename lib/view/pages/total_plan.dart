@@ -5,13 +5,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
 import 'dart:async';
 import '../../component/theme/app_colors.dart';
 import '../../model/plan/plan_metrics.dart';
 import '../../model/plan/sub_plan.dart';
 import '../../model/plan/total_plan.dart';
 import '../../model/refData/entry.dart';
-import 'plan/chat_widgets/input_modal/input_modal_widget.dart';
 import '../../component/inputs/custom_text_field.dart';
 import '../../component/buttons/custom_button.dart';
 

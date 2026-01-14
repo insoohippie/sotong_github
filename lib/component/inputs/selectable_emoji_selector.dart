@@ -29,13 +29,16 @@ class SelectableEmojiSelector extends StatelessWidget {
             width: size,
             height: size,
             decoration: BoxDecoration(
-              color: selected ? Colors.black : Colors.white,
+              color: selected ? Colors.white : Colors.white10,
+              // color: selected ? Colors.white10 : Colors.white,
+              // color: selected ? Colors.white : Colors.white,
               borderRadius: BorderRadius.circular(radius),
+              // border: ,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 6,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),

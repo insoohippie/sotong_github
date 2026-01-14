@@ -7,24 +7,21 @@ import 'package:provider/provider.dart';
 // UI
 import 'package:sotong_local/component/appbars/custom_app_bar.dart';
 import 'package:sotong_local/component/texts/subtext.dart';
-import 'package:sotong_local/view/pages/plan/plan_edit_widgets/edit_summary_tile.dart';
-import 'package:sotong_local/view/pages/plan/plan_edit_widgets/minimal_field.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_edit/edit_summary_tile.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_edit/minimal_field.dart';
 import '../../../component/buttons/custom_button.dart';
-import '../../../component/chart/animated_budget_bar_chart.dart';
 import '../../../component/chart/fl_donut_colored_budget.dart';
-import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_colors.dart';
 
 // Models / VMs
 import '../../../model/refData/entry.dart';
-import '../../../model/plan/plan_edit_result.dart';
 import '../../../model/plan/total_plan.dart';
 import '../../../model/refData/ref_data.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/plan/plan_edit_viewmodel.dart';
 
 // Modals
-import 'chat_widgets/input_modal/input_modal_widget.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
 
 class PlanEditPage extends StatefulWidget {
   final TotalPlan initialPlan;

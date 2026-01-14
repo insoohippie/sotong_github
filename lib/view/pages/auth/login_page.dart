@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../component/appbars/custom_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_field.dart';
-import '../../../component/texts/header_text.dart';
 import '../../../component/texts/multi_color_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
 import '../../../view_model/auth/login_view_model.dart';
+import '../../../view_model/home/home_view_model.dart';
 
 class EmailLoginPage extends StatelessWidget {
   const EmailLoginPage({super.key});
@@ -48,14 +47,12 @@ class EmailLoginPage extends StatelessWidget {
                     CustomTextField(
                       controller: vm.emailController,
                       hintText: '이메일 입력',
-                      onChanged: (_) => vm.notifyListeners(),
                       keyboardType: TextInputType.emailAddress,
                     ),
                     const SizedBox(height: 20),
                     CustomTextField(
                       controller: vm.passwordController,
                       hintText: '비밀번호 입력',
-                      onChanged: (_) => vm.notifyListeners(),
                       obscureText: true,
                     ),
                                                const SizedBox(height: 8),
@@ -108,18 +105,17 @@ class EmailLoginPage extends StatelessWidget {
                 : CustomButton(
                     text: '로그인',
                     onPressed: () async {
-                      final success = await vm
-                          .login(); // ← ViewModel에서 true/false 리턴
+                      final success = await vm.login();
+
+                      if (!context.mounted) return;
 
                       if (success) {
-                        Navigator.pushReplacementNamed(
-                          context,
-                          '/home_tab_navigator',
-                        ); // 성공 시 홈으로 이동
+                        // 로그인 직후 새 uid 기준으로 홈 데이터 강제 리로드
+                        await context.read<HomeViewModel>().refresh();
+                        Navigator.pushReplacementNamed(context, '/home_tab_navigator');
                       }
-                      // 실패 시 에러 메시지는 ViewModel에서 처리되고 화면에 표시됨
                     },
-                  ),
+                ),
             const SizedBox(height: 40),
           ],
         ),
