@@ -38,11 +38,9 @@ class PlanEditBackAppBar extends StatelessWidget {
             MaterialPageRoute(
               builder: (_) {
                 final vm = context.read<ChatPlanViewModel>();
-                final requireDraft = vm.totalPlan.planId.isEmpty;
                 return PlanEditPage(
-                  useLocalDraft: requireDraft,
-                  initialPlan: requireDraft ? vm.totalPlan : null,
-                  initialRefData: requireDraft ? vm.refData : null,
+                  initialPlan: vm.totalPlan,
+                  initialRefData: vm.refData,
                   requireApplyDate: false,
                 );
               },

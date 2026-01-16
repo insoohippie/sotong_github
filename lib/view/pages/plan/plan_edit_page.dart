@@ -15,11 +15,8 @@ import '../../../component/theme/app_colors.dart';
 
 // Models / VMs
 import '../../../model/refData/entry.dart';
-import '../../../model/plan/plan_edit_result.dart';
 import '../../../model/plan/total_plan.dart';
 import '../../../model/refData/ref_data.dart';
-import '../../../repository/plan_repository.dart';
-import '../../../repository/ref_data_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/plan/plan_edit_viewmodel.dart';
 
@@ -27,16 +24,14 @@ import '../../../view_model/plan/plan_edit_viewmodel.dart';
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
 
 class PlanEditPage extends StatefulWidget {
-  final TotalPlan? initialPlan;
-  final RefData? initialRefData;
-  final bool useLocalDraft;
+  final TotalPlan initialPlan;
+  final RefData initialRefData;
   final bool requireApplyDate;
 
   const PlanEditPage({
     Key? key,
-    this.initialPlan,
-    this.initialRefData,
-    this.useLocalDraft = false,
+    required this.initialPlan,
+    required this.initialRefData,
     this.requireApplyDate = true,
   }) : super(key: key);
 
@@ -47,35 +42,14 @@ class PlanEditPage extends StatefulWidget {
 class _PlanEditPageState extends State<PlanEditPage> {
   int _selectedTabIndex = 0;
   final NumberFormat _nf = NumberFormat.decimalPattern('ko_KR');
-  Future<_PlanEditInitData>? _initialFuture;
-  TotalPlan? _basePlan;
-  DateTime? _originalEndDate;
 
   @override
   void initState() {
     super.initState();
-    if (widget.useLocalDraft) {
-      _basePlan = widget.initialPlan;
-      _originalEndDate = widget.initialPlan?.endDate;
-    } else {
-      _initialFuture = _loadInitialData();
-    }
   }
 
   double _parseController(TextEditingController c) =>
       double.tryParse(c.text.replaceAll(',', '')) ?? 0.0;
-
-  Future<_PlanEditInitData> _loadInitialData() async {
-    final planRepo = context.read<PlanRepository>();
-    final refRepo = context.read<RefDataRepository>();
-    TotalPlan? plan = widget.initialPlan ?? await planRepo.getLatestPlanForCurrentUser();
-    if (plan == null) {
-      throw StateError('편집할 플랜이 없습니다.');
-    }
-    final refData = widget.initialRefData ?? await refRepo.loadAll();
-    refData.planId = plan.planId;
-    return _PlanEditInitData(plan: plan, refData: refData);
-  }
 
   /// 저장 비활성 사유 (짧은 메시지)
   String? _blockingMessage(PlanEditViewModel vm) {
@@ -219,12 +193,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
       return;
     }
 
-    final plan = _basePlan ?? widget.initialPlan ?? vm.totalPlan;
-    vm.createUpdatedPlan(plan);
-    if (_originalEndDate != null) {
-      vm.totalPlanVM.plan = vm.totalPlanVM.plan.copyWith(endDate: _originalEndDate);
-      vm.totalPlan = vm.totalPlanVM.plan;
-    }
+    vm.createUpdatedPlan(widget.initialPlan);
 
     final result = vm.finalizeEdits();
     Navigator.of(context).pop(result);
@@ -314,68 +283,18 @@ class _PlanEditPageState extends State<PlanEditPage> {
   // ----------------- UI -----------------
   @override
   Widget build(BuildContext context) {
-    if (widget.useLocalDraft) {
-      final plan = widget.initialPlan;
-      final ref = widget.initialRefData;
-      if (plan == null || ref == null) {
-        return const Scaffold(
-          body: Center(child: Text('편집할 플랜 데이터가 없습니다.')),
-        );
-      }
-      _basePlan = plan;
-      _originalEndDate = plan.endDate;
-      return _buildEditorScaffold(plan: plan, refData: ref);
-    }
-    _initialFuture ??= _loadInitialData();
-    return FutureBuilder<_PlanEditInitData>(
-      future: _initialFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (!snapshot.hasData || snapshot.hasError) {
-          return Scaffold(
-            appBar: const PreferredSize(
-              preferredSize: Size.fromHeight(kToolbarHeight),
-              child: CustomAppBar(title: ''),
-            ),
-            body: Center(
-              child: Text(
-                snapshot.hasError
-                    ? '플랜을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'
-                    : '편집할 플랜이 없습니다.',
-              ),
-            ),
-          );
-        }
-        final data = snapshot.data!;
-        _basePlan = data.plan;
-        _originalEndDate = data.plan.endDate;
-        return _buildEditorScaffold(plan: data.plan, refData: data.refData);
-      },
-    );
-  }
-
-  Widget _buildEditorScaffold({
-    required TotalPlan plan,
-    required RefData refData,
-  }) {
     return ChangeNotifierProvider(
       create: (_) => PlanEditViewModel(
-        plan,
-        initialRefData: refData,
+        widget.initialPlan,
+        initialRefData: widget.initialRefData,
       ),
       child: Scaffold(
-        appBar: const PreferredSize(
-          preferredSize: Size.fromHeight(kToolbarHeight),
-          child: CustomAppBar(title: ''),
-        ),
         backgroundColor: Colors.white,
         body: SafeArea(
           child: Column(
             children: [
+              const CustomAppBar(title: ''),
+
               // 상단: 차트 또는 경고 배너(대체 표시)
               const Padding(
                 padding: EdgeInsets.fromLTRB(24, 0, 24, 28),
@@ -914,14 +833,4 @@ class _PlanStatsBelowChart extends StatelessWidget {
 
     return const SizedBox.shrink();
   }
-}
-
-class _PlanEditInitData {
-  const _PlanEditInitData({
-    required this.plan,
-    required this.refData,
-  });
-
-  final TotalPlan plan;
-  final RefData refData;
 }

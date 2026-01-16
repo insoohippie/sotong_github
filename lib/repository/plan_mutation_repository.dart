@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import '../model/commands/update_daily_command.dart';
 import '../model/commands/update_monthly_command.dart';
 import '../model/refData/entry.dart';
@@ -49,13 +47,11 @@ class PlanMutationRepository {
         }
         final patched = <String, MiniPlan>{};
         subPlan.miniPlans.forEach((docId, mini) {
-          patched[docId] = mini
-              .copyWith(
-                monthlyIncomeId: newIncome.id,
-                monthlyIncomeRef: newIncome,
-                sumMonthlyIncome: monthlySum,
-              )
-              .recalculateNetAmounts();
+          patched[docId] = mini.copyWith(
+            monthlyIncomeId: newIncome.id,
+            monthlyIncomeRef: newIncome,
+            sumMonthlyIncome: monthlySum,
+          );
         });
         updatedSubPlans[key] =
             subPlan.copyWith(miniPlans: patched).recalculate();
@@ -81,13 +77,11 @@ class PlanMutationRepository {
         }
         final patched = <String, MiniPlan>{};
         subPlan.miniPlans.forEach((docId, mini) {
-          patched[docId] = mini
-              .copyWith(
-                monthlyConsumeId: newConsume.id,
-                monthlyConsumeRef: newConsume,
-                sumMonthlyConsume: monthlySum,
-              )
-              .recalculateNetAmounts();
+          patched[docId] = mini.copyWith(
+            monthlyConsumeId: newConsume.id,
+            monthlyConsumeRef: newConsume,
+            sumMonthlyConsume: monthlySum,
+          );
         });
         updatedSubPlans[key] =
             subPlan.copyWith(miniPlans: patched).recalculate();
@@ -177,26 +171,15 @@ class PlanMutationRepository {
       final rightEnd = _isSameMonth(normalizedApply, command.modEndDate)
           ? _minDate(split.right.endDate, command.modEndDate)
           : split.right.endDate;
-      final right = split.right
-          .copyWith(
-            dailyConsumeId: newDaily.id,
-            dailyConsumeRef: newDaily,
-            sumDailyConsume: dailySum,
-            endDate: rightEnd,
-          )
-          .recalculateNetAmounts();
-      final updatedMinis = Map<String, MiniPlan>.from(applySubPlan.miniPlans);
-      updatedMinis[left.docId] = left;
-      updatedMinis[right.docId] = right;
-      if (right.nextDocId != null) {
-        final next = updatedMinis[right.nextDocId!];
-        if (next != null) {
-          updatedMinis[right.nextDocId!] =
-              next.copyWith(prevDocId: right.docId);
-        }
-      }
+      final right = split.right.copyWith(
+        dailyConsumeId: newDaily.id,
+        dailyConsumeRef: newDaily,
+        sumDailyConsume: dailySum,
+        endDate: rightEnd,
+      );
+      patchedSubPlan = applySubPlan.replaceMini(left);
       patchedSubPlan =
-          applySubPlan.copyWith(miniPlans: updatedMinis).recalculate();
+          patchedSubPlan.insertAfter(prevDocId: left.docId, newMini: right);
       if (_isSameMonth(normalizedApply, command.modEndDate)) {
         patchedSubPlan = _truncateSubPlan(patchedSubPlan, command.modEndDate);
       }
@@ -204,14 +187,12 @@ class PlanMutationRepository {
       final endDate = _isSameMonth(normalizedApply, command.modEndDate)
           ? _minDate(targetMini.endDate, command.modEndDate)
           : targetMini.endDate;
-      final updatedMini = targetMini
-          .copyWith(
-            dailyConsumeId: newDaily.id,
-            dailyConsumeRef: newDaily,
-            sumDailyConsume: dailySum,
-            endDate: endDate,
-          )
-          .recalculateNetAmounts();
+      final updatedMini = targetMini.copyWith(
+        dailyConsumeId: newDaily.id,
+        dailyConsumeRef: newDaily,
+        sumDailyConsume: dailySum,
+        endDate: endDate,
+      );
       patchedSubPlan = applySubPlan.replaceMini(updatedMini);
       if (_isSameMonth(normalizedApply, command.modEndDate)) {
         patchedSubPlan = _truncateSubPlan(patchedSubPlan, command.modEndDate);
@@ -227,13 +208,11 @@ class PlanMutationRepository {
       }
       final patched = <String, MiniPlan>{};
       subPlan.miniPlans.forEach((docId, mini) {
-        patched[docId] = mini
-            .copyWith(
-              dailyConsumeId: newDaily.id,
-              dailyConsumeRef: newDaily,
-              sumDailyConsume: dailySum,
-            )
-            .recalculateNetAmounts();
+        patched[docId] = mini.copyWith(
+          dailyConsumeId: newDaily.id,
+          dailyConsumeRef: newDaily,
+          sumDailyConsume: dailySum,
+        );
       });
       var truncatedSubPlan =
           subPlan.copyWith(miniPlans: patched).recalculate();
@@ -291,28 +270,22 @@ class PlanMutationRepository {
   }
 
   SubPlan _truncateSubPlan(SubPlan subPlan, DateTime cutoff) {
-    final normalizedCutoff =
-        DateTime(cutoff.year, cutoff.month, cutoff.day);
-    final fractionalSeconds = min(
-      86399,
-      max(0, cutoff.difference(normalizedCutoff).inSeconds),
-    );
     final ordered = subPlan.orderedMinis();
     final updated = <String, MiniPlan>{};
     MiniPlan? previous;
     String? headId;
     for (final mini in ordered) {
-      if (mini.startDate.isAfter(normalizedCutoff)) {
+      if (mini.startDate.isAfter(cutoff)) {
         continue;
       }
       var current = mini;
-      if (mini.endDate.isAfter(normalizedCutoff)) {
-        current = current.copyWith(endDate: normalizedCutoff);
+      if (mini.endDate.isAfter(cutoff)) {
+        current = current.copyWith(endDate: cutoff);
       }
       current = current.copyWith(
         prevDocId: previous?.docId,
         nextDocId: null,
-      ).recalculateNetAmounts();
+      );
       if (previous != null) {
         updated[previous.docId] = updated[previous.docId]!
             .copyWith(nextDocId: current.docId);
@@ -320,7 +293,7 @@ class PlanMutationRepository {
       updated[current.docId] = current;
       previous = current;
       headId ??= current.docId;
-      if (current.endDate.isAtSameMomentAs(normalizedCutoff)) {
+      if (current.endDate.isAtSameMomentAs(cutoff)) {
         break;
       }
     }
@@ -331,7 +304,6 @@ class PlanMutationRepository {
         .copyWith(
           headDocId: headId!,
           miniPlans: updated,
-          fractionalEndSeconds: fractionalSeconds,
         )
         .recalculate();
   }

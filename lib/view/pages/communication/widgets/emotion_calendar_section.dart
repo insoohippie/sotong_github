@@ -1,142 +1,41 @@
 import 'package:flutter/material.dart';
 
-import '../../../../view_model/communication/communication_view_model.dart';
+import '../../../../../model/emotion_spending_diary.dart';
+import '../../../../../view_model/communication/communication_view_model.dart';
+import '../../../../component/theme/app_colors.dart';
 
+/// --------------------------------------------------
+/// 1. 섹션 + 카드 + 감정/금액 토글
+///    (테스트 페이지 _buildCalendarWithModeDials 스타일)
+/// --------------------------------------------------
 class EmotionCalendarSection extends StatefulWidget {
-  const EmotionCalendarSection({super.key, required this.vm});
-
   final CommunicationViewModel vm;
+
+  const EmotionCalendarSection({super.key, required this.vm});
 
   @override
   State<EmotionCalendarSection> createState() => _EmotionCalendarSectionState();
 }
 
-class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
-    with SingleTickerProviderStateMixin {
-  // 감정 / 금액 모드
-  String selectedMode = '감정'; // '감정' | '금액'
-  late final PageController _modePageController;
+class _EmotionCalendarSectionState extends State<EmotionCalendarSection> {
+  /// 'emotion' or 'amount'
+  String _selectedMode = 'emotion';
 
-  // 달 넘어갈 때 슬라이드 방향
-  int _monthSlideDirection = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _modePageController = PageController(initialPage: 0);
-  }
-
-  @override
-  void dispose() {
-    _modePageController.dispose();
-    super.dispose();
-  }
-
-  void _changeMode(String mode) {
-    if (mode == selectedMode) return;
-    setState(() {
-      selectedMode = mode;
-    });
-    final targetIndex = mode == '감정' ? 0 : 1;
-    _modePageController.animateToPage(
-      targetIndex,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
-  }
+  /// 하루 소비 경고 기준 (원)
+  static const int _dailySpendingLimit = 10000;
 
   @override
   Widget build(BuildContext context) {
-    final vm = widget.vm;
+    // Map<DateTime, List<Diary>> -> Map<DateTime, Diary> (첫 번째 것만 사용)
+    final map = <DateTime, EmotionSpendingDiary>{};
+    widget.vm.byDay.forEach((day, list) {
+      if (list.isNotEmpty) {
+        map[day] = list.first;
+      }
+    });
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 월 선택 다이얼
-          _buildMonthSelector(vm),
-          const SizedBox(height: 16),
-
-          // 달력 + 감정/금액 모드 다이얼
-          _buildCalendarWithModeDials(vm),
-        ],
-      ),
-    );
-  }
-
-  // ───────────────── 월 선택 다이얼 ─────────────────
-
-  Widget _buildMonthSelector(CommunicationViewModel vm) {
-    return Center(
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 이전 달
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _monthSlideDirection = -1;
-              });
-              vm.changeMonth(-1);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                Icons.chevron_left,
-                color: Colors.grey[700],
-                size: 20,
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            '${vm.selectedMonth}월',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(width: 8),
-          // 다음 달
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                _monthSlideDirection = 1;
-              });
-              vm.changeMonth(1);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                Icons.chevron_right,
-                color: Colors.grey[700],
-                size: 20,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ──────────────── 달력 + 모드 다이얼 ────────────────
-
-  Widget _buildCalendarWithModeDials(CommunicationViewModel vm) {
-    return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -150,533 +49,439 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
       ),
       child: Column(
         children: [
-          // 상단: 연도 + 감정/금액 토글
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          // 상단 감정/금액 토글 (테스트 페이지와 비슷하게)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Text(
-                  '${vm.selectedYear}년',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.grey[300]!, width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildModeChip('감정', 'emotion'),
+                      _buildModeChip('금액', 'amount'),
+                    ],
                   ),
                 ),
-                _buildModeToggle(),
               ],
             ),
           ),
 
           // 실제 달력
-          _buildCalendar(vm),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModeToggle() {
-    return Container(
-      width: 100,
-      height: 28,
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[300]!, width: 1),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
-            alignment: selectedMode == '감정'
-                ? Alignment.centerLeft
-                : Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
-              child: Container(
-                width: 44,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-              ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+            child: EmotionCalendarWidget(
+              diaryEntries: map,
+              mode: _selectedMode,
+              dailyLimit: _dailySpendingLimit,
+              onDateSelected: (_) {},
+              onDateTapped: (date) => _handleDateTapped(context, date),
             ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _changeMode('감정'),
-                  behavior: HitTestBehavior.opaque,
-                  child: Center(
-                    child: Text(
-                      '감정',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: selectedMode == '감정'
-                            ? Colors.black87
-                            : Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _changeMode('금액'),
-                  behavior: HitTestBehavior.opaque,
-                  child: Center(
-                    child: Text(
-                      '금액',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: selectedMode == '금액'
-                            ? Colors.black87
-                            : Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ),
         ],
       ),
     );
   }
 
-  // ───────────────── 달력 본체 ─────────────────
-
-  Widget _buildCalendar(CommunicationViewModel vm) {
-    final firstDayOfMonth =
-    DateTime(vm.selectedYear, vm.selectedMonth, 1);
-    final lastDayOfMonth =
-    DateTime(vm.selectedYear, vm.selectedMonth + 1, 0);
-    final firstWeekday = firstDayOfMonth.weekday;
-    final daysInMonth = lastDayOfMonth.day;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 500),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        transitionBuilder: (child, animation) {
-          final key = child.key;
-          final isIncoming =
-              key is ValueKey<int> && key.value == vm.selectedMonth;
-
-          final incomingOffset = _monthSlideDirection == 1
-              ? const Offset(0, 1)
-              : _monthSlideDirection == -1
-              ? const Offset(0, -1)
-              : Offset.zero;
-          final outgoingOffset = _monthSlideDirection == 1
-              ? const Offset(0, -1)
-              : _monthSlideDirection == -1
-              ? const Offset(0, 1)
-              : Offset.zero;
-
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOutCubic,
-          );
-
-          final Animation<Offset> slideAnimation = isIncoming
-              ? Tween<Offset>(
-            begin: incomingOffset,
-            end: Offset.zero,
-          ).animate(curved)
-              : Tween<Offset>(
-            begin: Offset.zero,
-            end: outgoingOffset,
-          ).animate(ReverseAnimation(curved));
-
-          return ClipRect(
-            child: SlideTransition(position: slideAnimation, child: child),
-          );
-        },
-        child: Column(
-          key: ValueKey<int>(vm.selectedMonth),
-          children: [
-            Row(
-              children: ['일', '월', '화', '수', '목', '금', '토']
-                  .map(
-                    (day) => Expanded(
-                  child: Text(
-                    day,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: day == '일' ? Colors.red : Colors.black87,
-                    ),
-                  ),
-                ),
-              )
-                  .toList(),
+  Widget _buildModeChip(String label, String value) {
+    final bool isSelected = _selectedMode == value;
+    return GestureDetector(
+      onTap: () {
+        if (!isSelected) {
+          setState(() {
+            _selectedMode = value;
+          });
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isSelected
+              ? [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-            const SizedBox(height: 8),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final cellSize = constraints.maxWidth / 7;
-                final estimatedHeight = cellSize * 6 + 16;
-
-                return SizedBox(
-                  height: estimatedHeight,
-                  child: PageView(
-                    controller: _modePageController,
-                    physics: const ClampingScrollPhysics(),
-                    onPageChanged: (index) {
-                      final mode = index == 0 ? '감정' : '금액';
-                      if (mode != selectedMode) {
-                        setState(() {
-                          selectedMode = mode;
-                        });
-                      }
-                    },
-                    children: [
-                      _buildCalendarGrid(
-                        vm: vm,
-                        firstWeekday: firstWeekday,
-                        daysInMonth: daysInMonth,
-                        showEmotion: true,
-                      ),
-                      _buildCalendarGrid(
-                        vm: vm,
-                        firstWeekday: firstWeekday,
-                        daysInMonth: daysInMonth,
-                        showEmotion: false,
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
+          ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: isSelected ? Colors.black87 : Colors.grey[600],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildCalendarGrid({
-    required CommunicationViewModel vm,
-    required int firstWeekday,
-    required int daysInMonth,
-    required bool showEmotion,
-  }) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 7,
-        childAspectRatio: 1,
-      ),
-      itemCount: 42,
-      itemBuilder: (context, index) {
-        final day = index - firstWeekday + 1;
-        final isCurrentMonth = day > 0 && day <= daysInMonth;
+  void _handleDateTapped(BuildContext context, DateTime date) {
+    final vm = widget.vm;
+    final entry = vm.firstEntryFor(date);
 
-        if (!isCurrentMonth) return const SizedBox();
-
-        final hasEmotion = vm.hasEmotionRecord(day);
-        final hasAmount = vm.spendingAmountForDay(day) > 0;
-        final hasRecord = hasEmotion || hasAmount;
-
-        return GestureDetector(
-          onTap: () {
-            _showDateDetailModal(vm, day, hasRecord);
-          },
-          child: Container(
-            margin: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (showEmotion && hasEmotion) const SizedBox(height: 2),
-                  Text(
-                    '$day',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  if (showEmotion && hasEmotion)
-                    Text(
-                      vm.emotionEmojiForDay(day),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                      ),
-                    )
-                  else if (!showEmotion && hasAmount)
-                    Text(
-                      '${vm.spendingAmountForDay(day)}원',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: vm.spendingAmountForDay(day) >
-                            vm.dailySpendingLimit
-                            ? Colors.red
-                            : Colors.black87,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                ],
-              ),
-            ),
+    if (entry != null) {
+      // 기록 있는 날: 상세 다이얼로그
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
-        );
-      },
-    );
-  }
-
-  // ──────────────── 날짜 상세 모달 ────────────────
-
-  void _showDateDetailModal(
-      CommunicationViewModel vm,
-      int day,
-      bool hasRecord,
-      ) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        final mediaQuery = MediaQuery.of(context);
-
-        final content = hasRecord
-            ? _buildRecordedDateContent(vm, day)
-            : _buildEmptyDateContent(day);
-
-        return FractionallySizedBox(
-          heightFactor: 0.8,
-          child: Padding(
-            padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 40,
-                          height: 4,
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey[300],
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                        ),
-                      ),
-                      content,
-                    ],
+          title: Text(
+            '${date.month}월 ${date.day}일 소비/감정',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('감정: ${entry.emotion}'),
+              const SizedBox(height: 8),
+              Text('소비 금액: ${entry.spendingAmount.toStringAsFixed(0)}원'),
+              if (entry.memo != null && entry.memo!.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  '메모',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
                   ),
                 ),
-              ),
-            ),
+                const SizedBox(height: 4),
+                Text(entry.memo!),
+              ],
+            ],
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildRecordedDateContent(CommunicationViewModel vm, int day) {
-    final emoji = vm.emotionEmojiForDay(day);
-    final amount = vm.spendingAmountForDay(day);
-    final diary = vm.diaryForDay(day);
-
-    String _formatAmount(int value) {
-      return value.toString().replaceAllMapped(
-        RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-            (m) => '${m[1]},',
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('닫기'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // 기록 없는 날: 소비 입력 유도
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            '${date.month}월 ${date.day}일',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          content: const Text('아직 소비/감정 기록이 없어요.\n기록하러 갈까요?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.of(context, rootNavigator: true)
+                    .pushNamed('/record_spending');
+              },
+              child: const Text('기록하러 가기'),
+            ),
+          ],
+        ),
       );
     }
+  }
+}
+
+/// --------------------------------------------------
+/// 2. 실제 캘린더 위젯
+///    - 테스트 페이지 달력 레이아웃 + ViewModel 데이터
+///    - BOTTOM OVERFLOW 안 나게 높이/폰트 조정
+/// --------------------------------------------------
+class EmotionCalendarWidget extends StatefulWidget {
+  final Map<DateTime, EmotionSpendingDiary> diaryEntries;
+  final Function(DateTime) onDateSelected;
+  final Function(DateTime) onDateTapped;
+
+  /// 'emotion' or 'amount'
+  final String mode;
+
+  /// 금액 모드에서 경고 기준
+  final int dailyLimit;
+
+  const EmotionCalendarWidget({
+    Key? key,
+    required this.diaryEntries,
+    required this.onDateSelected,
+    required this.onDateTapped,
+    required this.mode,
+    required this.dailyLimit,
+  }) : super(key: key);
+
+  @override
+  State<EmotionCalendarWidget> createState() => _EmotionCalendarWidgetState();
+}
+
+class _EmotionCalendarWidgetState extends State<EmotionCalendarWidget> {
+  late DateTime _focusedMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedMonth = DateTime.now();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final firstDayOfMonth =
+    DateTime(_focusedMonth.year, _focusedMonth.month, 1);
+    final lastDayOfMonth =
+    DateTime(_focusedMonth.year, _focusedMonth.month + 1, 0);
+    final firstWeekday = firstDayOfMonth.weekday % 7; // 0=일
+    final daysInMonth = lastDayOfMonth.day;
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 상단 월/이전/다음
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
-              '${vm.selectedMonth}월 ${day}일',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
             IconButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // TODO: 수정 페이지로 이동
-              },
-              icon: const Icon(Icons.edit, size: 20),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
+              onPressed: () {
+                setState(() {
+                  _focusedMonth = DateTime(
+                    _focusedMonth.year,
+                    _focusedMonth.month - 1,
+                    1,
+                  );
+                });
+              },
+              icon: const Icon(Icons.chevron_left, size: 20),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              '${_focusedMonth.month}월',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 4),
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: () {
+                setState(() {
+                  _focusedMonth = DateTime(
+                    _focusedMonth.year,
+                    _focusedMonth.month + 1,
+                    1,
+                  );
+                });
+              },
+              icon: const Icon(Icons.chevron_right, size: 20),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        if (emoji.isNotEmpty) ...[
-          Row(
-            children: [
-              Text(emoji, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
-              Text(
-                vm.emotionNameFromEmoji(emoji),
-                style: const TextStyle(fontSize: 16),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-        ],
-        // 소비 목록 (임시 분배)
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey[50],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[300]!),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '소비 목록',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              _buildSpendingItem('식비', (amount * 0.6).round(), _formatAmount),
-              _buildSpendingItem('교통비', (amount * 0.2).round(), _formatAmount),
-              _buildSpendingItem('카페', (amount * 0.2).round(), _formatAmount),
-              const Divider(),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    '총 합산',
-                    style:
-                    TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    '${_formatAmount(amount)}원',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue,
+
+        const SizedBox(height: 8),
+
+        // 요일 헤더
+        Row(
+          children: ['일', '월', '화', '수', '목', '금', '토']
+              .map(
+                (day) => Expanded(
+              child: SizedBox(
+                height: 20,
+                child: Center(
+                  child: Text(
+                    day,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: day == '일'
+                          ? Colors.red
+                          : (day == '토'
+                          ? Colors.blue
+                          : Colors.grey[700]),
                     ),
                   ),
-                ],
+                ),
               ),
-            ],
-          ),
+            ),
+          )
+              .toList(),
         ),
-        const SizedBox(height: 12),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
+
+        const SizedBox(height: 4),
+
+        // 달력 그리드 (overflow 안 나게 childAspectRatio + 폰트 조정)
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 7,
+            // 살짝 세로로 여유를 줘서 overflow 방지
+            childAspectRatio: 0.85,
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '소비 일지',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                diary,
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
+          itemCount: 42, // 6주 * 7일
+          itemBuilder: (context, index) {
+            final day = index - firstWeekday + 1;
+            final isCurrentMonth = day > 0 && day <= daysInMonth;
+
+            if (!isCurrentMonth) {
+              return const SizedBox();
+            }
+
+            final date = DateTime(
+              _focusedMonth.year,
+              _focusedMonth.month,
+              day,
+            );
+            final normalized = DateTime(date.year, date.month, date.day);
+            final hasEntry = widget.diaryEntries.containsKey(normalized);
+            final entry = widget.diaryEntries[normalized];
+
+            return _buildDayCell(
+              day: day,
+              date: date,
+              hasEntry: hasEntry && entry != null,
+              entry: entry,
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildSpendingItem(
-      String category,
-      int amount,
-      String Function(int) formatter,
-      ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(category, style: const TextStyle(fontSize: 13)),
-          Text(
-            '${formatter(amount)}원',
-            style: const TextStyle(fontSize: 13),
+  Widget _buildDayCell({
+    required int day,
+    required DateTime date,
+    required bool hasEntry,
+    required EmotionSpendingDiary? entry,
+  }) {
+    final now = DateTime.now();
+    final isToday = now.year == date.year &&
+        now.month == date.month &&
+        now.day == day;
+
+    final weekday = date.weekday % 7; // 0=일, 6=토
+    final isSunday = weekday == 0;
+    final isSaturday = weekday == 6;
+
+    Color dayColor;
+    if (isSunday) {
+      dayColor = Colors.red;
+    } else if (isSaturday) {
+      dayColor = Colors.blue;
+    } else if (isToday) {
+      dayColor = AppColors.primary;
+    } else {
+      dayColor = Colors.black87;
+    }
+
+    Widget? bottomWidget;
+    if (hasEntry && entry != null) {
+      if (widget.mode == 'emotion') {
+        // 감정 이모지 / 아이콘 표시 모드
+        bottomWidget = Text(
+          _emojiFromEmotion(entry.emotion),
+          style: const TextStyle(fontSize: 16),
+        );
+      } else {
+        // 금액 텍스트 모드
+        final amount = entry.spendingAmount.toInt();
+        bottomWidget = Text(
+          _formatAmount(amount),
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: amount > widget.dailyLimit ? Colors.red : Colors.black87,
           ),
-        ],
+          overflow: TextOverflow.ellipsis,
+        );
+      }
+    }
+
+    return GestureDetector(
+      onTap: () {
+        final normalized = DateTime(date.year, date.month, date.day);
+        widget.onDateSelected(normalized);
+        widget.onDateTapped(normalized);
+      },
+      child: Container(
+        margin: const EdgeInsets.all(2),
+        decoration: BoxDecoration(
+          color: isToday ? AppColors.primary.withOpacity(0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isToday
+                ? AppColors.primary
+                : Colors.grey.withOpacity(0.2),
+            width: isToday ? 1.2 : 0.8,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '$day',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isToday ? FontWeight.bold : FontWeight.w500,
+                color: dayColor,
+              ),
+            ),
+            if (bottomWidget != null) ...[
+              const SizedBox(height: 2),
+              bottomWidget,
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildEmptyDateContent(int day) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${widget.vm.selectedMonth}월 ${day}일',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          '소비를 기록해주세요',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
-        ),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // TODO: 소비 입력 페이지로 이동
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            child: const Text(
-              '소비입력하러 가기',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-      ],
+  String _emojiFromEmotion(String emotion) {
+    switch (emotion) {
+      case '기쁨':
+      case '행복':
+        return '😊';
+      case '슬픔':
+      case '우울':
+        return '😢';
+      case '화남':
+      case '짜증':
+        return '😠';
+      case '피곤':
+        return '😴';
+      case '혼란':
+      case '스트레스':
+        return '😵‍💫';
+      case '플렉스':
+        return '😎';
+      default:
+        return '😐';
+    }
+  }
+
+  String _formatAmount(int amount) {
+    return amount.toString().replaceAllMapped(
+      RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+          (m) => '${m[1]},',
     );
   }
 }

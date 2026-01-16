@@ -35,9 +35,9 @@ class _PlanSummaryDonutChartWidgetState
 
   PlanMetrics get _metrics => widget.plan.result.totalMetrics;
 
-  double get monthlyIncome => _metrics.monthlyIncomeAmount.toDouble();
-  double get monthlyFixedCost => _metrics.monthlyConsumeAmount.toDouble();
-  double get dailySpendingLimit => _metrics.dailyConsumeAmount.toDouble();
+  double get monthlyIncome => _metrics.sumMonthlyIncome.toDouble();
+  double get monthlyFixedCost => _metrics.sumMonthlyConsume.toDouble();
+  double get dailySpendingLimit => _metrics.sumDailyConsume.toDouble();
   double get monthlyVariableCost => dailySpendingLimit * 30;
   double get monthlySaving => widget.calculation?.monthlySaving ?? 0;
 

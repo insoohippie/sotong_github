@@ -10,16 +10,9 @@ class PlanDataSource {
   /// 생성(문서 ID 자동)
   Future<String> create(String uid, Map<String, dynamic> data) async {
     final docRef = _col(uid).doc();
-    final payload = Map<String, dynamic>.from(data)..['planId'] = docRef.id;
-    await docRef.set(payload);
+    await docRef.set(data);
     return docRef.id;
   }
-
-  /// 통째로 덮어쓰기
-  Future<void> replace(String uid, String planId, Map<String, dynamic> data) {
-    return _col(uid).doc(planId).set(data);
-  }
-
 
   /// 읽기(리스트) - 정렬/limit 등은 호출부에서 지정
   Future<QuerySnapshot<Map<String, dynamic>>> query(

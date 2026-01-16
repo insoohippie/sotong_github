@@ -1,10 +1,9 @@
- import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
 
-import 'data_source/ref_data_data_source.dart';
 import 'firebase_options.dart';
 import 'route.dart';
 import 'component/theme/app_colors.dart';
@@ -22,7 +21,6 @@ import 'repository/category_repository.dart';
 import 'repository/record_repository.dart';
 
 // EventBus
-import 'repository/ref_data_repository.dart';
 import 'services/plan_saved_event_bus.dart';
 import 'services/spending_event_bus.dart';
 
@@ -79,7 +77,6 @@ class MyApp extends StatelessWidget {
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
         Provider<CategoryDataSource>(create: (_) => CategoryDataSource()),
         Provider<RecordDataSource>(create: (_) => RecordDataSource()),
-        Provider<RefDataDataSource>(create: (_) => RefDataDataSource()),
 
         // 3) Repositories
         Provider<AuthRepository>(
@@ -104,13 +101,6 @@ class MyApp extends StatelessWidget {
           ),
         ),
 
-        Provider<RefDataRepository>(
-          create: (ctx) => RefDataRepository(
-            ctx.read<RefDataDataSource>(),
-            ctx.read<AuthDataSource>(),
-          ),
-        ),
-
         // 4) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
           create: (ctx) => LoginViewModel(ctx.read<AuthRepository>()),
@@ -122,7 +112,6 @@ class MyApp extends StatelessWidget {
           create: (ctx) => ChatPlanViewModel(
             ctx.read<AuthRepository>(),
             ctx.read<PlanRepository>(),
-            ctx.read<RefDataRepository>(),
             planSavedBus: ctx.read<PlanSavedEventBus>(),
           ),
         ),

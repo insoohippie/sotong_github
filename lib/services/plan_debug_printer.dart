@@ -25,21 +25,6 @@ class PlanDebugPrinter {
           'end=${_formatDate(plan.endDate)} '
           'modEnd=${_formatDate(plan.modEndDate)}');
 
-    final totalMetrics = plan.result.totalMetrics;
-    buffer
-      ..writeln(
-        '  amount: '
-        'monthlyIncomeAmount=${totalMetrics.monthlyIncomeAmount} '
-        'monthlyConsumeAmount=${totalMetrics.monthlyConsumeAmount} '
-        'dailyConsumeAmount=${totalMetrics.dailyConsumeAmount}',
-      )
-      ..writeln(
-        '  net: '
-        'monthlyNetIncome=${totalMetrics.monthlyNetIncome} '
-        'monthlyNetConsume=${totalMetrics.monthlyNetConsume} '
-        'dailyNetConsume=${totalMetrics.dailyNetConsume}',
-      );
-
     final subEntries = plan.subPlans.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
 
@@ -73,27 +58,13 @@ class PlanDebugPrinter {
   }) {
     final branch = isLast ? '└─' : '├─';
     final childIndent = indent + (isLast ? '   ' : '│  ');
-    final summaryMetrics = subPlan.monthlySummary();
     buffer.writeln(
       '$indent$branch SubPlan $key '
       '(month=${_dateFmt.format(subPlan.yearMonth)}, head=${subPlan.headDocId})',
     );
     buffer.writeln(
       '$childIndent summary: minis=${subPlan.miniPlans.length} '
-      'dailyNet=${summaryMetrics.dailyNetSaving} '
-      'fractional=${subPlan.fractionalEndSeconds}',
-    );
-    buffer.writeln(
-      '$childIndent    amount: '
-      'monthlyIncomeAmount=${summaryMetrics.monthlyIncomeAmount} '
-      'monthlyConsumeAmount=${summaryMetrics.monthlyConsumeAmount} '
-      'dailyConsumeAmount=${summaryMetrics.dailyConsumeAmount}',
-    );
-    buffer.writeln(
-      '$childIndent    net: '
-      'monthlyNetIncome=${summaryMetrics.monthlyNetIncome} '
-      'monthlyNetConsume=${summaryMetrics.monthlyNetConsume} '
-      'dailyNetConsume=${summaryMetrics.dailyNetConsume}',
+      'dailyNet=${subPlan.monthlySummary().dailyNetSaving}',
     );
 
     final miniList = subPlan.orderedMinis();
@@ -126,13 +97,7 @@ class PlanDebugPrinter {
         '$nextIndent cached: '
         'monthlyIncome=${mini.sumMonthlyIncome} '
         'monthlyConsume=${mini.sumMonthlyConsume} '
-        'dailyConsume=${mini.sumDailyConsume} '
-      );
-      buffer.writeln(
-        '$nextIndent    net: '
-        'monthlyNetIncome=${mini.monthlyNetIncome} '
-        'monthlyNetConsume=${mini.monthlyNetConsume} '
-        'dailyNetConsume=${mini.dailyNetConsume}',
+        'dailyConsume=${mini.sumDailyConsume}',
       );
     }
   }

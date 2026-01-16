@@ -82,7 +82,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
       if (viewModel.messages.isEmpty) {
         viewModel.initializeChat();
       }
-      viewModel.loadRemoteRefData();
     });
   }
 
@@ -402,14 +401,18 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   title: '고정 소비 입력하기',
                   placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
-                  onCategorySettingsTap: _openFixedExpenseCategorySettings,
                   customCategories: localCategoryVM.customFixedExpenseCategories,
                   onCustomCategoryAdded: localCategoryVM.addCustomFixedExpenseCategory,
                   onCustomCategoryRemoved: localCategoryVM.removeCustomFixedExpenseCategory,
                   onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomFixedExpenseCategoryWithEmoji,
                   categoryEmojis: localCategoryVM.fixedExpenseCategoryEmojis,
-                  monthlyIncome:
-                  context.read<ChatPlanViewModel>().totalPlan.result.totalMetrics.monthlyIncomeAmount.toDouble(),
+                  monthlyIncome: context
+                      .read<ChatPlanViewModel>()
+                      .totalPlan
+                      .result
+                      .totalMetrics
+                      .sumMonthlyIncome
+                      .toDouble(),
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
                     final now = DateTime.now();
@@ -472,8 +475,10 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     final vm =
                     context.read<ChatPlanViewModel>();
                     final metrics = vm.totalPlan.result.totalMetrics;
-                    final double income = metrics.monthlyIncomeAmount.toDouble();
-                    final double fixed = metrics.monthlyConsumeAmount.toDouble();
+                    final double income =
+                    metrics.sumMonthlyIncome.toDouble();
+                    final double fixed =
+                    metrics.sumMonthlyConsume.toDouble();
                     final double leftover = income - fixed;
                     return leftover > 0 ? leftover : 0.0;
                   }()),

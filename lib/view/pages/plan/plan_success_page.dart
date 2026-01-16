@@ -36,7 +36,6 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
     _started = true;
 
     final vm = context.read<ChatPlanViewModel>();
-    vm.preparePlanStructureForSummary();
     final ok = await vm.savePlan();
 
     if (!mounted) return;

@@ -30,9 +30,9 @@ class _PlanSummaryChartWidgetState extends State<PlanSummaryChartWidget> {
 
   PlanMetrics get _metrics => widget.plan.result.totalMetrics;
 
-  double get monthlyIncome => _metrics.monthlyIncomeAmount.toDouble();
-  double get monthlyFixedCost => _metrics.monthlyConsumeAmount.toDouble();
-  double get dailySpendingLimit => _metrics.dailyConsumeAmount.toDouble();
+  double get monthlyIncome => _metrics.sumMonthlyIncome.toDouble();
+  double get monthlyFixedCost => _metrics.sumMonthlyConsume.toDouble();
+  double get dailySpendingLimit => _metrics.sumDailyConsume.toDouble();
   double get fixedRatio => (monthlyFixedCost / (monthlyIncome == 0 ? 1 : monthlyIncome)).clamp(0.0, 1.0);
   double get monthlyVariableCost => dailySpendingLimit * 30;
   double get variableRatio => (monthlyVariableCost / (monthlyIncome == 0 ? 1 : monthlyIncome)).clamp(0.0, 1.0);
