@@ -3,7 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:provider/provider.dart';
 
 import '../../../component/theme/app_border_radius.dart';
-import '../../../model/alarm.dart';
+import '../../../model/notification/alarm.dart';
 import '../../../view_model/setting/alarm_view_model.dart';
 
 class NotificationSettingPage extends StatefulWidget {

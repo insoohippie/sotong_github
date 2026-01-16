@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../component/theme/app_border_radius.dart';
-import '../../../model/notification_item.dart';
+import '../../../model/notification/notification_item.dart';
 import '../../../view_model/notification/notification_view_model.dart';
 import 'notification_setting.dart';
 

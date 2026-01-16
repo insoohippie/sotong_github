@@ -1,41 +1,57 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:sotong_local/repository/communication_repository.dart';
-import 'package:sotong_local/view_model/record/daily_category_viewmodel.dart';
 
-import 'component/theme/app_colors.dart';
-import 'data_source/communication_data_source.dart';
-import 'data_source/ref_data_data_source.dart';
 import 'firebase_options.dart';
 import 'route.dart';
+import 'component/theme/app_colors.dart';
 
 // DataSources
 import 'data_source/auth_data_source.dart';
 import 'data_source/plan_data_source.dart';
+import 'data_source/category_data_source.dart';
+import 'data_source/record_data_source.dart';
 
 // Repositories
 import 'repository/auth_repository.dart';
 import 'repository/plan_repository.dart';
-import 'repository/ref_data_repository.dart';
+import 'repository/category_repository.dart';
+import 'repository/record_repository.dart';
+
+// EventBus
 import 'services/plan_saved_event_bus.dart';
+import 'services/spending_event_bus.dart';
 
 // ViewModels
 import 'view_model/auth/login_view_model.dart';
 import 'view_model/auth/signup_view_model.dart';
 import 'view_model/plan/chat_plan_viewmodel.dart';
+import 'view_model/home/home_view_model.dart';
+import 'view_model/home/today_spending_view_model.dart';
 import 'view_model/record/record_view_model.dart';
+import 'view_model/report/report_view_model.dart';
+import 'view_model/category/category_view_model.dart';
+import 'view_model/communication/communication_view_model.dart';
 import 'view_model/setting/setting_view_model.dart';
+import 'view_model/addIncome/add_income_view_model.dart';
 import 'view_model/setting/alarm_view_model.dart';
 import 'view_model/notification/notification_view_model.dart';
-import 'view_model/communication/communication_view_model.dart';
-import 'view_model/home/home_view_model.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // 1) Hive 초기화
+  await Hive.initFlutter();
+  await Hive.openBox('monthly_spending');
+  await Hive.openBox('categories');
+
+  // 2) Firebase 초기화
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyApp());
 }
 
@@ -46,19 +62,21 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // 1) Shared coordinators / event buses
+        // 1) EventBus
         Provider<PlanSavedEventBus>(
           create: (_) => PlanSavedEventBus(),
+          dispose: (_, bus) => bus.dispose(),
+        ),
+        Provider<SpendingEventBus>(
+          create: (_) => SpendingEventBus(),
           dispose: (_, bus) => bus.dispose(),
         ),
 
         // 2) DataSources
         Provider<AuthDataSource>(create: (_) => AuthDataSource()),
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
-        Provider<CommunicationDataSource>(
-          create: (_) => CommunicationDataSource(),
-        ),
-        Provider<RefDataDataSource>(create: (_) => RefDataDataSource()),
+        Provider<CategoryDataSource>(create: (_) => CategoryDataSource()),
+        Provider<RecordDataSource>(create: (_) => RecordDataSource()),
 
         // 3) Repositories
         Provider<AuthRepository>(
@@ -70,15 +88,15 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthDataSource>(),
           ),
         ),
-        Provider<RefDataRepository>(
-          create: (ctx) => RefDataRepository(
-            ctx.read<RefDataDataSource>(),
+        Provider<CategoryRepository>(
+          create: (ctx) => CategoryRepository(
+            ctx.read<CategoryDataSource>(),
             ctx.read<AuthDataSource>(),
           ),
         ),
-        Provider<CommunicationRepository>(
-          create: (ctx) => CommunicationRepository(
-            ctx.read<CommunicationDataSource>(),
+        Provider<RecordRepository>(
+          create: (ctx) => RecordRepository(
+            ctx.read<RecordDataSource>(),
             ctx.read<AuthDataSource>(),
           ),
         ),
@@ -94,7 +112,6 @@ class MyApp extends StatelessWidget {
           create: (ctx) => ChatPlanViewModel(
             ctx.read<AuthRepository>(),
             ctx.read<PlanRepository>(),
-            ctx.read<RefDataRepository>(),
             planSavedBus: ctx.read<PlanSavedEventBus>(),
           ),
         ),
@@ -103,23 +120,53 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthRepository>(),
             ctx.read<PlanRepository>(),
             ctx.read<PlanSavedEventBus>(),
+            ctx.read<RecordRepository>(),
+            ctx.read<SpendingEventBus>(),
           ),
         ),
-        ChangeNotifierProvider<CommunicationViewModel>(
-          create: (ctx) =>
-              CommunicationViewModel(ctx.read<CommunicationRepository>())
-                ..loadMonth(DateTime.now()),
-        ),
-        ChangeNotifierProvider<DailyCategoryViewModel>(
-          create: (_) => DailyCategoryViewModel(),
+        ChangeNotifierProvider<TodaySpendingViewModel>(
+          create: (ctx) => TodaySpendingViewModel(
+            ctx.read<RecordRepository>(),
+            ctx.read<PlanRepository>(),
+          ),
         ),
         ChangeNotifierProvider<RecordViewModel>(
-          create: (_) => RecordViewModel(),
+          create: (ctx) => RecordViewModel(
+            ctx.read<RecordRepository>(),
+            ctx.read<SpendingEventBus>(),
+          ),
+        ),
+
+        ChangeNotifierProvider<ReportViewModel>(
+          create: (ctx) => ReportViewModel(
+            ctx.read<RecordRepository>(),
+            ctx.read<SpendingEventBus>(),
+          ),
+        ),
+
+        ChangeNotifierProvider<CommunicationViewModel>(
+          create: (ctx) => CommunicationViewModel(
+            ctx.read<RecordRepository>(),
+            ctx.read<PlanRepository>(),
+            ctx.read<SpendingEventBus>(),
+          ),
+        ),
+        ChangeNotifierProvider<CategoryViewModel>(
+          create: (ctx) => CategoryViewModel(ctx.read<CategoryRepository>()),
         ),
         ChangeNotifierProvider<SettingViewModel>(
-          create: (_) => SettingViewModel(),
+          create: (ctx) => SettingViewModel(
+            ctx.read<AuthRepository>(),
+            ctx.read<CategoryRepository>(),
+            ctx.read<RecordRepository>(),
+          ),
         ),
-        ChangeNotifierProvider<AlarmViewModel>(create: (_) => AlarmViewModel()),
+        ChangeNotifierProvider<AddIncomeViewModel>(
+          create: (_) => AddIncomeViewModel(),
+        ),
+        ChangeNotifierProvider<AlarmViewModel>(
+          create: (_) => AlarmViewModel(),
+        ),
         ChangeNotifierProvider<NotificationViewModel>(
           create: (_) => NotificationViewModel(),
         ),
@@ -134,7 +181,7 @@ class MyApp extends StatelessWidget {
             secondary: AppColors.primary,
           ),
         ),
-        initialRoute: '/login',
+        initialRoute: '/logo_splash',
         routes: appRoutes,
       ),
     );

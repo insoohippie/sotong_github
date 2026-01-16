@@ -27,8 +27,14 @@ class _RecordSpendingPageState extends State<RecordSpendingPage> {
 
   @override
   Widget build(BuildContext context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    final DateTime selectedDate =
+    (args is DateTime) ? args : DateTime.now(); // 안전 처리
+
     final viewModel = context.watch<RecordViewModel>();
-    final date = '2025년 7월 24일';
+
+    String formattedDate =
+        '${selectedDate.year}년 ${selectedDate.month}월 ${selectedDate.day}일';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -37,7 +43,7 @@ class _RecordSpendingPageState extends State<RecordSpendingPage> {
           children: [
             CustomAppBarTitleSubtitle(
               title: '소비 기록하기',
-              subtitle: date,
+              subtitle: formattedDate,
               onBack: () => Navigator.pop(context),
             ),
             Expanded(
@@ -102,7 +108,11 @@ class _RecordSpendingPageState extends State<RecordSpendingPage> {
               text: '다음 단계',
               enabled: true,
               onPressed: () {
-                Navigator.pushNamed(context, '/record_diary');
+                Navigator.pushNamed(
+                  context,
+                  '/record_diary',
+                  arguments: selectedDate
+                );
               },
             ),
             const SizedBox(height: AppSpacing.bottomSpacing),

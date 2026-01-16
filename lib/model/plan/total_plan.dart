@@ -20,6 +20,10 @@ class TotalPlan {
     this.modEndDate, // 변경된 종료일
     this.creationDate,
     this.autoService,
+    //하경 - 모인 금액 계산용
+    this.extraIncomeTotal = 0,
+    this.snapshotAmount = 0,
+    this.snapshotAt,
   });
 
   final String planId;
@@ -34,6 +38,10 @@ class TotalPlan {
   final bool? autoService;
   final Map<String, SubPlan> subPlans;
   final TotalResult result;
+  //하경 - 모인 금액 계산용
+  final int extraIncomeTotal;  // 플랜 중간 추가 수입 누적
+  final int snapshotAmount;    // snapshotAt 시점까지 자동저축 누적
+  final DateTime? snapshotAt;  // 스냅샷 기준 시각
 
   /// Factory for a blank plan used as a draft during onboarding.
   factory TotalPlan.empty() {
@@ -44,10 +52,6 @@ class TotalPlan {
       sumMonthlyIncome: 0,
       sumMonthlyConsume: 0,
       sumDailyConsume: 0,
-    );
-    final initialSubPlans = _bootstrapSubPlans(
-      metrics: metrics,
-      planStart: now,
     );
     return TotalPlan(
       planId: '',
@@ -60,15 +64,15 @@ class TotalPlan {
       modEndDate: null,
       creationDate: now,
       autoService: false,
-      subPlans: initialSubPlans,
+      subPlans: const {},
       result: TotalResult(
         totalMetrics: metrics,
-        subResult: SubPlanResult(
-          subMetrics:
-              initialSubPlans.values.map((sub) => sub.monthlySummary()).toList(),
-          subPlanList: initialSubPlans.values.toList(),
-        ),
+        subResult: const SubPlanResult(subMetrics: [], subPlanList: []),
       ),
+      //하경 - 모인 금액 계산용
+      extraIncomeTotal: 0,
+      snapshotAmount: 0,
+      snapshotAt: now,
     );
   }
 
@@ -77,9 +81,6 @@ class TotalPlan {
     final planStartDate = _parseDate(map['startDate']);
     final metrics = _parseMetrics(map['result']?['totalMetrics']);
     final subPlans = _parseSubPlans(map['subPlans']);
-    final normalizedSubPlans = subPlans.isNotEmpty
-        ? subPlans
-        : _bootstrapSubPlans(metrics: metrics, planStart: planStartDate);
     return TotalPlan(
       planId: id,
       planName: map['planName'] as String?,
@@ -91,14 +92,17 @@ class TotalPlan {
       modEndDate: _parseDate(map['modEndDate']),
       creationDate: _parseDate(map['creationDate']),
       autoService: map['autoService'] as bool?,
-      subPlans: normalizedSubPlans,
+      subPlans: subPlans,
       result: TotalResult(
         totalMetrics: metrics,
-        subResult: _parseSubResult(
-          map['result']?['subResult'],
-          normalizedSubPlans,
-        ),
+        subResult: _parseSubResult(map['result']?['subResult'], subPlans),
       ),
+      //하경 - 모인 금액 계산용
+      extraIncomeTotal:
+      (map['extraIncomeTotal'] as num?)?.round() ?? 0,
+      snapshotAmount:
+      (map['snapshotAmount'] as num?)?.round() ?? 0,
+      snapshotAt: _parseDate(map['snapshotAt']),
     );
   }
 
@@ -118,6 +122,10 @@ class TotalPlan {
         'totalMetrics': _serializeMetrics(result.totalMetrics),
         'subResult': _serializeSubResult(result.subResult),
       },
+      //하경 - 모인 금액 계산용
+      'extraIncomeTotal': extraIncomeTotal,
+      'snapshotAmount': snapshotAmount,
+      'snapshotAt': snapshotAt?.toIso8601String(),
     };
   }
 
@@ -171,6 +179,10 @@ class TotalPlan {
     bool? autoService,
     Map<String, SubPlan>? subPlans,
     TotalResult? result,
+    //하경 - 모인 금액 계산용
+    int? extraIncomeTotal,
+    int? snapshotAmount,
+    DateTime? snapshotAt,
   }) {
     return TotalPlan(
       planId: planId ?? this.planId,
@@ -185,6 +197,10 @@ class TotalPlan {
       autoService: autoService ?? this.autoService,
       subPlans: subPlans ?? this.subPlans,
       result: result ?? this.result,
+      //하경 - 모인 금액 계산용
+      extraIncomeTotal: extraIncomeTotal ?? this.extraIncomeTotal,
+      snapshotAmount: snapshotAmount ?? this.snapshotAmount,
+      snapshotAt: snapshotAt ?? this.snapshotAt,
     );
   }
 
@@ -198,43 +214,6 @@ class TotalPlan {
       sumDailyConsume: 0,
     );
   }
-
-  static Map<String, SubPlan> _bootstrapSubPlans({
-    required PlanMetrics metrics,
-    required DateTime? planStart,
-  }) {
-    final baseline = planStart ?? DateTime.now();
-    final monthStart = DateTime(baseline.year, baseline.month, 1);
-    final monthEnd = DateTime(baseline.year, baseline.month + 1, 0);
-    final key = _formatYearMonth(monthStart);
-    final miniId = '${key}_mini_head';
-    final mini = MiniPlan(
-      docId: miniId,
-      yearMonth: monthStart,
-      startDate: monthStart,
-      endDate: monthEnd,
-      monthlyIncomeId: '${key}_income_bootstrap',
-      monthlyConsumeId: '${key}_consume_bootstrap',
-      dailyConsumeId: '${key}_daily_bootstrap',
-      sumMonthlyIncome: metrics.sumMonthlyIncome,
-      sumMonthlyConsume: metrics.sumMonthlyConsume,
-      sumDailyConsume: metrics.sumDailyConsume,
-    );
-    final subPlan = SubPlan(
-      yearMonth: monthStart,
-      headDocId: miniId,
-      miniPlans: {miniId: mini},
-      miniResult: MiniPlanResult(
-        headDocId: miniId,
-        miniMetrics: [mini.toMetrics()],
-        miniPlanHead: mini,
-      ),
-    );
-    return {key: subPlan};
-  }
-
-  static String _formatYearMonth(DateTime date) =>
-      '${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}';
 
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;

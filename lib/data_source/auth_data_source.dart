@@ -15,8 +15,31 @@ class AuthDataSource {
   User? get currentUser => _auth.currentUser;
 
   // 로그인 - authentication 사용
-  Future<UserCredential> loginWithAuth(String email, String password) {
-    return _auth.signInWithEmailAndPassword(email: email, password: password);
+  Future<UserCredential> loginWithAuth(String email, String password) async {
+    try {
+      final cred = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      print('🔐 loginWithAuth success: ${cred.user?.email}');
+      return cred;
+    } on FirebaseAuthException catch (e) {
+      print('🔥 FirebaseAuthException code = ${e.code}, message = ${e.message}');
+
+      switch (e.code) {
+        case 'user-not-found':
+          throw Exception('존재하지 않는 이메일입니다.');
+        case 'wrong-password':      // 일부 버전
+        case 'invalid-credential':  // 네가 받은 버전
+          throw Exception('비밀번호가 일치하지 않습니다.');
+        case 'invalid-email':
+          throw Exception('이메일 형식이 올바르지 않습니다.');
+        case 'too-many-requests':
+          throw Exception('잠시 후 다시 시도해주세요. (요청이 너무 많습니다)');
+        default:
+          throw Exception('로그인 중 오류가 발생했습니다.');
+      }
+    }
   }
 
   // 로그인 - Firestore 사용 (보안X)
@@ -56,5 +79,10 @@ class AuthDataSource {
   // users/{uid} 읽기
   Future<DocumentSnapshot<Map<String, dynamic>>> getUserDoc(String uid) {
     return _firestore.collection('users').doc(uid).get();
+  }
+
+  /// 로그아웃
+  Future<void> signOut() async {
+    await _auth.signOut();
   }
 }

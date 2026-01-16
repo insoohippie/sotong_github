@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../model/alarm.dart';
+import '../../model/notification/alarm.dart';
 
 class AlarmViewModel extends ChangeNotifier {
   final List<Alarm> _alarms = [];

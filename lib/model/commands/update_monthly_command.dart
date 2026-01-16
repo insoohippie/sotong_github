@@ -13,7 +13,6 @@ class UpdateMonthlyCommand {
     required this.newDocumentId,
     this.previousDocumentId,
     this.isIncome = true,
-    this.allowBeforePlanStart = false,
   }) : assert(!applyMonth.isAfter(modEndMonth),
             'applyMonth must be <= modEndMonth');
 
@@ -23,7 +22,6 @@ class UpdateMonthlyCommand {
   final String newDocumentId;
   final String? previousDocumentId;
   final bool isIncome;
-  final bool allowBeforePlanStart;
 
   List<DateTime> affectedMonths() {
     final months = <DateTime>[];

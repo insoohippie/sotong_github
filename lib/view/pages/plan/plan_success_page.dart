@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_edit/plan_edit_back_button.dart';
 
 import '../../../component/appbars/custom_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
@@ -11,7 +12,6 @@ import '../../../component/theme/app_text_styles.dart';
 
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/services/saving_calculator.dart';
-import 'chat_widgets/plan_edit_back_button.dart'; // 금액 포맷용
 
 class PlanSuccessPage extends StatefulWidget {
   const PlanSuccessPage({super.key});

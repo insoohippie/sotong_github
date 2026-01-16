@@ -20,7 +20,6 @@ class PlanEditViewModel extends ChangeNotifier {
   late TotalPlanViewModel totalPlanVM;
   late RefData refData;
   late RefDataViewModel refDataVM;
-  DateTime? _initialEndDate;
 
   List<Entry>? _pendingFixedIncomeEntries;
   List<Entry>? _pendingFixedConsumeEntries;
@@ -117,7 +116,6 @@ class PlanEditViewModel extends ChangeNotifier {
     refData = initialRefData ?? RefData(planId: initialPlan.planId);
     refData.planId = initialPlan.planId;
     refDataVM = RefDataViewModel(refData);
-    _initialEndDate = initialPlan.endDate;
 
     planNameController = TextEditingController(text: initialPlan.planName ?? '');
 
@@ -191,16 +189,11 @@ class PlanEditViewModel extends ChangeNotifier {
       monthlyConsume: monthlyFixedCost,
       dailyConsume: dailySpendingLimit,
     );
-    var updated = totalPlanVM.plan;
-    if (_initialEndDate != null) {
-      updated = updated.copyWith(endDate: _initialEndDate);
-      totalPlanVM.plan = updated;
-    }
-    totalPlan = updated;
+    totalPlan = totalPlanVM.plan;
     return totalPlan;
   }
 
-  UpdateMonthlyCommand buildMonthlyCommand({ // 월 단위 변경
+  UpdateMonthlyCommand buildMonthlyCommand({
     required DateTime applyMonth,
     required DateTime modEndMonth,
     required List<Entry> entries,
@@ -218,7 +211,7 @@ class PlanEditViewModel extends ChangeNotifier {
     );
   }
 
-  UpdateDailyCommand buildDailyCommand({ // 일 단위 변경
+  UpdateDailyCommand buildDailyCommand({
     required DateTime applyDate,
     required DateTime modEndDate,
     required List<Entry> entries,
@@ -242,7 +235,7 @@ class PlanEditViewModel extends ChangeNotifier {
   double _sumEntries(List<Entry> entries) =>
       entries.fold(0.0, (sum, e) => sum + e.amount);
 
-  PlanEditResult finalizeEdits() { //
+  PlanEditResult finalizeEdits() {
     final projected = projectedGoalDate ??
         totalPlan.modEndDate ??
         totalPlan.endDate ??
@@ -264,8 +257,7 @@ class PlanEditViewModel extends ChangeNotifier {
       }
     }
 
-    if (_pendingFixedIncomeEntries != null &&
-        !_isSameEntries(_pendingFixedIncomeEntries!, refData.primaryMonthlyIncomeEntries)) {
+    if (_pendingFixedIncomeEntries != null) {
       final applyDate = _pendingFixedIncomeApplyDate;
       if (applyDate == null) {
         throw StateError('월 수입 적용일이 설정되어 있지 않습니다.');
@@ -292,8 +284,7 @@ class PlanEditViewModel extends ChangeNotifier {
       _pendingFixedIncomeApplyDate = null;
     }
 
-    if (_pendingFixedConsumeEntries != null &&
-        !_isSameEntries(_pendingFixedConsumeEntries!, refData.primaryMonthlyConsumeEntries)) {
+    if (_pendingFixedConsumeEntries != null) {
       final applyDate = _pendingFixedConsumeApplyDate;
       if (applyDate == null) {
         throw StateError('고정 소비 적용일이 설정되어 있지 않습니다.');
@@ -320,8 +311,7 @@ class PlanEditViewModel extends ChangeNotifier {
       _pendingFixedConsumeApplyDate = null;
     }
 
-    if (_pendingDailyConsumeEntries != null &&
-        !_isSameEntries(_pendingDailyConsumeEntries!, refData.primaryDailyConsumeEntries)) {
+    if (_pendingDailyConsumeEntries != null) {
       final applyDate = _pendingDailyConsumeApplyDate;
       if (applyDate == null) {
         throw StateError('일일 소비 적용일이 설정되어 있지 않습니다.');
@@ -440,19 +430,5 @@ class PlanEditViewModel extends ChangeNotifier {
     targetAmountController.dispose();
     currentAssetController.dispose();
     super.dispose();
-  }
-
-  bool _isSameEntries(List<Entry> a, List<Entry> b) {
-    if (a.length != b.length) return false;
-    for (var i = 0; i < a.length; i++) {
-      final lhs = a[i];
-      final rhs = b[i];
-      if (lhs.amount != rhs.amount ||
-          lhs.category != rhs.category ||
-          lhs.note != rhs.note) {
-        return false;
-      }
-    }
-    return true;
   }
 }
