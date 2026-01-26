@@ -4,7 +4,9 @@ import '../../model/commands/update_daily_command.dart';
 import '../../model/commands/update_monthly_command.dart';
 import '../../model/plan/plan_mutation_result.dart';
 import '../../model/plan/plan_snapshot.dart';
+import '../../model/refData/ref_data.dart';
 import '../../services/plan_mutation_service.dart';
+import '../../services/plan_debug_printer.dart';
 
 /// MVVM adapter exposing async mutation operations to the UI layer.
 
@@ -38,6 +40,7 @@ class PlanMutationViewModel extends ChangeNotifier {
         monthlyConsumes: result.monthlyConsumes,
         dailyConsumes: result.dailyConsumes,
       );
+      _logPlanTree('applyMonthly', result);
       notifyListeners();
       return result;
     } finally {
@@ -59,6 +62,7 @@ class PlanMutationViewModel extends ChangeNotifier {
         monthlyConsumes: result.monthlyConsumes,
         dailyConsumes: result.dailyConsumes,
       );
+      _logPlanTree('applyDaily', result);
       notifyListeners();
       return result;
     } finally {
@@ -77,5 +81,16 @@ class PlanMutationViewModel extends ChangeNotifier {
       _isBusy = value;
       notifyListeners();
     }
+  }
+
+  void _logPlanTree(String label, PlanMutationResult result) {
+    final debugRef = RefData(
+      planId: result.totalPlan.planId,
+      monthlyIncomes: result.monthlyIncomes,
+      monthlyConsumes: result.monthlyConsumes,
+      dailyConsumes: result.dailyConsumes,
+    );
+    debugPrint('--- Plan Tree After $label ---\n'
+        '${PlanDebugPrinter.describe(plan: result.totalPlan, refData: debugRef)}');
   }
 }

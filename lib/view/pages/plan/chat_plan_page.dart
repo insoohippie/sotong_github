@@ -1,19 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import '../../../model/category/category_state_manager.dart';
+
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/amount_guide_widget.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/chat_bottom_input_area.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/chat_message_widget.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/typing_indicator_widget.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
+
+import '../../../view_model/category/local_category_view_model.dart';
 import '../../../view_model/plan/enums/chat_step.dart';
 import '../../../view_model/services/saving_calculator.dart';
-import '../record/record_widgets/daily_category_manage_file.dart';
-import './chat_widgets/amount_guide_widget.dart';
-import './chat_widgets/chat_bottom_input_area.dart';
-import './chat_widgets/chat_message_widget.dart';
-import 'chat_widgets/input_modal/input_modal_widget.dart';
-import './chat_widgets/summary_section_widget.dart';
-import '../../../model/chat_message.dart';
+import '../../../model/plan/chat_message.dart';
 import '../../../model/refData/entry.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
-import 'chat_widgets/typing_indicator_widget.dart';
+import '../../../view_model/category/category_view_model.dart';
 
 class ChatPlanPage extends StatefulWidget {
   const ChatPlanPage({Key? key}) : super(key: key);
@@ -36,17 +37,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
   bool _showBottomArea = true;
   bool _suppressNextBottomShow = false;
 
-  // 카테고리 관련 상태 변수들 (CategoryTestPage에서 가져옴)
-  List<String> _customIncomeCategories = [];
-  List<String> _customFixedExpenseCategories = [];
-  List<String> _customDailyExpenseCategories = [];
-
-  // 카테고리별 이모지 저장
-  Map<String, String> _incomeCategoryEmojis = {};
-  Map<String, String> _fixedExpenseCategoryEmojis = {};
-  Map<String, String> _dailyExpenseCategoryEmojis = {};
-
-  // ====== 자동 스크롤 제어 추가 ======
   int _lastMessageCount = 0;
   static const _autoScrollThreshold = 120.0;
 
@@ -57,19 +47,18 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     return distanceFromBottom <= _autoScrollThreshold;
   }
 
-  void _maybeScrollToBottomOnNewMessage(List<ChatMessage> messages, bool isTyping) {
+  void _maybeScrollToBottomOnNewMessage(
+      List<ChatMessage> messages, bool isTyping) {
     final added = messages.length > _lastMessageCount;
     if (added && _isNearBottom()) {
       _scrollToBottom();
     }
     _lastMessageCount = messages.length;
 
-    // 타이핑 표시가 켜질 때도 바닥 근처면 내려줌(옵션)
     if (isTyping && _isNearBottom()) {
       _scrollToBottom();
     }
   }
-  // =================================
 
   @override
   void initState() {
@@ -93,32 +82,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
       if (viewModel.messages.isEmpty) {
         viewModel.initializeChat();
       }
-      viewModel.loadRemoteRefData();
-    });
-  }
-
-  // 카테고리 데이터 로드 (CategoryTestPage에서 가져옴)
-  void _loadCategoryData() {
-    setState(() {
-      _customIncomeCategories = List.from(
-        CategoryStateManager.customIncomeCategories,
-      );
-      _customFixedExpenseCategories = List.from(
-        CategoryStateManager.customFixedExpenseCategories,
-      );
-      _customDailyExpenseCategories = List.from(
-        CategoryStateManager.customDailyExpenseCategories,
-      );
-
-      _incomeCategoryEmojis = Map.from(
-        CategoryStateManager.incomeCategoryEmojis,
-      );
-      _fixedExpenseCategoryEmojis = Map.from(
-        CategoryStateManager.fixedExpenseCategoryEmojis,
-      );
-      _dailyExpenseCategoryEmojis = Map.from(
-        CategoryStateManager.dailyExpenseCategoryEmojis,
-      );
     });
   }
 
@@ -150,107 +113,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     });
   }
 
-  void _openCategorySettings() {
-    Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => DailyCategoryManagePage()));
-  }
-
-  void _openIncomeCategorySettings() {
-    Navigator.of(context).pushNamed('/income_category');
-  }
-
-  void _openFixedExpenseCategorySettings() {
-    Navigator.of(context).pushNamed('/fixed_expense_category');
-  }
-
-  // 카테고리 추가 콜백들 (CategoryTestPage에서 가져옴)
-  void _addCustomIncomeCategory(String category) {
-    setState(() {
-      if (!_customIncomeCategories.contains(category)) {
-        _customIncomeCategories.add(category);
-        CategoryStateManager.addCustomIncomeCategory(category);
-      }
-    });
-  }
-
-  void _addCustomFixedExpenseCategory(String category) {
-    setState(() {
-      if (!_customFixedExpenseCategories.contains(category)) {
-        _customFixedExpenseCategories.add(category);
-        CategoryStateManager.addCustomFixedExpenseCategory(category);
-      }
-    });
-  }
-
-  void _addCustomDailyExpenseCategory(String category) {
-    setState(() {
-      if (!_customDailyExpenseCategories.contains(category)) {
-        _customDailyExpenseCategories.add(category);
-        CategoryStateManager.addCustomDailyExpenseCategory(category);
-      }
-    });
-  }
-
-  // 카테고리와 이모지를 함께 추가하는 콜백들
-  void _addCustomIncomeCategoryWithEmoji(String category, String emoji) {
-    setState(() {
-      if (!_customIncomeCategories.contains(category)) {
-        _customIncomeCategories.add(category);
-        _incomeCategoryEmojis[category] = emoji;
-        CategoryStateManager.addCustomIncomeCategory(category);
-        CategoryStateManager.setIncomeCategoryEmoji(category, emoji);
-      }
-    });
-  }
-
-  void _addCustomFixedExpenseCategoryWithEmoji(String category, String emoji) {
-    setState(() {
-      if (!_customFixedExpenseCategories.contains(category)) {
-        _customFixedExpenseCategories.add(category);
-        _fixedExpenseCategoryEmojis[category] = emoji;
-        CategoryStateManager.addCustomFixedExpenseCategory(category);
-        CategoryStateManager.setFixedExpenseCategoryEmoji(category, emoji);
-      }
-    });
-  }
-
-  void _addCustomDailyExpenseCategoryWithEmoji(String category, String emoji) {
-    setState(() {
-      if (!_customDailyExpenseCategories.contains(category)) {
-        _customDailyExpenseCategories.add(category);
-        _dailyExpenseCategoryEmojis[category] = emoji;
-        CategoryStateManager.addCustomDailyExpenseCategory(category);
-        CategoryStateManager.setDailyExpenseCategoryEmoji(category, emoji);
-      }
-    });
-  }
-
-  // 카테고리 삭제 콜백들
-  void _removeCustomIncomeCategory(String category) {
-    setState(() {
-      _customIncomeCategories.remove(category);
-      _incomeCategoryEmojis.remove(category);
-      CategoryStateManager.removeCustomIncomeCategory(category);
-    });
-  }
-
-  void _removeCustomFixedExpenseCategory(String category) {
-    setState(() {
-      _customFixedExpenseCategories.remove(category);
-      _fixedExpenseCategoryEmojis.remove(category);
-      CategoryStateManager.removeCustomFixedExpenseCategory(category);
-    });
-  }
-
-  void _removeCustomDailyExpenseCategory(String category) {
-    setState(() {
-      _customDailyExpenseCategories.remove(category);
-      _dailyExpenseCategoryEmojis.remove(category);
-      CategoryStateManager.removeCustomDailyExpenseCategory(category);
-    });
-  }
-
   String _unformatNumber(String value) => value.replaceAll(',', '');
 
   String _formatNumber(String value) {
@@ -258,12 +120,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     final number = int.tryParse(_unformatNumber(value));
     if (number == null) return '';
     return NumberFormat('#,###').format(number);
-  }
-
-  bool _isChatInputEnabled(ChatStep step) {
-    return step == ChatStep.planName ||
-        step == ChatStep.targetAmount ||
-        step == ChatStep.currentAsset;
   }
 
   @override
@@ -300,15 +156,14 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
     final mediaQuery = MediaQuery.of(context);
     final statusBarHeight = mediaQuery.padding.top;
-
-    // 너가 잡아놓은 고정 픽셀 높이 (하단 입력바/모달 높이)
     const double bottomBarHeight = 250.0;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: Consumer<ChatPlanViewModel>(
-        builder: (context, viewModel, child) {
-          _maybeScrollToBottomOnNewMessage(viewModel.messages, viewModel.isTyping);
+      body: Consumer3<ChatPlanViewModel, CategoryViewModel, LocalCategoryViewModel>(
+        builder: (context, viewModel, categoryVM, localCategoryVM, child) {
+          _maybeScrollToBottomOnNewMessage(
+              viewModel.messages, viewModel.isTyping);
 
           bool animDone = false;
           if (viewModel.messages.isNotEmpty &&
@@ -317,14 +172,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   (m) => m.type == MessageType.bot,
               orElse: () => viewModel.messages.last,
             );
-            animDone =
-                lastBotMsg.type == MessageType.bot &&
-                    ChatMessageWidget.completedMessageIds.contains(lastBotMsg.id);
+            animDone = lastBotMsg.type == MessageType.bot &&
+                ChatMessageWidget.completedMessageIds
+                    .contains(lastBotMsg.id);
           }
 
-          final bool lastIsSummary =
-              viewModel.messages.isNotEmpty &&
-                  viewModel.messages.last.type == MessageType.summary;
+          final bool lastIsSummary = viewModel.messages.isNotEmpty &&
+              viewModel.messages.last.type == MessageType.summary;
           if (viewModel.currentStep == ChatStep.summary && lastIsSummary) {
             animDone = true;
 
@@ -338,8 +192,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           }
 
           final messages = viewModel.messages;
-          final lastIsUser =
-              messages.isNotEmpty && messages.last.type == MessageType.user;
           final lastIsBot =
               messages.isNotEmpty && messages.last.type == MessageType.bot;
 
@@ -357,68 +209,67 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           final step = viewModel.currentStep;
           final raw = _inputController.text;
 
+          final dailyCats = categoryVM.referenceCategories; // B = 참고 카테고리
+          final dailyEmojiMap = { for (final c in dailyCats) c.name : c.emoji };
+
           return Stack(
             children: [
               Column(
                 children: [
                   Container(
-                    padding: EdgeInsets.only(
-                      top: statusBarHeight,
-                    ),
+                    padding: EdgeInsets.only(top: statusBarHeight),
                   ),
                   Expanded(
-                    child: Container(
-                      child: ListView(
-                        controller: _scrollController,
-                        padding: EdgeInsets.fromLTRB(
-                          16, // left
-                          16, // top
-                          16, // right
-                          bottomBarHeight + 16, // bottom
-                        ),
-                        children: [
-                          ...messages.asMap().entries.map((entry) {
-                            final message = entry.value;
-
-                            final shouldWait =
-                            shouldWaitForAnimation(viewModel.currentStep);
-
-                            final isLastBot = (message.type == MessageType.bot &&
-                                message.id == lastBotId);
-
-                            if (shouldWait && isLastBot) {
-                              return ChatMessageWidget(
-                                message: message,
-                                onComplete: onboardingAnimDoneCallback,
-                                onTextUpdate: _scrollToBottom,
-                              );
-                            } else {
-                              return ChatMessageWidget(
-                                message: message,
-                                onTextUpdate: _scrollToBottom,
-                              );
-                            }
-                          }).toList(),
-
-                          if (viewModel.isTyping) const TypingIndicatorWidget(),
-
-                          if (raw.isNotEmpty &&
-                              double.tryParse(_unformatNumber(raw)) != null &&
-                              (
-                                  // 목표금액: 양수만
-                                  (step == ChatStep.targetAmount &&
-                                      double.parse(_unformatNumber(raw)) > 0) ||
-                                      // 보유자산: 음수/0/양수 모두 허용
-                                      (step == ChatStep.currentAsset)
-                              ))
-                            AmountGuideWidget(
-                              amount: double.parse(_unformatNumber(raw)),
-                              type: step == ChatStep.targetAmount
-                                  ? '목표금액'
-                                  : '보유금액',
-                            ),
-                        ],
+                    child: ListView(
+                      controller: _scrollController,
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        16,
+                        16,
+                        bottomBarHeight + 16,
                       ),
+                      children: [
+                        ...messages.asMap().entries.map((entry) {
+                          final message = entry.value;
+
+                          final shouldWait =
+                          shouldWaitForAnimation(viewModel.currentStep);
+
+                          final isLastBot =
+                          (message.type == MessageType.bot &&
+                              message.id == lastBotId);
+
+                          if (shouldWait && isLastBot) {
+                            return ChatMessageWidget(
+                              message: message,
+                              onComplete: onboardingAnimDoneCallback,
+                              onTextUpdate: _scrollToBottom,
+                            );
+                          } else {
+                            return ChatMessageWidget(
+                              message: message,
+                              onTextUpdate: _scrollToBottom,
+                            );
+                          }
+                        }).toList(),
+
+                        if (viewModel.isTyping)
+                          const TypingIndicatorWidget(),
+
+                        if (raw.isNotEmpty &&
+                            double.tryParse(_unformatNumber(raw)) != null &&
+                            (
+                                (step == ChatStep.targetAmount &&
+                                    double.parse(_unformatNumber(raw)) > 0) ||
+                                    (step == ChatStep.currentAsset)))
+                          AmountGuideWidget(
+                            amount:
+                            double.parse(_unformatNumber(raw)),
+                            type: step == ChatStep.targetAmount
+                                ? '목표금액'
+                                : '보유금액',
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -445,7 +296,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                         final step = viewModel.currentStep;
 
                         if (step == ChatStep.currentAsset && value == '-') {
-                          setState(() {}); // UI만 갱신
+                          setState(() {});
                           return;
                         }
 
@@ -461,7 +312,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                             _inputController.value = TextEditingValue(
                               text: formatted,
                               selection: TextSelection.collapsed(
-                                  offset: formatted.length),
+                                offset: formatted.length,
+                              ),
                             );
                             _isFormatting = false;
                           }
@@ -479,30 +331,32 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   ),
                 ),
 
+              // ================== 입력 모달들 ==================
               if (viewModel.currentStep == ChatStep.monthlyIncome ||
                   viewModel.currentStep == ChatStep.monthlyFixedCost ||
                   viewModel.currentStep == ChatStep.dailySpending) ...[
+                // 1) 월 수입
                 InputModalWidget(
                   isOpen: _showIncomeModal,
                   onClose: () => setState(() => _showIncomeModal = false),
                   title: '월 수입 입력하기',
                   placeholder: '수입 카테고리',
                   type: EntryType.fixed,
-                  onCategorySettingsTap: _openIncomeCategorySettings,
-                  customCategories: _customIncomeCategories,
-                  onCustomCategoryAdded: _addCustomIncomeCategory,
-                  onCustomCategoryRemoved: _removeCustomIncomeCategory,
-                  onCustomCategoryAddedWithEmoji:
-                  _addCustomIncomeCategoryWithEmoji,
-                  categoryEmojis: _incomeCategoryEmojis,
+                  customCategories: localCategoryVM.customIncomeCategories,
+                  onCustomCategoryAdded: localCategoryVM.addCustomIncomeCategory,
+                  onCustomCategoryRemoved: localCategoryVM.removeCustomIncomeCategory,
+                  onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomIncomeCategoryWithEmoji,
+                  categoryEmojis: localCategoryVM.incomeCategoryEmojis,
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
 
                     final now = DateTime.now();
                     vm.updateRefData(
                       fixedIncomes: items,
-                      applyDate: DateTime(now.year, now.month, now.day),
-                      modEndDate: DateTime(now.year, now.month, now.day),
+                      applyDate:
+                      DateTime(now.year, now.month, now.day),
+                      modEndDate:
+                      DateTime(now.year, now.month, now.day),
                     );
 
                     final itemLines = items
@@ -538,28 +392,36 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     vm.nextStep();
                   },
                 ),
+
+                // 2) 고정 소비
                 InputModalWidget(
                   isOpen: _showFixedCostModal,
-                  onClose: () => setState(() => _showFixedCostModal = false),
+                  onClose: () =>
+                      setState(() => _showFixedCostModal = false),
                   title: '고정 소비 입력하기',
                   placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
-                  onCategorySettingsTap: _openFixedExpenseCategorySettings,
-                  customCategories: _customFixedExpenseCategories,
-                  onCustomCategoryAdded: _addCustomFixedExpenseCategory,
-                  onCustomCategoryRemoved: _removeCustomFixedExpenseCategory,
-                  onCustomCategoryAddedWithEmoji:
-                  _addCustomFixedExpenseCategoryWithEmoji,
-                  categoryEmojis: _fixedExpenseCategoryEmojis,
-                  monthlyIncome:
-                  context.read<ChatPlanViewModel>().totalPlan.result.totalMetrics.monthlyIncomeAmount.toDouble(),
+                  customCategories: localCategoryVM.customFixedExpenseCategories,
+                  onCustomCategoryAdded: localCategoryVM.addCustomFixedExpenseCategory,
+                  onCustomCategoryRemoved: localCategoryVM.removeCustomFixedExpenseCategory,
+                  onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomFixedExpenseCategoryWithEmoji,
+                  categoryEmojis: localCategoryVM.fixedExpenseCategoryEmojis,
+                  monthlyIncome: context
+                      .read<ChatPlanViewModel>()
+                      .totalPlan
+                      .result
+                      .totalMetrics
+                      .monthlyIncomeAmount
+                      .toDouble(),
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
                     final now = DateTime.now();
                     vm.updateRefData(
                       fixedConsumptions: items,
-                      applyDate: DateTime(now.year, now.month, now.day),
-                      modEndDate: DateTime(now.year, now.month, now.day),
+                      applyDate:
+                      DateTime(now.year, now.month, now.day),
+                      modEndDate:
+                      DateTime(now.year, now.month, now.day),
                     );
 
                     final itemLines = items
@@ -584,24 +446,39 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     vm.nextStep();
                   },
                 ),
+
+                // 3) 일 변동 소비
                 InputModalWidget(
                   isOpen: _showDailySpendingModal,
-                  onClose: () => setState(() => _showDailySpendingModal = false),
+                  onClose: () =>
+                      setState(() => _showDailySpendingModal = false),
                   title: '하루 사용 금액',
                   placeholder: '하루 소비 항목',
                   type: EntryType.daily,
-                  onCategorySettingsTap: _openCategorySettings,
-                  customCategories: _customDailyExpenseCategories,
-                  onCustomCategoryAdded: _addCustomDailyExpenseCategory,
-                  onCustomCategoryRemoved: _removeCustomDailyExpenseCategory,
-                  onCustomCategoryAddedWithEmoji:
-                  _addCustomDailyExpenseCategoryWithEmoji,
-                  categoryEmojis: _dailyExpenseCategoryEmojis,
+                  customCategories: dailyCats.map((c) => c.name).toList(),
+                  categoryEmojis: dailyEmojiMap,
+                  // 새 카테고리 추가(이름+이모지) -> reference로 저장
+                  onCustomCategoryAddedWithEmoji: (name, emoji) async {
+                    await categoryVM.addReferenceCategory(name: name, emoji: emoji);
+                  },
+                  // InputModalWidget이 “텍스트만” 추가 콜백을 쓰면 이것도 필요
+                  onCustomCategoryAdded: (name) async {
+                    await categoryVM.addReferenceCategory(name: name, emoji: '💰');
+                  },
+                  // 삭제 -> archived 처리 (name -> id 찾아서)
+                  onCustomCategoryRemoved: (name) async {
+                    final target = dailyCats.where((c) => c.name == name).toList();
+                    if (target.isEmpty) return;
+                    await categoryVM.archiveCategory(target.first.id);
+                  },
                   monthlyIncome: (() {
-                    final vm = context.read<ChatPlanViewModel>();
+                    final vm =
+                    context.read<ChatPlanViewModel>();
                     final metrics = vm.totalPlan.result.totalMetrics;
-                    final double income = metrics.monthlyIncomeAmount.toDouble();
-                    final double fixed = metrics.monthlyConsumeAmount.toDouble();
+                    final double income =
+                    metrics.monthlyIncomeAmount.toDouble();
+                    final double fixed =
+                    metrics.monthlyConsumeAmount.toDouble();
                     final double leftover = income - fixed;
                     return leftover > 0 ? leftover : 0.0;
                   }()),
@@ -610,8 +487,10 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     final now = DateTime.now();
                     vm.updateRefData(
                       dailyConsumptions: items,
-                      applyDate: DateTime(now.year, now.month, now.day),
-                      modEndDate: DateTime(now.year, now.month, now.day),
+                      applyDate:
+                      DateTime(now.year, now.month, now.day),
+                      modEndDate:
+                      DateTime(now.year, now.month, now.day),
                     );
 
                     final itemLines = items
@@ -623,7 +502,9 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                     await vm.waitForTypingToFinish();
                     vm.addMessage(
-                      '하루 사용할 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n(30일 기준 월 약 ${SavingPlanCalculator.formatAmount(total * 30)}원)\n\n아래는 하루 소비 내역입니다.$itemLines',
+                      '하루 사용할 금액은 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n'
+                          '(30일 기준 월 약 ${SavingPlanCalculator.formatAmount(total * 30)}원)\n\n'
+                          '아래는 하루 소비 내역입니다.$itemLines',
                       MessageType.user,
                     );
                     await vm.addBotMessageWithTyping(

@@ -105,8 +105,8 @@ class PlanRepository {
   }
 
   TotalPlan _mapDocToTotalPlan(
-    QueryDocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+      QueryDocumentSnapshot<Map<String, dynamic>> doc,
+      ) {
     return TotalPlan.fromMap(doc.id, doc.data());
   }
 }

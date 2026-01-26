@@ -7,7 +7,7 @@ import 'sub_plan.dart';
 /// Root aggregate object holding all sub-plans and summary results.
 @immutable
 class TotalPlan {
-  const TotalPlan({
+  const TotalPlan({ // 개념적 관련 정보 저장
     required this.planId,
     required this.currentAmount,
     required this.currentAsset,
@@ -20,6 +20,10 @@ class TotalPlan {
     this.modEndDate, // 변경된 종료일
     this.creationDate,
     this.autoService,
+    //하경 - 모인 금액 계산용
+    this.extraIncomeTotal = 0,
+    this.snapshotAmount = 0,
+    this.snapshotAt,
   });
 
   final String planId;
@@ -33,7 +37,11 @@ class TotalPlan {
   final DateTime? creationDate;
   final bool? autoService;
   final Map<String, SubPlan> subPlans;
-  final TotalResult result;
+  final TotalResult result; // planMetrics 저장소
+  //하경 - 모인 금액 계산용
+  final int extraIncomeTotal;  // 플랜 중간 추가 수입 누적
+  final int snapshotAmount;    // snapshotAt 시점까지 자동저축 누적
+  final DateTime? snapshotAt;  // 스냅샷 기준 시각
 
   /// Factory for a blank plan used as a draft during onboarding.
   factory TotalPlan.empty() {
@@ -41,9 +49,9 @@ class TotalPlan {
     final metrics = PlanMetrics.fromRange(
       startDate: now,
       endDate: now.add(const Duration(days: 29)),
-      sumMonthlyIncome: 0,
-      sumMonthlyConsume: 0,
-      sumDailyConsume: 0,
+      monthlyIncomeAmount: 0,
+      monthlyConsumeAmount: 0,
+      dailyConsumeAmount: 0,
     );
     final initialSubPlans = _bootstrapSubPlans(
       metrics: metrics,
@@ -62,13 +70,17 @@ class TotalPlan {
       autoService: false,
       subPlans: initialSubPlans,
       result: TotalResult(
-        totalMetrics: metrics,
-        subResult: SubPlanResult(
+        totalMetrics: metrics, // totalPlan 관련 metrics 관리
+        subResult: SubPlanResult( // subPlan관련 metrics 관리
           subMetrics:
-              initialSubPlans.values.map((sub) => sub.monthlySummary()).toList(),
+          initialSubPlans.values.map((sub) => sub.monthlySummary()).toList(),
           subPlanList: initialSubPlans.values.toList(),
         ),
       ),
+      //하경 - 모인 금액 계산용
+      extraIncomeTotal: 0,
+      snapshotAmount: 0,
+      snapshotAt: now,
     );
   }
 
@@ -99,6 +111,12 @@ class TotalPlan {
           normalizedSubPlans,
         ),
       ),
+      //하경 - 모인 금액 계산용
+      extraIncomeTotal:
+      (map['extraIncomeTotal'] as num?)?.round() ?? 0,
+      snapshotAmount:
+      (map['snapshotAmount'] as num?)?.round() ?? 0,
+      snapshotAt: _parseDate(map['snapshotAt']),
     );
   }
 
@@ -118,6 +136,10 @@ class TotalPlan {
         'totalMetrics': _serializeMetrics(result.totalMetrics),
         'subResult': _serializeSubResult(result.subResult),
       },
+      //하경 - 모인 금액 계산용
+      'extraIncomeTotal': extraIncomeTotal,
+      'snapshotAmount': snapshotAmount,
+      'snapshotAt': snapshotAt?.toIso8601String(),
     };
   }
 
@@ -146,9 +168,18 @@ class TotalPlan {
       subMetrics: monthlySummaries,
       subPlanList: updatedSubPlans.values.toList(),
     );
-    final totalMetrics = monthlySummaries.isEmpty
+    final totalMetricsBase = monthlySummaries.isEmpty
         ? _emptyMetrics()
         : PlanMetrics.merge(monthlySummaries);
+    PlanMetrics totalMetrics = totalMetricsBase;
+    if (monthlySummaries.isNotEmpty) {
+      final latestSummary = monthlySummaries.last;
+      totalMetrics = totalMetrics.copyWith(
+        monthlyIncomeAmount: latestSummary.monthlyIncomeAmount,
+        monthlyConsumeAmount: latestSummary.monthlyConsumeAmount,
+        dailyConsumeAmount: latestSummary.dailyConsumeAmount,
+      );
+    }
     return copyWith(
       subPlans: updatedSubPlans,
       result: result.copyWith(
@@ -171,6 +202,10 @@ class TotalPlan {
     bool? autoService,
     Map<String, SubPlan>? subPlans,
     TotalResult? result,
+    //하경 - 모인 금액 계산용
+    int? extraIncomeTotal,
+    int? snapshotAmount,
+    DateTime? snapshotAt,
   }) {
     return TotalPlan(
       planId: planId ?? this.planId,
@@ -185,6 +220,10 @@ class TotalPlan {
       autoService: autoService ?? this.autoService,
       subPlans: subPlans ?? this.subPlans,
       result: result ?? this.result,
+      //하경 - 모인 금액 계산용
+      extraIncomeTotal: extraIncomeTotal ?? this.extraIncomeTotal,
+      snapshotAmount: snapshotAmount ?? this.snapshotAmount,
+      snapshotAt: snapshotAt ?? this.snapshotAt,
     );
   }
 
@@ -193,9 +232,9 @@ class TotalPlan {
     return PlanMetrics.fromRange(
       startDate: baseline,
       endDate: baseline.add(const Duration(days: 29)),
-      sumMonthlyIncome: 0,
-      sumMonthlyConsume: 0,
-      sumDailyConsume: 0,
+      monthlyIncomeAmount: 0,
+      monthlyConsumeAmount: 0,
+      dailyConsumeAmount: 0,
     );
   }
 
@@ -216,20 +255,20 @@ class TotalPlan {
       monthlyIncomeId: '${key}_income_bootstrap',
       monthlyConsumeId: '${key}_consume_bootstrap',
       dailyConsumeId: '${key}_daily_bootstrap',
-      sumMonthlyIncome: metrics.monthlyIncomeAmount,
-      sumMonthlyConsume: metrics.monthlyConsumeAmount,
-      sumDailyConsume: metrics.dailyConsumeAmount,
+      monthlyIncomeAmount: metrics.monthlyIncomeAmount,
+      monthlyConsumeAmount: metrics.monthlyConsumeAmount,
+      dailyConsumeAmount: metrics.dailyConsumeAmount,
     ).recalculateNetAmounts();
-      final subPlan = SubPlan(
-        yearMonth: monthStart,
+    final subPlan = SubPlan(
+      yearMonth: monthStart,
+      headDocId: miniId,
+      miniPlans: {miniId: mini},
+      miniResult: MiniPlanResult(
         headDocId: miniId,
-        miniPlans: {miniId: mini},
-        miniResult: MiniPlanResult(
-          headDocId: miniId,
-          miniMetrics: [mini.toMetrics()],
-          miniPlanHead: mini,
-        ),
-      );
+        miniMetrics: [mini.toMetrics()],
+        miniPlanHead: mini,
+      ),
+    );
     return {key: subPlan};
   }
 
@@ -255,12 +294,18 @@ class TotalPlan {
       final monthlyNetIncome = (map['monthlyNetIncome'] as num?)?.round() ?? 0;
       final monthlyNetConsume = (map['monthlyNetConsume'] as num?)?.round() ?? 0;
       final dailyNetConsume = (map['dailyNetConsume'] as num?)?.round() ?? 0;
+      final incomeAmount =
+          (map['monthlyIncomeAmount'] ?? map['sumMonthlyIncome']) as num? ?? 0;
+      final consumeAmount =
+          (map['monthlyConsumeAmount'] ?? map['sumMonthlyConsume']) as num? ?? 0;
+      final dailyAmount =
+          (map['dailyConsumeAmount'] ?? map['sumDailyConsume']) as num? ?? 0;
       return PlanMetrics.fromRange(
         startDate: start,
         endDate: end,
-        sumMonthlyIncome: (map['sumMonthlyIncome'] as num?)?.round() ?? 0,
-        sumMonthlyConsume: (map['sumMonthlyConsume'] as num?)?.round() ?? 0,
-        sumDailyConsume: (map['sumDailyConsume'] as num?)?.round() ?? 0,
+        monthlyIncomeAmount: incomeAmount.round(),
+        monthlyConsumeAmount: consumeAmount.round(),
+        dailyConsumeAmount: dailyAmount.round(),
         monthlyNetIncome: monthlyNetIncome,
         monthlyNetConsume: monthlyNetConsume,
         dailyNetConsume: dailyNetConsume,
@@ -275,9 +320,9 @@ class TotalPlan {
     return PlanMetrics.fromRange(
       startDate: now,
       endDate: now.add(const Duration(days: 29)),
-      sumMonthlyIncome: 0,
-      sumMonthlyConsume: 0,
-      sumDailyConsume: 0,
+      monthlyIncomeAmount: 0,
+      monthlyConsumeAmount: 0,
+      dailyConsumeAmount: 0,
     );
   }
 
@@ -310,7 +355,7 @@ class TotalPlan {
               miniPlanHead: headMini,
             ),
             fractionalEndSeconds:
-                subPlanMap['fractionalEndSeconds'] as int? ?? 0,
+            subPlanMap['fractionalEndSeconds'] as int? ?? 0,
           ),
         );
       });
@@ -343,9 +388,9 @@ class TotalPlan {
       'startDate': metrics.startDate.toIso8601String(),
       'endDate': metrics.endDate.toIso8601String(),
       'kDays': metrics.kDays,
-      'sumMonthlyIncome': metrics.monthlyIncomeAmount,
-      'sumMonthlyConsume': metrics.monthlyConsumeAmount,
-      'sumDailyConsume': metrics.dailyConsumeAmount,
+      'monthlyIncomeAmount': metrics.monthlyIncomeAmount,
+      'monthlyConsumeAmount': metrics.monthlyConsumeAmount,
+      'dailyConsumeAmount': metrics.dailyConsumeAmount,
       'monthlyNetIncome': metrics.monthlyNetIncome,
       'monthlyNetConsume': metrics.monthlyNetConsume,
       'dailyNetConsume': metrics.dailyNetConsume,

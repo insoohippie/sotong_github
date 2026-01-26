@@ -75,14 +75,14 @@ ValidationResult ensureMonthlyUniqueness({
   final incomeCount = incomes
       .where(
         (income) =>
-            income.isActive &&
-            income.yearMonthList.contains(normalized),
+          income.isActive &&
+          income.yearMonthList.contains(normalized),
       )
       .length;
   if (incomeCount > 1) {
     developer.log(
       '[ensureMonthlyUniqueness] income duplication: month=$normalized '
-      'ids=${incomes.where((inc) => inc.isActive && inc.yearMonthList.contains(normalized)).map((e) => e.id)}',
+          'ids=${incomes.where((inc) => inc.isActive && inc.yearMonthList.contains(normalized)).map((e) => e.id)}',
       name: 'PlanValidators',
     );
     return ValidationResult.fail('MONTH_DUPLICATION_INCOME');
@@ -90,14 +90,14 @@ ValidationResult ensureMonthlyUniqueness({
   final consumeCount = consumes
       .where(
         (consume) =>
-            consume.isActive &&
-            consume.yearMonthList.contains(normalized),
+          consume.isActive &&
+          consume.yearMonthList.contains(normalized),
       )
       .length;
   if (consumeCount > 1) {
     developer.log(
       '[ensureMonthlyUniqueness] consume duplication: month=$normalized '
-      'ids=${consumes.where((c) => c.isActive && c.yearMonthList.contains(normalized)).map((e) => e.id)}',
+          'ids=${consumes.where((c) => c.isActive && c.yearMonthList.contains(normalized)).map((e) => e.id)}',
       name: 'PlanValidators',
     );
     return ValidationResult.fail('MONTH_DUPLICATION_CONSUME');
@@ -125,8 +125,8 @@ ValidationResult ensureNoDailyOverlap({
     if (!current.endDate.isBefore(next.startDate)) {
       developer.log(
         '[ensureNoDailyOverlap] overlap: month=$normalizedMonth '
-        'current=${current.id}(${current.startDate}~${current.endDate}) '
-        'next=${next.id}(${next.startDate}~${next.endDate})',
+            'current=${current.id}(${current.startDate}~${current.endDate}) '
+            'next=${next.id}(${next.startDate}~${next.endDate})',
         name: 'PlanValidators',
       );
       return ValidationResult.fail('OVERLAPPING_DAILY_RANGE');

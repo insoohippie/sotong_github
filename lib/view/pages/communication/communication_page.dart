@@ -3,11 +3,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../component/theme/app_spacing.dart';
 import '../../../view_model/communication/communication_view_model.dart';
+import 'comm_widgets/emotion_calendar_section.dart';
+import 'comm_widgets/emotion_top3_carousel_section.dart';
 
-import 'widgets/emotion_calendar_section.dart';
-import 'widgets/emotion_analysis_section.dart';
 
 class CommunicationPage extends StatefulWidget {
   const CommunicationPage({super.key});
@@ -49,7 +48,7 @@ class _CommunicationPageState extends State<CommunicationPage> {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
+                horizontal: 20,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,7 +61,8 @@ class _CommunicationPageState extends State<CommunicationPage> {
                   EmotionCalendarSection(vm: vm),
                   const SizedBox(height: 20),
 
-                  EmotionAnalysisSection(vm: vm),
+                  // EmotionAnalysisSection(vm: vm),
+                  EmotionTop3CarouselSection(vm: vm),
                   const SizedBox(height: 20),
 
                   const SizedBox(height: 20),

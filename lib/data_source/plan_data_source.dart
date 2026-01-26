@@ -20,7 +20,6 @@ class PlanDataSource {
     return _col(uid).doc(planId).set(data);
   }
 
-
   /// 읽기(리스트) - 정렬/limit 등은 호출부에서 지정
   Future<QuerySnapshot<Map<String, dynamic>>> query(
       String uid, {
@@ -47,4 +46,5 @@ class PlanDataSource {
   Future<void> delete(String uid, String planId) {
     return _col(uid).doc(planId).delete();
   }
+
 }

@@ -8,6 +8,7 @@ import '../../model/plan/total_plan.dart';
 import '../../model/refData/ref_data.dart';
 import '../../model/refData/entry.dart';
 import '../services/ref_data_viewmodel.dart';
+import '../../services/plan_debug_printer.dart';
 import '../services/saving_calculator.dart';
 import '../services/total_plan_viewmodel.dart';
 
@@ -46,14 +47,23 @@ class PlanEditViewModel extends ChangeNotifier {
       ? _sumEntries(_pendingDailyConsumeEntries!)
       : refData.primaryDailyConsumeSum;
 
-  List<Entry> get currentMonthlyIncomeEntries =>
-      _pendingFixedIncomeEntries ?? refData.primaryMonthlyIncomeEntries;
+  List<Entry> get currentMonthlyIncomeEntries {
+    final source =
+        _pendingFixedIncomeEntries ?? refData.primaryMonthlyIncomeEntries;
+    return source.map((e) => e.copyWith()).toList(growable: false);
+  }
 
-  List<Entry> get currentMonthlyConsumeEntries =>
-      _pendingFixedConsumeEntries ?? refData.primaryMonthlyConsumeEntries;
+  List<Entry> get currentMonthlyConsumeEntries {
+    final source =
+        _pendingFixedConsumeEntries ?? refData.primaryMonthlyConsumeEntries;
+    return source.map((e) => e.copyWith()).toList(growable: false);
+  }
 
-  List<Entry> get currentDailyConsumeEntries =>
-      _pendingDailyConsumeEntries ?? refData.primaryDailyConsumeEntries;
+  List<Entry> get currentDailyConsumeEntries {
+    final source =
+        _pendingDailyConsumeEntries ?? refData.primaryDailyConsumeEntries;
+    return source.map((e) => e.copyWith()).toList(growable: false);
+  }
 
   // 입력 필드 파싱 getter
   double get parsedTarget =>
@@ -150,10 +160,13 @@ class PlanEditViewModel extends ChangeNotifier {
     required List<Entry> entries,
     required DateTime applyDate,
   }) {
-    _pendingFixedIncomeEntries = List<Entry>.unmodifiable(entries);
-    _pendingFixedIncomeApplyDate = _normalizeDay(applyDate);
+    final normalized = _normalizeDay(applyDate);
+    final diff = !_isSameEntries(entries, refData.primaryMonthlyIncomeEntries);
+    _pendingFixedIncomeEntries = diff ? List<Entry>.unmodifiable(entries) : null;
+    _pendingFixedIncomeApplyDate = diff ? normalized : null;
     totalPlanVM.updateMetrics(monthlyIncome: _sumEntries(entries));
     totalPlan = totalPlanVM.plan;
+    _logPlanTree('FixedIncome Edit');
     notifyListeners();
   }
 
@@ -161,10 +174,13 @@ class PlanEditViewModel extends ChangeNotifier {
     required List<Entry> entries,
     required DateTime applyDate,
   }) {
-    _pendingFixedConsumeEntries = List<Entry>.unmodifiable(entries);
-    _pendingFixedConsumeApplyDate = _normalizeDay(applyDate);
+    final normalized = _normalizeDay(applyDate);
+    final diff = !_isSameEntries(entries, refData.primaryMonthlyConsumeEntries);
+    _pendingFixedConsumeEntries = diff ? List<Entry>.unmodifiable(entries) : null;
+    _pendingFixedConsumeApplyDate = diff ? normalized : null;
     totalPlanVM.updateMetrics(monthlyConsume: _sumEntries(entries));
     totalPlan = totalPlanVM.plan;
+    _logPlanTree('FixedConsume Edit');
     notifyListeners();
   }
 
@@ -172,10 +188,13 @@ class PlanEditViewModel extends ChangeNotifier {
     required List<Entry> entries,
     required DateTime applyDate,
   }) {
-    _pendingDailyConsumeEntries = List<Entry>.unmodifiable(entries);
-    _pendingDailyConsumeApplyDate = _normalizeDay(applyDate);
+    final normalized = _normalizeDay(applyDate);
+    final diff = !_isSameEntries(entries, refData.primaryDailyConsumeEntries);
+    _pendingDailyConsumeEntries = diff ? List<Entry>.unmodifiable(entries) : null;
+    _pendingDailyConsumeApplyDate = diff ? normalized : null;
     totalPlanVM.updateMetrics(dailyConsume: _sumEntries(entries));
     totalPlan = totalPlanVM.plan;
+    _logPlanTree('DailyConsume Edit');
     notifyListeners();
   }
 
@@ -197,7 +216,13 @@ class PlanEditViewModel extends ChangeNotifier {
       totalPlanVM.plan = updated;
     }
     totalPlan = updated;
+    _logPlanTree('CreateUpdatedPlan');
     return totalPlan;
+  }
+
+  void _logPlanTree(String label) {
+    debugPrint('--- Plan Tree After $label ---\n'
+        '${PlanDebugPrinter.describe(plan: totalPlan, refData: refData)}');
   }
 
   UpdateMonthlyCommand buildMonthlyCommand({ // 월 단위 변경

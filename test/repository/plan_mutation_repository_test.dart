@@ -25,9 +25,9 @@ MiniPlan _buildMini({
     monthlyIncomeId: 'inc-001',
     monthlyConsumeId: 'con-001',
     dailyConsumeId: dailyId,
-    sumMonthlyIncome: 0,
-    sumMonthlyConsume: 0,
-    sumDailyConsume: 0,
+    monthlyIncomeAmount: 0,
+    monthlyConsumeAmount: 0,
+    dailyConsumeAmount: 0,
   ).recalculateNetAmounts();
 }
 
@@ -50,9 +50,9 @@ TotalPlan _buildTotalPlan({
   final metrics = PlanMetrics.fromRange(
     startDate: DateTime(2025, 9, 1),
     endDate: DateTime(2025, 10, 31),
-    sumMonthlyIncome: 0,
-    sumMonthlyConsume: 0,
-    sumDailyConsume: 0,
+    monthlyIncomeAmount: 0,
+    monthlyConsumeAmount: 0,
+    dailyConsumeAmount: 0,
   );
   return TotalPlan(
     planId: 'plan',
@@ -276,9 +276,9 @@ void main() {
       monthlyIncomeId: 'income',
       monthlyConsumeId: 'consume',
       dailyConsumeId: 'daily',
-      sumMonthlyIncome: 600000,
-      sumMonthlyConsume: 300000,
-      sumDailyConsume: 20000,
+      monthlyIncomeAmount: 600000,
+      monthlyConsumeAmount: 300000,
+      dailyConsumeAmount: 20000,
     ).recalculateNetAmounts();
 
     expect(mini.monthlyNetIncome, 300000);
@@ -296,9 +296,9 @@ void main() {
       monthlyConsumeId: 'consume',
       dailyConsumeId: 'daily',
       nextDocId: 'm2',
-      sumMonthlyIncome: 900000,
-      sumMonthlyConsume: 300000,
-      sumDailyConsume: 20000,
+      monthlyIncomeAmount: 900000,
+      monthlyConsumeAmount: 300000,
+      dailyConsumeAmount: 20000,
     ).recalculateNetAmounts();
     final mini2 = MiniPlan(
       docId: 'm2',
@@ -309,9 +309,9 @@ void main() {
       monthlyConsumeId: 'consume',
       dailyConsumeId: 'daily',
       prevDocId: 'm1',
-      sumMonthlyIncome: 900000,
-      sumMonthlyConsume: 300000,
-      sumDailyConsume: 20000,
+      monthlyIncomeAmount: 900000,
+      monthlyConsumeAmount: 300000,
+      dailyConsumeAmount: 20000,
     ).recalculateNetAmounts();
     final subPlan = SubPlan(
       yearMonth: DateTime(2025, 5),
@@ -349,9 +349,9 @@ void main() {
       monthlyIncomeId: 'income',
       monthlyConsumeId: 'consume',
       dailyConsumeId: 'daily',
-      sumMonthlyIncome: 1000000,
-      sumMonthlyConsume: 300000,
-      sumDailyConsume: 15000,
+      monthlyIncomeAmount: 1000000,
+      monthlyConsumeAmount: 300000,
+      dailyConsumeAmount: 15000,
     ).recalculateNetAmounts();
     final octoberMini = MiniPlan(
       docId: 'm2',
@@ -361,9 +361,9 @@ void main() {
       monthlyIncomeId: 'income',
       monthlyConsumeId: 'consume',
       dailyConsumeId: 'daily',
-      sumMonthlyIncome: 900000,
-      sumMonthlyConsume: 200000,
-      sumDailyConsume: 12000,
+      monthlyIncomeAmount: 900000,
+      monthlyConsumeAmount: 200000,
+      dailyConsumeAmount: 12000,
     ).recalculateNetAmounts();
     final septemberSub = _buildSubPlan('202509', septemberMini).recalculate();
     final octoberSub = _buildSubPlan('202510', octoberMini).recalculate();

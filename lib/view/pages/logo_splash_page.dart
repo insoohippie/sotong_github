@@ -1,20 +1,18 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 enum LogoIntroStyle { slide, pop } // slide: 스르르, pop: 팡 하고 자리잡기
 
 class LogoSplashPage extends StatefulWidget {
   const LogoSplashPage({
     super.key,
-    // this.style = LogoIntroStyle.slide, // 기본: 스르르 올라오기
-    this.style = LogoIntroStyle.pop, // 팡 하고 자리잡기
-    this.nextRoute = '/login',
+    this.style = LogoIntroStyle.pop,
     this.delay = const Duration(seconds: 2),
     this.size = 180,
   });
 
   final LogoIntroStyle style;
-  final String nextRoute;
   final Duration delay;
   final double size;
 
@@ -26,8 +24,23 @@ class _LogoSplashPageState extends State<LogoSplashPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
-  Animation<Offset>? _slide;   // slide 전용
-  Animation<double>? _scale;    // pop 전용
+  Animation<Offset>? _slide; // slide 전용
+  Animation<double>? _scale; // pop 전용
+
+  late Timer _timer;
+
+  Future<void> _goNext() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    // ✅ 로그인 유지 중이면 홈으로, 아니면 로그인으로
+    final nextRoute = (user != null) ? '/home_tab_navigator' : '/login';
+
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      nextRoute,
+          (route) => false,
+    );
+  }
 
   @override
   void initState() {
@@ -59,18 +72,13 @@ class _LogoSplashPageState extends State<LogoSplashPage>
       );
     }
 
-    // 지정 시간 뒤 다음 화면으로
-    Timer(widget.delay, () {
-      if (!mounted) return;
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        widget.nextRoute,
-            (route) => false,
-      );
-    });
+    // ✅ 지정 시간 뒤 자동 로그인 분기
+    _timer = Timer(widget.delay, _goNext);
   }
 
   @override
   void dispose() {
+    _timer.cancel();
     _ctrl.dispose();
     super.dispose();
   }
@@ -83,7 +91,7 @@ class _LogoSplashPageState extends State<LogoSplashPage>
       height: widget.size,
     );
 
-    Widget animated = FadeTransition(
+    final animated = FadeTransition(
       opacity: _fade,
       child: switch (widget.style) {
         LogoIntroStyle.slide => SlideTransition(position: _slide!, child: logo),

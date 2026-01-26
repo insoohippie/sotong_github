@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/view/pages/plan/chat_widgets/input_modal/category_utils.dart';
+import 'package:provider/provider.dart';
+
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart';
 import '../../../../component/inputs/custom_text_field.dart';
-import '../../../../model/category/category_state_manager.dart';
+import '../../../../view_model/category/category_view_model.dart';
+import '../../plan/plan_widgets/plan_input_modal/category_utils.dart';
 
 class SpendingInputEntry extends StatefulWidget {
   final Map<String, dynamic> entry;
@@ -36,6 +38,15 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
   }
 
   @override
+  void didUpdateWidget(covariant SpendingInputEntry oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newText = (widget.entry['category'] as String?) ?? '';
+    if (newText != _categoryController.text) {
+      _categoryController.text = newText;
+    }
+  }
+
+  @override
   void dispose() {
     _categoryController.dispose();
     super.dispose();
@@ -47,10 +58,9 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
     if (v.isEmpty) return '';
     final n = int.tryParse(_unformatNumber(v));
     if (n == null) return '';
-    // 천단위 콤마
     return n.toString().replaceAllMapped(
       RegExp(r'\B(?=(\d{3})+(?!\d))'),
-      (m) => ',',
+          (m) => ',',
     );
   }
   // -----------------------------------
@@ -58,9 +68,14 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
   @override
   Widget build(BuildContext context) {
     final amountController =
-        widget.entry['amountController'] as TextEditingController;
+    widget.entry['amountController'] as TextEditingController;
     final noteController =
-        widget.entry['noteController'] as TextEditingController;
+    widget.entry['noteController'] as TextEditingController;
+
+    final categoryVM = context.watch<CategoryViewModel>();
+
+    final dailyCats = categoryVM.referenceCategories;
+    final dailyEmojiMap = { for (final c in dailyCats) c.name : c.emoji };
 
     return Column(
       children: [
@@ -85,53 +100,69 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                       text: _categoryController.text,
                       presets: dailyPresets,
                       onTap: () async {
+                        // 1) 프리셋 + 커스텀 이름 합치기
+                        final presetNames = dailyPresets.map((p) => p.name).toList();
+                        final dailyCats = categoryVM.referenceCategories;
+                        final customNames = dailyCats.map((c) => c.name).toList();
+                        final allNames = <String>{...presetNames, ...customNames}.toList();
+
+                        final dailyEmojiMap = { for (final c in dailyCats) c.name : c.emoji };
+
                         await openCategorySheet(
                           context,
                           _categoryController,
-                          (val) {
+                              (val) {
                             setState(() {
                               _categoryController.text = val;
                               widget.entry['category'] = val;
                             });
                           },
-                          presets: dailyPresets,
-                          enabledStates:
-                              CategoryStateManager.dailyExpenseEnabledStates,
-                          customCategories:
-                              CategoryStateManager.customDailyExpenseCategories,
-                          categoryEmojis:
-                              CategoryStateManager.dailyExpenseCategoryEmojis,
+                          categories: allNames,
+                          categoryEmojis: dailyEmojiMap,
+
+                          onCategoryAdded: (name, emoji) async {
+                            await categoryVM.addReferenceCategory(name: name, emoji: emoji);
+                          },
+
+                          onCategoryRemoved: (name) async {
+                            final target = dailyCats.where((c) => c.name == name).toList();
+                            if (target.isEmpty) return;
+                            await categoryVM.archiveCategory(target.first.id);
+                          },
+
+                          onReorder: (newOrder) {
+                            // 필요하면 저장
+                            // categoryVM.reorderReference(ids) 가 id 리스트를 요구하니까
+                            // 여기서 name -> id 변환해서 호출해야 함 (아직 안 쓰면 비워둬도 OK)
+                          },
                         );
                       },
+
                       onClear: () {
                         setState(() {
                           _categoryController.clear();
                           widget.entry['category'] = '';
                         });
                       },
-                      customEmoji: CategoryStateManager
-                          .dailyExpenseCategoryEmojis[_categoryController.text],
+                      customEmoji: dailyEmojiMap[_categoryController.text],
                     ),
                   ),
                   const SizedBox(width: 8),
 
-                  // 금액 입력 (CustomTextField + 콤마 포맷)
+                  // 금액 입력
                   Expanded(
                     flex: 3,
                     child: CustomTextField(
                       controller: amountController,
-                      hintText: '(예: 10,000)',
+                      hintText: '예) 10,000',
                       keyboardType: TextInputType.number,
                       borderRadius: 12,
                       height: 60,
                       onChanged: (value) {
                         final un = _unformatNumber(value);
                         final amt = double.tryParse(un) ?? 0;
-
-                        // entry에 실수 값으로 저장
                         widget.entry['amount'] = amt;
 
-                        // 표시용 포맷(콤마)
                         final formatted = _formatNumber(un);
                         if (formatted != value) {
                           amountController.value = TextEditingValue(

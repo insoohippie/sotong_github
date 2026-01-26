@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:meta/meta.dart';
 
 import 'mini_plan.dart';
@@ -96,9 +94,9 @@ class SubPlan {
       return PlanMetrics.fromRange(
         startDate: monthStart,
         endDate: monthStart,
-        sumMonthlyIncome: 0,
-        sumMonthlyConsume: 0,
-        sumDailyConsume: 0,
+        monthlyIncomeAmount: 0,
+        monthlyConsumeAmount: 0,
+        dailyConsumeAmount: 0,
       );
     }
     final metrics = miniResult.miniMetrics.isNotEmpty
@@ -106,37 +104,22 @@ class SubPlan {
         : ordered.map((mini) => mini.toMetrics()).toList();
     final monthStart = DateTime(yearMonth.year, yearMonth.month, 1);
     final monthEnd = DateTime(yearMonth.year, yearMonth.month + 1, 0);
-    final daysInMonth = _daysInMonth(yearMonth);
-    final firstMetric = metrics.first;
-    final lastMetric = metrics.last;
-    final double totalDaily = metrics.fold<double>(
-      0,
-      (sum, metric) => sum + metric.dailyConsumeAmount * metric.kDays,
-    );
-    final leadingGap =
-        max(0, firstMetric.startDate.difference(monthStart).inDays);
-    final trailingGap = max(0, monthEnd.difference(lastMetric.endDate).inDays);
-    final normalizedTotal = totalDaily +
-        (firstMetric.dailyConsumeAmount * leadingGap) +
-        (lastMetric.dailyConsumeAmount * trailingGap) +
-        (fractionalEndSeconds > 0
-            ? lastMetric.dailyConsumeAmount * (fractionalEndSeconds / 86400.0)
-            : 0);
-    final avgDaily = daysInMonth == 0
-        ? 0
-        : PlanMetrics.halfUp(normalizedTotal / daysInMonth);
+    final latestMini = ordered.isNotEmpty ? ordered.last : miniResult.miniPlanHead;
     final totalMonthlyNetIncome =
         ordered.fold<int>(0, (sum, mini) => sum + mini.monthlyNetIncome);
     final totalMonthlyNetConsume =
         ordered.fold<int>(0, (sum, mini) => sum + mini.monthlyNetConsume);
     final totalDailyNetConsume =
-        ordered.fold<int>(0, (sum, mini) => sum + mini.dailyNetConsume);
+    ordered.fold<int>(0, (sum, mini) => sum + mini.dailyNetConsume);
+    final latestMonthlyIncome = latestMini.monthlyIncomeAmount;
+    final latestMonthlyConsume = latestMini.monthlyConsumeAmount;
+    final latestDailyLimit = latestMini.dailyConsumeAmount;
     return PlanMetrics.fromRange(
       startDate: monthStart,
       endDate: monthEnd,
-      sumMonthlyIncome: firstMetric.monthlyIncomeAmount,
-      sumMonthlyConsume: firstMetric.monthlyConsumeAmount,
-      sumDailyConsume: avgDaily,
+      monthlyIncomeAmount: latestMonthlyIncome,
+      monthlyConsumeAmount: latestMonthlyConsume,
+      dailyConsumeAmount: latestDailyLimit,
       monthlyNetIncome: totalMonthlyNetIncome,
       monthlyNetConsume: totalMonthlyNetConsume,
       dailyNetConsume: totalDailyNetConsume,

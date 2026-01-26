@@ -5,13 +5,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
 import 'dart:async';
 import '../../component/theme/app_colors.dart';
 import '../../model/plan/plan_metrics.dart';
 import '../../model/plan/sub_plan.dart';
 import '../../model/plan/total_plan.dart';
 import '../../model/refData/entry.dart';
-import 'plan/chat_widgets/input_modal/input_modal_widget.dart';
 import '../../component/inputs/custom_text_field.dart';
 import '../../component/buttons/custom_button.dart';
 
@@ -66,9 +66,9 @@ class _TotalPlanPageState extends State<TotalPlanPage>
       totalMetrics: PlanMetrics.fromRange(
         startDate: DateTime.now(),
         endDate: DateTime.now().add(const Duration(days: 29)),
-        sumMonthlyIncome: 3500000,
-        sumMonthlyConsume: 980000,
-        sumDailyConsume: 20000,
+        monthlyIncomeAmount: 3500000,
+        monthlyConsumeAmount: 980000,
+        dailyConsumeAmount: 20000,
       ),
       subResult: const SubPlanResult(subMetrics: [], subPlanList: []),
     ),
@@ -135,17 +135,17 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   }) {
     final metrics = _plan.result.totalMetrics;
     final nextMonthlyIncome =
-        monthlyIncome != null ? monthlyIncome.round() : metrics.monthlyIncomeAmount;
+    monthlyIncome != null ? monthlyIncome.round() : metrics.monthlyIncomeAmount;
     final nextMonthlyConsume =
-        monthlyConsume != null ? monthlyConsume.round() : metrics.monthlyConsumeAmount;
+    monthlyConsume != null ? monthlyConsume.round() : metrics.monthlyConsumeAmount;
     final nextDailyConsume =
-        dailyConsume != null ? dailyConsume.round() : metrics.dailyConsumeAmount;
+    dailyConsume != null ? dailyConsume.round() : metrics.dailyConsumeAmount;
     final updatedMetrics = PlanMetrics.fromRange(
       startDate: metrics.startDate,
       endDate: metrics.endDate,
-      sumMonthlyIncome: nextMonthlyIncome,
-      sumMonthlyConsume: nextMonthlyConsume,
-      sumDailyConsume: nextDailyConsume,
+      monthlyIncomeAmount: nextMonthlyIncome,
+      monthlyConsumeAmount: nextMonthlyConsume,
+      dailyConsumeAmount: nextDailyConsume,
     );
     final updatedResult = _plan.result.copyWith(totalMetrics: updatedMetrics);
     _plan = _plan.copyWith(
@@ -183,7 +183,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     final expense = _totalFixedCost + _totalDailyCost;
     final savings = income - expense;
     final remainingAmount =
-        (_targetAmount - _currentAmount).clamp(0.0, double.infinity);
+    (_targetAmount - _currentAmount).clamp(0.0, double.infinity);
     final estimatedMonths = savings > 0
         ? (remainingAmount / savings).ceil()
         : 0;
@@ -214,7 +214,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
       {
         'title': '목표까지 ${_nf.format(remainingAmount.toInt())}원',
         'description':
-            '목표 달성을 위해 ${_nf.format(remainingAmount.toInt())}원이 더 필요해요',
+        '목표 달성을 위해 ${_nf.format(remainingAmount.toInt())}원이 더 필요해요',
         'icon': Icons.flag,
         'color': AppColors.primary,
       },
@@ -1043,10 +1043,10 @@ class _TotalPlanPageState extends State<TotalPlanPage>
 
   // @insoohippie - 핵심 지표 2x2 그리드
   Widget _buildKeyMetricsGrid(
-    double progressRate,
-    double savingsRate,
-    int estimatedMonths,
-  ) {
+      double progressRate,
+      double savingsRate,
+      int estimatedMonths,
+      ) {
     return Column(
       children: [
         // @insoohippie - 첫 번째 행 (목표 금액, 현재 금액)
@@ -1104,12 +1104,12 @@ class _TotalPlanPageState extends State<TotalPlanPage>
 
   // @insoohippie - 개별 지표 카드
   Widget _buildMetricCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-    String subtitle,
-  ) {
+      String title,
+      String value,
+      IconData icon,
+      Color color,
+      String subtitle,
+      ) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -1275,12 +1275,12 @@ class _TotalPlanPageState extends State<TotalPlanPage>
           borderRadius: BorderRadius.circular(12),
           boxShadow: isSelected
               ? [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ]
               : null,
         ),
         child: Text(

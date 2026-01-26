@@ -6,22 +6,19 @@ import 'package:provider/provider.dart';
 
 import 'package:sotong_local/view/pages/report/report_widgets/report_category_budget_chart_section.dart';
 import 'package:sotong_local/view/pages/report/report_widgets/report_month_category_section.dart';
+import '../../../repository/record_repository.dart';
 import '../../../view_model/report/report_view_model.dart';
 
-/// 1) 여기서 ReportViewModel 을 제공
 class ReportPage extends StatelessWidget {
   const ReportPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ReportViewModel(),
-      child: const _ReportPageContent(),
-    );
+    // 이미 main 에서 ReportViewModel 주입됨
+    return const _ReportPageContent();
   }
 }
 
-/// 2) 실제 UI + 인사이트 배너 / 섹션들
 class _ReportPageContent extends StatefulWidget {
   const _ReportPageContent({super.key});
 
@@ -38,10 +35,14 @@ class _ReportPageContentState extends State<_ReportPageContent> {
     super.initState();
     _pageController = PageController();
 
-    /// Provider 가 이미 위에 있으니, 첫 프레임 이후에 vm 받아서 자동 슬라이드 시작
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       final vm = context.read<ReportViewModel>();
+
+      if (!vm.hasData) {
+        await vm.loadInitial();
+      }
+
       _startAutoSlide(vm);
     });
   }
@@ -146,13 +147,11 @@ class _ReportPageContentState extends State<_ReportPageContent> {
 
                   const SizedBox(height: 16),
 
-                  /// 🔹 첫 번째 카드: 월 / 카테고리 선택 + 금액 애니메이션
-                  const ReportMonthCategorySection(),
+                  const ReportCategoryBudgetChartSection(),
 
                   const SizedBox(height: 24),
 
-                  /// 🔹 두 번째 카드: 카테고리별 예산 차트
-                  const ReportCategoryBudgetChartSection(),
+                  const ReportMonthCategorySection(),
 
                   const SizedBox(height: 24),
                 ],

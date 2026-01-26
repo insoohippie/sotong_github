@@ -23,8 +23,8 @@ class PlanMutationService {
   }) {
     developer.log(
       '[applyMonthly] month=${command.applyMonth} '
-      'modEnd=${command.modEndMonth} '
-      'newId=${command.newDocumentId} prev=${command.previousDocumentId}',
+          'modEnd=${command.modEndMonth} '
+          'newId=${command.newDocumentId} prev=${command.previousDocumentId}',
       name: 'PlanMutationService',
     );
     final plan = snapshot.totalPlan;
@@ -50,7 +50,7 @@ class PlanMutationService {
       );
     }
     final clampedApplyBoundary =
-        _clampDay(command.applyMonth, planStart, planEnd);
+    _clampDay(command.applyMonth, planStart, planEnd);
     final boundaryCheck = ensureWithinPlan(clampedApplyBoundary, boundaryPlan);
     if (!boundaryCheck.isValid) {
       developer.log(
@@ -61,18 +61,18 @@ class PlanMutationService {
     }
 
     final effectiveCommand =
-        (clampedApplyMonth == originalApplyMonth &&
-                clampedModEndMonth == originalModEndMonth)
-            ? command
-            : UpdateMonthlyCommand(
-                applyMonth: clampedApplyMonth,
-                modEndMonth: clampedModEndMonth,
-                entries: command.entries,
-                newDocumentId: command.newDocumentId,
-                previousDocumentId: command.previousDocumentId,
-                isIncome: command.isIncome,
-                allowBeforePlanStart: command.allowBeforePlanStart,
-              );
+    (clampedApplyMonth == originalApplyMonth &&
+        clampedModEndMonth == originalModEndMonth)
+        ? command
+        : UpdateMonthlyCommand(
+      applyMonth: clampedApplyMonth,
+      modEndMonth: clampedModEndMonth,
+      entries: command.entries,
+      newDocumentId: command.newDocumentId,
+      previousDocumentId: command.previousDocumentId,
+      isIncome: command.isIncome,
+      allowBeforePlanStart: command.allowBeforePlanStart,
+    );
 
     final uniqueness = ensureMonthlyUniqueness(
       targetMonth: effectiveCommand.applyMonth,
@@ -82,7 +82,7 @@ class PlanMutationService {
     if (!uniqueness.isValid && command.previousDocumentId == null) {
       developer.log(
         'applyMonthly uniqueness fail: ${uniqueness.message} '
-        '(existing income=${snapshot.monthlyIncomes.keys} consumes=${snapshot.monthlyConsumes.keys})',
+            '(existing income=${snapshot.monthlyIncomes.keys} consumes=${snapshot.monthlyConsumes.keys})',
         name: 'PlanMutationService',
       );
       throw PlanMutationException(uniqueness.message ?? 'MONTH_DUPLICATION');
@@ -117,7 +117,7 @@ class PlanMutationService {
   }) {
     developer.log(
       '[applyDaily] apply=${command.applyDate} end=${command.modEndDate} '
-      'newId=${command.newDailyId} prev=${command.previousDailyId}',
+          'newId=${command.newDailyId} prev=${command.previousDailyId}',
       name: 'PlanMutationService',
     );
     final boundaryPlan = snapshot.totalPlan;
@@ -161,17 +161,17 @@ class PlanMutationService {
     }
 
     final adjustedDailyCommand = (clampedApplyDate == command.applyDate &&
-            clampedModEndDate == command.modEndDate)
+        clampedModEndDate == command.modEndDate)
         ? command
         : UpdateDailyCommand(
-            applyDate: clampedApplyDate,
-            modEndDate: clampedModEndDate,
-            entries: command.entries,
-            newDailyId: command.newDailyId,
-            newMiniDocId: command.newMiniDocId,
-            previousDailyId: command.previousDailyId,
-            allowBeforePlanStart: command.allowBeforePlanStart,
-          );
+      applyDate: clampedApplyDate,
+      modEndDate: clampedModEndDate,
+      entries: command.entries,
+      newDailyId: command.newDailyId,
+      newMiniDocId: command.newMiniDocId,
+      previousDailyId: command.previousDailyId,
+      allowBeforePlanStart: command.allowBeforePlanStart,
+    );
 
     final result = _repository.applyDaily(
       totalPlan: snapshot.totalPlan,
@@ -250,10 +250,10 @@ class PlanMutationService {
       DateTime(date.year, date.month, 1);
 
   DateTime _clampDay(
-    DateTime date,
-    DateTime? planStart,
-    DateTime? planEnd,
-  ) {
+      DateTime date,
+      DateTime? planStart,
+      DateTime? planEnd,
+      ) {
     var result = _normalizeDay(date);
     if (planStart != null) {
       final normalizedStart = _normalizeDay(planStart);
@@ -271,10 +271,10 @@ class PlanMutationService {
   }
 
   DateTime _clampMonth(
-    DateTime month,
-    DateTime? planStart,
-    DateTime? planEnd,
-  ) {
+      DateTime month,
+      DateTime? planStart,
+      DateTime? planEnd,
+      ) {
     var result = _normalizeMonth(month);
     if (planStart != null) {
       final startMonth = _normalizeMonth(planStart);

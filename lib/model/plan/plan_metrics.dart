@@ -40,9 +40,9 @@ class PlanMetrics {
   factory PlanMetrics.fromRange({
     required DateTime startDate,
     required DateTime endDate,
-    required int sumMonthlyIncome,
-    required int sumMonthlyConsume,
-    required int sumDailyConsume,
+    required int monthlyIncomeAmount,
+    required int monthlyConsumeAmount,
+    required int dailyConsumeAmount,
     int monthlyNetIncome = 0,
     int monthlyNetConsume = 0,
     int dailyNetConsume = 0,
@@ -51,9 +51,9 @@ class PlanMetrics {
     final normalizedEnd = _normalizeDate(endDate);
     final days = _inclusiveDays(normalizedStart, normalizedEnd);
     final daily = _computeDailyNetSaving(
-      sumMonthlyIncome: monthlyNetIncome,
-      sumMonthlyConsume: monthlyNetConsume + dailyNetConsume,
-      sumDailyConsume: 0,
+      income: monthlyNetIncome,
+      fixedOutgo: monthlyNetConsume,
+      dailyOutgo: dailyNetConsume,
       kDays: days,
     );
     final monthly = daily * days;
@@ -62,9 +62,9 @@ class PlanMetrics {
       startDate: normalizedStart,
       endDate: normalizedEnd,
       kDays: days,
-      monthlyIncomeAmount: sumMonthlyIncome,
-      monthlyConsumeAmount: sumMonthlyConsume,
-      dailyConsumeAmount: sumDailyConsume,
+      monthlyIncomeAmount: monthlyIncomeAmount,
+      monthlyConsumeAmount: monthlyConsumeAmount,
+      dailyConsumeAmount: dailyConsumeAmount,
       monthlyNetIncome: monthlyNetIncome,
       monthlyNetConsume: monthlyNetConsume,
       dailyNetConsume: dailyNetConsume,
@@ -88,15 +88,15 @@ class PlanMetrics {
     final sumConsume = sorted.last.monthlyConsumeAmount;
     final sumDaily = sorted.last.dailyConsumeAmount;
     final netIncomeSum =
-        sorted.fold<int>(0, (sum, m) => sum + m.monthlyNetIncome);
+    sorted.fold<int>(0, (sum, m) => sum + m.monthlyNetIncome);
     final netConsumeSum =
-        sorted.fold<int>(0, (sum, m) => sum + m.monthlyNetConsume);
+    sorted.fold<int>(0, (sum, m) => sum + m.monthlyNetConsume);
     final netDailySum =
-        sorted.fold<int>(0, (sum, m) => sum + m.dailyNetConsume);
+    sorted.fold<int>(0, (sum, m) => sum + m.dailyNetConsume);
     final avgDaily = _computeDailyNetSaving(
-      sumMonthlyIncome: netIncomeSum,
-      sumMonthlyConsume: netConsumeSum + netDailySum,
-      sumDailyConsume: 0,
+      income: netIncomeSum,
+      fixedOutgo: netConsumeSum,
+      dailyOutgo: netDailySum,
       kDays: kDays,
     );
     return PlanMetrics(
@@ -119,9 +119,9 @@ class PlanMetrics {
     DateTime? startDate,
     DateTime? endDate,
     int? kDays,
-    int? sumMonthlyIncome,
-    int? sumMonthlyConsume,
-    int? sumDailyConsume,
+    int? monthlyIncomeAmount,
+    int? monthlyConsumeAmount,
+    int? dailyConsumeAmount,
     int? monthlyNetIncome,
     int? monthlyNetConsume,
     int? dailyNetConsume,
@@ -133,9 +133,9 @@ class PlanMetrics {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       kDays: kDays ?? this.kDays,
-      monthlyIncomeAmount: sumMonthlyIncome ?? this.monthlyIncomeAmount,
-      monthlyConsumeAmount: sumMonthlyConsume ?? this.monthlyConsumeAmount,
-      dailyConsumeAmount: sumDailyConsume ?? this.dailyConsumeAmount,
+      monthlyIncomeAmount: monthlyIncomeAmount ?? this.monthlyIncomeAmount,
+      monthlyConsumeAmount: monthlyConsumeAmount ?? this.monthlyConsumeAmount,
+      dailyConsumeAmount: dailyConsumeAmount ?? this.dailyConsumeAmount,
       monthlyNetIncome: monthlyNetIncome ?? this.monthlyNetIncome,
       monthlyNetConsume: monthlyNetConsume ?? this.monthlyNetConsume,
       dailyNetConsume: dailyNetConsume ?? this.dailyNetConsume,
@@ -154,14 +154,13 @@ class PlanMetrics {
   }
 
   static int _computeDailyNetSaving({
-    required int sumMonthlyIncome,
-    required int sumMonthlyConsume,
-    required int sumDailyConsume,
+    required int income,
+    required int fixedOutgo,
+    required int dailyOutgo,
     required int kDays,
   }) {
     if (kDays <= 0) return 0;
-    final numerator =
-        sumMonthlyIncome - sumMonthlyConsume - (sumDailyConsume * kDays);
+    final numerator = income - fixedOutgo - dailyOutgo;
     final raw = numerator / kDays;
     return halfUp(raw);
   }

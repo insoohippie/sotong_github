@@ -372,18 +372,20 @@ RefData(
 
   String _nextSequentialId(DateTime date, Iterable<String> existingIds) {
     final planPrefix = planId.isEmpty ? '' : '${planId}_';
-    final base = '${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}';
+    final base =
+        '${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}';
     var maxSeq = 0;
     for (final id in existingIds) {
-      final normalized = planPrefix.isEmpty ? id : id.replaceFirst(planPrefix, '');
-      if (!normalized.startsWith(base)) continue;
-      final parts = id.split('-');
+      final normalizedId =
+          planPrefix.isNotEmpty && id.startsWith(planPrefix) ? id.substring(planPrefix.length) : id;
+      if (!normalizedId.startsWith(base)) continue;
+      final parts = normalizedId.split('-');
       if (parts.length != 2) continue;
       final seq = int.tryParse(parts[1]) ?? 0;
       if (seq > maxSeq) maxSeq = seq;
     }
     final nextSeq = (maxSeq + 1).toString().padLeft(3, '0');
-    return '$planPrefix$base-$nextSeq';
+    return '$base-$nextSeq';
   }
 
   double _sumEntries(Iterable<Entry> entries) =>

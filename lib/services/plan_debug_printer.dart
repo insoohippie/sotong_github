@@ -29,15 +29,15 @@ class PlanDebugPrinter {
     buffer
       ..writeln(
         '  amount: '
-        'monthlyIncomeAmount=${totalMetrics.monthlyIncomeAmount} '
-        'monthlyConsumeAmount=${totalMetrics.monthlyConsumeAmount} '
-        'dailyConsumeAmount=${totalMetrics.dailyConsumeAmount}',
+            'monthlyIncomeAmount=${totalMetrics.monthlyIncomeAmount} '
+            'monthlyConsumeAmount=${totalMetrics.monthlyConsumeAmount} '
+            'dailyConsumeAmount=${totalMetrics.dailyConsumeAmount}',
       )
       ..writeln(
         '  net: '
-        'monthlyNetIncome=${totalMetrics.monthlyNetIncome} '
-        'monthlyNetConsume=${totalMetrics.monthlyNetConsume} '
-        'dailyNetConsume=${totalMetrics.dailyNetConsume}',
+            'monthlyNetIncome=${totalMetrics.monthlyNetIncome} '
+            'monthlyNetConsume=${totalMetrics.monthlyNetConsume} '
+            'dailyNetConsume=${totalMetrics.dailyNetConsume}',
       );
 
     final subEntries = plan.subPlans.entries.toList()
@@ -80,20 +80,20 @@ class PlanDebugPrinter {
     );
     buffer.writeln(
       '$childIndent summary: minis=${subPlan.miniPlans.length} '
-      'dailyNet=${summaryMetrics.dailyNetSaving} '
-      'fractional=${subPlan.fractionalEndSeconds}',
+          'dailyNet=${summaryMetrics.dailyNetSaving} '
+          'fractional=${subPlan.fractionalEndSeconds}',
     );
     buffer.writeln(
       '$childIndent    amount: '
-      'monthlyIncomeAmount=${summaryMetrics.monthlyIncomeAmount} '
-      'monthlyConsumeAmount=${summaryMetrics.monthlyConsumeAmount} '
-      'dailyConsumeAmount=${summaryMetrics.dailyConsumeAmount}',
+          'monthlyIncomeAmount=${summaryMetrics.monthlyIncomeAmount} '
+          'monthlyConsumeAmount=${summaryMetrics.monthlyConsumeAmount} '
+          'dailyConsumeAmount=${summaryMetrics.dailyConsumeAmount}',
     );
     buffer.writeln(
       '$childIndent    net: '
-      'monthlyNetIncome=${summaryMetrics.monthlyNetIncome} '
-      'monthlyNetConsume=${summaryMetrics.monthlyNetConsume} '
-      'dailyNetConsume=${summaryMetrics.dailyNetConsume}',
+          'monthlyNetIncome=${summaryMetrics.monthlyNetIncome} '
+          'monthlyNetConsume=${summaryMetrics.monthlyNetConsume} '
+          'dailyNetConsume=${summaryMetrics.dailyNetConsume}',
     );
 
     final miniList = subPlan.orderedMinis();
@@ -124,9 +124,9 @@ class PlanDebugPrinter {
       );
       buffer.writeln(
         '$nextIndent cached: '
-        'monthlyIncome=${mini.sumMonthlyIncome} '
-        'monthlyConsume=${mini.sumMonthlyConsume} '
-        'dailyConsume=${mini.sumDailyConsume} '
+        'monthlyIncome=${mini.monthlyIncomeAmount} '
+        'monthlyConsume=${mini.monthlyConsumeAmount} '
+        'dailyConsume=${mini.dailyConsumeAmount} '
       );
       buffer.writeln(
         '$nextIndent    net: '

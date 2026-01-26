@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../component/buttons/custom_dual_button.dart';
+import '../../../component/texts/header_text.dart';
+import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_border_radius.dart';
 import '../../../model/plan/plan_edit_result.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
@@ -286,6 +289,125 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                   ),
+
+                  // 로그아웃
+                  Container(
+                    margin: const EdgeInsets.only(top: 18, bottom: 18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: AppBorderRadius.card,
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: AppBorderRadius.card,
+                        onTap: () {
+                          showLogoutDialog(
+                            context,
+                                () async {
+                              await context.read<SettingViewModel>().logout();
+                              if (!context.mounted) return;
+
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                '/login',
+                                    (_) => false,
+                              );
+                            },
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.logout, color: Colors.black),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    '로그아웃',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Pretendard Variable',
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Icon(
+                                Icons.chevron_right,
+                                color: Colors.black,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 데이터 지우기 칸
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: AppBorderRadius.card,
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: AppBorderRadius.card,
+                        onTap: () async {
+                          final vm = context.read<SettingViewModel>();
+
+                          // ❌ 오프라인이면 바로 안내
+                          if (!vm.isOnline) {
+                            showOfflineDeleteBlockedDialog(context);
+                            return;
+                          }
+
+                          // ✅ 온라인이면 기존 삭제 다이얼로그
+                          showDeleteDataDialog(
+                            context,
+                                () async {
+                              await vm.deleteAllMyData();
+                              if (context.mounted) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/login',
+                                      (_) => false,
+                                );
+                              }
+                            },
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: const [
+                                  Icon(Icons.delete_forever, color: Colors.red),
+                                  SizedBox(width: 12),
+                                  Text(
+                                    '데이터 지우기',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Pretendard Variable',
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Icon(Icons.chevron_right, color: Colors.black),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               );
             },
@@ -294,4 +416,128 @@ class SettingsPage extends StatelessWidget {
       ),
     );
   }
+}
+
+void showLogoutDialog(
+    BuildContext context,
+    Future<void> Function() onConfirm,
+    ) {
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const HeaderText(
+                text: "로그아웃",
+                fontWeight: FontWeight.w700,
+              ),
+              const SizedBox(height: 12),
+              const ParagraphText(
+                text: "정말 로그아웃 하시겠어요?",
+                color: Colors.black87,
+              ),
+              const SizedBox(height: 28),
+
+              CustomDualButton(
+                leftLabel: "취소",
+                rightLabel: "로그아웃",
+                onLeftPressed: () => Navigator.pop(context),
+                onRightPressed: () async {
+                  Navigator.pop(context);     // 다이얼로그 먼저 닫고
+                  await onConfirm();          // 로그아웃/캐시삭제/라우팅까지 await
+                },
+                height: 50,
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+void showDeleteDataDialog(BuildContext context, VoidCallback onConfirm) {
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const HeaderText(
+                text: "데이터 지우기",
+                fontWeight: FontWeight.w700,
+              ),
+              const SizedBox(height: 12),
+              const ParagraphText(
+                text: "서버와 이 기기의 데이터를 모두 삭제합니다.\n삭제 후에는 복구할 수 없어요.",
+                color: Colors.black87,
+              ),
+              const SizedBox(height: 28),
+              CustomDualButton(
+                leftLabel: "취소",
+                rightLabel: "삭제",
+                onLeftPressed: () => Navigator.pop(context),
+                onRightPressed: () {
+                  Navigator.pop(context);
+                  onConfirm();
+                },
+                height: 50,
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+void showOfflineDeleteBlockedDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              HeaderText(
+                text: "인터넷 연결 필요",
+                fontWeight: FontWeight.w700,
+              ),
+              SizedBox(height: 12),
+              ParagraphText(
+                text:
+                "데이터 삭제는 서버와 동기화가 필요해요.\n"
+                    "인터넷에 연결한 후 다시 시도해주세요.",
+                color: Colors.black87,
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
 }

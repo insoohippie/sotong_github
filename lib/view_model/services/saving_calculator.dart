@@ -109,7 +109,7 @@ class SavingPlanCalculator {
         if (accumulated + extra >= requiredSaving) {
           final remaining = requiredSaving - accumulated;
           final neededSeconds =
-              (remaining / lastDailyNet * 86400.0).clamp(
+          (remaining / lastDailyNet * 86400.0).clamp(
             0.0,
             fractionalSeconds.toDouble(),
           );
@@ -223,7 +223,7 @@ class SavingPlanCalculator {
   static String formatAmount(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (match) => '${match[1]},',
+          (match) => '${match[1]},',
     );
   }
 

@@ -51,10 +51,10 @@ class PlanMutationRepository {
         subPlan.miniPlans.forEach((docId, mini) {
           patched[docId] = mini
               .copyWith(
-                monthlyIncomeId: newIncome.id,
-                monthlyIncomeRef: newIncome,
-                sumMonthlyIncome: monthlySum,
-              )
+            monthlyIncomeId: newIncome.id,
+            monthlyIncomeRef: newIncome,
+            monthlyIncomeAmount: monthlySum,
+          )
               .recalculateNetAmounts();
         });
         updatedSubPlans[key] =
@@ -83,10 +83,10 @@ class PlanMutationRepository {
         subPlan.miniPlans.forEach((docId, mini) {
           patched[docId] = mini
               .copyWith(
-                monthlyConsumeId: newConsume.id,
-                monthlyConsumeRef: newConsume,
-                sumMonthlyConsume: monthlySum,
-              )
+            monthlyConsumeId: newConsume.id,
+            monthlyConsumeRef: newConsume,
+            monthlyConsumeAmount: monthlySum,
+          )
               .recalculateNetAmounts();
         });
         updatedSubPlans[key] =
@@ -179,11 +179,11 @@ class PlanMutationRepository {
           : split.right.endDate;
       final right = split.right
           .copyWith(
-            dailyConsumeId: newDaily.id,
-            dailyConsumeRef: newDaily,
-            sumDailyConsume: dailySum,
-            endDate: rightEnd,
-          )
+        dailyConsumeId: newDaily.id,
+        dailyConsumeRef: newDaily,
+        dailyConsumeAmount: dailySum,
+        endDate: rightEnd,
+      )
           .recalculateNetAmounts();
       final updatedMinis = Map<String, MiniPlan>.from(applySubPlan.miniPlans);
       updatedMinis[left.docId] = left;
@@ -206,11 +206,11 @@ class PlanMutationRepository {
           : targetMini.endDate;
       final updatedMini = targetMini
           .copyWith(
-            dailyConsumeId: newDaily.id,
-            dailyConsumeRef: newDaily,
-            sumDailyConsume: dailySum,
-            endDate: endDate,
-          )
+        dailyConsumeId: newDaily.id,
+        dailyConsumeRef: newDaily,
+        dailyConsumeAmount: dailySum,
+        endDate: endDate,
+      )
           .recalculateNetAmounts();
       patchedSubPlan = applySubPlan.replaceMini(updatedMini);
       if (_isSameMonth(normalizedApply, command.modEndDate)) {
@@ -229,10 +229,10 @@ class PlanMutationRepository {
       subPlan.miniPlans.forEach((docId, mini) {
         patched[docId] = mini
             .copyWith(
-              dailyConsumeId: newDaily.id,
-              dailyConsumeRef: newDaily,
-              sumDailyConsume: dailySum,
-            )
+          dailyConsumeId: newDaily.id,
+          dailyConsumeRef: newDaily,
+          dailyConsumeAmount: dailySum,
+        )
             .recalculateNetAmounts();
       });
       var truncatedSubPlan =
@@ -292,7 +292,7 @@ class PlanMutationRepository {
 
   SubPlan _truncateSubPlan(SubPlan subPlan, DateTime cutoff) {
     final normalizedCutoff =
-        DateTime(cutoff.year, cutoff.month, cutoff.day);
+    DateTime(cutoff.year, cutoff.month, cutoff.day);
     final fractionalSeconds = min(
       86399,
       max(0, cutoff.difference(normalizedCutoff).inSeconds),
