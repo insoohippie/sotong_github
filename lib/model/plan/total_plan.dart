@@ -172,7 +172,14 @@ class TotalPlan {
         ? _emptyMetrics()
         : PlanMetrics.merge(monthlySummaries);
     PlanMetrics totalMetrics = totalMetricsBase;
-    if (monthlySummaries.isNotEmpty) {
+    final currentMini = _miniPlanForDate(DateTime.now());
+    if (currentMini != null) {
+      totalMetrics = totalMetrics.copyWith(
+        monthlyIncomeAmount: currentMini.monthlyIncomeAmount,
+        monthlyConsumeAmount: currentMini.monthlyConsumeAmount,
+        dailyConsumeAmount: currentMini.dailyConsumeAmount,
+      );
+    } else if (monthlySummaries.isNotEmpty) {
       final latestSummary = monthlySummaries.last;
       totalMetrics = totalMetrics.copyWith(
         monthlyIncomeAmount: latestSummary.monthlyIncomeAmount,
@@ -236,6 +243,69 @@ class TotalPlan {
       monthlyConsumeAmount: 0,
       dailyConsumeAmount: 0,
     );
+  }
+
+  MiniPlan? _miniPlanForDate(DateTime date) {
+    if (subPlans.isEmpty) return null;
+    final key = _formatYearMonth(date);
+    final direct = _miniCoveringDate(subPlans[key], date);
+    if (direct != null) return direct;
+
+    final targetMonth = DateTime(date.year, date.month, 1);
+    final entries = subPlans.entries.toList()
+      ..sort((a, b) => a.value.yearMonth.compareTo(b.value.yearMonth));
+    SubPlan? before;
+    SubPlan? after;
+    for (final entry in entries) {
+      final month = entry.value.yearMonth;
+      if (month.isAfter(targetMonth)) {
+        after ??= entry.value;
+        break;
+      }
+      before = entry.value;
+    }
+    final fallback =
+        _closestSubPlan(before, after, targetMonth) ?? entries.last.value;
+    return _miniClosestWithin(fallback, date);
+  }
+
+  MiniPlan? _miniCoveringDate(SubPlan? subPlan, DateTime date) {
+    if (subPlan == null) return null;
+    for (final mini in subPlan.orderedMinis()) {
+      final startsBefore = !date.isBefore(mini.startDate);
+      final endsAfter = !date.isAfter(mini.endDate);
+      if (startsBefore && endsAfter) {
+        return mini;
+      }
+    }
+    return null;
+  }
+
+  MiniPlan? _miniClosestWithin(SubPlan? subPlan, DateTime date) {
+    if (subPlan == null) return null;
+    final minis = subPlan.orderedMinis();
+    if (minis.isEmpty) return null;
+    final covering = _miniCoveringDate(subPlan, date);
+    if (covering != null) {
+      return covering;
+    }
+    if (date.isBefore(minis.first.startDate)) {
+      return minis.first;
+    }
+    return minis.last;
+  }
+
+  SubPlan? _closestSubPlan(
+    SubPlan? before,
+    SubPlan? after,
+    DateTime targetMonth,
+  ) {
+    if (before == null && after == null) return null;
+    if (before == null) return after;
+    if (after == null) return before;
+    final beforeDiff = targetMonth.difference(before.yearMonth).inDays;
+    final afterDiff = after.yearMonth.difference(targetMonth).inDays;
+    return beforeDiff <= afterDiff ? before : after;
   }
 
   static Map<String, SubPlan> _bootstrapSubPlans({
