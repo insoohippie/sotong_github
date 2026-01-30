@@ -10,8 +10,14 @@ class PlanDataSource {
   /// 생성(문서 ID 자동)
   Future<String> create(String uid, Map<String, dynamic> data) async {
     final docRef = _col(uid).doc();
-    await docRef.set(data);
+    final payload = Map<String, dynamic>.from(data)..['planId'] = docRef.id;
+    await docRef.set(payload);
     return docRef.id;
+  }
+
+  /// 통째로 덮어쓰기
+  Future<void> replace(String uid, String planId, Map<String, dynamic> data) {
+    return _col(uid).doc(planId).set(data);
   }
 
   /// 읽기(리스트) - 정렬/limit 등은 호출부에서 지정
@@ -41,14 +47,4 @@ class PlanDataSource {
     return _col(uid).doc(planId).delete();
   }
 
-  /// 최신 플랜 문서에서 모인 금액 관련 상태만 가져오기
-  Future<Map<String, dynamic>?> getLatestSavingState(String uid) async {
-    final snap = await _col(uid)
-        .orderBy('createdAt', descending: true)
-        .limit(1)
-        .get();
-
-    if (snap.docs.isEmpty) return null;
-    return snap.docs.first.data();
-  }
 }

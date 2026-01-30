@@ -53,6 +53,10 @@ class TotalPlan {
       sumMonthlyConsume: 0,
       sumDailyConsume: 0,
     );
+    final initialSubPlans = _bootstrapSubPlans(
+      metrics: metrics,
+      planStart: now,
+    );
     return TotalPlan(
       planId: '',
       planName: '',
@@ -64,10 +68,14 @@ class TotalPlan {
       modEndDate: null,
       creationDate: now,
       autoService: false,
-      subPlans: const {},
+      subPlans: initialSubPlans,
       result: TotalResult(
         totalMetrics: metrics,
-        subResult: const SubPlanResult(subMetrics: [], subPlanList: []),
+        subResult: SubPlanResult(
+          subMetrics:
+          initialSubPlans.values.map((sub) => sub.monthlySummary()).toList(),
+          subPlanList: initialSubPlans.values.toList(),
+        ),
       ),
       //하경 - 모인 금액 계산용
       extraIncomeTotal: 0,
@@ -81,6 +89,9 @@ class TotalPlan {
     final planStartDate = _parseDate(map['startDate']);
     final metrics = _parseMetrics(map['result']?['totalMetrics']);
     final subPlans = _parseSubPlans(map['subPlans']);
+    final normalizedSubPlans = subPlans.isNotEmpty
+        ? subPlans
+        : _bootstrapSubPlans(metrics: metrics, planStart: planStartDate);
     return TotalPlan(
       planId: id,
       planName: map['planName'] as String?,
@@ -92,10 +103,13 @@ class TotalPlan {
       modEndDate: _parseDate(map['modEndDate']),
       creationDate: _parseDate(map['creationDate']),
       autoService: map['autoService'] as bool?,
-      subPlans: subPlans,
+      subPlans: normalizedSubPlans,
       result: TotalResult(
         totalMetrics: metrics,
-        subResult: _parseSubResult(map['result']?['subResult'], subPlans),
+        subResult: _parseSubResult(
+          map['result']?['subResult'],
+          normalizedSubPlans,
+        ),
       ),
       //하경 - 모인 금액 계산용
       extraIncomeTotal:
@@ -215,6 +229,43 @@ class TotalPlan {
     );
   }
 
+  static Map<String, SubPlan> _bootstrapSubPlans({
+    required PlanMetrics metrics,
+    required DateTime? planStart,
+  }) {
+    final baseline = planStart ?? DateTime.now();
+    final monthStart = DateTime(baseline.year, baseline.month, 1);
+    final monthEnd = DateTime(baseline.year, baseline.month + 1, 0);
+    final key = _formatYearMonth(monthStart);
+    final miniId = '${key}_mini_head';
+    final mini = MiniPlan(
+      docId: miniId,
+      yearMonth: monthStart,
+      startDate: monthStart,
+      endDate: monthEnd,
+      monthlyIncomeId: '${key}_income_bootstrap',
+      monthlyConsumeId: '${key}_consume_bootstrap',
+      dailyConsumeId: '${key}_daily_bootstrap',
+      sumMonthlyIncome: metrics.monthlyIncomeAmount,
+      sumMonthlyConsume: metrics.monthlyConsumeAmount,
+      sumDailyConsume: metrics.dailyConsumeAmount,
+    ).recalculateNetAmounts();
+    final subPlan = SubPlan(
+      yearMonth: monthStart,
+      headDocId: miniId,
+      miniPlans: {miniId: mini},
+      miniResult: MiniPlanResult(
+        headDocId: miniId,
+        miniMetrics: [mini.toMetrics()],
+        miniPlanHead: mini,
+      ),
+    );
+    return {key: subPlan};
+  }
+
+  static String _formatYearMonth(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}';
+
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
@@ -231,12 +282,18 @@ class TotalPlan {
     if (map is Map<String, dynamic>) {
       final start = _parseDate(map['startDate']) ?? DateTime.now();
       final end = _parseDate(map['endDate']) ?? start.add(const Duration(days: 29));
+      final monthlyNetIncome = (map['monthlyNetIncome'] as num?)?.round() ?? 0;
+      final monthlyNetConsume = (map['monthlyNetConsume'] as num?)?.round() ?? 0;
+      final dailyNetConsume = (map['dailyNetConsume'] as num?)?.round() ?? 0;
       return PlanMetrics.fromRange(
         startDate: start,
         endDate: end,
         sumMonthlyIncome: (map['sumMonthlyIncome'] as num?)?.round() ?? 0,
         sumMonthlyConsume: (map['sumMonthlyConsume'] as num?)?.round() ?? 0,
         sumDailyConsume: (map['sumDailyConsume'] as num?)?.round() ?? 0,
+        monthlyNetIncome: monthlyNetIncome,
+        monthlyNetConsume: monthlyNetConsume,
+        dailyNetConsume: dailyNetConsume,
       ).copyWith(
         dailyNetSaving: (map['dailyNetSaving'] as num?)?.round(),
         monthlyNetSaving: (map['monthlyNetSaving'] as num?)?.round(),
@@ -282,6 +339,8 @@ class TotalPlan {
               miniMetrics: const [],
               miniPlanHead: headMini,
             ),
+            fractionalEndSeconds:
+            subPlanMap['fractionalEndSeconds'] as int? ?? 0,
           ),
         );
       });
@@ -314,9 +373,12 @@ class TotalPlan {
       'startDate': metrics.startDate.toIso8601String(),
       'endDate': metrics.endDate.toIso8601String(),
       'kDays': metrics.kDays,
-      'sumMonthlyIncome': metrics.sumMonthlyIncome,
-      'sumMonthlyConsume': metrics.sumMonthlyConsume,
-      'sumDailyConsume': metrics.sumDailyConsume,
+      'sumMonthlyIncome': metrics.monthlyIncomeAmount,
+      'sumMonthlyConsume': metrics.monthlyConsumeAmount,
+      'sumDailyConsume': metrics.dailyConsumeAmount,
+      'monthlyNetIncome': metrics.monthlyNetIncome,
+      'monthlyNetConsume': metrics.monthlyNetConsume,
+      'dailyNetConsume': metrics.dailyNetConsume,
       'dailyNetSaving': metrics.dailyNetSaving,
       'monthlyNetSaving': metrics.monthlyNetSaving,
       'perSecondSaving': metrics.perSecondSaving,
@@ -333,6 +395,7 @@ class TotalPlan {
         'headDocId': subPlan.headDocId,
         'miniPlans':
             subPlan.miniPlans.map((docId, mini) => MapEntry(docId, mini.toMap())),
+        'fractionalEndSeconds': subPlan.fractionalEndSeconds,
       };
     });
     return result;

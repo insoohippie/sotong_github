@@ -111,7 +111,7 @@ class CommunicationViewModel extends ChangeNotifier {
       final metrics = plan?.result.totalMetrics;
 
       // sumDailyConsume = 하루 소비 한도 (HomeViewModel에서 쓰던 값)
-      final limit = (metrics?.sumDailyConsume ?? 0).toDouble();
+      final limit = (metrics?.dailyConsumeAmount ?? 0).toDouble();
       dailySpendingLimit = limit;
     } catch (_) {
       // 플랜 로드 실패해도 기록 화면은 뜨게

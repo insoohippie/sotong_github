@@ -39,9 +39,8 @@ class SettingsPage extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: Consumer<SettingViewModel>(
             builder: (context, settingsVM, _) {
-              return ListView(
+              return Column(
                 children: [
-                  // 1. 다크모드
                   Container(
                     margin: const EdgeInsets.only(bottom: 18),
                     padding: const EdgeInsets.symmetric(
@@ -57,10 +56,10 @@ class SettingsPage extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
-                          children: const [
-                            Icon(Icons.dark_mode, color: Colors.black),
-                            SizedBox(width: 12),
-                            Text(
+                          children: [
+                            const Icon(Icons.dark_mode, color: Colors.black),
+                            const SizedBox(width: 12),
+                            const Text(
                               '다크모드',
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
@@ -72,17 +71,19 @@ class SettingsPage extends StatelessWidget {
                         ),
                         Switch(
                           value: settingsVM.isDarkMode,
-                          onChanged: settingsVM.toggleDarkMode,
+                          onChanged: (value) {
+                            settingsVM.toggleDarkMode(value);
+                          },
                           activeColor: const Color(0xFF2563EB),
-                          activeTrackColor:
-                          const Color(0xFF2563EB).withOpacity(0.4),
+                          activeTrackColor: const Color(
+                            0xFF2563EB,
+                          ).withOpacity(0.4),
                           inactiveThumbColor: Colors.grey.shade400,
                           inactiveTrackColor: Colors.grey.shade300,
                         ),
                       ],
                     ),
                   ),
-
                   // 2. 플랜 수정하기
                   Container(
                     margin: const EdgeInsets.only(bottom: 18),
@@ -102,22 +103,22 @@ class SettingsPage extends StatelessWidget {
                           final result = await navigator.push<PlanEditResult>(
                             MaterialPageRoute(
                               builder: (_) => PlanEditPage(
-                                initialPlan: chatVm.totalPlan,
-                                initialRefData: chatVm.refData,
+                                useLocalDraft: false,
                                 requireApplyDate: true,
                               ),
                             ),
                           );
 
-                          if (!navigator.mounted || result == null) return;
+                          if (!navigator.mounted || result == null) {
+                            return;
+                          }
 
                           chatVm.applyPlanEditResult(result);
                           final ok = await chatVm.savePlan();
                           if (!navigator.mounted) return;
 
                           final rootContext =
-                              Navigator.of(context, rootNavigator: true)
-                                  .context;
+                              Navigator.of(context, rootNavigator: true).context;
                           ScaffoldMessenger.of(rootContext).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -135,12 +136,12 @@ class SettingsPage extends StatelessWidget {
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
+                            children: [
                               Row(
                                 children: [
-                                  Icon(Icons.edit, color: Colors.black),
-                                  SizedBox(width: 12),
-                                  Text(
+                                  const Icon(Icons.edit, color: Colors.black),
+                                  const SizedBox(width: 12),
+                                  const Text(
                                     '플랜 수정하기',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
@@ -150,7 +151,7 @@ class SettingsPage extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              Icon(
+                              const Icon(
                                 Icons.chevron_right,
                                 color: Colors.black,
                               ),
@@ -160,8 +161,7 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  // 3. 자주묻는질문
+                  // 4. 자주묻는질문
                   Container(
                     margin: const EdgeInsets.only(bottom: 18),
                     decoration: BoxDecoration(
@@ -183,15 +183,15 @@ class SettingsPage extends StatelessWidget {
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
+                            children: [
                               Row(
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.help_outline,
                                     color: Colors.black,
                                   ),
-                                  SizedBox(width: 12),
-                                  Text(
+                                  const SizedBox(width: 12),
+                                  const Text(
                                     '자주묻는질문 FAQ',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
@@ -201,7 +201,7 @@ class SettingsPage extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              Icon(
+                              const Icon(
                                 Icons.chevron_right,
                                 color: Colors.black,
                               ),
@@ -211,10 +211,9 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  // 4. 앱 현재 버전
+                  // 5. 앱 현재 버전
                   Container(
-                    margin: const EdgeInsets.only(bottom: 18),
+                    margin: const EdgeInsets.only(bottom: 0),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: AppBorderRadius.card,
@@ -224,7 +223,8 @@ class SettingsPage extends StatelessWidget {
                       color: Colors.transparent,
                       child: InkWell(
                         borderRadius: AppBorderRadius.card,
-                        onTap: () {
+                        onTap: () async {
+                          // 최신 버전 정보 다이얼로그 (임시)
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -261,15 +261,15 @@ class SettingsPage extends StatelessWidget {
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: const [
+                            children: [
                               Row(
                                 children: [
-                                  Icon(
+                                  const Icon(
                                     Icons.info_outline,
                                     color: Colors.black,
                                   ),
-                                  SizedBox(width: 12),
-                                  Text(
+                                  const SizedBox(width: 12),
+                                  const Text(
                                     '앱 현재 버전 1.0.0',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
@@ -279,7 +279,7 @@ class SettingsPage extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              Icon(
+                              const Icon(
                                 Icons.chevron_right,
                                 color: Colors.black,
                               ),
@@ -292,7 +292,7 @@ class SettingsPage extends StatelessWidget {
 
                   // 로그아웃
                   Container(
-                    margin: const EdgeInsets.only(bottom: 18),
+                    margin: const EdgeInsets.only(top: 18, bottom: 18),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: AppBorderRadius.card,

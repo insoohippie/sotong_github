@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:meta/meta.dart';
 
 import 'mini_plan.dart';
@@ -12,12 +14,14 @@ class SubPlan {
     required this.headDocId,
     required this.miniPlans,
     required this.miniResult,
+    this.fractionalEndSeconds = 0,
   });
 
   final DateTime yearMonth;
   final String headDocId;
   final Map<String, MiniPlan> miniPlans;
   final MiniPlanResult miniResult;
+  final int fractionalEndSeconds;
 
   MiniPlan get head => miniPlans[headDocId]!;
 
@@ -103,19 +107,39 @@ class SubPlan {
     final monthStart = DateTime(yearMonth.year, yearMonth.month, 1);
     final monthEnd = DateTime(yearMonth.year, yearMonth.month + 1, 0);
     final daysInMonth = _daysInMonth(yearMonth);
-    final totalDaily = metrics.fold<int>(
-      0,
-      (sum, metric) => sum + metric.sumDailyConsume * metric.kDays,
-    );
-    final avgDaily =
-        PlanMetrics.halfUp(totalDaily / (daysInMonth == 0 ? 1 : daysInMonth));
     final firstMetric = metrics.first;
+    final lastMetric = metrics.last;
+    final double totalDaily = metrics.fold<double>(
+      0,
+      (sum, metric) => sum + metric.dailyConsumeAmount * metric.kDays,
+    );
+    final leadingGap =
+    max(0, firstMetric.startDate.difference(monthStart).inDays);
+    final trailingGap = max(0, monthEnd.difference(lastMetric.endDate).inDays);
+    final normalizedTotal = totalDaily +
+        (firstMetric.dailyConsumeAmount * leadingGap) +
+        (lastMetric.dailyConsumeAmount * trailingGap) +
+        (fractionalEndSeconds > 0
+            ? lastMetric.dailyConsumeAmount * (fractionalEndSeconds / 86400.0)
+            : 0);
+    final avgDaily = daysInMonth == 0
+        ? 0
+        : PlanMetrics.halfUp(normalizedTotal / daysInMonth);
+    final totalMonthlyNetIncome =
+    ordered.fold<int>(0, (sum, mini) => sum + mini.monthlyNetIncome);
+    final totalMonthlyNetConsume =
+    ordered.fold<int>(0, (sum, mini) => sum + mini.monthlyNetConsume);
+    final totalDailyNetConsume =
+    ordered.fold<int>(0, (sum, mini) => sum + mini.dailyNetConsume);
     return PlanMetrics.fromRange(
       startDate: monthStart,
       endDate: monthEnd,
-      sumMonthlyIncome: firstMetric.sumMonthlyIncome,
-      sumMonthlyConsume: firstMetric.sumMonthlyConsume,
+      sumMonthlyIncome: firstMetric.monthlyIncomeAmount,
+      sumMonthlyConsume: firstMetric.monthlyConsumeAmount,
       sumDailyConsume: avgDaily,
+      monthlyNetIncome: totalMonthlyNetIncome,
+      monthlyNetConsume: totalMonthlyNetConsume,
+      dailyNetConsume: totalDailyNetConsume,
     );
   }
 
@@ -124,12 +148,14 @@ class SubPlan {
     String? headDocId,
     Map<String, MiniPlan>? miniPlans,
     MiniPlanResult? miniResult,
+    int? fractionalEndSeconds,
   }) {
     return SubPlan(
       yearMonth: yearMonth ?? this.yearMonth,
       headDocId: headDocId ?? this.headDocId,
       miniPlans: miniPlans ?? this.miniPlans,
       miniResult: miniResult ?? this.miniResult,
+      fractionalEndSeconds: fractionalEndSeconds ?? this.fractionalEndSeconds,
     );
   }
 }

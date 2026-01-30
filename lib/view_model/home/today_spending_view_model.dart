@@ -67,7 +67,7 @@ class TodaySpendingViewModel extends ChangeNotifier {
           );
 
       // 3) 하루 한도 로드 (플랜에서)
-      final savingState = await _planRepo.getSavingStateForCurrentUser();
+      // final savingState = await _planRepo.getSavingStateForCurrentUser();
       _dailyLimit = await _readDailyLimitFallback();
 
       // totalAmount 정리
@@ -85,7 +85,7 @@ class TodaySpendingViewModel extends ChangeNotifier {
       final plan = await _planRepo.getLatestPlanForCurrentUser();
       final metrics = plan?.result.totalMetrics;
       if (metrics == null) return 0;
-      return metrics.sumDailyConsume.round();
+      return metrics.dailyConsumeAmount.round();
     } catch (_) {
       return 0;
     }

@@ -54,9 +54,9 @@ class _AnimatedBudgetBarChartState extends State<AnimatedBudgetBarChart>
   late Animation<double> _savingAnim;
 
   // 계산된 값들
-  double get monthlyIncome => widget.plan.result.totalMetrics.sumMonthlyIncome.toDouble();
-  double get monthlyFixedCost => widget.plan.result.totalMetrics.sumMonthlyConsume.toDouble();
-  double get dailySpendingLimit => widget.plan.result.totalMetrics.sumDailyConsume.toDouble();
+  double get monthlyIncome => widget.plan.result.totalMetrics.monthlyIncomeAmount.toDouble();
+  double get monthlyFixedCost => widget.plan.result.totalMetrics.monthlyConsumeAmount.toDouble();
+  double get dailySpendingLimit => widget.plan.result.totalMetrics.dailyConsumeAmount.toDouble();
   double get monthlyVariableCost => dailySpendingLimit * 30;
   double get monthlySaving => widget.calculation?.monthlySaving ?? 0;
 

@@ -411,7 +411,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       .totalPlan
                       .result
                       .totalMetrics
-                      .sumMonthlyIncome
+                      .monthlyIncomeAmount
                       .toDouble(),
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
@@ -476,9 +476,9 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     context.read<ChatPlanViewModel>();
                     final metrics = vm.totalPlan.result.totalMetrics;
                     final double income =
-                    metrics.sumMonthlyIncome.toDouble();
+                    metrics.monthlyIncomeAmount.toDouble();
                     final double fixed =
-                    metrics.sumMonthlyConsume.toDouble();
+                    metrics.monthlyConsumeAmount.toDouble();
                     final double leftover = income - fixed;
                     return leftover > 0 ? leftover : 0.0;
                   }()),

@@ -104,24 +104,24 @@ class HomeViewModel extends ChangeNotifier {
   int get todaySpending => _todaySpending;
 
   // ---------- Firestore에서 저축 스냅샷 읽기 ----------
-  Future<void> _loadSavingBaseState() async {
-    final data = await _planRepo.getSavingStateForCurrentUser();
-    if (data == null) return;
-
-    _currentAsset = (data['currentAsset'] as num?)?.toDouble() ?? 0.0;
-    _snapshotAmount = (data['snapshotAmount'] as num?)?.toDouble() ?? 0.0;
-    _extraIncomeTotal =
-        (data['extraIncomeTotal'] as num?)?.toDouble() ?? 0.0;
-
-    final rawSnapshotAt = data['snapshotAt'];
-    if (rawSnapshotAt is Timestamp) {
-      _snapshotAt = rawSnapshotAt.toDate();
-    } else if (rawSnapshotAt is String) {
-      _snapshotAt = DateTime.tryParse(rawSnapshotAt) ?? DateTime.now();
-    } else {
-      _snapshotAt = DateTime.now();
-    }
-  }
+  // Future<void> _loadSavingBaseState() async {
+  //   final data = await _planRepo.getSavingStateForCurrentUser();
+  //   if (data == null) return;
+  //
+  //   _currentAsset = (data['currentAsset'] as num?)?.toDouble() ?? 0.0;
+  //   _snapshotAmount = (data['snapshotAmount'] as num?)?.toDouble() ?? 0.0;
+  //   _extraIncomeTotal =
+  //       (data['extraIncomeTotal'] as num?)?.toDouble() ?? 0.0;
+  //
+  //   final rawSnapshotAt = data['snapshotAt'];
+  //   if (rawSnapshotAt is Timestamp) {
+  //     _snapshotAt = rawSnapshotAt.toDate();
+  //   } else if (rawSnapshotAt is String) {
+  //     _snapshotAt = DateTime.tryParse(rawSnapshotAt) ?? DateTime.now();
+  //   } else {
+  //     _snapshotAt = DateTime.now();
+  //   }
+  // }
 
   // ---------- 월 로딩 (Repo 중심) ----------
   Future<void> _ensureMonthlyLoaded(DateTime date) async {
@@ -180,7 +180,7 @@ class HomeViewModel extends ChangeNotifier {
       _goalDate = _calc?.goalDateTime;
 
       // 4) Firestore 스냅샷 값 로드
-      await _loadSavingBaseState();
+      // await _loadSavingBaseState();
 
       if (_currentAsset == 0 &&
           _snapshotAmount == 0 &&
@@ -344,7 +344,7 @@ class HomeViewModel extends ChangeNotifier {
     final metrics = _latestPlan?.result.totalMetrics;
     if (metrics == null) return '—';
     return SavingPlanCalculator.formatAmount(
-      metrics.sumDailyConsume.toDouble(),
+      metrics.dailyConsumeAmount.toDouble(),
     ) +
         '원';
   }
@@ -354,9 +354,9 @@ class HomeViewModel extends ChangeNotifier {
 
   bool _hasMetrics(TotalPlan plan) {
     final metrics = plan.result.totalMetrics;
-    final hasIncome = metrics.sumMonthlyIncome > 0;
+    final hasIncome = metrics.monthlyIncomeAmount > 0;
     final hasTarget = (plan.targetAmount ?? 0) > 0;
-    final hasDaily = metrics.sumDailyConsume >= 0;
+    final hasDaily = metrics.dailyConsumeAmount >= 0;
     return hasIncome && hasTarget && hasDaily;
   }
 

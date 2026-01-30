@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
+import 'package:sotong_local/view_model/category/local_category_view_model.dart';
 
 import 'firebase_options.dart';
 import 'route.dart';
@@ -13,12 +14,14 @@ import 'data_source/auth_data_source.dart';
 import 'data_source/plan_data_source.dart';
 import 'data_source/category_data_source.dart';
 import 'data_source/record_data_source.dart';
+import 'data_source/ref_data_data_source.dart';
 
 // Repositories
 import 'repository/auth_repository.dart';
 import 'repository/plan_repository.dart';
 import 'repository/category_repository.dart';
 import 'repository/record_repository.dart';
+import 'repository/ref_data_repository.dart';
 
 // EventBus
 import 'services/plan_saved_event_bus.dart';
@@ -77,6 +80,7 @@ class MyApp extends StatelessWidget {
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
         Provider<CategoryDataSource>(create: (_) => CategoryDataSource()),
         Provider<RecordDataSource>(create: (_) => RecordDataSource()),
+        Provider<RefDataDataSource>(create: (_) => RefDataDataSource()),
 
         // 3) Repositories
         Provider<AuthRepository>(
@@ -100,6 +104,12 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthDataSource>(),
           ),
         ),
+        Provider<RefDataRepository>(
+          create: (ctx) => RefDataRepository(
+            ctx.read<RefDataDataSource>(),
+            ctx.read<AuthDataSource>(),
+          ),
+        ),
 
         // 4) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
@@ -112,6 +122,7 @@ class MyApp extends StatelessWidget {
           create: (ctx) => ChatPlanViewModel(
             ctx.read<AuthRepository>(),
             ctx.read<PlanRepository>(),
+            ctx.read<RefDataRepository>(),
             planSavedBus: ctx.read<PlanSavedEventBus>(),
           ),
         ),
@@ -154,6 +165,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<CategoryViewModel>(
           create: (ctx) => CategoryViewModel(ctx.read<CategoryRepository>()),
         ),
+        ChangeNotifierProvider(create: (_) => LocalCategoryViewModel()),
         ChangeNotifierProvider<SettingViewModel>(
           create: (ctx) => SettingViewModel(
             ctx.read<AuthRepository>(),
