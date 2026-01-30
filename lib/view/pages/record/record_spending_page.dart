@@ -1,12 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../component/appbars/custom_app_bar_title_subtitle.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/buttons/small_rounded_button.dart';
 import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
+
 import '../../../view_model/record/record_view_model.dart';
+import '../../../view_model/category/category_edit_view_model.dart'; // ✅ 추가
+
 import 'record_widgets/spending_input_entry.dart';
 
 class RecordSpendingPage extends StatefulWidget {
@@ -20,20 +26,27 @@ class _RecordSpendingPageState extends State<RecordSpendingPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 1) 소비 입력 초기화
       context.read<RecordViewModel>().resetSpending();
+
+      // 2) ✅ 카테고리 VM도 선택 날짜 기준으로 로드
+      final args = ModalRoute.of(context)?.settings.arguments;
+      final DateTime selectedDate = (args is DateTime) ? args : DateTime.now();
+      await context.read<CategoryEditViewModel>().setSelectedDate(selectedDate);
+      // setSelectedDate 내부에서 loadForSelectedDate() 호출됨
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final args = ModalRoute.of(context)?.settings.arguments;
-    final DateTime selectedDate =
-    (args is DateTime) ? args : DateTime.now(); // 안전 처리
+    final DateTime selectedDate = (args is DateTime) ? args : DateTime.now();
 
     final viewModel = context.watch<RecordViewModel>();
 
-    String formattedDate =
+    final formattedDate =
         '${selectedDate.year}년 ${selectedDate.month}월 ${selectedDate.day}일';
 
     return Scaffold(
@@ -57,7 +70,7 @@ class _RecordSpendingPageState extends State<RecordSpendingPage> {
                       ...viewModel.spendingEntries.map((entry) {
                         return SpendingInputEntry(
                           entry: entry,
-                          categoryItems: ['식비', '교통비', '문화비'],
+                          categoryItems: const [], // (호환성 유지용)
                           onDelete: () => viewModel.removeEntryByRef(entry),
                         );
                       }).toList(),
@@ -111,7 +124,7 @@ class _RecordSpendingPageState extends State<RecordSpendingPage> {
                 Navigator.pushNamed(
                   context,
                   '/record_diary',
-                  arguments: selectedDate
+                  arguments: selectedDate,
                 );
               },
             ),

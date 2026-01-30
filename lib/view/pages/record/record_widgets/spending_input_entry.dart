@@ -4,8 +4,12 @@ import 'package:provider/provider.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart';
 import '../../../../component/inputs/custom_text_field.dart';
-import '../../../../view_model/category/category_view_model.dart';
-import '../../plan/plan_widgets/plan_input_modal/category_utils.dart';
+
+import '../../../../view_model/category/category_edit_view_model.dart';
+import '../../../../model/category/category_snapshot_item.dart';
+
+import 'spending_category_sheet.dart'; // ✅ openSpendingCategorySheetWithKey, SpendingCategoryPick
+import '../../plan/plan_widgets/plan_input_modal/category_utils.dart'; // CategoryPill, dailyPresets
 
 class SpendingInputEntry extends StatefulWidget {
   final Map<String, dynamic> entry;
@@ -52,7 +56,7 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
     super.dispose();
   }
 
-  // ---------- 금액 포맷 유틸 ----------
+  // ---------- 금액 포맷 ----------
   String _unformatNumber(String v) => v.replaceAll(',', '');
   String _formatNumber(String v) {
     if (v.isEmpty) return '';
@@ -63,7 +67,7 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
           (m) => ',',
     );
   }
-  // -----------------------------------
+  // -----------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -72,10 +76,37 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
     final noteController =
     widget.entry['noteController'] as TextEditingController;
 
-    final categoryVM = context.watch<CategoryViewModel>();
+    final vm = context.watch<CategoryEditViewModel>();
 
-    final dailyCats = categoryVM.referenceCategories;
-    final dailyEmojiMap = { for (final c in dailyCats) c.name : c.emoji };
+    // ✅ plan/ref 전체 목록
+    final planCats = vm.draftPlan;
+    final refCats = vm.draftRef;
+
+    // ✅ 선택 상태: source / key / name
+    final String? selectedSource = widget.entry['categorySource'] as String?;
+    final String? selectedKey = widget.entry['categoryKey'] as String?;
+    final String selectedName = (widget.entry['category'] as String?) ?? '';
+
+    final bool isPlanSelected = selectedSource == 'plan';
+
+    // ✅ 현재 표시할 이모지(선택된 key 우선)
+    String? currentEmoji;
+    if (selectedKey != null && selectedKey.isNotEmpty) {
+      final foundInPlan =
+      planCats.where((c) => c.categoryId == selectedKey).toList();
+      final foundInRef = refCats.where((c) => c.categoryId == selectedKey).toList();
+      currentEmoji = foundInPlan.isNotEmpty
+          ? (foundInPlan.first.emoji ?? '💰')
+          : (foundInRef.isNotEmpty ? (foundInRef.first.emoji ?? '💰') : null);
+    }
+    // key 없으면 name 기반 fallback
+    currentEmoji ??= (() {
+      final p = planCats.where((c) => c.name == selectedName).toList();
+      if (p.isNotEmpty) return p.first.emoji ?? '💰';
+      final r = refCats.where((c) => c.name == selectedName).toList();
+      if (r.isNotEmpty) return r.first.emoji ?? '💰';
+      return null;
+    })();
 
     return Column(
       children: [
@@ -100,53 +131,54 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                       text: _categoryController.text,
                       presets: dailyPresets,
                       onTap: () async {
-                        // 1) 프리셋 + 커스텀 이름 합치기
-                        final presetNames = dailyPresets.map((p) => p.name).toList();
-                        final dailyCats = categoryVM.referenceCategories;
-                        final customNames = dailyCats.map((c) => c.name).toList();
-                        final allNames = <String>{...presetNames, ...customNames}.toList();
-
-                        final dailyEmojiMap = { for (final c in dailyCats) c.name : c.emoji };
-
-                        await openCategorySheet(
+                        final picked = await openSpendingCategorySheetWithKey(
                           context,
-                          _categoryController,
-                              (val) {
-                            setState(() {
-                              _categoryController.text = val;
-                              widget.entry['category'] = val;
-                            });
-                          },
-                          categories: allNames,
-                          categoryEmojis: dailyEmojiMap,
+                          planItems: planCats,
+                          refItems: refCats,
 
-                          onCategoryAdded: (name, emoji) async {
-                            await categoryVM.addReferenceCategory(name: name, emoji: emoji);
+                          // ✅ ref 편집 허용
+                          onAddRef: (name, emoji) {
+                            vm.draftAddRefCategoryByName(name: name, emoji: emoji);
                           },
-
-                          onCategoryRemoved: (name) async {
-                            final target = dailyCats.where((c) => c.name == name).toList();
-                            if (target.isEmpty) return;
-                            await categoryVM.archiveCategory(target.first.id);
+                          onRemoveRef: (name) {
+                            vm.draftDeleteRefByName(name);
+                          },
+                          onReorderRef: (newOrderNames) {
+                            vm.draftReorderRefByNames(newOrderNames);
                           },
 
-                          onReorder: (newOrder) {
-                            // 필요하면 저장
-                            // categoryVM.reorderReference(ids) 가 id 리스트를 요구하니까
-                            // 여기서 name -> id 변환해서 호출해야 함 (아직 안 쓰면 비워둬도 OK)
-                          },
+                          selectedName: widget.entry['category'] as String?,
+                          selectedKey: widget.entry['categoryKey'] as String?,
                         );
-                      },
 
+                        if (picked == null) return;
+
+                        setState(() {
+                          _categoryController.text = picked.name;
+                          widget.entry['category'] = picked.name;
+
+                          widget.entry['categoryKey'] = picked.key;
+                          widget.entry['categorySource'] = picked.source;      // 'plan' | 'ref'
+                          widget.entry['categoryEmoji'] = picked.emoji;        // (선택)
+                        });
+                      },
                       onClear: () {
                         setState(() {
                           _categoryController.clear();
                           widget.entry['category'] = '';
+                          widget.entry.remove('categoryKey');
+                          widget.entry.remove('categorySource');
+                          widget.entry.remove('categoryEmoji');
                         });
                       },
-                      customEmoji: dailyEmojiMap[_categoryController.text],
+                      customEmoji: currentEmoji,
+                      highlight: true,
+                      highlightColor: isPlanSelected
+                          ? AppColors.primary.withOpacity(0.08)
+                          : const Color(0xFF6B7280).withOpacity(0.08),
                     ),
                   ),
+
                   const SizedBox(width: 8),
 
                   // 금액 입력
@@ -177,6 +209,7 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                   ),
                 ],
               ),
+
               const SizedBox(height: 8),
 
               // 노트 입력
@@ -185,7 +218,6 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                 hintText: '노트 작성 (20자 이내)',
                 onChanged: (text) {
                   setState(() {});
-
                   if (text.length > 20) {
                     noteController.text = text.substring(0, 20);
                     noteController.selection = TextSelection.fromPosition(
@@ -196,9 +228,41 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                 },
                 height: 60,
               ),
+
+              // 출처 표시 뱃지
+              if ((_categoryController.text).trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isPlanSelected
+                            ? AppColors.primary.withOpacity(0.12)
+                            : const Color(0xFF6B7280).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        isPlanSelected ? '플랜 카테고리' : '참고 카테고리',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isPlanSelected
+                              ? AppColors.primary
+                              : const Color(0xFF6B7280),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
+
         const SizedBox(height: AppSpacing.fieldSpacing),
         const Divider(
           color: AppColors.greyBackground,

@@ -22,7 +22,7 @@ class RecordRepository {
   String? get _uid => _authDataSource.currentUser?.uid;
 
   /// TODO: 나중에 connectivity_plus 로 실제 네트워크 상태 반영
-  bool isOnline = true;
+  bool isOnline = false;
 
   // ============== 내부: 키/캐시/dirty 헬퍼 ==============
   String _monthKey(String monthKey) {

@@ -444,11 +444,13 @@ class PlanEditViewModel extends ChangeNotifier {
 
   bool _isSameEntries(List<Entry> a, List<Entry> b) {
     if (a.length != b.length) return false;
+
     for (var i = 0; i < a.length; i++) {
       final lhs = a[i];
       final rhs = b[i];
+
       if (lhs.amount != rhs.amount ||
-          lhs.category != rhs.category ||
+          lhs.categoryKey != rhs.categoryKey ||
           lhs.note != rhs.note) {
         return false;
       }

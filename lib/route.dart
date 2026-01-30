@@ -5,7 +5,7 @@ import 'package:sotong_local/view/pages/addIncome/limit_apply_page.dart';
 import 'package:sotong_local/view/pages/addIncome/period_apply_page.dart';
 import 'package:sotong_local/view/pages/auth/signup_page.dart';
 import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
-import 'package:sotong_local/view/pages/category_edit.dart';
+import 'package:sotong_local/view/pages/category/category_edit.dart';
 import 'package:sotong_local/view/pages/communication/communication_page.dart';
 import 'package:sotong_local/view/pages/home/home_copy.dart';
 import 'package:sotong_local/view/pages/home/home_page.dart';
@@ -26,6 +26,7 @@ import 'package:sotong_local/view/pages/setting/edit_plan/edit_saving_target_pag
 import 'package:sotong_local/view/pages/setting/settings_page.dart';
 import 'package:sotong_local/view/test_insoo/home/home_test.dart';
 import 'package:sotong_local/view/test_insoo/home/home_widget_test_page.dart';
+import 'package:sotong_local/view/test_insoo/home/today_spending_test_page.dart';
 
 import 'view/pages/auth/login_page.dart';
 
@@ -79,4 +80,5 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/home_widget_test': (_) => const HomeWidgetTestPage(),
   '/home_test': (_) => const HomeTestPage(),
   '/home_copy': (_) => const HomeCopyPage(),
+  '/today_spending_test': (_) => const TodaySpendingTestPage(),
 };

@@ -3,8 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/view_model/category/local_category_view_model.dart';
-
 import 'firebase_options.dart';
 import 'route.dart';
 import 'component/theme/app_colors.dart';
@@ -12,16 +10,16 @@ import 'component/theme/app_colors.dart';
 // DataSources
 import 'data_source/auth_data_source.dart';
 import 'data_source/plan_data_source.dart';
-import 'data_source/category_data_source.dart';
 import 'data_source/record_data_source.dart';
 import 'data_source/ref_data_data_source.dart';
+import 'data_source/category_prefs_data_source.dart';
 
 // Repositories
 import 'repository/auth_repository.dart';
 import 'repository/plan_repository.dart';
-import 'repository/category_repository.dart';
 import 'repository/record_repository.dart';
 import 'repository/ref_data_repository.dart';
+import 'repository/category_prefs_repository.dart';
 
 // EventBus
 import 'services/plan_saved_event_bus.dart';
@@ -33,9 +31,10 @@ import 'view_model/auth/signup_view_model.dart';
 import 'view_model/plan/chat_plan_viewmodel.dart';
 import 'view_model/home/home_view_model.dart';
 import 'view_model/home/today_spending_view_model.dart';
+import 'view_model/category/local_category_view_model.dart';
+import 'view_model/category/category_edit_view_model.dart';
 import 'view_model/record/record_view_model.dart';
 import 'view_model/report/report_view_model.dart';
-import 'view_model/category/category_view_model.dart';
 import 'view_model/communication/communication_view_model.dart';
 import 'view_model/setting/setting_view_model.dart';
 import 'view_model/addIncome/add_income_view_model.dart';
@@ -78,9 +77,9 @@ class MyApp extends StatelessWidget {
         // 2) DataSources
         Provider<AuthDataSource>(create: (_) => AuthDataSource()),
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
-        Provider<CategoryDataSource>(create: (_) => CategoryDataSource()),
         Provider<RecordDataSource>(create: (_) => RecordDataSource()),
         Provider<RefDataDataSource>(create: (_) => RefDataDataSource()),
+        Provider<CategoryPrefsDataSource>(create: (_) => CategoryPrefsDataSource(),),
 
         // 3) Repositories
         Provider<AuthRepository>(
@@ -89,12 +88,6 @@ class MyApp extends StatelessWidget {
         Provider<PlanRepository>(
           create: (ctx) => PlanRepository(
             ctx.read<PlanDataSource>(),
-            ctx.read<AuthDataSource>(),
-          ),
-        ),
-        Provider<CategoryRepository>(
-          create: (ctx) => CategoryRepository(
-            ctx.read<CategoryDataSource>(),
             ctx.read<AuthDataSource>(),
           ),
         ),
@@ -107,6 +100,12 @@ class MyApp extends StatelessWidget {
         Provider<RefDataRepository>(
           create: (ctx) => RefDataRepository(
             ctx.read<RefDataDataSource>(),
+            ctx.read<AuthDataSource>(),
+          ),
+        ),
+        Provider<CategoryPrefsRepository>(
+          create: (ctx) => CategoryPrefsRepository(
+            ctx.read<CategoryPrefsDataSource>(),
             ctx.read<AuthDataSource>(),
           ),
         ),
@@ -147,14 +146,12 @@ class MyApp extends StatelessWidget {
             ctx.read<SpendingEventBus>(),
           ),
         ),
-
         ChangeNotifierProvider<ReportViewModel>(
           create: (ctx) => ReportViewModel(
             ctx.read<RecordRepository>(),
             ctx.read<SpendingEventBus>(),
           ),
         ),
-
         ChangeNotifierProvider<CommunicationViewModel>(
           create: (ctx) => CommunicationViewModel(
             ctx.read<RecordRepository>(),
@@ -162,14 +159,17 @@ class MyApp extends StatelessWidget {
             ctx.read<SpendingEventBus>(),
           ),
         ),
-        ChangeNotifierProvider<CategoryViewModel>(
-          create: (ctx) => CategoryViewModel(ctx.read<CategoryRepository>()),
-        ),
         ChangeNotifierProvider(create: (_) => LocalCategoryViewModel()),
+        ChangeNotifierProvider(
+          create: (context) => CategoryEditViewModel(
+            context.read<CategoryPrefsRepository>(),
+            context.read<RefDataRepository>(),
+            context.read<PlanRepository>(),
+          ),
+        ),
         ChangeNotifierProvider<SettingViewModel>(
           create: (ctx) => SettingViewModel(
             ctx.read<AuthRepository>(),
-            ctx.read<CategoryRepository>(),
             ctx.read<RecordRepository>(),
           ),
         ),

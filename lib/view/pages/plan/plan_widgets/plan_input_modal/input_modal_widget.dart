@@ -176,6 +176,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
         final seed = Entry(
           idx: DateTime.now().millisecondsSinceEpoch + items.length,
           amount: 0.0,
+          categoryKey: '',
           category: '',
           type: widget.type,
         );
@@ -187,6 +188,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
         return Entry(
           idx: DateTime.now().millisecondsSinceEpoch + i,
           amount: 0.0,
+          categoryKey: '',
           category: '',
           type: widget.type,
         );
@@ -219,7 +221,13 @@ class _InputModalWidgetState extends State<InputModalWidget>
     final newIdx = DateTime.now().millisecondsSinceEpoch + items.length;
     setState(() {
       items.add(
-        Entry(idx: newIdx, amount: 0.0, category: '', type: widget.type),
+        Entry(
+          idx: newIdx,
+          amount: 0.0,
+          categoryKey: '',
+          category: '',
+          type: widget.type,
+        ),
       );
       _initializeControllers(newIdx, '', 0.0);
       if (error.isNotEmpty) error = '';
@@ -229,11 +237,24 @@ class _InputModalWidgetState extends State<InputModalWidget>
   void updateItem(int idx, String field, dynamic value) {
     final i = items.indexWhere((e) => e.idx == idx);
     if (i == -1) return;
+
     if (field == 'category') {
-      items[i].category = value as String;
+      final nextName = (value as String);
+      final prevName = items[i].category;
+      final prevKey = items[i].categoryKey;
+
+      items[i].category = nextName;
+
+      // 임시 정책: key가 비었거나, key가 이전 이름 기반이면 함께 갱신
+      final prevNameTrim = prevName.trim();
+      if (prevKey.trim().isEmpty || prevKey == prevNameTrim) {
+        final nextTrim = nextName.trim();
+        items[i].categoryKey = nextTrim; // 임시로 name을 key로 사용
+      }
     } else if (field == 'amount') {
       items[i].amount = (value as num).toDouble();
     }
+
     setState(() {
       if (error.isNotEmpty) error = '';
     });

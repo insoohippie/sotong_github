@@ -9,12 +9,8 @@ import '../../model/commands/update_daily_command.dart';
 import '../../model/commands/update_monthly_command.dart';
 import '../../model/plan/plan_edit_result.dart';
 import '../../model/plan/total_plan.dart';
-import '../../model/plan/plan_metrics.dart';
 import '../../model/plan/mini_plan.dart';
 import '../../model/refData/ref_data.dart';
-import '../../model/refData/monthly_income.dart';
-import '../../model/refData/monthly_consume.dart';
-import '../../model/refData/daily_consume.dart';
 import '../../model/plan/sub_plan.dart';
 import '../../model/saving_calculation_result.dart';
 import '../../repository/auth_repository.dart';
@@ -753,13 +749,13 @@ class ChatPlanViewModel extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 50));
     }
   }
-
   void testPrint() {
     print('totalPlan: $_totalPlan');
     print('refData: $refData');
     print('calculationResult: $calculationResult');
     print('summaryRecommendation: $_summaryRecommendation');
   }
+
 
   Future<void> _preparePlanStructureForSave() async {
     debugPrint('[preparePlan] start');
@@ -1095,6 +1091,8 @@ class ChatPlanViewModel extends ChangeNotifier {
 
   bool _isSameMonth(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month;
+
+  DateTime _normalizeDay(DateTime d) => DateTime(d.year, d.month, d.day);
 
   String _nextMiniDocId(DateTime applyDate) {
     final key = _formatYearMonth(applyDate);

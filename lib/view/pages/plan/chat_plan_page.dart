@@ -14,7 +14,7 @@ import '../../../view_model/services/saving_calculator.dart';
 import '../../../model/plan/chat_message.dart';
 import '../../../model/refData/entry.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
-import '../../../view_model/category/category_view_model.dart';
+import '../../../view_model/category/category_edit_view_model.dart';
 
 class ChatPlanPage extends StatefulWidget {
   const ChatPlanPage({Key? key}) : super(key: key);
@@ -77,11 +77,16 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           ),
         );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // ✅ 1) 채팅 초기화
       final viewModel = Provider.of<ChatPlanViewModel>(context, listen: false);
       if (viewModel.messages.isEmpty) {
         viewModel.initializeChat();
       }
+
+      // ✅ 2) 카테고리(오늘 기준) 로드
+      final categoryVM = Provider.of<CategoryEditViewModel>(context, listen: false);
+      await categoryVM.setSelectedDate(DateTime.now());
     });
   }
 
@@ -160,10 +165,11 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: Consumer3<ChatPlanViewModel, CategoryViewModel, LocalCategoryViewModel>(
+
+      body: Consumer3<ChatPlanViewModel, CategoryEditViewModel, LocalCategoryViewModel>(
         builder: (context, viewModel, categoryVM, localCategoryVM, child) {
-          _maybeScrollToBottomOnNewMessage(
-              viewModel.messages, viewModel.isTyping);
+          _maybeScrollToBottomOnNewMessage(viewModel.messages, viewModel.isTyping);
+
 
           bool animDone = false;
           if (viewModel.messages.isNotEmpty &&
@@ -173,8 +179,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
               orElse: () => viewModel.messages.last,
             );
             animDone = lastBotMsg.type == MessageType.bot &&
-                ChatMessageWidget.completedMessageIds
-                    .contains(lastBotMsg.id);
+                ChatMessageWidget.completedMessageIds.contains(lastBotMsg.id);
           }
 
           final bool lastIsSummary = viewModel.messages.isNotEmpty &&
@@ -209,8 +214,9 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           final step = viewModel.currentStep;
           final raw = _inputController.text;
 
-          final dailyCats = categoryVM.referenceCategories; // B = 참고 카테고리
-          final dailyEmojiMap = { for (final c in dailyCats) c.name : c.emoji };
+          // ✅ “참고 카테고리” 풀을 draftRef로 가져옴
+          final dailyCats = categoryVM.draftRef; // List<CategorySnapshotItem>
+          final dailyEmojiMap = {for (final c in dailyCats) c.name: c.emoji};
 
           return Stack(
             children: [
@@ -235,8 +241,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                           final shouldWait =
                           shouldWaitForAnimation(viewModel.currentStep);
 
-                          final isLastBot =
-                          (message.type == MessageType.bot &&
+                          final isLastBot = (message.type == MessageType.bot &&
                               message.id == lastBotId);
 
                           if (shouldWait && isLastBot) {
@@ -252,19 +257,14 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                             );
                           }
                         }).toList(),
-
-                        if (viewModel.isTyping)
-                          const TypingIndicatorWidget(),
-
+                        if (viewModel.isTyping) const TypingIndicatorWidget(),
                         if (raw.isNotEmpty &&
                             double.tryParse(_unformatNumber(raw)) != null &&
-                            (
-                                (step == ChatStep.targetAmount &&
-                                    double.parse(_unformatNumber(raw)) > 0) ||
-                                    (step == ChatStep.currentAsset)))
+                            ((step == ChatStep.targetAmount &&
+                                double.parse(_unformatNumber(raw)) > 0) ||
+                                (step == ChatStep.currentAsset)))
                           AmountGuideWidget(
-                            amount:
-                            double.parse(_unformatNumber(raw)),
+                            amount: double.parse(_unformatNumber(raw)),
                             type: step == ChatStep.targetAmount
                                 ? '목표금액'
                                 : '보유금액',
@@ -343,9 +343,12 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   placeholder: '수입 카테고리',
                   type: EntryType.fixed,
                   customCategories: localCategoryVM.customIncomeCategories,
-                  onCustomCategoryAdded: localCategoryVM.addCustomIncomeCategory,
-                  onCustomCategoryRemoved: localCategoryVM.removeCustomIncomeCategory,
-                  onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomIncomeCategoryWithEmoji,
+                  onCustomCategoryAdded:
+                  localCategoryVM.addCustomIncomeCategory,
+                  onCustomCategoryRemoved:
+                  localCategoryVM.removeCustomIncomeCategory,
+                  onCustomCategoryAddedWithEmoji:
+                  localCategoryVM.addCustomIncomeCategoryWithEmoji,
                   categoryEmojis: localCategoryVM.incomeCategoryEmojis,
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
@@ -353,17 +356,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     final now = DateTime.now();
                     vm.updateRefData(
                       fixedIncomes: items,
-                      applyDate:
-                      DateTime(now.year, now.month, now.day),
-                      modEndDate:
-                      DateTime(now.year, now.month, now.day),
+                      applyDate: DateTime(now.year, now.month, now.day),
+                      modEndDate: DateTime(now.year, now.month, now.day),
                     );
 
                     final itemLines = items
-                        .map(
-                          (e) =>
-                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
-                    )
+                        .map((e) =>
+                    '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -396,15 +395,18 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                 // 2) 고정 소비
                 InputModalWidget(
                   isOpen: _showFixedCostModal,
-                  onClose: () =>
-                      setState(() => _showFixedCostModal = false),
+                  onClose: () => setState(() => _showFixedCostModal = false),
                   title: '고정 소비 입력하기',
                   placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
-                  customCategories: localCategoryVM.customFixedExpenseCategories,
-                  onCustomCategoryAdded: localCategoryVM.addCustomFixedExpenseCategory,
-                  onCustomCategoryRemoved: localCategoryVM.removeCustomFixedExpenseCategory,
-                  onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomFixedExpenseCategoryWithEmoji,
+                  customCategories:
+                  localCategoryVM.customFixedExpenseCategories,
+                  onCustomCategoryAdded:
+                  localCategoryVM.addCustomFixedExpenseCategory,
+                  onCustomCategoryRemoved:
+                  localCategoryVM.removeCustomFixedExpenseCategory,
+                  onCustomCategoryAddedWithEmoji: localCategoryVM
+                      .addCustomFixedExpenseCategoryWithEmoji,
                   categoryEmojis: localCategoryVM.fixedExpenseCategoryEmojis,
                   monthlyIncome: context
                       .read<ChatPlanViewModel>()
@@ -418,17 +420,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     final now = DateTime.now();
                     vm.updateRefData(
                       fixedConsumptions: items,
-                      applyDate:
-                      DateTime(now.year, now.month, now.day),
-                      modEndDate:
-                      DateTime(now.year, now.month, now.day),
+                      applyDate: DateTime(now.year, now.month, now.day),
+                      modEndDate: DateTime(now.year, now.month, now.day),
                     );
 
                     final itemLines = items
-                        .map(
-                          (e) =>
-                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
-                    )
+                        .map((e) =>
+                    '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -450,54 +448,53 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                 // 3) 일 변동 소비
                 InputModalWidget(
                   isOpen: _showDailySpendingModal,
-                  onClose: () =>
-                      setState(() => _showDailySpendingModal = false),
+                  onClose: () => setState(() => _showDailySpendingModal = false),
                   title: '하루 사용 금액',
                   placeholder: '하루 소비 항목',
                   type: EntryType.daily,
+
+                  // ✅ customCategories, emojis도 draftRef 기반
                   customCategories: dailyCats.map((c) => c.name).toList(),
                   categoryEmojis: dailyEmojiMap,
-                  // 새 카테고리 추가(이름+이모지) -> reference로 저장
+
+                  // ✅ 추가/삭제는 draftRef만 수정
                   onCustomCategoryAddedWithEmoji: (name, emoji) async {
-                    await categoryVM.addReferenceCategory(name: name, emoji: emoji);
+                    categoryVM.draftAddRefCategoryByName(
+                      name: name,
+                      emoji: emoji,
+                    );
                   },
-                  // InputModalWidget이 “텍스트만” 추가 콜백을 쓰면 이것도 필요
                   onCustomCategoryAdded: (name) async {
-                    await categoryVM.addReferenceCategory(name: name, emoji: '💰');
+                    categoryVM.draftAddRefCategoryByName(
+                      name: name,
+                      emoji: '💰',
+                    );
                   },
-                  // 삭제 -> archived 처리 (name -> id 찾아서)
                   onCustomCategoryRemoved: (name) async {
-                    final target = dailyCats.where((c) => c.name == name).toList();
-                    if (target.isEmpty) return;
-                    await categoryVM.archiveCategory(target.first.id);
+                    categoryVM.draftDeleteRefByName(name);
                   },
+
                   monthlyIncome: (() {
-                    final vm =
-                    context.read<ChatPlanViewModel>();
+                    final vm = context.read<ChatPlanViewModel>();
                     final metrics = vm.totalPlan.result.totalMetrics;
-                    final double income =
-                    metrics.monthlyIncomeAmount.toDouble();
-                    final double fixed =
-                    metrics.monthlyConsumeAmount.toDouble();
+                    final double income = metrics.monthlyIncomeAmount.toDouble();
+                    final double fixed = metrics.monthlyConsumeAmount.toDouble();
                     final double leftover = income - fixed;
                     return leftover > 0 ? leftover : 0.0;
                   }()),
+
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
                     final now = DateTime.now();
                     vm.updateRefData(
                       dailyConsumptions: items,
-                      applyDate:
-                      DateTime(now.year, now.month, now.day),
-                      modEndDate:
-                      DateTime(now.year, now.month, now.day),
+                      applyDate: DateTime(now.year, now.month, now.day),
+                      modEndDate: DateTime(now.year, now.month, now.day),
                     );
 
                     final itemLines = items
-                        .map(
-                          (e) =>
-                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
-                    )
+                        .map((e) =>
+                    '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
