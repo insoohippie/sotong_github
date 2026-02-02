@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
 import '../../../component/appbars/custom_app_bar_home.dart';
 import '../../../component/buttons/small_rounded_button.dart';
-import '../../../component/chart/half_donut_chart.dart';
 import '../../../component/containers/rounded_info_container.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';

@@ -386,10 +386,10 @@ class _InputModalWidgetState extends State<InputModalWidget>
     final kind = _resolveKind();
     if (kind == ItemKind.income) {
       titleText = '월 수입을 입력해주세요';
-      captionText = '매달 반복적으로 들어오는 수입을 항목별로 입력해요.';
+      captionText = '매달 들어오는 수입을 항목별로 입력해요.';
     } else if (kind == ItemKind.fixed) {
       titleText = '고정 소비를 입력해주세요';
-      captionText = '매달 빠짐없이 자동으로 지출되는 비용만 입력해요.';
+      captionText = '매달 고정적으로 지출되는 비용만 입력해요.';
     }
 
     return Visibility(

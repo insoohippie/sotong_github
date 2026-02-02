@@ -71,7 +71,6 @@ Widget _buildSummaryChartWithRecommendation(
     BuildContext context,
     ChatPlanViewModel viewModel,
     ) {
-  final recommendation = viewModel.summaryRecommendation; // null 가능
   final canEdit = context.read<ChatPlanViewModel>().currentStep != ChatStep.autoService;
 
   return Column(
@@ -97,16 +96,6 @@ Widget _buildSummaryChartWithRecommendation(
           }
         } : null,
       ),
-
-      const SizedBox(height: 16),
-
-      // 추천 멘트 (봇 말풍선 느낌, 채팅에 쌓이지 않음)
-      if (recommendation != null && recommendation.isNotEmpty)
-        _BotBubbleTyping(
-          text: recommendation,
-          delay: const Duration(milliseconds: 500),   // ⏱️ 타이핑 시작 전 대기
-          charInterval: const Duration(milliseconds: 22), // ⌨️ 글자당 속도
-        ),
 
       const SizedBox(height: 8),
     ],

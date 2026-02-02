@@ -105,7 +105,14 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                           spacing: 12,
                           runSpacing: 12,
                           children: [
-                            ...['기쁨', '혼란', '슬픔', '피곤', '화남', '플렉스'].map((emotion) {
+                            ...[
+                              '평온',
+                              '좋음',
+                              '슬픔',
+                              '스트레스',
+                              '동기부여',
+                              '아무 감정 없음',
+                            ].map((emotion) {
                               final selected =
                                   (viewModel.selectedEmotion ?? '') == emotion;
 
@@ -116,11 +123,29 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                                     3,
                                 child: SelectableEmojiSelector(
                                   label: emotion,
-                                  emojiWidget: Lottie.asset(
-                                    _lottiePathForEmotion(emotion),
-                                    width: 40,
-                                    height: 40,
-                                    fit: BoxFit.contain,
+                                  emojiWidget: Builder(
+                                    builder: (context) {
+                                      try {
+                                        return Lottie.asset(
+                                          _lottiePathForEmotion(emotion),
+                                          width: 40,
+                                          height: 40,
+                                          fit: BoxFit.contain,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                            return const Icon(
+                                              Icons.sentiment_neutral,
+                                              size: 40,
+                                            );
+                                          },
+                                        );
+                                      } catch (e) {
+                                        return const Icon(
+                                          Icons.sentiment_neutral,
+                                          size: 40,
+                                        );
+                                      }
+                                    },
                                   ),
                                   selected: selected,
                                   onTap: () {
@@ -186,20 +211,20 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
 
   String _lottiePathForEmotion(String emotion) {
     switch (emotion) {
-      case '기쁨':
-        return 'assets/animations/Great.json';
-      case '혼란':
-        return 'assets/animations/UU.json';
+      case '평온':
+        return 'assets/animations/평온.json';
+      case '좋음':
+        return 'assets/animations/좋음.json';
       case '슬픔':
-        return 'assets/animations/Great.json';
-      case '피곤':
-        return 'assets/animations/UU.json';
-      case '화남':
-        return 'assets/animations/Great.json';
-      case '플렉스':
-        return 'assets/animations/UU.json';
+        return 'assets/animations/슬픔.json';
+      case '스트레스':
+        return 'assets/animations/스트레스.json';
+      case '동기부여':
+        return 'assets/animations/동기부여.json';
+      case '아무 감정 없음':
+        return 'assets/animations/아무 감정 없음.json';
       default:
-        return 'assets/lottie/default.json';
+        return 'assets/animations/평온.json';
     }
   }
 }

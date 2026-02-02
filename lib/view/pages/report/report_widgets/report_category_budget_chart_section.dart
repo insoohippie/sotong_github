@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:sotong_local/component/theme/app_colors.dart';
+import '../../../../component/buttons/period_toggle.dart';
 
 import '../../../../view_model/report/report_view_model.dart';
 
@@ -504,81 +505,18 @@ class _ReportCategoryBudgetChartSectionState
 
   Widget _buildPeriodToggle(ReportViewModel vm) {
     const periods = ['주간', '월간'];
-    final selectedIndex = periods.indexOf(vm.budgetPeriod);
 
-    Alignment _alignmentForIndex(int index) {
-      switch (index) {
-        case 0:
-          return Alignment.centerLeft;
-        case 1:
-          return Alignment.centerRight;
-        default:
-          return Alignment.centerLeft;
-      }
-    }
-
-    return Container(
+    return TwoOptionToggle(
+      labels: periods,
+      selected: vm.budgetPeriod,
       width: 120,
       height: 34,
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey[300]!, width: 1),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
-            alignment: _alignmentForIndex(selectedIndex),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
-              child: Container(
-                width: 52,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Row(
-            children: List.generate(periods.length, (index) {
-              final period = periods[index];
-              final isSelected = vm.budgetPeriod == period;
-              return Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (vm.budgetPeriod != period) {
-                      _resetSelectionState();
-                      vm.setBudgetPeriod(period);
-                    }
-                  },
-                  child: Center(
-                    child: Text(
-                      period,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected ? Colors.black87 : Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
+      onChanged: (period) {
+        if (vm.budgetPeriod != period) {
+          _resetSelectionState();
+          vm.setBudgetPeriod(period);
+        }
+      },
     );
   }
 }

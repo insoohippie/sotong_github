@@ -48,6 +48,7 @@ Future<void> main() async {
   await Hive.initFlutter();
   await Hive.openBox('monthly_spending');
   await Hive.openBox('categories');
+  await Hive.openBox('past_plans');
 
   // 2) Firebase 초기화
   await Firebase.initializeApp(

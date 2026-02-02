@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../component/buttons/custom_button.dart';
+import '../../../../component/texts/caption_with_dot.dart';
+import '../../../../component/theme/app_colors.dart';
 import '../../../../model/record/spending_entry.dart';
 import '../../../../view_model/communication/communication_view_model.dart';
 
@@ -19,7 +22,7 @@ void showDateDetailModal({
       final mediaQuery = MediaQuery.of(context);
 
       return FractionallySizedBox(
-        heightFactor: 0.8,
+        heightFactor: 0.5,
         child: Padding(
           padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
           child: Container(
@@ -31,7 +34,7 @@ void showDateDetailModal({
               top: false,
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -59,7 +62,7 @@ class _HandleBar extends StatelessWidget {
       child: Container(
         width: 40,
         height: 4,
-        margin: const EdgeInsets.only(bottom: 16),
+        margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
           color: Colors.grey[300],
           borderRadius: BorderRadius.circular(999),
@@ -86,13 +89,16 @@ class _RecordedDateContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _Header(vm: vm, day: day),
+        const SizedBox(height: 20),
         if (emoji.isNotEmpty) ...[
           _EmotionRow(vm: vm, emoji: emoji),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
         ],
         _SpendingList(entries: entries, total: amount),
-        const SizedBox(height: 12),
-        _DiaryBox(diary: diary),
+        if (diary.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          _DiaryBox(diary: diary),
+        ],
       ],
     );
   }
@@ -111,14 +117,18 @@ class _Header extends StatelessWidget {
       children: [
         Text(
           '${vm.selectedMonth}월 $day일',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppColors.text,
+          ),
         ),
         IconButton(
           onPressed: () {
             Navigator.of(context).pop();
             // TODO: 수정 페이지로 이동
           },
-          icon: const Icon(Icons.edit, size: 20),
+          icon: const Icon(Icons.edit, size: 22, color: AppColors.primary),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
         ),
@@ -135,12 +145,26 @@ class _EmotionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(emoji, style: const TextStyle(fontSize: 20)),
-        const SizedBox(width: 8),
-        Text(vm.emotionNameFromEmoji(emoji), style: const TextStyle(fontSize: 16)),
-      ],
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.lightBlue,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 24)),
+          const SizedBox(width: 12),
+          Text(
+            vm.emotionNameFromEmoji(emoji),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppColors.text,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -159,22 +183,43 @@ class _SpendingList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('소비 목록', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
+          const Text(
+            '소비 목록',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.text,
+            ),
+          ),
+          const SizedBox(height: 16),
           if (entries.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
-              child: Text('소비 내역이 없어요.',
-                  style: TextStyle(fontSize: 13, color: Colors.grey)),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: Text(
+                  '소비 내역이 없어요.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.subText,
+                  ),
+                ),
+              ),
             )
           else
             ...entries.map((e) => _SpendingItem(
@@ -182,21 +227,40 @@ class _SpendingList extends StatelessWidget {
               amount: e.amount.round(),
               note: e.note,
             )),
-          const Divider(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('총 합산', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              Text(
-                '${_format(total)}원',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
+          if (entries.isNotEmpty) ...[
+            const Divider(height: 24),
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.lightBlue,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      '총 합산',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.text,
+                      ),
+                    ),
+                    Text(
+                      '${_format(total)}원',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ],
       ),
     );
@@ -222,7 +286,7 @@ class _SpendingItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -230,19 +294,36 @@ class _SpendingItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(category,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                Text(
+                  category,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text,
+                  ),
+                ),
                 if (note != null && note!.trim().isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(note!,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      note!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppColors.subText,
+                      ),
+                    ),
                   ),
               ],
             ),
           ),
-          Text('${_format(amount)}원',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          Text(
+            '${_format(amount)}원',
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.text,
+            ),
+          ),
         ],
       ),
     );
@@ -256,17 +337,39 @@ class _DiaryBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey[200]!),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('소비 일지', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          Text(diary, style: const TextStyle(fontSize: 13)),
+          const Text(
+            '소비 일지',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.text,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            diary,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.text,
+              height: 1.5,
+            ),
+          ),
         ],
       ),
     );
@@ -285,27 +388,25 @@ class _EmptyDateContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '${vm.selectedMonth}월 $day일',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        const Text('소비를 기록해주세요', style: TextStyle(fontSize: 16, color: Colors.grey)),
-        const SizedBox(height: 24),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: const Text('소비입력하러 가기',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+          '${vm.selectedMonth}월 $day일의 소비가 입력되지 않았습니다',
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.text,
           ),
+        ),
+        const SizedBox(height: 12),
+        const CaptionWithDot(
+          text: '소비가 기록되지 않으면 플랜에 등록된 일일소비로 등록돼요😉',
+        ),
+        const SizedBox(height: 32),
+        CustomButton(
+          text: '소비 등록하기',
+          onPressed: () {
+            Navigator.pop(context);
+            // TODO: 소비 입력 페이지로 이동
+          },
+          height: 56,
         ),
       ],
     );

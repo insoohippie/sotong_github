@@ -70,25 +70,37 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
     final vm = context.watch<ChatPlanViewModel>();
     final target = vm.totalPlan.targetAmount?.toDouble();
     final current = vm.totalPlan.currentAsset.toDouble();
-    final monthlySaving = (widget.monthlyIncome - monthlySpending).toDouble();
 
     // 예상 도달 안내문
     String? helperLine;
+
+    // 월 수입 - 월 고정소비 < 0인 경우 경고 표시
+    final hasNegativeMonthlyIncome = widget.monthlyIncome < 0;
 
     if (over) {
       helperLine =
       '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome)}원을 초과했어요.';
     } else if (target != null && target > 0) {
-      final remaining = target - current;
-
-      if (remaining <= 0) {
-        helperLine = '🎉 이미 목표를 달성했어요!';
-      } else if (monthlySaving > 0) {
-        final months = (remaining / monthlySaving).ceil();
-        helperLine = '목표 금액까지 약 ${months}개월 소요!';
+      // 목표 금액이 있으면 소요 기간 계산 우선 (summary와 동일한 계산 방식 사용)
+      // summary에서는 daysToGoal / 30.0을 사용하므로 동일하게 계산
+      final calc = vm.calculate();
+      if (calc != null && calc.daysToGoal > 0) {
+        final months = calc.daysToGoal / 30.0;
+        helperLine = '목표 금액까지 약 ${months.toStringAsFixed(1)}개월 걸려요!';
       } else {
-        helperLine = '⚠️ 현재 금액으로는 저축이 어려워요. 일일 소비를 조정해볼까요?';
+        final remaining = target - current;
+        if (remaining <= 0) {
+          helperLine = '🎉 이미 목표를 달성했어요!';
+        } else if (hasNegativeMonthlyIncome) {
+          // 월 수입 - 월 고정소비 < 0일 때만 경고 표시
+          helperLine = '⚠️ 현재 금액으로는 저축이 어려워요. 일일 소비를 조정해볼까요?';
+        } else {
+          helperLine = '목표 금액을 입력하면 예상 소요 기간을 계산해드려요.';
+        }
       }
+    } else if (hasNegativeMonthlyIncome) {
+      // 목표 금액이 없고, 월 수입 - 월 고정소비 < 0일 때만 경고 표시
+      helperLine = '⚠️ 현재 금액으로는 저축이 어려워요. 일일 소비를 조정해볼까요?';
     } else {
       helperLine = '목표 금액을 입력하면 예상 소요 기간을 계산해드려요.';
     }
@@ -97,8 +109,8 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
         !widget.isEdit && target != null && target > 0 && widget.monthlyIncome > target;
     final String? targetWarningText = showTargetWarning
         ? '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome.toInt())}원이 '
-            '목표 금액 ${NumberFormat('#,###').format(target!.toInt())}원을 초과했어요.\n'
-            '목표를 조금 올리거나 예산을 다시 조정해볼까요?'
+        '목표 금액 ${NumberFormat('#,###').format(target!.toInt())}원을 초과했어요.\n'
+        '목표를 조금 올리거나 예산을 다시 조정해볼까요?'
         : null;
 
     return Container(
@@ -189,34 +201,34 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
             },
             child: showTargetWarning
                 ? Padding(
-                    key: const ValueKey('target-warning'),
-                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.redText.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Icon(Icons.error_outline, size: 18, color: AppColors.redText),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              targetWarningText ?? '',
-                              style: const TextStyle(
-                                fontFamily: 'Pretendard Variable',
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.redText,
-                              ),
-                            ),
-                          ),
-                        ],
+              key: const ValueKey('target-warning'),
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.redText.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.error_outline, size: 18, color: AppColors.redText),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        targetWarningText ?? '',
+                        style: const TextStyle(
+                          fontFamily: 'Pretendard Variable',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.redText,
+                        ),
                       ),
                     ),
-                  )
+                  ],
+                ),
+              ),
+            )
                 : const SizedBox.shrink(key: ValueKey('target-warning-empty')),
           ),
           if (showTargetWarning) const SizedBox(height: 8),
@@ -230,7 +242,7 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
                   fontFamily: 'Pretendard Variable',
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: over || monthlySaving <= 0 ? AppColors.redText : AppColors.subText,
+                  color: over || hasNegativeMonthlyIncome ? AppColors.redText : AppColors.subText,
                 ),
               ),
             ),

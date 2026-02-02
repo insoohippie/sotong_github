@@ -6,8 +6,8 @@ class TwoOptionToggle extends StatelessWidget {
     required this.labels,       // 두 옵션
     required this.selected,     // 현재 선택된 값
     required this.onChanged,
-    this.width = 100,
-    this.height = 28,
+    this.width = 120,
+    this.height = 34,
   }) : assert(labels.length == 2);
 
   final List<String> labels;

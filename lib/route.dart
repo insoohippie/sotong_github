@@ -1,31 +1,46 @@
 import 'package:flutter/material.dart';
+
+import 'package:sotong_local/view/pages/auth/signup_page.dart';
+import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
+
+import 'package:sotong_local/view/pages/logo_splash_page.dart';
+
+import 'package:sotong_local/view/pages/communication/communication_page.dart';
+
+import 'package:sotong_local/view/pages/home/home_page.dart';
+import 'package:sotong_local/view/pages/home/home_tab_navigator.dart';
+import 'package:sotong_local/view/pages/home/today_spending_page.dart';
+
+import 'package:sotong_local/view/pages/plan/chat_plan_page.dart';
+import 'package:sotong_local/view/pages/plan/plan_edit_page.dart';
+import 'package:sotong_local/view/pages/plan/plan_success_page.dart';
+import 'package:sotong_local/view/pages/plan/totalplan.dart';
+import 'package:sotong_local/view/pages/plan/celebration_plan_success.dart';
+
+import 'package:sotong_local/view/pages/record/record_diary_page.dart';
+import 'package:sotong_local/view/pages/record/record_spending_page.dart';
+
 import 'package:sotong_local/view/pages/addIncome/add_income_page.dart';
 import 'package:sotong_local/view/pages/addIncome/apply_income_option_page.dart';
 import 'package:sotong_local/view/pages/addIncome/limit_apply_page.dart';
 import 'package:sotong_local/view/pages/addIncome/period_apply_page.dart';
-import 'package:sotong_local/view/pages/auth/signup_page.dart';
-import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
-import 'package:sotong_local/view/pages/category/category_edit.dart';
-import 'package:sotong_local/view/pages/communication/communication_page.dart';
-import 'package:sotong_local/view/pages/home/home_copy.dart';
-import 'package:sotong_local/view/pages/home/home_page.dart';
-import 'package:sotong_local/view/pages/home/home_tab_navigator.dart';
-import 'package:sotong_local/view/pages/logo_splash_page.dart';
-import 'package:sotong_local/view/pages/notification/notification_page.dart';
-import 'package:sotong_local/view/pages/plan/chat_plan_page.dart';
-import 'package:sotong_local/view/pages/plan/plan_success_page.dart';
-import 'package:sotong_local/view/pages/record/record_diary_page.dart';
-import 'package:sotong_local/view/pages/record/record_spending_page.dart';
-import 'package:sotong_local/view/pages/home/today_spending_page.dart';
+
 import 'package:sotong_local/view/pages/report/report_page.dart';
+
+import 'package:sotong_local/view/pages/category/category_edit.dart';
+
+import 'package:sotong_local/view/pages/notification/notification_page.dart';
+
+import 'package:sotong_local/view/pages/setting/settings_page.dart';
 import 'package:sotong_local/view/pages/setting/FAQ.dart';
+
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_daily_limit_page.dart';
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_fixed_cost_page.dart';
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_income_page.dart';
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_saving_target_page.dart';
-import 'package:sotong_local/view/pages/setting/settings_page.dart';
-import 'package:sotong_local/view/test_insoo/home/home_test.dart';
-import 'package:sotong_local/view/test_insoo/home/home_widget_test_page.dart';
+
+import 'package:sotong_local/view/pages/setting/past_plan/past_plans_list_page.dart';
+
 import 'package:sotong_local/view/test_insoo/home/today_spending_test_page.dart';
 
 import 'view/pages/auth/login_page.dart';
@@ -43,7 +58,11 @@ final Map<String, WidgetBuilder> appRoutes = {
 
   // 플랜 생성 페이지(채팅 형식)
   '/plan_chat': (_) => const ChatPlanPage(),
+  '/plan_edit': (_) => const PlanEditPage(),
   '/plan_success': (_) => const PlanSuccessPage(),
+  //
+  '/total_plan': (_) => const TotalPlanPage(),
+  '/celebration_plan_success': (_) => const CelebrationPlanSuccessPage(),
 
   // 메인 페이지(홈, 소통, 레포트)
   '/home_tab_navigator': (_) => const HomeTabNavigator(),
@@ -65,6 +84,7 @@ final Map<String, WidgetBuilder> appRoutes = {
   // 설정 페이지
   '/setting': (_) => const SettingsPage(),
   '/faq': (_) => const FAQPage(),
+  '/past_plans': (_) => const PastPlansListPage(),
 
   // 플랜 수정 페이지(월 수입, 월 고정 소비, 목표 금액, 일일 한도)
   '/edit_income': (_) => const EditIncomePage(),
@@ -77,8 +97,5 @@ final Map<String, WidgetBuilder> appRoutes = {
 
   // 테스트용 페이지(인수)
   '/category_edit': (_) => const CategoryEditPage(),
-  '/home_widget_test': (_) => const HomeWidgetTestPage(),
-  '/home_test': (_) => const HomeTestPage(),
-  '/home_copy': (_) => const HomeCopyPage(),
   '/today_spending_test': (_) => const TodaySpendingTestPage(),
 };

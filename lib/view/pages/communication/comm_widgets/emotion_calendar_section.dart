@@ -61,6 +61,58 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
     );
   }
 
+  // ───────────────── 공휴일/주말 색상 ─────────────────
+
+  static const Set<String> _holidayYmd = {
+    // 2026 (대한민국 공휴일 + 대체공휴일 + 지방선거일)
+    '2026-01-01', // 신정
+    '2026-02-16', // 설 연휴
+    '2026-02-17', // 설
+    '2026-02-18', // 설 연휴
+    '2026-03-01', // 삼일절
+    '2026-03-02', // 삼일절 대체공휴일
+    '2026-05-05', // 어린이날
+    '2026-05-24', // 부처님오신날
+    '2026-05-25', // 부처님오신날 대체공휴일
+    '2026-06-03', // 지방선거일
+    '2026-06-06', // 현충일
+    '2026-08-15', // 광복절
+    '2026-08-17', // 광복절 대체공휴일
+    '2026-09-24', // 추석 연휴
+    '2026-09-25', // 추석
+    '2026-09-26', // 추석 연휴
+    '2026-10-03', // 개천절
+    '2026-10-05', // 개천절 대체공휴일
+    '2026-10-09', // 한글날
+    '2026-12-25', // 성탄절
+  };
+
+  String _ymd(DateTime d) {
+    final y = d.year.toString().padLeft(4, '0');
+    final m = d.month.toString().padLeft(2, '0');
+    final day = d.day.toString().padLeft(2, '0');
+    return '$y-$m-$day';
+  }
+
+  bool _isHoliday(DateTime d) => _holidayYmd.contains(_ymd(d));
+
+  Color _weekdayHeaderColor(String day) {
+    if (day == '일') return Colors.red;
+    if (day == '토') return Colors.blue;
+    return Colors.black87;
+  }
+
+  Color _dayNumberColor(DateTime date) {
+    // 공휴일은 빨강
+    if (_isHoliday(date)) return Colors.red;
+
+    // 주말: 토=파랑, 일=빨강
+    if (date.weekday == DateTime.sunday) return Colors.red;
+    if (date.weekday == DateTime.saturday) return Colors.blue;
+
+    return Colors.black87;
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = widget.vm;
@@ -82,21 +134,19 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '${vm.selectedYear}년',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                '${vm.selectedYear}년',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
                 ),
-                _buildModeToggle(),
-              ],
-            ),
+              ),
+              _buildModeToggle(),
+            ],
           ),
           const SizedBox(height: 14),
           _buildCalendarWithModeDials(vm),
@@ -199,12 +249,12 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
   // ───────────────── 달력 본체 ─────────────────
 
   Widget _buildCalendar(CommunicationViewModel vm) {
-    final firstDayOfMonth =
-    DateTime(vm.selectedYear, vm.selectedMonth, 1);
-    final lastDayOfMonth =
-    DateTime(vm.selectedYear, vm.selectedMonth + 1, 0);
-    final firstWeekday = firstDayOfMonth.weekday;
+    final firstDayOfMonth = DateTime(vm.selectedYear, vm.selectedMonth, 1);
+    final lastDayOfMonth = DateTime(vm.selectedYear, vm.selectedMonth + 1, 0);
     final daysInMonth = lastDayOfMonth.day;
+
+    // ✅ 월요일 시작 offset: 월(1)->0, 화(2)->1, ... 일(7)->6
+    final firstWeekdayOffset = (firstDayOfMonth.weekday + 6) % 7;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -251,7 +301,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
           key: ValueKey<int>(vm.selectedMonth),
           children: [
             Row(
-              children: ['일', '월', '화', '수', '목', '금', '토']
+              children: ['월', '화', '수', '목', '금', '토', '일']
                   .map(
                     (day) => Expanded(
                   child: Text(
@@ -260,7 +310,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: day == '일' ? Colors.red : Colors.black87,
+                      color: _weekdayHeaderColor(day),
                     ),
                   ),
                 ),
@@ -273,7 +323,6 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
                 // 7칸 기준 한 칸의 "가로" 길이
                 final cellW = constraints.maxWidth / 7;
 
-                // ✅ 타이트하게 만들고 싶으면 1.10~1.25 사이로 조절
                 // childAspectRatio = width / height  -> 값이 커질수록 높이가 줄어듦
                 const ratio = 1.15;
 
@@ -294,14 +343,14 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
                     children: [
                       _buildCalendarGrid(
                         vm: vm,
-                        firstWeekday: firstWeekday,
+                        firstWeekdayOffset: firstWeekdayOffset,
                         daysInMonth: daysInMonth,
                         showEmotion: true,
                         childAspectRatio: ratio,
                       ),
                       _buildCalendarGrid(
                         vm: vm,
-                        firstWeekday: firstWeekday,
+                        firstWeekdayOffset: firstWeekdayOffset,
                         daysInMonth: daysInMonth,
                         showEmotion: false,
                         childAspectRatio: ratio,
@@ -319,7 +368,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
 
   Widget _buildCalendarGrid({
     required CommunicationViewModel vm,
-    required int firstWeekday,
+    required int firstWeekdayOffset,
     required int daysInMonth,
     required bool showEmotion,
     required double childAspectRatio,
@@ -329,18 +378,20 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 7,
-        childAspectRatio: childAspectRatio
+        childAspectRatio: childAspectRatio,
       ),
       itemCount: 42,
       itemBuilder: (context, index) {
-        final day = index - firstWeekday + 1;
+        final day = index - firstWeekdayOffset + 1;
         final isCurrentMonth = day > 0 && day <= daysInMonth;
 
         if (!isCurrentMonth) return const SizedBox();
 
+        final date = DateTime(vm.selectedYear, vm.selectedMonth, day);
+        final dayTextColor = _dayNumberColor(date);
+
         final hasEmotion = vm.hasEmotionRecord(day);
         final hasAmount = vm.spendingAmountForDay(day) > 0;
-        final hasRecord = hasEmotion || hasAmount;
         final amount = vm.spendingAmountForDay(day);
 
         return GestureDetector(
@@ -359,38 +410,21 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
             ),
             child: LayoutBuilder(
               builder: (context, c) {
-                final size =
-                    (c.maxWidth < c.maxHeight ? c.maxWidth : c.maxHeight) * 0.75;
+                final bool isOverLimit = vm.dailySpendingLimit > 0 &&
+                    amount > vm.dailySpendingLimit;
 
-                final bool isOverLimit =
-                    vm.dailySpendingLimit > 0 && amount > vm.dailySpendingLimit;
+                final showDayText =
+                (!showEmotion || (showEmotion && !hasEmotion));
 
-                final showDayText = (!showEmotion || (showEmotion && !hasEmotion));
-                // final showDayText =
-                //     (showEmotion && !hasEmotion) || (!showEmotion && !hasAmount);
                 return Stack(
                   alignment: Alignment.center,
                   children: [
-                    // if (!showEmotion && hasAmount)
-                    //   _AmountCircle( size: size, isOverLimit: isOverLimit, ),
                     // 금액 모드
                     if (!showEmotion && hasAmount)
                       AmountUnderlineCell(
                         day: day,
                         isOverLimit: isOverLimit,
                       ),
-                    // if (!showEmotion && hasAmount)
-                    //   OutlineCircleCell(
-                    //     day: day,
-                    //     size: size,
-                    //     isOverLimit: isOverLimit,
-                    //   ),
-                    // if (!showEmotion && hasAmount)
-                    //   MoneyIconCell(
-                    //     amount: amount,
-                    //     limit: vm.dailySpendingLimit,
-                    //     size: size * 1.0,
-                    //   ),
 
                     // 감정 모드: 이모지
                     if (showEmotion && hasEmotion)
@@ -402,22 +436,21 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
                         ),
                       ),
 
-                    // 날짜 텍스트
+                    // 날짜 텍스트 (토/일/공휴일 색)
                     if (showDayText)
                       Text(
                         '$day',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
+                          color: dayTextColor,
                         ),
                       ),
                   ],
                 );
               },
             ),
-
           ),
         );
       },
@@ -434,19 +467,21 @@ class _AmountCircle extends StatelessWidget {
   final double size;
   final bool isOverLimit;
 
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final base = isOverLimit ? AppColors.redText : AppColors.primary;
 
     return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: base.withOpacity(0.5),
-    ),
+      ),
     );
   }
 }
+
 class AmountUnderlineCell extends StatelessWidget {
   const AmountUnderlineCell({
     super.key,

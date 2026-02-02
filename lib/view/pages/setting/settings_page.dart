@@ -117,8 +117,10 @@ class SettingsPage extends StatelessWidget {
                           final ok = await chatVm.savePlan();
                           if (!navigator.mounted) return;
 
-                          final rootContext =
-                              Navigator.of(context, rootNavigator: true).context;
+                          final rootContext = Navigator.of(
+                            context,
+                            rootNavigator: true,
+                          ).context;
                           ScaffoldMessenger.of(rootContext).showSnackBar(
                             SnackBar(
                               content: Text(
@@ -143,6 +145,56 @@ class SettingsPage extends StatelessWidget {
                                   const SizedBox(width: 12),
                                   const Text(
                                     '플랜 수정하기',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontFamily: 'Pretendard Variable',
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const Icon(
+                                Icons.chevron_right,
+                                color: Colors.black,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // 3. 지난 플랜 돌아보기
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: AppBorderRadius.card,
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: AppBorderRadius.card,
+                        onTap: () {
+                          Navigator.pushNamed(context, '/past_plans');
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 18,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.history_edu,
+                                    color: Colors.black,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    '지난 플랜 돌아보기',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       fontFamily: 'Pretendard Variable',
@@ -303,22 +355,22 @@ class SettingsPage extends StatelessWidget {
                       child: InkWell(
                         borderRadius: AppBorderRadius.card,
                         onTap: () {
-                          showLogoutDialog(
-                            context,
-                                () async {
-                              await context.read<SettingViewModel>().logout();
-                              if (!context.mounted) return;
+                          showLogoutDialog(context, () async {
+                            await context.read<SettingViewModel>().logout();
+                            if (!context.mounted) return;
 
-                              Navigator.pushNamedAndRemoveUntil(
-                                context,
-                                '/login',
-                                    (_) => false,
-                              );
-                            },
-                          );
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              '/login',
+                                  (_) => false,
+                            );
+                          });
                         },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 18,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -368,22 +420,22 @@ class SettingsPage extends StatelessWidget {
                           }
 
                           // ✅ 온라인이면 기존 삭제 다이얼로그
-                          showDeleteDataDialog(
-                            context,
-                                () async {
-                              await vm.deleteAllMyData();
-                              if (context.mounted) {
-                                Navigator.pushNamedAndRemoveUntil(
-                                  context,
-                                  '/login',
-                                      (_) => false,
-                                );
-                              }
-                            },
-                          );
+                          showDeleteDataDialog(context, () async {
+                            await vm.deleteAllMyData();
+                            if (context.mounted) {
+                              Navigator.pushNamedAndRemoveUntil(
+                                context,
+                                '/login',
+                                    (_) => false,
+                              );
+                            }
+                          });
                         },
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 18,
+                          ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -401,7 +453,10 @@ class SettingsPage extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              const Icon(Icons.chevron_right, color: Colors.black),
+                              const Icon(
+                                Icons.chevron_right,
+                                color: Colors.black,
+                              ),
                             ],
                           ),
                         ),
@@ -418,28 +473,20 @@ class SettingsPage extends StatelessWidget {
   }
 }
 
-void showLogoutDialog(
-    BuildContext context,
-    Future<void> Function() onConfirm,
-    ) {
+void showLogoutDialog(BuildContext context, Future<void> Function() onConfirm) {
   showDialog(
     context: context,
     barrierDismissible: true,
     builder: (context) {
       return Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const HeaderText(
-                text: "로그아웃",
-                fontWeight: FontWeight.w700,
-              ),
+              const HeaderText(text: "로그아웃", fontWeight: FontWeight.w700),
               const SizedBox(height: 12),
               const ParagraphText(
                 text: "정말 로그아웃 하시겠어요?",
@@ -452,8 +499,8 @@ void showLogoutDialog(
                 rightLabel: "로그아웃",
                 onLeftPressed: () => Navigator.pop(context),
                 onRightPressed: () async {
-                  Navigator.pop(context);     // 다이얼로그 먼저 닫고
-                  await onConfirm();          // 로그아웃/캐시삭제/라우팅까지 await
+                  Navigator.pop(context); // 다이얼로그 먼저 닫고
+                  await onConfirm(); // 로그아웃/캐시삭제/라우팅까지 await
                 },
                 height: 50,
               ),
@@ -471,19 +518,14 @@ void showDeleteDataDialog(BuildContext context, VoidCallback onConfirm) {
     barrierDismissible: true,
     builder: (context) {
       return Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const HeaderText(
-                text: "데이터 지우기",
-                fontWeight: FontWeight.w700,
-              ),
+              const HeaderText(text: "데이터 지우기", fontWeight: FontWeight.w700),
               const SizedBox(height: 12),
               const ParagraphText(
                 text: "서버와 이 기기의 데이터를 모두 삭제합니다.\n삭제 후에는 복구할 수 없어요.",
@@ -514,19 +556,14 @@ void showOfflineDeleteBlockedDialog(BuildContext context) {
     barrierDismissible: true,
     builder: (context) {
       return Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
-              HeaderText(
-                text: "인터넷 연결 필요",
-                fontWeight: FontWeight.w700,
-              ),
+              HeaderText(text: "인터넷 연결 필요", fontWeight: FontWeight.w700),
               SizedBox(height: 12),
               ParagraphText(
                 text:

@@ -175,6 +175,16 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
               child: Image.asset(
                 'assets/images/bot_profile.png',
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: const Color(0xFFBFD8FF),
+                    child: const Icon(
+                      Icons.chat_bubble_outline,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 8),

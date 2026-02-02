@@ -11,6 +11,7 @@ class ChatBottomInputArea extends StatelessWidget {
   final VoidCallback showIncomeModal;
   final VoidCallback showFixedCostModal;
   final VoidCallback showDailySpendingModal;
+  final VoidCallback? showPlanEditPage;
   final TextEditingController inputController;
   final bool isFormatting;
   final void Function(String) onInputChanged;
@@ -24,6 +25,7 @@ class ChatBottomInputArea extends StatelessWidget {
     required this.showIncomeModal,
     required this.showFixedCostModal,
     required this.showDailySpendingModal,
+    this.showPlanEditPage,
     required this.inputController,
     required this.isFormatting,
     required this.onInputChanged,
@@ -42,11 +44,11 @@ class ChatBottomInputArea extends StatelessWidget {
 
     final isTextInputStep =
         animDone &&
-        !viewModel.isTyping &&
-        _isChatInputEnabled(currentStep) &&
-        currentStep != ChatStep.onboarding1 &&
-        currentStep != ChatStep.onboarding2 &&
-        currentStep != ChatStep.onboarding3;
+            !viewModel.isTyping &&
+            _isChatInputEnabled(currentStep) &&
+            currentStep != ChatStep.onboarding1 &&
+            currentStep != ChatStep.onboarding2 &&
+            currentStep != ChatStep.onboarding3;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
@@ -105,24 +107,24 @@ class ChatBottomInputArea extends StatelessWidget {
 
           if (currentStep == ChatStep.currentAssetAsk && animDone)
             Padding(
-                padding: const EdgeInsets.symmetric(horizontal:40 ),
-                child: CustomDualButton(
-                  leftLabel: '있어요',
-                  rightLabel: '없어요',
-                  onLeftPressed: () {
-                    // 보유자산 있음 → 다음 스텝에서 금액 입력
-                    viewModel.handleUserResponse('있어요');
-                    onDisappear();
-                  },
-                  onRightPressed: () {
-                    // 보유자산 없음
-                    viewModel.handleUserResponse('없어요');
-                    onDisappear();
-                  },
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: 40),
+              child: CustomDualButton(
+                leftLabel: '있어요',
+                rightLabel: '없어요',
+                onLeftPressed: () {
+                  // 보유자산 있음 → 다음 스텝에서 금액 입력
+                  viewModel.handleUserResponse('있어요');
+                  onDisappear();
+                },
+                onRightPressed: () {
+                  // 보유자산 없음
+                  viewModel.handleUserResponse('없어요');
+                  onDisappear();
+                },
+              ),
             ),
 
-          if (currentStep == ChatStep.monthlyIncome)
+          if (currentStep == ChatStep.monthlyIncome && animDone)
             CustomButton(
               text: '월 수입 입력하러가기',
               onPressed: () {
@@ -131,7 +133,7 @@ class ChatBottomInputArea extends StatelessWidget {
               },
             ),
 
-          if (currentStep == ChatStep.monthlyFixedCost)
+          if (currentStep == ChatStep.monthlyFixedCost && animDone)
             CustomButton(
               text: '고정 소비 입력하러가기',
               onPressed: () {
@@ -140,7 +142,7 @@ class ChatBottomInputArea extends StatelessWidget {
               },
             ),
 
-          if (currentStep == ChatStep.dailySpending)
+          if (currentStep == ChatStep.dailySpending && animDone)
             CustomButton(
               text: '하루 사용 금액 입력하러가기',
               onPressed: () {
@@ -149,11 +151,13 @@ class ChatBottomInputArea extends StatelessWidget {
               },
             ),
 
-          if (currentStep == ChatStep.summaryIntro && animDone)
+          if (currentStep == ChatStep.noSaveMoney &&
+              animDone &&
+              showPlanEditPage != null)
             CustomButton(
-              text: '좋아요! 요약해주세요!',
+              text: '확인하기',
               onPressed: () {
-                viewModel.handleUserResponse('좋아요! 요약해주세요!');
+                showPlanEditPage!();
                 onDisappear();
               },
             ),
@@ -209,12 +213,12 @@ class ChatBottomInputArea extends StatelessWidget {
                         ? '목표 금액을 입력하세요'
                         : currentStep == ChatStep.currentAsset
                         ? '보유 자산을 입력하세요 (빚은 -로)'
-                        // : currentStep == ChatStep.purposeCustom
-                        // ? '목적을 입력하세요'
+                    // : currentStep == ChatStep.purposeCustom
+                    // ? '목적을 입력하세요'
                         : '메시지를 입력하세요',
                     keyboardType:
-                        (currentStep == ChatStep.targetAmount ||
-                            currentStep == ChatStep.currentAsset)
+                    (currentStep == ChatStep.targetAmount ||
+                        currentStep == ChatStep.currentAsset)
                         ? TextInputType.number
                         : TextInputType.text,
                     onChanged: onInputChanged,
@@ -224,20 +228,20 @@ class ChatBottomInputArea extends StatelessWidget {
                 CustomButton(
                   text: _getButtonText(currentStep, inputController.text),
                   onPressed:
-                      isTextInputStep &&
-                          _isValidInput(currentStep, inputController.text)
+                  isTextInputStep &&
+                      _isValidInput(currentStep, inputController.text)
                       ? () {
-                          onDisappear();
-                          onSubmit();
-                        }
+                    onDisappear();
+                    onSubmit();
+                  }
                       : () {},
                   enabled:
-                      isTextInputStep &&
+                  isTextInputStep &&
                       _isValidInput(currentStep, inputController.text),
                 ),
               ],
             ),
-          SizedBox(height: 20,)
+          SizedBox(height: 20),
         ],
       ),
     );
@@ -261,8 +265,8 @@ class ChatBottomInputArea extends StatelessWidget {
           ? '목표 금액을 입력해주세요!'
           : step == ChatStep.currentAsset
           ? '보유 자산을 입력해주세요!'
-          // : step == ChatStep.purposeCustom
-          // ? '목적을 입력해주세요!'
+      // : step == ChatStep.purposeCustom
+      // ? '목적을 입력해주세요!'
           : '입력해주세요!';
     }
     return step == ChatStep.planName
@@ -271,8 +275,8 @@ class ChatBottomInputArea extends StatelessWidget {
         ? '제 목표 금액이에요!'
         : step == ChatStep.currentAsset
         ? '제 보유 자산이에요!'
-        // : step == ChatStep.purposeCustom
-        // ? '이 목적으로 설정할게요!'
+    // : step == ChatStep.purposeCustom
+    // ? '이 목적으로 설정할게요!'
         : '입력 완료!';
   }
 
@@ -282,17 +286,17 @@ class ChatBottomInputArea extends StatelessWidget {
 
     switch (step) {
       case ChatStep.planName:
-        // case ChatStep.purposeCustom:
+      // case ChatStep.purposeCustom:
         return trimmedText.length >= 2;
 
       case ChatStep.targetAmount:
-        // 목표금액: 반드시 양수
+      // 목표금액: 반드시 양수
         final amountStr = trimmedText.replaceAll(',', '');
         final amount = double.tryParse(amountStr);
         return amount != null && amount > 0;
 
       case ChatStep.currentAsset:
-        // 보유자산: 음수/0/양수 모두 허용 (숫자만이면 OK)
+      // 보유자산: 음수/0/양수 모두 허용 (숫자만이면 OK)
         final amountStr2 = trimmedText.replaceAll(',', '');
         final amount2 = double.tryParse(amountStr2);
         return amount2 != null;
