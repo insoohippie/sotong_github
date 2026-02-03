@@ -11,10 +11,12 @@ class EmotionTop3CarouselSection extends StatefulWidget {
   final CommunicationViewModel vm;
 
   @override
-  State<EmotionTop3CarouselSection> createState() => _EmotionTop3CarouselSectionState();
+  State<EmotionTop3CarouselSection> createState() =>
+      _EmotionTop3CarouselSectionState();
 }
 
-class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection> {
+class _EmotionTop3CarouselSectionState
+    extends State<EmotionTop3CarouselSection> {
   final CarouselSliderController _carouselCtrl = CarouselSliderController();
 
   int _page = 0;
@@ -29,7 +31,8 @@ class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection>
   @override
   void didUpdateWidget(covariant EmotionTop3CarouselSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.vm.selectedAnalysisPeriod != widget.vm.selectedAnalysisPeriod) {
+    if (oldWidget.vm.selectedAnalysisPeriod !=
+        widget.vm.selectedAnalysisPeriod) {
       setState(() => _page = 0);
       _carouselCtrl.animateToPage(
         0,
@@ -107,6 +110,8 @@ class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection>
                 TwoOptionToggle(
                   labels: const ['주간', '월간'],
                   selected: period,
+                  width: 120,
+                  height: 34,
                   onChanged: (v) {
                     if (v == vm.selectedAnalysisPeriod) return;
                     vm.setAnalysisPeriod(v);
@@ -132,7 +137,9 @@ class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection>
                     enableInfiniteScroll: true,
                     autoPlay: true,
                     autoPlayInterval: const Duration(seconds: 5),
-                    autoPlayAnimationDuration: const Duration(milliseconds: 850),
+                    autoPlayAnimationDuration: const Duration(
+                      milliseconds: 850,
+                    ),
                     autoPlayCurve: Curves.easeInOutCubic,
                     onPageChanged: (index, reason) {
                       if (!mounted) return;
@@ -254,8 +261,13 @@ class _Top3Slide extends StatelessWidget {
             final d = safeTop3[i];
             return Expanded(
               child: Container(
-                margin: EdgeInsets.only(right: i == safeTop3.length - 1 ? 0 : 10),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                margin: EdgeInsets.only(
+                  right: i == safeTop3.length - 1 ? 0 : 10,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.grey[50],
                   borderRadius: BorderRadius.circular(14),
@@ -278,10 +290,7 @@ class _Top3Slide extends StatelessWidget {
                     // ✅ 이모지 크게
                     Text(
                       d.emoji,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        height: 1.0,
-                      ),
+                      style: const TextStyle(fontSize: 26, height: 1.0),
                     ),
                     const SizedBox(height: 8),
 

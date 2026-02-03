@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color, Icons;
 import 'package:intl/intl.dart';
 
 import 'package:sotong_local/services/spending_event_bus.dart';
@@ -193,14 +194,7 @@ class CommunicationViewModel extends ChangeNotifier {
   //  감정 매핑/분석 (최근 7/30일 기준)
   // =====================================================
 
-  static const List<String> emotionList = [
-    '기쁨',
-    '혼란',
-    '슬픔',
-    '피곤',
-    '화남',
-    '플렉스',
-  ];
+  static const List<String> emotionList = ['기쁨', '혼란', '슬픔', '피곤', '화남', '플렉스'];
 
   String getEmoji(String emotion) {
     switch (emotion) {
@@ -253,7 +247,9 @@ class CommunicationViewModel extends ChangeNotifier {
     if (_monthCache.containsKey(key)) return;
 
     final monthAnchor = DateTime(anyDay.year, anyDay.month, 1);
-    final monthly = await _recordRepository.loadMonthlySpendingByDate(monthAnchor);
+    final monthly = await _recordRepository.loadMonthlySpendingByDate(
+      monthAnchor,
+    );
     _monthCache[key] = monthly;
   }
 
@@ -298,11 +294,14 @@ class CommunicationViewModel extends ChangeNotifier {
 
   /// 감정별 소비 총합 (최근 7/30일)
   int emotionTotalSpending(String emotion, String period) {
-    final days = _daysInRecentPeriod(period).where((d) => d.emotion.trim() == emotion);
+    final days = _daysInRecentPeriod(
+      period,
+    ).where((d) => d.emotion.trim() == emotion);
 
     return days.fold<int>(0, (sum, d) {
-      final total = d.totalAmount ??
-          d.entries.fold<int>(0, (s, e) => s + e.amount.round());
+      final total =
+          d.totalAmount ??
+              d.entries.fold<int>(0, (s, e) => s + e.amount.round());
       return sum + total;
     });
   }
@@ -311,6 +310,7 @@ class CommunicationViewModel extends ChangeNotifier {
   int emotionSpendingAmount(String emotion, String period) {
     return emotionTotalSpending(emotion, period);
   }
+
   /// return: [{emotion, emoji, count, total, avg}, ...] 최대 3개
   List<Map<String, dynamic>> emotionTop3Stats(String period) {
     final list = <Map<String, dynamic>>[];
@@ -351,8 +351,85 @@ class CommunicationViewModel extends ChangeNotifier {
   }
 
   // =====================================================
-  //  인사이트 배너 텍스트용
+  //  인사이트 배너 (감정 중심 5종) — SlidingBanner용
   // =====================================================
+  static final _bannerIcons = [
+    Icons.mood,
+    Icons.warning_amber_rounded,
+    Icons.volunteer_activism,
+    Icons.link,
+    Icons.calendar_view_week,
+  ];
+  static const _bannerColors = [
+    Color(0xFF0062FF),
+    Color(0xFFD32F2F),
+    Color(0xFF43A047),
+    Color(0xFF7B1FA2),
+    Color(0xFF00838F),
+  ];
+
+  List<Map<String, dynamic>> get bannerInsights {
+    final month = selectedMonth;
+    final messages = [
+      _messageRepresentativeEmotion(month),
+      _messageEmotionWhenOverBudget(month),
+      _messageEmotionWhenSaving(month),
+      _messageEmotionCategoryRelation(month),
+      _messageWeekdayEmotionPattern(month),
+    ];
+    return List.generate(
+      5,
+          (i) => {
+        'title': messages[i],
+        'icon': _bannerIcons[i],
+        'color': _bannerColors[i],
+      },
+    );
+  }
+
+  String _messageRepresentativeEmotion(int month) {
+    final top = _topEmotionThisMonth();
+    if (top == null || top.count == 0) return '$month월에는 아직 감정 기록이 없어요.';
+    return '$month월에는 ${top.name} 감정이 가장 많이 기록됐어요.';
+  }
+
+  ({String name, int count})? _topEmotionThisMonth() {
+    if (_monthly == null) return null;
+    final monthStart = DateTime(selectedYear, selectedMonth, 1);
+    final monthEnd = DateTime(selectedYear, selectedMonth + 1, 1);
+    final Map<String, int> counts = {};
+    for (final d in _monthly!.days.values) {
+      final date = _dateOnly(d.date);
+      if (date.isBefore(monthStart) || !date.isBefore(monthEnd)) continue;
+      final emo = d.emotion.trim();
+      if (emo.isEmpty) continue;
+      counts[emo] = (counts[emo] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return null;
+    final entry = counts.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    return (name: entry.key, count: entry.value);
+  }
+
+  String _messageEmotionWhenOverBudget(int month) {
+    // TODO: 예산 초과한 날의 감정 집계
+    return '일일 예산을 초과한 날에는 스트레스 감정이 가장 많았어요.';
+  }
+
+  String _messageEmotionWhenSaving(int month) {
+    // TODO: 절약한 날의 감정 집계
+    return '지출을 아낀 날에는 동기부여 감정이 가장 많이 기록됐어요.';
+  }
+
+  String _messageEmotionCategoryRelation(int month) {
+    // TODO: 감정별 최다 카테고리
+    return '스트레스가 기록된 날에는 치킨 카테고리 소비가 가장 많아요.';
+  }
+
+  String _messageWeekdayEmotionPattern(int month) {
+    // TODO: 요일별 감정·소비 패턴
+    return '주말에는 기쁨 감정과 함께 외식 소비가 많아요.';
+  }
+
   String getMonthlyInsightMessage() {
     final summary = monthlyEmotionSummary();
     return summary['message'] ?? '이번 달을 기록해보세요!';
@@ -396,7 +473,12 @@ class CommunicationViewModel extends ChangeNotifier {
       message = '안정적인 한 달이에요 😌';
     }
 
-    return {'happy': happy, 'normal': normal, 'gloomy': gloomy, 'message': message};
+    return {
+      'happy': happy,
+      'normal': normal,
+      'gloomy': gloomy,
+      'message': message,
+    };
   }
 
   // =====================================================

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../../component/buttons/custom_button.dart';
-import '../../../../component/texts/caption_with_dot.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../model/record/spending_entry.dart';
 import '../../../../view_model/communication/communication_view_model.dart';
@@ -14,6 +13,9 @@ void showDateDetailModal({
   final hasAmount = vm.spendingAmountForDay(day) > 0;
   final hasRecord = hasEmotion || hasAmount;
 
+  // 소비 미기록 날: 낮은 높이, 핸들 없음, 버튼만
+  const double emptyDateModalHeight = 120;
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -21,34 +23,38 @@ void showDateDetailModal({
     builder: (context) {
       final mediaQuery = MediaQuery.of(context);
 
-      return FractionallySizedBox(
-        heightFactor: 0.5,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: SafeArea(
-              top: false,
-              child: SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const _HandleBar(),
-                    hasRecord
-                        ? _RecordedDateContent(vm: vm, day: day)
-                        : _EmptyDateContent(vm: vm, day: day),
-                  ],
-                ),
+      final content = Padding(
+        padding: EdgeInsets.only(bottom: mediaQuery.viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              padding: hasRecord
+                  ? const EdgeInsets.fromLTRB(24, 12, 24, 32)
+                  : const EdgeInsets.fromLTRB(24, 16, 24, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (hasRecord) const _HandleBar(),
+                  hasRecord
+                      ? _RecordedDateContent(vm: vm, day: day)
+                      : _EmptyDateContent(vm: vm, day: day),
+                ],
               ),
             ),
           ),
         ),
       );
+
+      return hasRecord
+          ? FractionallySizedBox(heightFactor: 0.5, child: content)
+          : SizedBox(height: emptyDateModalHeight, child: content);
     },
   );
 }
@@ -214,19 +220,18 @@ class _SpendingList extends StatelessWidget {
               child: Center(
                 child: Text(
                   '소비 내역이 없어요.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: AppColors.subText,
-                  ),
+                  style: TextStyle(fontSize: 14, color: AppColors.subText),
                 ),
               ),
             )
           else
-            ...entries.map((e) => _SpendingItem(
-              category: e.category,
-              amount: e.amount.round(),
-              note: e.note,
-            )),
+            ...entries.map(
+                  (e) => _SpendingItem(
+                category: e.category,
+                amount: e.amount.round(),
+                note: e.note,
+              ),
+            ),
           if (entries.isNotEmpty) ...[
             const Divider(height: 24),
             Container(
@@ -307,10 +312,7 @@ class _SpendingItem extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
                       note!,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: AppColors.subText,
-                      ),
+                      style: TextStyle(fontSize: 13, color: AppColors.subText),
                     ),
                   ),
               ],
@@ -384,31 +386,13 @@ class _EmptyDateContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '${vm.selectedMonth}월 $day일의 소비가 입력되지 않았습니다',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.text,
-          ),
-        ),
-        const SizedBox(height: 12),
-        const CaptionWithDot(
-          text: '소비가 기록되지 않으면 플랜에 등록된 일일소비로 등록돼요😉',
-        ),
-        const SizedBox(height: 32),
-        CustomButton(
-          text: '소비 등록하기',
-          onPressed: () {
-            Navigator.pop(context);
-            // TODO: 소비 입력 페이지로 이동
-          },
-          height: 56,
-        ),
-      ],
+    return CustomButton(
+      text: '소비 등록하기',
+      onPressed: () {
+        Navigator.pop(context);
+        // TODO: 소비 입력 페이지로 이동
+      },
+      height: 56,
     );
   }
 }

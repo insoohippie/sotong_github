@@ -56,13 +56,13 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/signup': (_) => const SignUpPage(),
   '/signup_success': (_) => const SignupSuccessPage(),
 
-  // 플랜 생성 페이지(채팅 형식)
+  // 플랜 생성, 수정, 생성 완료 페이지
   '/plan_chat': (_) => const ChatPlanPage(),
   '/plan_edit': (_) => const PlanEditPage(),
   '/plan_success': (_) => const PlanSuccessPage(),
-  //
-  '/total_plan': (_) => const TotalPlanPage(),
+  // 플랜 도달, 분석 페이지
   '/celebration_plan_success': (_) => const CelebrationPlanSuccessPage(),
+  '/total_plan': (_) => const TotalPlanPage(),
 
   // 메인 페이지(홈, 소통, 레포트)
   '/home_tab_navigator': (_) => const HomeTabNavigator(),
@@ -84,6 +84,7 @@ final Map<String, WidgetBuilder> appRoutes = {
   // 설정 페이지
   '/setting': (_) => const SettingsPage(),
   '/faq': (_) => const FAQPage(),
+  // 과거 플랜 리스트 페이지
   '/past_plans': (_) => const PastPlansListPage(),
 
   // 플랜 수정 페이지(월 수입, 월 고정 소비, 목표 금액, 일일 한도)

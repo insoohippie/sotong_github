@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/component/inputs/custom_number_field.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
+import 'package:sotong_local/component/inputs/spending_entry_row.dart';
 import 'package:sotong_local/component/buttons/select_button.dart';
+import 'package:sotong_local/component/buttons/period_toggle.dart';
+import 'package:sotong_local/component/buttons/custom_dual_button.dart';
+import 'package:sotong_local/component/buttons/custom_button.dart';
+import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:lottie/lottie.dart';
 
 class TodaySpendingTestPage extends StatefulWidget {
@@ -57,12 +61,11 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
     'emotion': '기쁨',
     'lottieFile': 'assets/animations/Great.json',
     'diary':
-        '오늘 점심에 맛있는 음식을 먹어서 기분이 좋았어요! 하지만 조금 과소비한 것 같아서 내일은 더 신중하게 소비해야겠어요.',
+    '오늘 점심에 맛있는 음식을 먹어서 기분이 좋았어요! 하지만 조금 과소비한 것 같아서 내일은 더 신중하게 소비해야겠어요.',
   };
 
   // 하루 소비 한도 금액 (예시: 9,000원)
   final int dailySpendingLimit = 9000;
-
 
   int get totalAmount => isWeekly
       ? incomeItems.fold(0, (sum, item) => sum + item.amount)
@@ -73,7 +76,7 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
   String _formatAmount(int amount) {
     return amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match match) => '${match[1]},',
+          (Match match) => '${match[1]},',
     );
   }
 
@@ -137,7 +140,10 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
                       children: [
                         IconButton(
                           onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.chevron_left, color: Colors.black),
+                          icon: const Icon(
+                            Icons.chevron_left,
+                            color: Colors.black,
+                          ),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),
@@ -161,136 +167,42 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
                     Center(
                       child: Text(
                         '${DateTime.now().year}년 ${DateTime.now().month}월 ${DateTime.now().day}일',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                       ),
                     ),
                     const SizedBox(height: 24),
 
-                    // 첫 번째 행: 카테고리와 금액
-                    Row(
-                      children: [
-                        // 카테고리 입력
-                        Expanded(
-                          flex: 1,
-                          child: GestureDetector(
-                            onTap: () {
-                              // 카테고리 선택 작은 모달
-                              showModalBottomSheet(
-                                context: context,
-                                backgroundColor: Colors.transparent,
-                                builder: (dialogContext) {
-                                  return Container(
-                                    padding: const EdgeInsets.all(20),
-                                    decoration: const BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: Radius.circular(24),
-                                        topRight: Radius.circular(24),
-                                      ),
-                                    ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          '카테고리 선택',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        ...['식비', '교통비', '문화비', '여가비', '기타']
-                                            .map((item) => ListTile(
-                                                  title: Text(item),
-                                                  onTap: () {
-                                                    setState(() {
-                                                      selectedCategory = item;
-                                                      isValidInput =
-                                                          amountController.text
-                                                                  .replaceAll(',', '')
-                                                                  .isNotEmpty &&
-                                                              int.tryParse(amountController.text
-                                                                      .replaceAll(',', '')) !=
-                                                                  null &&
-                                                              selectedCategory != null;
-                                                    });
-                                                    Navigator.pop(dialogContext);
-                                                  },
-                                                ))
-                                            .toList(),
-                                      ],
-                                    ),
-                                  );
-                                },
+                    SpendingEntryRow(
+                      categoryLabel: selectedCategory,
+                      onCategoryTap: () {
+                        _showCategoryPickerModal(
+                          context: context,
+                          current: selectedCategory,
+                          onSelected: (val) {
+                            setState(() {
+                              selectedCategory = val;
+                              final text = amountController.text.replaceAll(
+                                ',',
+                                '',
                               );
-                            },
-                            child: Container(
-                              height: 56,
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF3F4F6),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.add, color: Color(0xFF9E9E9E), size: 20),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      selectedCategory ?? '입력',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        color: selectedCategory != null
-                                            ? Colors.black87
-                                            : Colors.grey[400],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // 금액 입력
-                        Expanded(
-                          flex: 2,
-                          child: CustomNumberField(
-                            controller: amountController,
-                            hintText: '예) 10,000',
-                            backgroundColor: const Color(0xFFF3F4F6),
-                            borderRadius: 12,
-                            height: 56,
-                            onChanged: (value) {
-                              setState(() {
-                                final text = value.replaceAll(',', '');
-                                isValidInput =
-                                    text.isNotEmpty &&
-                                    int.tryParse(text) != null &&
-                                    selectedCategory != null;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 노트 입력
-                    CustomTextField(
-                      controller: noteController,
-                      hintText: '노트 작성 (20자 이내)',
-                      onChanged: (text) {
-                        if (text.length > 20) {
-                          noteController.text = text.substring(0, 20);
-                          noteController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: noteController.text.length),
-                          );
-                        }
+                              isValidInput =
+                                  text.isNotEmpty &&
+                                      int.tryParse(text) != null &&
+                                      selectedCategory != null;
+                            });
+                          },
+                        );
+                      },
+                      amountController: amountController,
+                      noteController: noteController,
+                      onAmountChanged: (value) {
+                        setState(() {
+                          final text = value.replaceAll(',', '');
+                          isValidInput =
+                              text.isNotEmpty &&
+                                  int.tryParse(text) != null &&
+                                  selectedCategory != null;
+                        });
                       },
                     ),
                     const SizedBox(height: 24),
@@ -299,29 +211,29 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
                     GestureDetector(
                       onTap: isValidInput
                           ? () {
-                              final amount =
-                                  int.tryParse(
-                                    amountController.text.replaceAll(',', ''),
-                                  ) ??
-                                  0;
-                              final newItem = SpendingItem(
-                                id: DateTime.now().millisecondsSinceEpoch
-                                    .toString(),
-                                category: selectedCategory!,
-                                categoryColor: const Color(0xFF9E9E9E),
-                                description: noteController.text.isEmpty
-                                    ? selectedCategory!
-                                    : noteController.text,
-                                amount: amount,
-                              );
+                        final amount =
+                            int.tryParse(
+                              amountController.text.replaceAll(',', ''),
+                            ) ??
+                                0;
+                        final newItem = SpendingItem(
+                          id: DateTime.now().millisecondsSinceEpoch
+                              .toString(),
+                          category: selectedCategory!,
+                          categoryColor: const Color(0xFF9E9E9E),
+                          description: noteController.text.isEmpty
+                              ? selectedCategory!
+                              : noteController.text,
+                          amount: amount,
+                        );
 
-                              // 메인 페이지의 상태 업데이트
-                              this.setState(() {
-                                spendingItems.add(newItem);
-                              });
+                        // 메인 페이지의 상태 업데이트
+                        this.setState(() {
+                          spendingItems.add(newItem);
+                        });
 
-                              Navigator.of(context).pop();
-                            }
+                        Navigator.of(context).pop();
+                      }
                           : null,
                       child: Container(
                         width: double.infinity,
@@ -337,7 +249,9 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
                           children: [
                             Icon(
                               Icons.add,
-                              color: isValidInput ? Colors.white : Colors.grey[600],
+                              color: isValidInput
+                                  ? Colors.white
+                                  : Colors.grey[600],
                               size: 20,
                             ),
                             const SizedBox(width: 8),
@@ -345,7 +259,9 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
                               '추가',
                               style: TextStyle(
                                 fontSize: 16,
-                                color: isValidInput ? Colors.white : Colors.grey[600],
+                                color: isValidInput
+                                    ? Colors.white
+                                    : Colors.grey[600],
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -363,127 +279,232 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
     );
   }
 
-  void _showEditSpendingDialog(SpendingItem item) {
-    String? selectedCategory = item.category;
-    final amountController = TextEditingController(
-      text: item.amount.toString(),
-    );
-    final noteController = TextEditingController(text: item.description);
-    bool isValidInput = true;
+  static const List<String> _categoryOptions = [
+    '식비',
+    '교통비',
+    '문화비',
+    '여가비',
+    '급여',
+    '부수입',
+    '기타',
+  ];
 
-    showDialog(
+  void _showCategoryPickerModal({
+    required BuildContext context,
+    required String? current,
+    required void Function(String) onSelected,
+  }) {
+    showModalBottomSheet(
       context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Text(
-                '소비 수정',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 카테고리 선택
-                    SelectButton(
-                      value: selectedCategory,
-                      items: ['식비', '교통비', '문화비', '여가비', '기타'],
-                      onChanged: (val) {
-                        setState(() {
-                          selectedCategory = val;
-                        });
-                      },
-                      hintText: '카테고리 선택',
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 금액 입력
-                    CustomNumberField(
-                      controller: amountController,
-                      hintText: '예: 20,000',
-                      backgroundColor: const Color(0xFFF3F4F6),
-                      borderRadius: 12,
-                      height: 56,
-                      suffix: '₩',
-                      onChanged: (value) {
-                        setState(() {
-                          final text = value.replaceAll(',', '');
-                          isValidInput =
-                              text.isNotEmpty &&
-                              int.tryParse(text) != null &&
-                              selectedCategory != null;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // 노트 입력
-                    CustomTextField(
-                      controller: noteController,
-                      hintText: '노트 작성 (20자 이내)',
-                      onChanged: (text) {
-                        if (text.length > 20) {
-                          noteController.text = text.substring(0, 20);
-                          noteController.selection = TextSelection.fromPosition(
-                            TextPosition(offset: noteController.text.length),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('취소', style: TextStyle(color: Colors.grey)),
-                ),
-                TextButton(
-                  onPressed: isValidInput
-                      ? () {
-                          final amount =
-                              int.tryParse(
-                                amountController.text.replaceAll(',', ''),
-                              ) ??
-                              0;
-
-                          // 메인 페이지의 상태 업데이트
-                          this.setState(() {
-                            final index = spendingItems.indexWhere(
-                              (element) => element.id == item.id,
-                            );
-                            if (index != -1) {
-                              spendingItems[index] = SpendingItem(
-                                id: item.id,
-                                category: selectedCategory!,
-                                categoryColor: const Color(0xFF9E9E9E),
-                                description: noteController.text.isEmpty
-                                    ? selectedCategory!
-                                    : noteController.text,
-                                amount: amount,
-                              );
-                            }
-                          });
-
-                          Navigator.of(context).pop();
-                        }
-                      : null,
-                  child: const Text(
-                    '수정',
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final maxHeight = MediaQuery.of(context).size.height * 0.45;
+        return Container(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                  child: Text(
+                    '카테고리 선택',
                     style: TextStyle(
-                      color: Color(0xFF4A90E2),
+                      fontSize: 18,
                       fontWeight: FontWeight.bold,
+                      color: AppColors.text,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _categoryOptions
+                          .map(
+                            (category) => InkWell(
+                          onTap: () {
+                            onSelected(category);
+                            Navigator.of(context).pop();
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
+                            ),
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              category,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: current == category
+                                    ? FontWeight.bold
+                                    : FontWeight.w500,
+                                color: AppColors.text,
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                          .toList(),
                     ),
                   ),
                 ),
               ],
-            );
-          },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEditSpendingDialog(SpendingItem item) {
+    String? selectedCategory = item.category;
+    final amountController = TextEditingController(
+      text: _formatAmount(item.amount),
+    );
+    final noteController = TextEditingController(text: item.description);
+    bool isValidInput = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        final modalHeight = MediaQuery.of(context).size.height * 0.8;
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: SizedBox(
+            height: modalHeight,
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SafeArea(
+                top: false,
+                child: StatefulBuilder(
+                  builder: (context, setModalState) {
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            child: SingleChildScrollView(
+                              physics: const BouncingScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(
+                                24,
+                                20,
+                                24,
+                                16,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '소비 수정',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.text,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  SpendingEntryRow(
+                                    categoryLabel: selectedCategory,
+                                    onCategoryTap: () {
+                                      _showCategoryPickerModal(
+                                        context: context,
+                                        current: selectedCategory,
+                                        onSelected: (val) {
+                                          setModalState(() {
+                                            selectedCategory = val;
+                                            final text = amountController.text
+                                                .replaceAll(',', '');
+                                            isValidInput =
+                                                text.isNotEmpty &&
+                                                    int.tryParse(text) != null &&
+                                                    selectedCategory != null;
+                                          });
+                                        },
+                                      );
+                                    },
+                                    amountController: amountController,
+                                    noteController: noteController,
+                                    amountSuffix: '원',
+                                    greyBackgroundOnly: true,
+                                    onAmountChanged: (value) {
+                                      setModalState(() {
+                                        final text = value.replaceAll(',', '');
+                                        isValidInput =
+                                            text.isNotEmpty &&
+                                                int.tryParse(text) != null &&
+                                                selectedCategory != null;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                          child: CustomButton(
+                            text: '수정',
+                            onPressed: () {
+                              if (!isValidInput) return;
+                              final amount =
+                                  int.tryParse(
+                                    amountController.text.replaceAll(',', ''),
+                                  ) ??
+                                      0;
+                              setState(() {
+                                final index = spendingItems.indexWhere(
+                                      (e) => e.id == item.id,
+                                );
+                                if (index != -1) {
+                                  spendingItems[index] = SpendingItem(
+                                    id: item.id,
+                                    category: selectedCategory!,
+                                    categoryColor: const Color(0xFF9E9E9E),
+                                    description: noteController.text.isEmpty
+                                        ? selectedCategory!
+                                        : noteController.text,
+                                    amount: amount,
+                                  );
+                                }
+                              });
+                              Navigator.of(context).pop();
+                            },
+                            enabled: isValidInput,
+                            height: 56,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
         );
       },
     );
@@ -493,80 +514,84 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
     String? selectedEmotion = emotionData['emotion'];
     final diaryController = TextEditingController(text: emotionData['diary']);
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              title: const Text(
-                '감정 및 소비일지 수정',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // 감정 선택
-                    SelectButton(
-                      value: selectedEmotion,
-                      items: ['기쁨', '슬픔', '화남', '짜증', '평온', '스트레스'],
-                      onChanged: (val) {
-                        setState(() {
-                          selectedEmotion = val;
-                        });
-                      },
-                      hintText: '감정 선택',
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: StatefulBuilder(
+                builder: (context, setModalState) {
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '감정 및 소비일지 수정',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.text,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        SelectButton(
+                          value: selectedEmotion,
+                          items: ['기쁨', '슬픔', '화남', '짜증', '평온', '스트레스'],
+                          onChanged: (val) {
+                            setModalState(() => selectedEmotion = val);
+                          },
+                          hintText: '감정 선택',
+                        ),
+                        const SizedBox(height: 16),
+                        CustomTextField(
+                          controller: diaryController,
+                          hintText: '오늘의 소비일지를 작성해주세요',
+                          onChanged: (text) {
+                            if (text.length > 100) {
+                              diaryController.text = text.substring(0, 100);
+                              diaryController.selection =
+                                  TextSelection.fromPosition(
+                                    TextPosition(
+                                      offset: diaryController.text.length,
+                                    ),
+                                  );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 28),
+                        CustomDualButton(
+                          leftLabel: '취소',
+                          rightLabel: '수정',
+                          onLeftPressed: () => Navigator.of(context).pop(),
+                          onRightPressed: () {
+                            setState(() {
+                              emotionData['emotion'] = selectedEmotion;
+                              emotionData['diary'] = diaryController.text;
+                            });
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-
-                    // 소비일지 입력
-                    CustomTextField(
-                      controller: diaryController,
-                      hintText: '오늘의 소비일지를 작성해주세요',
-                      onChanged: (text) {
-                        if (text.length > 100) {
-                          diaryController.text = text.substring(0, 100);
-                          diaryController
-                              .selection = TextSelection.fromPosition(
-                            TextPosition(offset: diaryController.text.length),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('취소', style: TextStyle(color: Colors.grey)),
-                ),
-                TextButton(
-                  onPressed: () {
-                    // 메인 페이지의 상태 업데이트
-                    this.setState(() {
-                      emotionData['emotion'] = selectedEmotion;
-                      emotionData['diary'] = diaryController.text;
-                    });
-
-                    Navigator.of(context).pop();
-                  },
-                  child: const Text(
-                    '수정',
-                    style: TextStyle(
-                      color: Color(0xFF4A90E2),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
+            ),
+          ),
         );
       },
     );
@@ -581,256 +606,111 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
           SafeArea(
             child: Column(
               children: [
-            // 헤더
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.black),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
+                // 헤더
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
                   ),
-                  const Expanded(
-                    child: Center(
-                      child: Text(
-                        '오늘의 소비',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
-                        ),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.arrow_back, color: Colors.black),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 48), // 균형을 위한 빈 공간
-                ],
-              ),
-            ),
-
-            // 수입/소비 다이얼 (report_page에서 가져옴, 슬라이딩 애니메이션 추가)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 110,
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F0F0),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Stack(
-                      clipBehavior: Clip.hardEdge,
-                      children: [
-                        // 슬라이드하는 indicator
-                        AnimatedPositioned(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                          left: isWeekly ? 2 : 53.0,
-                          top: 2,
-                          child: Container(
-                            width: 51.0,
-                            height: 28.0,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
+                      const Expanded(
+                        child: Center(
+                          child: Text(
+                            '오늘의 소비',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
                             ),
                           ),
                         ),
-                        // 탭 버튼들
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  isWeekly = true;
-                                });
-                              },
-                              child: Container(
-                                width: 51,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 6,
-                                ),
-                                child: Text(
-                                  '수입',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: isWeekly ? Colors.black87 : Colors.grey[600],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  isWeekly = false;
-                                });
-                              },
-                              child: Container(
-                                width: 51,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 6,
-                                ),
-                                child: Text(
-                                  '소비',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: !isWeekly ? Colors.black87 : Colors.grey[600],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+                      ),
+                      const SizedBox(width: 48), // 균형을 위한 빈 공간
+                    ],
+                  ),
+                ),
+
+                // 수입/소비 토글 (레포트·소통과 동일: width 120, height 34)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TwoOptionToggle(
+                        labels: const ['수입', '소비'],
+                        selected: isWeekly ? '수입' : '소비',
+                        onChanged: (v) => setState(() => isWeekly = v == '수입'),
+                        width: 120,
+                        height: 34,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // 소비 선택 시 목록/일지 토글 (레포트·소통과 동일: width 120, height 34)
+                if (!isWeekly) ...[
+                  const SizedBox(height: 12),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TwoOptionToggle(
+                          labels: const ['목록', '일지'],
+                          selected: isList ? '목록' : '일지',
+                          onChanged: (v) => setState(() => isList = v == '목록'),
+                          width: 120,
+                          height: 34,
                         ),
                       ],
                     ),
                   ),
                 ],
-              ),
-            ),
 
-            // 소비 선택 시 목록/일지 다이얼 표시
-            if (!isWeekly) ...[
-              const SizedBox(height: 12),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      width: 110,
-                      padding: const EdgeInsets.all(4),
+                const SizedBox(height: 20),
+
+                // 콘텐츠
+                Expanded(child: _buildSpendingListTab()),
+
+                // 하단 소비내역 추가 버튼
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: GestureDetector(
+                    onTap: _showAddSpendingDialog,
+                    child: Container(
+                      width: double.infinity,
+                      height: 56,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0F0F0),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Stack(
-                        clipBehavior: Clip.hardEdge,
-                        children: [
-                          // 슬라이드하는 indicator
-                          AnimatedPositioned(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                            left: isList ? 2 : 53.0,
-                            top: 2,
-                            child: Container(
-                              width: 51.0,
-                              height: 28.0,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                          ),
-                          // 탭 버튼들
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    isList = true;
-                                  });
-                                },
-                                child: Container(
-                                  width: 51,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
-                                  ),
-                                  child: Text(
-                                    '목록',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: isList ? Colors.black87 : Colors.grey[600],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    isList = false;
-                                  });
-                                },
-                                child: Container(
-                                  width: 51,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
-                                  ),
-                                  child: Text(
-                                    '일지',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: !isList ? Colors.black87 : Colors.grey[600],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                        color: const Color(0xFF4A90E2),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 20),
-
-            // 콘텐츠
-            Expanded(
-              child: _buildSpendingListTab(),
-            ),
-
-            // 하단 소비내역 추가 버튼
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              child: GestureDetector(
-                onTap: _showAddSpendingDialog,
-                child: Container(
-                  width: double.infinity,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF4A90E2),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      isWeekly ? '수입 입력하기' : '소비 입력하기',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                      child: Center(
+                        child: Text(
+                          isWeekly ? '수입 입력하기' : '소비 입력하기',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
               ],
             ),
           ),
@@ -884,7 +764,10 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
                                       _showDiaryModal = false;
                                     });
                                   },
-                                  icon: const Icon(Icons.close, color: Colors.black87),
+                                  icon: const Icon(
+                                    Icons.close,
+                                    color: Colors.black87,
+                                  ),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                 ),
@@ -937,11 +820,7 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
                   shape: BoxShape.circle,
                 ),
                 child: const Center(
-                  child: Icon(
-                    Icons.edit,
-                    color: Color(0xFF9E9E9E),
-                    size: 10,
-                  ),
+                  child: Icon(Icons.edit, color: Color(0xFF9E9E9E), size: 10),
                 ),
               ),
             ),
@@ -1024,244 +903,249 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
-        children: [
-          // 상세 컨테이너
-          Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.08),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              children: [
-                // 항목들 (수입/소비에 따라 변경)
-                currentItems.isEmpty
-                    ? Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.receipt_long,
-                              size: 48,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              isWeekly ? '등록된 수입이 없어요' : '등록된 소비가 없어요',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.grey[600],
-                                fontWeight: FontWeight.w500,
+          children: [
+            // 상세 컨테이너
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // 항목들 (수입/소비에 따라 변경)
+                  currentItems.isEmpty
+                      ? Padding(
+                    padding: const EdgeInsets.all(40),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.receipt_long,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          isWeekly ? '등록된 수입이 없어요' : '등록된 소비가 없어요',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                      : Column(
+                    children: currentItems.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
+                      return Column(
+                        children: [
+                          _buildSpendingItemWithSwipe(item, isWeekly),
+                          // 마지막 항목이 아니면 점선 추가
+                          if (index < currentItems.length - 1)
+                            Container(
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                              ),
+                              height: 1,
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(
+                                    color: isWeekly
+                                        ? Colors.black26
+                                        : Colors.red.withOpacity(0.3),
+                                    width: 1,
+                                    style: BorderStyle.solid,
+                                  ),
+                                ),
                               ),
                             ),
-                          ],
+                        ],
+                      );
+                    }).toList(),
+                  ),
+
+                  // 구분선과 합계 (항목이 있을 때만 표시, 소비일 때만)
+                  if (currentItems.isNotEmpty && !isWeekly) ...[
+                    Container(
+                      height: 1,
+                      color: const Color(0xFFE0E0E0),
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                    ),
+
+                    // 합계 및 차액 정보
+                    Container(
+                      decoration: BoxDecoration(
+                        color: differenceAmount > 0
+                            ? const Color(0xFFFFEBEE) // 분홍색 (초과 시)
+                            : const Color(0xFFF8FBFF), // 연하늘색 (한도 내)
+                        borderRadius: const BorderRadius.only(
+                          bottomLeft: Radius.circular(12),
+                          bottomRight: Radius.circular(12),
                         ),
-                      )
-                    : Column(
-                        children: currentItems.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final item = entry.value;
-                          return Column(
+                      ),
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          // 오늘의 소비
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              _buildSpendingItemWithSwipe(item),
-                              // 마지막 항목이 아니면 점선 추가
-                              if (index < currentItems.length - 1)
-                                Container(
-                                  margin: const EdgeInsets.symmetric(
-                                    horizontal: 20,
+                              const Text(
+                                '오늘의 소비',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              Text(
+                                '${_formatAmount(totalAmount)}원',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: differenceAmount > 0
+                                      ? const Color(0xFFE53935) // 빨간색 (초과 시)
+                                      : const Color(0xFF4A90E2), // 파란색 (한도 내)
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // 하루 소비 한도
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '하루소비한도금액',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              Text(
+                                '${_formatAmount(dailySpendingLimit)}원',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // 차액
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                '차액',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              Text(
+                                '${_formatAmount(differenceAmount)}원',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: differenceAmount > 0
+                                      ? Colors.red
+                                      : const Color(0xFF4A90E2),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // 시간 환산 메시지 (단순화)
+                          if (differenceAmount != 0) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: differenceAmount > 0
+                                    ? const Color(0xFFFFEBEE) // 빨간색 배경 (초과 시)
+                                    : const Color(0xFFE3F2FD), // 파란색 배경 (절약 시)
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: differenceAmount > 0
+                                      ? const Color(
+                                    0xFFEF9A9A,
+                                  ) // 빨간색 테두리 (초과 시)
+                                      : const Color(
+                                    0xFF4A90E2,
+                                  ), // 파란색 테두리 (절약 시)
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 16,
+                                    color: differenceAmount > 0
+                                        ? const Color(0xFFE53935) // 빨간색 (초과 시)
+                                        : const Color(0xFF4A90E2), // 파란색 (절약 시)
                                   ),
-                                  height: 1,
-                                  decoration: BoxDecoration(
-                                    border: Border(
-                                      top: BorderSide(
-                                        color: Colors.red.withOpacity(0.3),
-                                        width: 1,
-                                        style: BorderStyle.solid,
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      differenceAmount > 0
+                                          ? '${_formatAmount(differenceAmount)}원치, 목표도달까지 ${_formatTime(timeInMinutes)}이 미뤄졌어요! 내일 더 힘내봐요!'
+                                          : '${_formatAmount(differenceAmount.abs())}원치, 목표도달까지 ${_formatTime(timeInMinutes.abs())}이 당겨졌어요! 오늘도 잘했어요!',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: differenceAmount > 0
+                                            ? const Color(
+                                          0xFFE53935,
+                                        ) // 빨간색 (초과 시)
+                                            : const Color(
+                                          0xFF4A90E2,
+                                        ), // 파란색 (절약 시)
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                   ),
-                                ),
-                            ],
-                          );
-                        }).toList(),
-                      ),
-
-                // 구분선과 합계 (항목이 있을 때만 표시, 소비일 때만)
-                if (currentItems.isNotEmpty && !isWeekly) ...[
-                  Container(
-                    height: 1,
-                    color: const Color(0xFFE0E0E0),
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-
-                  // 합계 및 차액 정보
-                  Container(
-                    decoration: BoxDecoration(
-                      color: differenceAmount > 0
-                          ? const Color(0xFFFFEBEE) // 분홍색 (초과 시)
-                          : const Color(0xFFF8FBFF), // 연하늘색 (한도 내)
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(12),
-                        bottomRight: Radius.circular(12),
-                      ),
-                    ),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        // 오늘의 소비
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              '오늘의 소비',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              '${_formatAmount(totalAmount)}원',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: differenceAmount > 0
-                                    ? const Color(0xFFE53935) // 빨간색 (초과 시)
-                                    : const Color(0xFF4A90E2), // 파란색 (한도 내)
+                                ],
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // 하루 소비 한도
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              '하루소비한도금액',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            Text(
-                              '${_formatAmount(dailySpendingLimit)}원',
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // 차액
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              '차액',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            Text(
-                              '${_formatAmount(differenceAmount)}원',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: differenceAmount > 0
-                                    ? Colors.red
-                                    : const Color(0xFF4A90E2),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // 시간 환산 메시지 (단순화)
-                        if (differenceAmount != 0) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: differenceAmount > 0
-                                  ? const Color(0xFFFFEBEE) // 빨간색 배경 (초과 시)
-                                  : const Color(0xFFE3F2FD), // 파란색 배경 (절약 시)
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: differenceAmount > 0
-                                    ? const Color(0xFFEF9A9A) // 빨간색 테두리 (초과 시)
-                                    : const Color(0xFF4A90E2), // 파란색 테두리 (절약 시)
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.access_time,
-                                  size: 16,
-                                  color: differenceAmount > 0
-                                      ? const Color(0xFFE53935) // 빨간색 (초과 시)
-                                      : const Color(0xFF4A90E2), // 파란색 (절약 시)
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    differenceAmount > 0
-                                        ? '${_formatAmount(differenceAmount)}원치, 목표도달까지 ${_formatTime(timeInMinutes)}이 미뤄졌어요! 내일 더 힘내봐요!'
-                                        : '${_formatAmount(differenceAmount.abs())}원치, 목표도달까지 ${_formatTime(timeInMinutes.abs())}이 당겨졌어요! 오늘도 잘했어요!',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: differenceAmount > 0
-                                          ? const Color(
-                                              0xFFE53935,
-                                            ) // 빨간색 (초과 시)
-                                          : const Color(
-                                              0xFF4A90E2,
-                                            ), // 파란색 (절약 시)
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ],
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
 
-
-  Widget _buildSpendingItemWithSwipe(SpendingItem item) {
+  Widget _buildSpendingItemWithSwipe(SpendingItem item, bool isWeekly) {
+    final deleteBgColor = isWeekly ? Colors.black54 : Colors.red;
     return Dismissible(
       key: Key('spending_item_${item.id}'),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        decoration: const BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.only(
+        decoration: BoxDecoration(
+          color: deleteBgColor,
+          borderRadius: const BorderRadius.only(
             topRight: Radius.circular(12),
             bottomRight: Radius.circular(12),
           ),
@@ -1273,11 +1157,16 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
           spendingItems.removeWhere((element) => element.id == item.id);
         });
       },
-      child: _buildSpendingItem(item),
+      child: _buildSpendingItem(item, isWeekly),
     );
   }
 
-  Widget _buildSpendingItem(SpendingItem item) {
+  Widget _buildSpendingItem(SpendingItem item, bool isWeekly) {
+    final amountColor = isWeekly
+        ? Colors.black87
+        : (totalAmount > dailySpendingLimit
+        ? const Color(0xFFE53E3E) // 빨간색 (초과 시)
+        : const Color(0xFF3182CE)); // 파란색 (한도 내)
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -1339,15 +1228,13 @@ class _TodaySpendingTestPageState extends State<TodaySpendingTestPage> {
                 ],
               ),
 
-              // 금액 (조건에 따라 색상 변경)
+              // 금액 (수입창은 검정, 소비창은 한도에 따라 빨강/파랑)
               Text(
                 '${_formatAmount(item.amount)}원',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: totalAmount > dailySpendingLimit
-                      ? const Color(0xFFE53E3E) // 빨간색 (초과 시)
-                      : const Color(0xFF3182CE), // 파란색 (한도 내)
+                  color: amountColor,
                 ),
               ),
             ],

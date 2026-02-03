@@ -16,17 +16,12 @@ class ReportViewModel extends ChangeNotifier {
   final RecordRepository _recordRepository;
   late final StreamSubscription<SpendingUpdatedEvent> _spendingSub;
 
-  ReportViewModel(
-      this._recordRepository,
-      SpendingEventBus eventBus,
-      ) {
+  ReportViewModel(this._recordRepository, SpendingEventBus eventBus) {
     _selectedBaseDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
 
     _spendingSub = eventBus.stream.listen((_) {
       reloadForCurrentMonth();
     });
-
-    _initInsights();
   }
 
   // ───────── 상태 ─────────
@@ -61,7 +56,8 @@ class ReportViewModel extends ChangeNotifier {
   int variableExpenseTotal = 0;
   int savingTotal = 0;
 
-  late final List<Map<String, dynamic>> insights;
+  /// 소비 수치 중심 인사이트 5종 (총 소비, 하루 평균, 최다 카테고리, 예산 대비, 소비 추세)
+  List<Map<String, dynamic>> get insights => _buildReportInsights();
 
   // ✅ 최근 7/30일 차트 집계를 위해 여러 월을 캐시
   final Map<String, MonthlySpending> _monthCache = {}; // key: 'yyyy-MM'
@@ -149,33 +145,100 @@ class ReportViewModel extends ChangeNotifier {
     return (maxVal * 1.2).ceilToDouble().clamp(1.0, double.infinity);
   }
 
-  // ───────── 인사이트 ─────────
+  // ───────── 인사이트 (소비 수치 중심 5종) ─────────
 
-  void _initInsights() {
-    final base = [
+  static final _nf = NumberFormat.decimalPattern('ko_KR');
+
+  List<Map<String, dynamic>> _buildReportInsights() {
+    final days7 = _daysInRecentPeriod('주간');
+    final total7 = _totalSpentFromDays(days7);
+    final avgDaily7 = days7.isEmpty ? 0 : (total7 / 7).round();
+    final topCat7 = _topCategoryFromDays(days7);
+    final budget7 = hardDailySpendingLimit * 7;
+    final ratio7 = budget7 > 0 ? (total7 / budget7 * 100).round() : 0;
+    final prev7 = _totalSpentPrevious7Days();
+    final trend7 = prev7 > 0 ? ((total7 - prev7) / prev7 * 100).round() : 0;
+
+    return [
       {
-        'title': '이번 달 변동 소비 총액을 확인해보세요',
-        'icon': Icons.flag_circle,
+        'title': total7 > 0
+            ? '최근 7일 동안 총 ${_nf.format(total7)}원을 소비했어요.'
+            : '최근 7일간 소비 기록이 없어요.',
+        'icon': Icons.account_balance_wallet,
         'color': AppColors.primary,
       },
       {
-        'title': '어떤 카테고리에 가장 많이 쓰고 있는지 살펴보세요',
-        'icon': Icons.pie_chart,
+        'title': days7.isNotEmpty
+            ? '최근 7일 기준 하루 평균 소비는 ${_nf.format(avgDaily7)}원이에요.'
+            : '최근 7일 기록이 없어요.',
+        'icon': Icons.trending_up,
         'color': const Color(0xFF43A047),
       },
       {
-        'title': '이번 주 소비 패턴이 지난주와 비슷한가요?',
-        'icon': Icons.bar_chart,
+        'title': topCat7 != null
+            ? '최근 7일 동안 가장 많이 쓴 카테고리는 $topCat7예요.'
+            : '최근 7일간 소비 기록이 없어요.',
+        'icon': Icons.pie_chart,
         'color': AppColors.primary,
       },
       {
-        'title': '예산 대비 소비를 연결하면 더 자세한 인사이트를 볼 수 있어요',
-        'icon': Icons.access_time,
-        'color': const Color(0xFFD32F2F),
+        'title': budget7 > 0
+            ? '최근 7일은 설정한 예산의 ${ratio7}%를 사용했어요.'
+            : '예산을 설정하면 예산 대비 소비를 볼 수 있어요.',
+        'icon': Icons.savings,
+        'color': ratio7 > 100
+            ? const Color(0xFFD32F2F)
+            : const Color(0xFF43A047),
+      },
+      {
+        'title': prev7 > 0
+            ? '직전 7일 대비 소비가 ${trend7 >= 0 ? trend7 : -trend7}% ${trend7 >= 0 ? '증가' : '감소'}했어요.'
+            : '소비 추세는 이전 기록이 쌓이면 보여줄게요.',
+        'icon': Icons.compare_arrows,
+        'color': AppColors.primary,
       },
     ];
+  }
 
-    insights = List.generate(10, (_) => base).expand((e) => e).toList();
+  int _totalSpentFromDays(List<DaySpending> days) {
+    int sum = 0;
+    for (final d in days) {
+      for (final e in d.entries) {
+        sum += (e.amount as num).round();
+      }
+    }
+    return sum;
+  }
+
+  String? _topCategoryFromDays(List<DaySpending> days) {
+    final Map<String, int> byCat = {};
+    for (final d in days) {
+      for (final e in d.entries) {
+        final cat = e.category.trim();
+        if (cat.isEmpty) continue;
+        final amt = (e.amount as num).round();
+        byCat[cat] = (byCat[cat] ?? 0) + amt;
+      }
+    }
+    if (byCat.isEmpty) return null;
+    return byCat.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+  }
+
+  int _totalSpentPrevious7Days() {
+    final today = _dateOnly(DateTime.now());
+    final startPrev = today.subtract(const Duration(days: 13));
+    final endPrev = today.subtract(const Duration(days: 7));
+    int sum = 0;
+    for (final m in _monthCache.values) {
+      for (final d in m.days.values) {
+        final date = _dateOnly(d.date);
+        if (date.isBefore(startPrev) || date.isAfter(endPrev)) continue;
+        for (final e in d.entries) {
+          sum += (e.amount as num).round();
+        }
+      }
+    }
+    return sum;
   }
 
   // ───────── 데이터 로딩 ─────────
@@ -260,8 +323,11 @@ class ReportViewModel extends ChangeNotifier {
   }
 
   void changeMonth(int delta) {
-    _selectedBaseDate =
-        DateTime(_selectedBaseDate.year, _selectedBaseDate.month + delta, 1);
+    _selectedBaseDate = DateTime(
+      _selectedBaseDate.year,
+      _selectedBaseDate.month + delta,
+      1,
+    );
     _loadForMonth(_selectedBaseDate);
   }
 
@@ -292,7 +358,9 @@ class ReportViewModel extends ChangeNotifier {
     if (_monthCache.containsKey(key)) return;
 
     final monthAnchor = DateTime(anyDay.year, anyDay.month, 1);
-    final monthly = await _recordRepository.loadMonthlySpendingByDate(monthAnchor);
+    final monthly = await _recordRepository.loadMonthlySpendingByDate(
+      monthAnchor,
+    );
     _monthCache[key] = monthly;
   }
 

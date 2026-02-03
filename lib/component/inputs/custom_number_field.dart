@@ -119,6 +119,7 @@ class _CustomNumberFieldState extends State<CustomNumberField> {
           hintStyle: AppTextStyles.paragraph.copyWith(color: Colors.grey),
           border: InputBorder.none,
           suffixText: widget.suffix,
+          suffixStyle: AppTextStyles.paragraph.copyWith(color: AppColors.text),
         ),
         onChanged: _onTextChanged,
         keyboardType: TextInputType.number,

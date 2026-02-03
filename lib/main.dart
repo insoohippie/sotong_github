@@ -51,9 +51,7 @@ Future<void> main() async {
   await Hive.openBox('past_plans');
 
   // 2) Firebase 초기화
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   runApp(const MyApp());
 }
@@ -174,18 +172,13 @@ class MyApp extends StatelessWidget {
             ctx.read<RecordRepository>(),
           ),
         ),
-        ChangeNotifierProvider<AddIncomeViewModel>(
-          create: (_) => AddIncomeViewModel(),
-        ),
-        ChangeNotifierProvider<AlarmViewModel>(
-          create: (_) => AlarmViewModel(),
-        ),
-        ChangeNotifierProvider<NotificationViewModel>(
-          create: (_) => NotificationViewModel(),
-        ),
+        ChangeNotifierProvider<AddIncomeViewModel>(create: (_) => AddIncomeViewModel(),),
+        ChangeNotifierProvider<AlarmViewModel>(create: (_) => AlarmViewModel()),
+        ChangeNotifierProvider<NotificationViewModel>(create: (_) => NotificationViewModel(),),
       ],
       child: MaterialApp(
         title: 'Sotong App',
+        // debugShowCheckedModeBanner: false, //???
         theme: ThemeData(
           scaffoldBackgroundColor: Colors.white,
           primaryColor: AppColors.primary,
