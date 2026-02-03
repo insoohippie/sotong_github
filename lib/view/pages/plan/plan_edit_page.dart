@@ -30,14 +30,12 @@ class PlanEditPage extends StatefulWidget {
   final TotalPlan? initialPlan;
   final RefData? initialRefData;
   final bool useLocalDraft;
-  final bool requireApplyDate;
 
   const PlanEditPage({
     Key? key,
     this.initialPlan,
     this.initialRefData,
     this.useLocalDraft = false,
-    this.requireApplyDate = true,
   }) : super(key: key);
 
   @override
@@ -62,8 +60,59 @@ class _PlanEditPageState extends State<PlanEditPage> {
     }
   }
 
+  void _ensureOverrideDatePrompt(
+    BuildContext context,
+    PlanEditViewModel vm,
+  ) {
+    if (_overrideDatePrompted) return;
+    _overrideDatePrompted = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final selected = await _pickOverrideToday(context, vm);
+      if (!mounted) return;
+      vm.setOverrideToday(selected ?? DateTime.now());
+    });
+  }
+
+  Future<DateTime?> _pickOverrideToday(
+    BuildContext context,
+    PlanEditViewModel vm,
+  ) async {
+    final now = DateTime.now();
+    final planStartSource = vm.totalPlan.startDate ?? now;
+    final planStart = DateTime(
+      planStartSource.year,
+      planStartSource.month,
+      planStartSource.day,
+    );
+    final goalSource = vm.projectedGoalDate ??
+        vm.totalPlan.modEndDate ??
+        vm.totalPlan.endDate ??
+        planStart.add(const Duration(days: 365));
+    DateTime planEnd = DateTime(goalSource.year, goalSource.month, goalSource.day);
+    if (planEnd.isBefore(planStart)) {
+      planEnd = planStart;
+    }
+    DateTime initial = DateTime(now.year, now.month, now.day);
+    if (initial.isBefore(planStart)) {
+      initial = planStart;
+    }
+    if (initial.isAfter(planEnd)) {
+      initial = planEnd;
+    }
+    return showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: planStart,
+      lastDate: planEnd,
+      helpText: '적용할 날짜를 선택하세요',
+    );
+  }
+
   double _parseController(TextEditingController c) =>
       double.tryParse(c.text.replaceAll(',', '')) ?? 0.0;
+
+  bool _overrideDatePrompted = false;
 
   Future<_PlanEditInitData> _loadInitialData() async {
     final planRepo = context.read<PlanRepository>();
@@ -123,13 +172,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
     );
     if (!mounted || stagedEntries == null) return;
 
-    final DateTime? applyDate = await _resolveApplyDate(
-      vm: vm,
-      title: '월 수입 적용일을 선택하세요',
-      initialDate: vm.pendingFixedIncomeApplyDate ?? DateTime.now(),
-    );
-    if (applyDate == null) return;
-    vm.applyFixedIncomeEdit(entries: stagedEntries!, applyDate: applyDate);
+    vm.applyFixedIncomeEdit(entries: stagedEntries!);
   }
 
   Future<void> _openFixedCostModal(BuildContext context, PlanEditViewModel vm) async {
@@ -158,13 +201,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
     );
     if (!mounted || stagedEntries == null) return;
 
-    final DateTime? applyDate = await _resolveApplyDate(
-      vm: vm,
-      title: '고정 소비 적용일을 선택하세요',
-      initialDate: vm.pendingFixedConsumeApplyDate ?? DateTime.now(),
-    );
-    if (applyDate == null) return;
-    vm.applyFixedConsumeEdit(entries: stagedEntries!, applyDate: applyDate);
+    vm.applyFixedConsumeEdit(entries: stagedEntries!);
   }
 
   Future<void> _openDailyModal(BuildContext context, PlanEditViewModel vm) async {
@@ -197,13 +234,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
     );
     if (!mounted || stagedEntries == null) return;
 
-    final DateTime? applyDate = await _resolveApplyDate(
-      vm: vm,
-      title: '일일 소비 적용일을 선택하세요',
-      initialDate: vm.pendingDailyConsumeApplyDate ?? DateTime.now(),
-    );
-    if (applyDate == null) return;
-    vm.applyDailyConsumeEdit(entries: stagedEntries!, applyDate: applyDate);
+    vm.applyDailyConsumeEdit(entries: stagedEntries!);
   }
 
   // ----------------- 저장 -----------------
@@ -227,88 +258,8 @@ class _PlanEditPageState extends State<PlanEditPage> {
     }
 
     final result = vm.finalizeEdits();
+    vm.reloadWith(plan: result.updatedPlan, refData: result.updatedRefData);
     Navigator.of(context).pop(result);
-  }
-
-  Future<DateTime?> _resolveApplyDate({
-    required PlanEditViewModel vm,
-    required String title,
-    required DateTime initialDate,
-  }) async {
-    if (!widget.requireApplyDate) {
-      final now = DateTime.now();
-      return DateTime(now.year, now.month, now.day);
-    }
-    return _pickApplyDate(
-      vm: vm,
-      title: title,
-      initialDate: initialDate,
-    );
-  }
-
-  Future<DateTime?> _pickApplyDate({
-    required PlanEditViewModel vm,
-    required String title,
-    DateTime? initialDate,
-  }) async {
-    final now = DateTime.now();
-    final startSource = vm.totalPlan.startDate ?? now;
-    final planStart = DateTime(startSource.year, startSource.month, startSource.day);
-    final endSource = vm.projectedGoalDate ??
-        vm.totalPlan.modEndDate ??
-        vm.totalPlan.endDate ??
-        startSource;
-    DateTime planEnd = DateTime(endSource.year, endSource.month, endSource.day);
-    if (planEnd.isBefore(planStart)) {
-      planEnd = planStart;
-    }
-
-    DateTime initial = initialDate != null
-        ? DateTime(initialDate.year, initialDate.month, initialDate.day)
-        : DateTime(now.year, now.month, now.day);
-    if (initial.isBefore(planStart)) {
-      initial = planStart;
-    }
-    if (initial.isAfter(planEnd)) {
-      initial = planEnd;
-    }
-
-    DateTime tempSelected = initial;
-
-    final result = await showDialog<DateTime>(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(title),
-          content: SizedBox(
-            height: 320,
-            width: 320,
-            child: CalendarDatePicker(
-              initialDate: initial,
-              firstDate: planStart,
-              lastDate: planEnd,
-              onDateChanged: (value) {
-                tempSelected = value;
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('취소'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, tempSelected),
-              child: const Text('적용'),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (result == null) return null;
-    return DateTime(result.year, result.month, result.day);
   }
 
   // ----------------- UI -----------------
@@ -367,61 +318,67 @@ class _PlanEditPageState extends State<PlanEditPage> {
         plan,
         initialRefData: refData,
       ),
-      child: Scaffold(
-        appBar: const PreferredSize(
-          preferredSize: Size.fromHeight(kToolbarHeight),
-          child: CustomAppBar(title: ''),
-        ),
-        backgroundColor: Colors.white,
-        body: SafeArea(
-          child: Column(
-            children: [
-              // 상단: 차트 또는 경고 배너(대체 표시)
-              const Padding(
-                padding: EdgeInsets.fromLTRB(24, 0, 24, 28),
-                child: _SyncBridgeForChartOrAdvice(),
-              ),
+      child: Builder(
+        builder: (context) {
+          final vm = context.read<PlanEditViewModel>();
+          _ensureOverrideDatePrompt(context, vm);
+          return Scaffold(
+            appBar: const PreferredSize(
+              preferredSize: Size.fromHeight(kToolbarHeight),
+              child: CustomAppBar(title: ''),
+            ),
+            backgroundColor: Colors.white,
+            body: SafeArea(
+              child: Column(
+                children: [
+                  // 상단: 차트 또는 경고 배너(대체 표시)
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(24, 0, 24, 28),
+                    child: _SyncBridgeForChartOrAdvice(),
+                  ),
 
-              _buildTabBar(),
+                  _buildTabBar(),
 
-              // ▼▼▼ 스크롤 가능한 영역 ▼▼▼
-              Expanded(
-                child: Scrollbar(
-                  thumbVisibility: false,
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.only(bottom: 5),
-                    child: Column(
-                      children: [
-                        IndexedStack(
-                          index: _selectedTabIndex,
-                          children: const [
-                            _PlanBasicInfoTab(),
-                            _UserInfoTab(),
+                  // ▼▼▼ 스크롤 가능한 영역 ▼▼▼
+                  Expanded(
+                    child: Scrollbar(
+                      thumbVisibility: false,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.only(bottom: 5),
+                        child: Column(
+                          children: [
+                            IndexedStack(
+                              index: _selectedTabIndex,
+                              children: const [
+                                _PlanBasicInfoTab(),
+                                _UserInfoTab(),
+                              ],
+                            ),
                           ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
-              ),
 
-              // 저장 버튼
-              Consumer<PlanEditViewModel>(
-                builder: (context, vm, _) {
-                  final canSave = vm.isValidForm() && _blockingMessage(vm) == null;
-                  return Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                    child: CustomButton(
-                      text: '저장',
-                      enabled: canSave,
-                      onPressed: canSave ? () => _save(vm) : () {},
-                    ),
-                  );
-                },
+                  // 저장 버튼
+                  Consumer<PlanEditViewModel>(
+                    builder: (context, vm, _) {
+                      final canSave = vm.isValidForm() && _blockingMessage(vm) == null;
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+                        child: CustomButton(
+                          text: '저장',
+                          enabled: canSave,
+                          onPressed: canSave ? () => _save(vm) : () {},
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }

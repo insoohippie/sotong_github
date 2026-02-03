@@ -196,6 +196,7 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
             // 저축(0)은 항상 크게, 나머지는 터치 시만 크게
             final radius = (i == 0) ? 64.0 : (isTouched ? 64.0 : 52.0);
 
+            final showBadge = animatedAreas[i] > 0.0001;
             sections.add(
               PieChartSectionData(
                 color: colors[i],
@@ -203,13 +204,11 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
                 radius: radius,                     // 반지름 애니메이션(초기 0→목표)
                 title: '',
                 badgePositionPercentageOffset: widget.badgeOutsideOffset,
-                badgeWidget: Opacity(
-                  opacity: (animatedAreas[i] > 0.0001) ? 1 : 0,
-                  child: _TextBadge(
-                    labelTop: labels[i],
-                    labelBottom: _manWon(_rawValues[i]), // 금액은 원본 값 기준
-                    scale: (i == 0 || isTouched) ? 1.1 : 1.0,
-                  ),
+                badgeWidget: _TextBadge(
+                  labelTop: labels[i],
+                  labelBottom: _manWon(_rawValues[i]), // 금액은 원본 값 기준
+                  scale: (i == 0 || isTouched) ? 1.1 : 1.0,
+                  visible: showBadge,
                 ),
               ),
             );
@@ -243,52 +242,63 @@ class _TextBadge extends StatelessWidget {
     required this.labelTop,
     required this.labelBottom,
     this.scale = 1.0,
+    this.visible = true,
   });
 
   final String labelTop;
   final String labelBottom;
   final double scale;
+  final bool visible;
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedScale(
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      scale: scale,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 4,
-              offset: const Offset(2, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              labelTop,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                color: Colors.black87,
+    if (!visible) {
+      return const SizedBox.shrink();
+    }
+    return SizedBox(
+      width: 88,
+      height: 52,
+      child: AnimatedScale(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        scale: scale,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(2, 2),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              labelBottom,
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.black54,
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                labelTop,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black87,
+                ),
+                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                labelBottom,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black54,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

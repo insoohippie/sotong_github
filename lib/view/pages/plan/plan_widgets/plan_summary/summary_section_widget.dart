@@ -43,7 +43,6 @@ Widget _buildNoSavingWarning(
               builder: (_) => PlanEditPage(
                 initialPlan: viewModel.totalPlan,
                 initialRefData: viewModel.refData,
-                requireApplyDate: false,
               ),
             ),
           );
@@ -88,7 +87,6 @@ Widget _buildSummaryChartWithRecommendation(
               builder: (_) => PlanEditPage(
                 initialPlan: viewModel.totalPlan,
                 initialRefData: viewModel.refData,
-                requireApplyDate: false,
               ),
             ),
           );
