@@ -211,9 +211,6 @@ class PlanEditViewModel extends ChangeNotifier {
     final normalized = _defaultApplyDate();
     _pendingFixedIncomeEntries = List<Entry>.unmodifiable(entries);
     _pendingFixedIncomeApplyDate = normalized;
-    totalPlanVM.updateMetrics(monthlyIncome: _sumEntries(entries));
-    totalPlan = totalPlanVM.plan;
-    _logPlanTree('FixedIncome Edit');
     notifyListeners();
   }
 
@@ -223,9 +220,6 @@ class PlanEditViewModel extends ChangeNotifier {
     final normalized = _defaultApplyDate();
     _pendingFixedConsumeEntries = List<Entry>.unmodifiable(entries);
     _pendingFixedConsumeApplyDate = normalized;
-    totalPlanVM.updateMetrics(monthlyConsume: _sumEntries(entries));
-    totalPlan = totalPlanVM.plan;
-    _logPlanTree('FixedConsume Edit');
     notifyListeners();
   }
 
@@ -235,9 +229,6 @@ class PlanEditViewModel extends ChangeNotifier {
     final normalized = _defaultApplyDate();
     _pendingDailyConsumeEntries = List<Entry>.unmodifiable(entries);
     _pendingDailyConsumeApplyDate = normalized;
-    totalPlanVM.updateMetrics(dailyConsume: _sumEntries(entries));
-    totalPlan = totalPlanVM.plan;
-    _logPlanTree('DailyConsume Edit');
     notifyListeners();
   }
 
@@ -312,7 +303,6 @@ class PlanEditViewModel extends ChangeNotifier {
 
     totalPlan = totalPlan.copyWith(
       subPlans: merged,
-      endDate: targetDate,
     ).recalculateTotals();
     totalPlanVM = TotalPlanViewModel(totalPlan);
   }
@@ -324,9 +314,11 @@ class PlanEditViewModel extends ChangeNotifier {
     required int fractionalEndSeconds,
   }) {
     final template = _latestMiniTemplate();
-    final metrics = totalPlan.result.totalMetrics;
     final key = _formatYearMonth(monthStart);
     final miniId = '${key}_mini_auto';
+    final incomeAmount = _effectiveMonthlyIncomeAmount();
+    final consumeAmount = _effectiveMonthlyConsumeAmount();
+    final dailyAmount = _effectiveDailyConsumeAmount();
     final mini = MiniPlan(
       docId: miniId,
       yearMonth: monthStart,
@@ -335,12 +327,9 @@ class PlanEditViewModel extends ChangeNotifier {
       monthlyIncomeId: template?.monthlyIncomeId ?? '${key}_income_auto',
       monthlyConsumeId: template?.monthlyConsumeId ?? '${key}_consume_auto',
       dailyConsumeId: template?.dailyConsumeId ?? '${key}_daily_auto',
-      monthlyIncomeAmount:
-          template?.monthlyIncomeAmount ?? metrics.monthlyIncomeAmount,
-      monthlyConsumeAmount:
-          template?.monthlyConsumeAmount ?? metrics.monthlyConsumeAmount,
-      dailyConsumeAmount:
-          template?.dailyConsumeAmount ?? metrics.dailyConsumeAmount,
+      monthlyIncomeAmount: incomeAmount,
+      monthlyConsumeAmount: consumeAmount,
+      dailyConsumeAmount: dailyAmount,
     ).recalculateNetAmounts();
     return SubPlan(
       yearMonth: monthStart,
@@ -381,6 +370,12 @@ class PlanEditViewModel extends ChangeNotifier {
     if (seconds >= 86399) return 86399;
     return seconds;
   }
+
+  int _effectiveMonthlyIncomeAmount() => monthlyIncome.round();
+
+  int _effectiveMonthlyConsumeAmount() => monthlyFixedCost.round();
+
+  int _effectiveDailyConsumeAmount() => dailySpendingLimit.round();
 
   UpdateMonthlyCommand buildMonthlyCommand({ // 월 단위 변경
     required DateTime applyMonth,
