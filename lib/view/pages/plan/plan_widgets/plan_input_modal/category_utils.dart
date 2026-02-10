@@ -1,117 +1,47 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:sotong_local/component/texts/paragraph_text.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
+
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
+import 'package:sotong_local/component/theme/app_colors.dart';
 
 /// =======================
-///  예전 그대로: 프리셋 + 이모지 헬퍼
+///  CategoryPill (왼쪽 칩) - 프리셋 없음
 /// =======================
-
-/// 카테고리 프리셋 (다른 화면에서 쓸 수 있으니 남겨둠)
-class CatPreset {
-  final String name;
-  final IconData icon;
-  const CatPreset(this.name, this.icon);
-}
-
-const List<CatPreset> dailyPresets = [
-  CatPreset('식비', Icons.restaurant_rounded),
-  CatPreset('카페', Icons.local_cafe_rounded),
-  CatPreset('쇼핑', Icons.shopping_bag_rounded),
-  CatPreset('여가', Icons.sports_esports_rounded),
-];
-
-const List<CatPreset> incomePresets = [
-  CatPreset('급여', Icons.account_balance_wallet_rounded),
-  CatPreset('사업', Icons.business_center_rounded),
-  CatPreset('배당', Icons.trending_up_rounded),
-  CatPreset('용돈', Icons.card_giftcard_rounded),
-];
-
-const List<CatPreset> fixedPresets = [
-  CatPreset('주거', Icons.home_rounded),
-  CatPreset('통신', Icons.wifi_rounded),
-  CatPreset('교통', Icons.directions_bus_rounded),
-  CatPreset('구독', Icons.subscriptions_rounded),
-];
-
-String _getPresetEmoji(String categoryName) {
-  switch (categoryName) {
-    case '급여':
-      return '💼';
-    case '사업':
-      return '🏢';
-    case '배당':
-      return '📈';
-    case '용돈':
-      return '🎁';
-    case '식비':
-      return '🍽️';
-    case '카페':
-      return '☕';
-    case '쇼핑':
-      return '🛍️';
-    case '여가':
-      return '🎮';
-    case '주거':
-      return '🏠';
-    case '통신':
-      return '📱';
-    case '교통':
-      return '🚌';
-    case '구독':
-      return '📺';
-    default:
-      return '💰';
-  }
-}
-
-/// =======================
-///  CategoryPill (왼쪽 칩)
-/// =======================
-
 class CategoryPill extends StatelessWidget {
   final String text;
+  final String emoji;
   final VoidCallback onTap;
   final VoidCallback onClear;
   final double height;
-  final List<CatPreset> presets;
-  final String? customEmoji;
 
   final bool highlight;
   final Color highlightColor;
 
   const CategoryPill({
-    Key? key,
+    super.key,
     required this.text,
+    required this.emoji,
     required this.onTap,
     required this.onClear,
-    required this.presets,
     this.height = 60,
     this.highlight = false,
     this.highlightColor = const Color(0xFFFFF1F1),
-    this.customEmoji,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    final hasValue = text.trim().isNotEmpty;
-
-    final CatPreset matched = presets.firstWhere(
-          (p) => p.name == text.trim(),
-      orElse: () => const CatPreset('', Icons.add_circle_outline_rounded),
-    );
-
-    final bool isPreset = matched.name.isNotEmpty;
-    final bool isCustomCategory =
-        hasValue && !isPreset && customEmoji != null && customEmoji!.isNotEmpty;
+    final name = text.trim();
+    final hasValue = name.isNotEmpty;
 
     final Color bgColor = (hasValue && highlight)
         ? highlightColor
         : (hasValue ? AppColors.lightBlue : AppColors.greyBackground);
 
-    final Color iconColor = hasValue ? AppColors.primary : AppColors.subText;
     final Color textColor = hasValue ? Colors.black : AppColors.subText;
+
+    final displayEmoji = (emoji.trim().isNotEmpty) ? emoji : '💰';
 
     return InkWell(
       onTap: onTap,
@@ -126,21 +56,21 @@ class CategoryPill extends StatelessWidget {
         ),
         child: Row(
           children: [
-            if (hasValue && isPreset)
-              Icon(matched.icon, size: 18, color: iconColor)
-            else if (isCustomCategory)
-              Text(customEmoji!, style: const TextStyle(fontSize: 16))
+            if (!hasValue)
+              Icon(Icons.add, size: 18, color: AppColors.subText)
             else
-              Icon(
-                Icons.add_circle_outline_rounded,
-                size: 18,
-                color: iconColor,
-              ),
+              Text(displayEmoji, style: const TextStyle(fontSize: 16)),
+
             const SizedBox(width: 6),
             Expanded(
-              child: ParagraphText(
-                text: hasValue ? text : '입력',
-                color: textColor,
+              child: Text(
+                hasValue ? name : '입력',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -151,18 +81,17 @@ class CategoryPill extends StatelessWidget {
 }
 
 /// =======================
-///  소비 이모지 리스트 (정리 버전)
+///  소비 이모지 리스트
 /// =======================
-
-final List<String> _expenseEmojis = [
+final List<String> expenseEmojis = [
   '💰','💸','💳','🏦','💵','💶','💷','💴','🪙','💎',
   '🍕','🍔','🍟','🌭','🥪','🌮','🌯','🥙','🍱','🍜',
   '☕','🥤','🧋','🍵','🍶','🍷','🍸','🍹','🍺','🍻',
   '🛍️','🛒','💍','👕','👖','👗','👠','👟','🎒','👜',
-  '🎬','🎮','🎯','🎲','🎪','🎨','🎭','🎪','🎡','🎠',
+  '🎬','🎮','🎯','🎲','🎪','🎨','🎭','🎡','🎠',
   '🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐',
-  '✈️','🚁','🚀','🛸','🚢','⛵','🚤','🛥️','🚁','🚂',
-  '🏠','🏡','🏢','🏬','🏪','🏫','🏩','🏨','🏦','🏛️',
+  '✈️','🚁','🚀','🛸','🚢','⛵','🚤','🛥️','🚂',
+  '🏠','🏡','🏢','🏬','🏪','🏫','🏩','🏨','🏛️',
   '💊','🏥','⚕️','🩺','💉','🧬','🦠','🧪','🧫','🧼',
   '📱','💻','⌨️','🖥️','🖨️','📠','📞','☎️','📺','📻',
   '🏋️','🤸','🧘','🏊','🚴','🏃','⚽','🏀','🏈','🎾',
@@ -178,30 +107,26 @@ final List<String> _expenseEmojis = [
 ///  - 한 줄 4개
 ///  - 추가 버튼으로 칩 생성
 /// =======================
-
 Future<void> openCategorySheet(
     BuildContext context,
     TextEditingController controller,
     void Function(String) onSelected, {
-      /// 전체 카테고리 이름 리스트 (프리셋+커스텀 통합)
       required List<String> categories,
-
-      /// 카테고리별 이모지 (없으면 preset 기본 이모지 or 💰)
       required Map<String, String> categoryEmojis,
 
-      /// 새 카테고리 추가 시 콜백 (name, emoji)
+      /// ✅ 중복 선택 방지용
+      required Set<String> alreadySelectedNames,
+      String? currentSelectedName,
+
+      void Function(String name, String emoji)? onSelectedWithEmoji,
       void Function(String name, String emoji)? onCategoryAdded,
-
-      /// 카테고리 삭제 시 콜백 (name)
       void Function(String name)? onCategoryRemoved,
-
-      /// 순서 변경 후 콜백 (새 이름 리스트)
       void Function(List<String> newOrder)? onReorder,
     }) async {
   String temp = controller.text;
   TextEditingController? tempController;
 
-  // 로컬 복사본 (여기서만 수정하고, 마지막에 콜백으로 전달)
+  // 로컬 복사본
   List<String> localCategories = [...categories];
   Map<String, String> localEmojis = Map<String, String>.from(categoryEmojis);
 
@@ -220,25 +145,38 @@ Future<void> openCategorySheet(
     builder: (ctx) {
       return StatefulBuilder(
         builder: (context, setModalState) {
-          void _exitEditModeAndNotify() {
-            if (onReorder != null) {
-              onReorder(localCategories);
-            }
-            setModalState(() {
-              isEditMode = false;
+          String? inlineError;
+          Timer? inlineErrorTimer;
+
+          void showInlineError(String msg) {
+            inlineErrorTimer?.cancel();
+            setModalState(() => inlineError = msg);
+            inlineErrorTimer = Timer(const Duration(seconds: 2), () {
+              if (Navigator.of(ctx).canPop()) {
+                setModalState(() => inlineError = null);
+              }
             });
           }
 
-          Widget _buildChipContent(String name, bool selected) {
-            final emoji =
-                localEmojis[name] ?? _getPresetEmoji(name);
+          void clearInlineError() {
+            inlineErrorTimer?.cancel();
+            setModalState(() => inlineError = null);
+          }
+
+          void exitEditModeAndNotify() {
+            if (onReorder != null) onReorder(localCategories);
+            setModalState(() => isEditMode = false);
+          }
+
+          Widget buildChipContent(String name, bool selected) {
+            final emoji = (localEmojis[name]?.trim().isNotEmpty ?? false)
+                ? localEmojis[name]!
+                : '💰';
+
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  emoji,
-                  style: const TextStyle(fontSize: 16),
-                ),
+                Text(emoji, style: const TextStyle(fontSize: 16)),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -255,7 +193,7 @@ Future<void> openCategorySheet(
             );
           }
 
-          Widget _buildCategoryGrid() {
+          Widget buildCategoryGrid() {
             return LayoutBuilder(
               builder: (context, constraints) {
                 const double spacing = 8.0;
@@ -274,11 +212,7 @@ Future<void> openCategorySheet(
                       width: chipWidth,
                       child: Draggable<String>(
                         data: name,
-                        onDragStarted: () {
-                          setModalState(() {
-                            isEditMode = true;
-                          });
-                        },
+                        onDragStarted: () => setModalState(() => isEditMode = true),
                         feedback: Material(
                           color: Colors.transparent,
                           child: Container(
@@ -297,7 +231,7 @@ Future<void> openCategorySheet(
                                 ),
                               ],
                             ),
-                            child: _buildChipContent(name, true),
+                            child: buildChipContent(name, true),
                           ),
                         ),
                         childWhenDragging: Opacity(
@@ -310,31 +244,22 @@ Future<void> openCategorySheet(
                             decoration: BoxDecoration(
                               color: const Color(0xFFF3F4F6),
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
-                              ),
+                              border: Border.all(color: const Color(0xFFE5E7EB)),
                             ),
-                            child: _buildChipContent(name, false),
+                            child: buildChipContent(name, false),
                           ),
                         ),
                         child: DragTarget<String>(
-                          onWillAcceptWithDetails: (details) {
-                            return details.data != name;
-                          },
+                          onWillAcceptWithDetails: (details) => details.data != name,
                           onAcceptWithDetails: (details) {
                             setModalState(() {
                               final dragged = details.data;
-                              final oldIndex =
-                              localCategories.indexOf(dragged);
+                              final oldIndex = localCategories.indexOf(dragged);
                               final newIndex = index;
 
                               if (oldIndex != -1 && oldIndex != newIndex) {
-                                final item =
-                                localCategories.removeAt(oldIndex);
-                                localCategories.insert(
-                                  newIndex,
-                                  item,
-                                );
+                                final item = localCategories.removeAt(oldIndex);
+                                localCategories.insert(newIndex, item);
                               }
                               isEditMode = true;
                             });
@@ -343,19 +268,38 @@ Future<void> openCategorySheet(
                             return GestureDetector(
                               onTap: () {
                                 if (isEditMode) return;
+
+                                final picked = name.trim();
+                                final current = (currentSelectedName ?? '').trim();
+
+                                final isDuplicate =
+                                    alreadySelectedNames.contains(picked) &&
+                                        picked != current;
+
+                                if (isDuplicate) {
+                                  showInlineError('이미 선택된 카테고리입니다.');
+                                  return;
+                                }
+
+                                final emoji =
+                                (localEmojis[picked]?.trim().isNotEmpty ?? false)
+                                    ? localEmojis[picked]!
+                                    : '💰';
+
                                 setModalState(() {
-                                  temp = name;
+                                  localEmojis[picked] = emoji;
+                                  temp = picked;
                                   tempController?.text = temp;
                                 });
-                                controller.text = name;
-                                onSelected(name);
+
+                                controller.text = picked;
+                                onSelected(picked);
+                                onSelectedWithEmoji?.call(picked, emoji);
+
+                                clearInlineError();
                                 Navigator.pop(ctx);
                               },
-                              onLongPress: () {
-                                setModalState(() {
-                                  isEditMode = true;
-                                });
-                              },
+                              onLongPress: () => setModalState(() => isEditMode = true),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 8,
@@ -375,10 +319,7 @@ Future<void> openCategorySheet(
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Expanded(
-                                      child:
-                                      _buildChipContent(name, selected),
-                                    ),
+                                    Expanded(child: buildChipContent(name, selected)),
                                     if (isEditMode) ...[
                                       const SizedBox(width: 4),
                                       GestureDetector(
@@ -386,9 +327,8 @@ Future<void> openCategorySheet(
                                           setModalState(() {
                                             localCategories.remove(name);
                                             localEmojis.remove(name);
-                                            if (onCategoryRemoved != null) {
-                                              onCategoryRemoved(name);
-                                            }
+                                            onCategoryRemoved?.call(name);
+
                                             if (temp == name) {
                                               temp = '';
                                               tempController?.text = '';
@@ -453,7 +393,6 @@ Future<void> openCategorySheet(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 헤더
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -469,7 +408,7 @@ Future<void> openCategorySheet(
                             children: [
                               if (isEditMode)
                                 GestureDetector(
-                                  onTap: _exitEditModeAndNotify,
+                                  onTap: exitEditModeAndNotify,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 10,
@@ -484,12 +423,7 @@ Future<void> openCategorySheet(
                                       children: const [
                                         Icon(Icons.check, size: 14),
                                         SizedBox(width: 4),
-                                        Text(
-                                          '편집 완료',
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                          ),
-                                        ),
+                                        Text('편집 완료', style: TextStyle(fontSize: 11)),
                                       ],
                                     ),
                                   ),
@@ -502,6 +436,7 @@ Future<void> openCategorySheet(
                                       tempController?.clear();
                                       temp = '';
                                       selectedEmoji = '💰';
+                                      clearInlineError();
                                     }
                                   });
                                 },
@@ -549,11 +484,7 @@ Future<void> openCategorySheet(
                           ),
                           child: Row(
                             children: [
-                              Icon(
-                                Icons.edit,
-                                size: 14,
-                                color: AppColors.primary,
-                              ),
+                              Icon(Icons.edit, size: 14, color: AppColors.primary),
                               const SizedBox(width: 6),
                               const Expanded(
                                 child: Text(
@@ -570,37 +501,40 @@ Future<void> openCategorySheet(
                       ],
 
                       const SizedBox(height: 12),
+                      buildCategoryGrid(),
 
-                      // 전체 카테고리 칩 그리드 (프리셋/커스텀 통합)
-                      _buildCategoryGrid(),
+                      if (inlineError != null) ...[
+                        const SizedBox(height: 10),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            inlineError!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFFDC2626),
+                            ),
+                          ),
+                        ),
+                      ],
 
                       const SizedBox(height: 16),
 
-                      // 카테고리 추가 폼
                       if (showAddForm) ...[
                         Row(
                           children: [
                             GestureDetector(
-                              onTap: () {
-                                setModalState(() {
-                                  showEmojiPicker = !showEmojiPicker;
-                                });
-                              },
+                              onTap: () => setModalState(() => showEmojiPicker = !showEmojiPicker),
                               child: Container(
                                 width: 60,
                                 height: 60,
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF3F4F6),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: const Color(0xFFE5E7EB),
-                                  ),
+                                  border: Border.all(color: const Color(0xFFE5E7EB)),
                                 ),
                                 child: Center(
-                                  child: Text(
-                                    selectedEmoji,
-                                    style: const TextStyle(fontSize: 24),
-                                  ),
+                                  child: Text(selectedEmoji, style: const TextStyle(fontSize: 24)),
                                 ),
                               ),
                             ),
@@ -610,16 +544,11 @@ Future<void> openCategorySheet(
                                 height: 60,
                                 child: Builder(
                                   builder: (context) {
-                                    tempController ??=
-                                        TextEditingController(text: temp);
+                                    tempController ??= TextEditingController(text: temp);
                                     return CustomTextField(
                                       controller: tempController!,
                                       hintText: '새 카테고리 이름',
-                                      onChanged: (v) {
-                                        setModalState(() {
-                                          temp = v;
-                                        });
-                                      },
+                                      onChanged: (v) => setModalState(() => temp = v),
                                       height: 60,
                                     );
                                   },
@@ -637,20 +566,17 @@ Future<void> openCategorySheet(
                             decoration: BoxDecoration(
                               color: const Color(0xFFF9FAFB),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
-                              ),
+                              border: Border.all(color: const Color(0xFFE5E7EB)),
                             ),
                             child: GridView.builder(
-                              gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
+                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                                 crossAxisCount: 8,
                                 crossAxisSpacing: 4,
                                 mainAxisSpacing: 4,
                               ),
-                              itemCount: _expenseEmojis.length,
+                              itemCount: expenseEmojis.length,
                               itemBuilder: (context, index) {
-                                final emoji = _expenseEmojis[index];
+                                final emoji = expenseEmojis[index];
                                 return GestureDetector(
                                   onTap: () {
                                     setModalState(() {
@@ -670,9 +596,7 @@ Future<void> openCategorySheet(
                                         emoji,
                                         style: TextStyle(
                                           fontSize: 18,
-                                          color: selectedEmoji == emoji
-                                              ? AppColors.primary
-                                              : null,
+                                          color: selectedEmoji == emoji ? AppColors.primary : null,
                                         ),
                                       ),
                                     ),
@@ -692,21 +616,34 @@ Future<void> openCategorySheet(
                             onPressed: temp.trim().isNotEmpty
                                 ? () {
                               final name = temp.trim();
-                              if (!localCategories.contains(name)) {
-                                setModalState(() {
-                                  localCategories.add(name);
-                                  localEmojis[name] = selectedEmoji;
-                                });
-                                if (onCategoryAdded != null) {
-                                  onCategoryAdded(name, selectedEmoji);
-                                }
-                                // 입력 초기화 (바텀시트는 그대로 유지)
-                                setModalState(() {
-                                  temp = '';
-                                  tempController?.clear();
-                                  selectedEmoji = '💰';
-                                });
+                              final current = (currentSelectedName ?? '').trim();
+
+                              if (localCategories.contains(name)) {
+                                showInlineError('이미 있는 카테고리 이름이에요.');
+                                return;
                               }
+
+                              final dupSelected =
+                                  alreadySelectedNames.contains(name) && name != current;
+                              if (dupSelected) {
+                                showInlineError('이미 선택된 카테고리입니다.');
+                                return;
+                              }
+
+                              setModalState(() {
+                                localCategories.add(name);
+                                localEmojis[name] = selectedEmoji;
+                              });
+
+                              onCategoryAdded?.call(name, selectedEmoji);
+
+                              setModalState(() {
+                                temp = '';
+                                tempController?.clear();
+                                selectedEmoji = '💰';
+                              });
+
+                              clearInlineError();
                             }
                                 : null,
                             style: ElevatedButton.styleFrom(

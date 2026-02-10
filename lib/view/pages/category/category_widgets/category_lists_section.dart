@@ -1,33 +1,33 @@
 import 'package:flutter/material.dart';
 
-import '../../../../model/category/category_snapshot_item.dart';
-import '../../../../view_model/category/category_edit_view_model.dart'; // ✅ 변경
+import '../../../../model/category/category_edit_item.dart';
+import '../../../../model/category/ref_category_item.dart';
+import '../../../../view_model/category/category_edit_view_model.dart';
+
 import 'category_plan_progress_box.dart';
 import 'category_edit_lists_widget.dart';
 
 class CategoryListsSection extends StatelessWidget {
-  final CategoryEditViewModel vm; // ✅ 변경
-
-  final void Function(CategorySnapshotItem item, bool isPlan)? onTapEditName;
-  final void Function(CategorySnapshotItem item)? onTapEditAmount;
-
-  final void Function(CategorySnapshotItem item, int targetIndex)?
-  onMoveRefToPlanRequested;
-
-  final VoidCallback? onAddPlan;
-  final VoidCallback? onAddRef;
-
   const CategoryListsSection({
     super.key,
     required this.vm,
     this.onTapEditName,
     this.onTapEditAmount,
-    this.onMoveRefToPlanRequested,
+    this.onMoveRefToPlanRequested, // ✅ Page와 이름 일치
     this.onAddPlan,
     this.onAddRef,
   });
 
-  int _calcDailySum(List<CategorySnapshotItem> planList) {
+  final CategoryEditViewModel vm;
+
+  final void Function(CategoryEditItem item, bool isPlan)? onTapEditName;
+  final void Function(CategoryEditItem item)? onTapEditAmount;
+  final void Function(CategoryEditItem item, int targetIndex)? onMoveRefToPlanRequested;
+
+  final VoidCallback? onAddPlan;
+  final VoidCallback? onAddRef;
+
+  int _calcDailySum(List<CategoryEditItem> planList) {
     return planList.fold<int>(0, (sum, c) => sum + (c.dailyAmount ?? 0));
   }
 
@@ -40,7 +40,12 @@ class CategoryListsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final planList = vm.draftPlan;
-    final refList = vm.draftRef;
+
+    // ✅ ref 하드코딩 (원하면 여기만 나중에 VM 연결)
+    const refList = <RefCategoryItem>[
+      RefCategoryItem(categoryKey: 'demo_food', name: '식비', emoji: '🍽️', order: 0),
+      RefCategoryItem(categoryKey: 'demo_cafe', name: '카페', emoji: '☕', order: 1),
+    ];
 
     final dailySum = _calcDailySum(planList);
     final reachDate = _calcReachDate(dailySum, vm.targetAmount);
@@ -51,46 +56,23 @@ class CategoryListsSection extends StatelessWidget {
         CategoryEditListsWidget(
           planItems: planList,
           refItems: refList,
-          onTapEditName: (item, isPlan) {
-            if (onTapEditName != null) {
-              onTapEditName!(item, isPlan);
-              return;
-            }
-          },
-          onTapEditAmount: (item) {
-            if (onTapEditAmount != null) {
-              onTapEditAmount!(item);
-            }
-          },
-          onDelete: (item, wasPlan) {
-            vm.draftDelete(item.categoryId);
-          },
-          onReorderPlan: (oldIndex, newIndex) {
-            vm.draftReorderPlan(oldIndex, newIndex);
-          },
-          onReorderRef: (oldIndex, newIndex) {
-            vm.draftReorderRef(oldIndex, newIndex);
-          },
-          onMoveRefToPlanRequested: (item, targetIndex) {
-            if (onMoveRefToPlanRequested != null) {
-              onMoveRefToPlanRequested!(item, targetIndex);
-              return;
-            }
-            vm.draftMoveRefToPlan(
-              categoryId: item.categoryId,
-              newIndex: targetIndex,
-              dailyAmount: 0,
-            );
-          },
-          onMovePlanToRef: (item, targetIndex) {
-            vm.draftMovePlanToRef(
-              categoryId: item.categoryId,
-              newIndex: targetIndex,
-            );
-          },
+
+          // plan callbacks
+          onTapEditName: (item, isPlan) => onTapEditName?.call(item, isPlan),
+          onTapEditAmount: (item) => onTapEditAmount?.call(item),
+          onDeletePlan: (item) => vm.draftDelete(item.categoryKey),
+          onReorderPlan: (oldIndex, newIndex) => vm.draftReorderPlan(oldIndex, newIndex),
+
+          // add
           onAddPlan: onAddPlan ?? () {},
           onAddRef: onAddRef ?? () {},
+
+          // ref->plan 요청(지금은 ref 하드코딩이라 실제론 안 쓰는 수준)
+          onMoveRefToPlanRequested: (item, targetIndex) {
+            onMoveRefToPlanRequested?.call(item, targetIndex);
+          },
         ),
+
         CategoryPlanProgressBox(
           dailyLimitSum: dailySum,
           reachDate: reachDate,

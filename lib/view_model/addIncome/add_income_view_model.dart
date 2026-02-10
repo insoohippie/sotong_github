@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 import '../../model/addIncome/income_entry.dart';
-import '../../view/pages/plan/plan_widgets/plan_input_modal/category_utils.dart';
 
 class AddIncomeViewModel extends ChangeNotifier {
   /// ====== 1) 추가 입금 입력 상태 ======
   final List<IncomeEntry> _entries = [];
   List<IncomeEntry> get entries => List.unmodifiable(_entries);
 
-  final List<CatPreset> categories = incomePresets;
+  /// ✅ 기본 4개 + 커스텀을 한 리스트로 관리 (프리셋 없음)
+  final List<String> _categories = ['급여', '사업', '배당', '용돈'];
+  List<String> get categories => List.unmodifiable(_categories);
 
-  final List<String> _customCategories = [];
-  List<String> get customCategories => List.unmodifiable(_customCategories);
-
-  final Map<String, String> _categoryEmojis = {};
-  Map<String, String> get categoryEmojis => _categoryEmojis;
+  /// ✅ 카테고리별 이모지 (기본도 포함)
+  final Map<String, String> _categoryEmojis = {
+    '급여': '💼',
+    '사업': '🏢',
+    '배당': '📈',
+    '용돈': '🎁',
+  };
+  Map<String, String> get categoryEmojis => Map.unmodifiable(_categoryEmojis);
 
   AddIncomeViewModel() {
     addEntry(); // 기본 한 줄
@@ -48,27 +52,33 @@ class AddIncomeViewModel extends ChangeNotifier {
     return true;
   }
 
-  void addCustomCategory(String category, String emoji) {
-    if (!_customCategories.contains(category)) {
-      _customCategories.add(category);
-      _categoryEmojis[category] = emoji;
-      notifyListeners();
+  /// ✅ 새 카테고리 추가(이모지 포함)
+  void addCategoryWithEmoji(String category, String emoji) {
+    final name = category.trim();
+    if (name.isEmpty) return;
+
+    if (!_categories.contains(name)) {
+      _categories.add(name);
     }
+    _categoryEmojis[name] = (emoji.trim().isNotEmpty) ? emoji.trim() : '💰';
+    notifyListeners();
   }
 
-  void removeCustomCategory(String category) {
-    _customCategories.remove(category);
-    _categoryEmojis.remove(category);
+  void removeCategory(String category) {
+    final name = category.trim();
+    _categories.remove(name);
+    _categoryEmojis.remove(name);
     notifyListeners();
   }
 
   void setCategoryEmoji(String category, String emoji) {
-    _categoryEmojis[category] = emoji;
+    final name = category.trim();
+    if (name.isEmpty) return;
+    _categoryEmojis[name] = (emoji.trim().isNotEmpty) ? emoji.trim() : '💰';
     notifyListeners();
   }
 
-  List<IncomeEntry> get validEntries =>
-      _entries.where((e) => !e.isEmpty).toList();
+  List<IncomeEntry> get validEntries => _entries.where((e) => !e.isEmpty).toList();
 
   /// 총 금액(int)
   int get totalAmount {
@@ -100,7 +110,6 @@ class AddIncomeViewModel extends ChangeNotifier {
   }
 
   /// ====== 2) 공통 적용 결과 상태 ======
-  /// 이번에 반영된 추가 입금 금액(기간/한도 페이지 공통 사용)
   String? appliedAmountText;
 
   /// ====== 3) 한도 반영 상태 ======
@@ -112,19 +121,17 @@ class AddIncomeViewModel extends ChangeNotifier {
   /// ====== 4) 기간 반영 상태 ======
   bool isApplyingPeriod = false;
   String? applyPeriodError;
-  int? _daysReduced; // 앞당겨진 일수
+  int? _daysReduced;
 
   int get daysReduced => _daysReduced ?? 0;
   String get daysReducedText => '${_daysReduced ?? 0}일';
 
-  /// 기간 반영 미리보기 텍스트 (임시 로직)
   String get periodPreviewText {
     if (totalAmount == 0) return '';
     const reducedDays = 30; // TODO: 실제 계산으로 교체
     return '$totalFormatted을 기간에 반영하면 $reducedDays일이 줄어들어요!';
   }
 
-  /// 한도 반영 미리보기 텍스트 (임시 로직)
   String get limitPreviewText {
     if (totalAmount == 0) return '';
     const oldLimit = '10,000원';
@@ -133,7 +140,6 @@ class AddIncomeViewModel extends ChangeNotifier {
         '하루에 $oldLimit에서 $newLimit으로 늘어나요!';
   }
 
-  /// 한도 반영 (구조만, 나중에 PlanRepository 연동)
   Future<void> applyIncomeToLimit() async {
     if (totalAmount == 0) {
       applyLimitError = '최소 하나의 입금 내역을 입력해주세요.';
@@ -147,8 +153,6 @@ class AddIncomeViewModel extends ChangeNotifier {
 
     try {
       appliedAmountText = totalFormatted;
-
-      // TODO: 실제 한도 계산/저장 로직
       oldDailyLimitText ??= '10,000원';
       newDailyLimitText ??= '20,000원';
     } catch (e) {
@@ -159,7 +163,6 @@ class AddIncomeViewModel extends ChangeNotifier {
     }
   }
 
-  /// 기간 반영 (구조만, 나중에 PlanRepository 연동)
   Future<void> applyIncomeToPeriod() async {
     if (totalAmount == 0) {
       applyPeriodError = '최소 하나의 입금 내역을 입력해주세요.';
@@ -173,8 +176,6 @@ class AddIncomeViewModel extends ChangeNotifier {
 
     try {
       appliedAmountText = totalFormatted;
-
-      // TODO: 실제 "앞당겨진 일수" 계산 로직
       _daysReduced ??= 30;
     } catch (e) {
       applyPeriodError = '기간 반영 중 오류가 발생했습니다.';
@@ -184,7 +185,6 @@ class AddIncomeViewModel extends ChangeNotifier {
     }
   }
 
-  /// 필요하면 둘 다 초기화할 때 사용
   void resetApplyStates() {
     isApplyingLimit = false;
     isApplyingPeriod = false;

@@ -12,14 +12,12 @@ import 'data_source/auth_data_source.dart';
 import 'data_source/plan_data_source.dart';
 import 'data_source/record_data_source.dart';
 import 'data_source/ref_data_data_source.dart';
-import 'data_source/category_prefs_data_source.dart';
 
 // Repositories
 import 'repository/auth_repository.dart';
 import 'repository/plan_repository.dart';
 import 'repository/record_repository.dart';
 import 'repository/ref_data_repository.dart';
-import 'repository/category_prefs_repository.dart';
 
 // EventBus
 import 'services/plan_saved_event_bus.dart';
@@ -78,7 +76,6 @@ class MyApp extends StatelessWidget {
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
         Provider<RecordDataSource>(create: (_) => RecordDataSource()),
         Provider<RefDataDataSource>(create: (_) => RefDataDataSource()),
-        Provider<CategoryPrefsDataSource>(create: (_) => CategoryPrefsDataSource(),),
 
         // 3) Repositories
         Provider<AuthRepository>(
@@ -102,13 +99,6 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthDataSource>(),
           ),
         ),
-        Provider<CategoryPrefsRepository>(
-          create: (ctx) => CategoryPrefsRepository(
-            ctx.read<CategoryPrefsDataSource>(),
-            ctx.read<AuthDataSource>(),
-          ),
-        ),
-
         // 4) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
           create: (ctx) => LoginViewModel(ctx.read<AuthRepository>()),
@@ -161,9 +151,9 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => LocalCategoryViewModel()),
         ChangeNotifierProvider(
           create: (context) => CategoryEditViewModel(
-            context.read<CategoryPrefsRepository>(),
-            context.read<RefDataRepository>(),
+            // context.read<CategoryPrefsRepository>(),
             context.read<PlanRepository>(),
+            context.read<RefDataRepository>(),
           ),
         ),
         ChangeNotifierProvider<SettingViewModel>(

@@ -1,5 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'entry.dart';
+
 
 /*
 await FirebaseFirestore.instance
@@ -31,6 +30,9 @@ final incomeEntry = DateEntry.fromMap(map['date_incomes']);
 final consumptionEntry = DateEntry.fromMap(map['date_consumptions']);
  */
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'entry.dart';
+
 class DateEntry {
   DateTime? date;
   List<Entry> dateEntry;
@@ -39,29 +41,34 @@ class DateEntry {
 
   Map<String, dynamic> toMap() {
     return {
-      'date': date,
-      'dateEntry': dateEntry.map((e) => e.toMap()).toList(),
+      'date': date != null ? Timestamp.fromDate(date!) : null,
+      'dateEntry': dateEntry.map((e) => e.toMap()).toList(growable: false),
     };
   }
 
   factory DateEntry.fromMap(Map<String, dynamic> map) {
-    return DateEntry(
-      dateEntry:
-          (map['dateEntry'] as List<dynamic>?)
-              ?.map((e) => Entry.fromMap(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-    );
+    DateTime? parsedDate;
+    final rawDate = map['date'];
+    if (rawDate is Timestamp) parsedDate = rawDate.toDate();
+    if (rawDate is String) parsedDate = DateTime.tryParse(rawDate);
+    if (rawDate is DateTime) parsedDate = rawDate;
+
+    final entries = (map['dateEntry'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(Entry.fromMap)
+        .toList(growable: false);
+
+    return DateEntry(date: parsedDate, dateEntry: entries);
   }
 
-  double get amount => dateEntry.fold(0, (sum, entry) => sum + entry.amount);
-}
+  double get amount => dateEntry.fold(0.0, (sum, e) => sum + e.amount);
 
-extension DateEntryExtension on DateEntry {
   void fillDateToEntries() {
-    if (date == null) return;
-    for (var entry in dateEntry) {
-      entry.dateTime = date;
-    }
+    final d = date;
+    if (d == null) return;
+
+    dateEntry = dateEntry
+        .map((e) => e.copyWith(dateTime: d))
+        .toList(growable: false);
   }
 }

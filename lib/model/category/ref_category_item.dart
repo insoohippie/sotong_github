@@ -1,12 +1,22 @@
-//저장용 메타
-class CategoryMetaItem {
-  final String categoryKey;     // 고정 ID
-  final String name;            // displayName
+// ref_category_item.dart
+import 'package:meta/meta.dart';
+
+@immutable
+class RefCategoryItem {
+  /// ✅ 불변 ID (A/B 통합 기준)
+  final String categoryKey;
+
+  /// 표시용
+  final String name;
   final String emoji;
+
+  /// 화면/저장 정렬
   final int order;
+
+  /// 숨김 처리 옵션 (필요하면 유지)
   final bool hidden;
 
-  const CategoryMetaItem({
+  const RefCategoryItem({
     required this.categoryKey,
     required this.name,
     required this.emoji,
@@ -14,11 +24,11 @@ class CategoryMetaItem {
     this.hidden = false,
   });
 
-  factory CategoryMetaItem.fromMap(Map<String, dynamic> map) {
-    return CategoryMetaItem(
-      categoryKey: map['categoryKey'] ?? '',
-      name: map['name'] ?? '',
-      emoji: map['emoji'] ?? '💰',
+  factory RefCategoryItem.fromMap(Map<String, dynamic> map) {
+    return RefCategoryItem(
+      categoryKey: (map['categoryKey'] ?? '') as String,
+      name: (map['name'] ?? '') as String,
+      emoji: (map['emoji'] ?? '💰') as String,
       order: (map['order'] is int) ? map['order'] as int : 0,
       hidden: (map['hidden'] is bool) ? map['hidden'] as bool : false,
     );
@@ -32,14 +42,14 @@ class CategoryMetaItem {
     'hidden': hidden,
   };
 
-  CategoryMetaItem copyWith({
+  RefCategoryItem copyWith({
     String? categoryKey,
     String? name,
     String? emoji,
     int? order,
     bool? hidden,
   }) {
-    return CategoryMetaItem(
+    return RefCategoryItem(
       categoryKey: categoryKey ?? this.categoryKey,
       name: name ?? this.name,
       emoji: emoji ?? this.emoji,

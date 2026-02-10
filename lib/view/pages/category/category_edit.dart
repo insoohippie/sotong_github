@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../component/theme/app_colors.dart';
 
 import '../../../view_model/category/category_edit_view_model.dart';
-import '../../../model/category/category_snapshot_item.dart';
+import '../../../model/category/category_edit_item.dart';
 
 import 'category_widgets/category_date_selector.dart';
 import 'category_widgets/category_lists_section.dart';
@@ -32,7 +32,8 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
 
   int _editingAmount = 0;
 
-  CategorySnapshotItem? _pendingMoveRefItem;
+  // ✅ ref 기능 미구현(현재 UI 연결만 유지)
+  CategoryEditItem? _pendingMoveRefItem;
   int? _pendingMoveTargetIndex;
 
   @override
@@ -43,9 +44,6 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     });
   }
 
-  // -----------------------------
-  // 저장
-  // -----------------------------
   Future<void> _save(CategoryEditViewModel vm, {bool popOnSuccess = true}) async {
     final ok = await vm.saveDraftForSelectedDate();
     if (!mounted) return;
@@ -109,9 +107,6 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     );
   }
 
-  // -----------------------------
-  // unsaved dialog + date change guard
-  // -----------------------------
   Future<_UnsavedAction?> _showUnsavedDialog() {
     return showDialog<_UnsavedAction>(
       context: context,
@@ -140,7 +135,6 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
   }
 
   Future<void> _tryChangeDate(CategoryEditViewModel vm, DateTime nextDate) async {
-    // 변경사항 없으면 바로 이동
     if (!vm.hasUnsavedChanges) {
       await vm.setSelectedDate(nextDate);
       return;
@@ -152,7 +146,6 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     if (action == null || action == _UnsavedAction.cancel) return;
 
     if (action == _UnsavedAction.save) {
-      // ✅ 저장 후 날짜 이동 (저장 성공 시에만 이동)
       final ok = await vm.saveDraftForSelectedDate();
       if (!mounted) return;
 
@@ -172,16 +165,12 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     }
 
     if (action == _UnsavedAction.discard) {
-      // ✅ 버리기: 현재 selectedDate 기준으로 다시 로드해서 draft 원복 후 이동
       await vm.loadForSelectedDate();
       await vm.setSelectedDate(nextDate);
       return;
     }
   }
 
-  // -----------------------------
-  // 이름/이모지 모달 열기 (추가/수정 공통)
-  // -----------------------------
   void _openNameModalForAdd({required bool isPlan}) {
     setState(() {
       _editingCategoryId = null;
@@ -192,9 +181,9 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     });
   }
 
-  void _openNameModalForEdit(CategorySnapshotItem item, bool isPlan) {
+  void _openNameModalForEdit(CategoryEditItem item, bool isPlan) {
     setState(() {
-      _editingCategoryId = item.categoryId;
+      _editingCategoryId = item.categoryKey;
       _editingCategoryName = item.name;
       _editingCategoryEmoji = item.emoji;
       _editingIsPlan = isPlan;
@@ -212,33 +201,24 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
 
     setState(() => _showNameModal = false);
 
-    // ✅ 신규 추가
     if (_editingCategoryId == null) {
       final newId = 'cat_${DateTime.now().millisecondsSinceEpoch}';
 
       if (_editingIsPlan) {
-        // plan은 금액 모달로 이어짐
         setState(() {
           _editingCategoryId = newId;
           _editingCategoryName = trimmed;
           _editingCategoryEmoji = emoji;
-          _editingAmount = 0;
+          _editingAmount = 1; // ✅ 최소 1
           _showAmountModal = true;
         });
         return;
       } else {
-        // ref는 바로 추가
-        vm.draftAddCategory(
-          isPlan: false,
-          categoryId: newId,
-          name: trimmed,
-          emoji: emoji,
-        );
+        // ref 미구현 (현재는 무시)
         return;
       }
     }
 
-    // ✅ 기존 수정
     vm.draftUpdateMeta(
       categoryId: _editingCategoryId!,
       name: trimmed,
@@ -246,13 +226,10 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     );
   }
 
-  // -----------------------------
-  // 금액 모달 열기/완료
-  // -----------------------------
-  void _openAmountModalForEdit(CategorySnapshotItem item) {
+  void _openAmountModalForEdit(CategoryEditItem item) {
     setState(() {
-      _editingCategoryId = item.categoryId;
-      _editingAmount = item.dailyAmount ?? 0;
+      _editingCategoryId = item.categoryKey;
+      _editingAmount = item.dailyAmount ?? 1;
       _showAmountModal = true;
 
       _pendingMoveRefItem = null;
@@ -260,36 +237,28 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     });
   }
 
-  void _openAmountModalForMoveRefToPlan(CategorySnapshotItem item, int targetIndex) {
+  void _openAmountModalForMoveRefToPlan(CategoryEditItem item, int targetIndex) {
+    // ref 미구현(호출될 일 없음) — 남겨만 둠
     setState(() {
       _pendingMoveRefItem = item;
       _pendingMoveTargetIndex = targetIndex;
-      _editingAmount = 0;
+      _editingAmount = 1;
       _showAmountModal = true;
     });
   }
 
   void _onAmountModalComplete(CategoryEditViewModel vm, int amount) {
-    if (amount < 0) return;
+    if (amount < 1) return;
 
     setState(() => _showAmountModal = false);
 
-    // ✅ 1) ref→plan 이동 확정
     if (_pendingMoveRefItem != null && _pendingMoveTargetIndex != null) {
-      final item = _pendingMoveRefItem!;
-      final targetIndex = _pendingMoveTargetIndex!;
-      vm.draftMoveRefToPlan(
-        categoryId: item.categoryId,
-        newIndex: targetIndex,
-        dailyAmount: amount,
-      );
-
+      // ref 미구현(호출될 일 없음)
       _pendingMoveRefItem = null;
       _pendingMoveTargetIndex = null;
       return;
     }
 
-    // ✅ 2) 신규 plan 추가 흐름
     final id = _editingCategoryId;
     final name = _editingCategoryName;
     final emoji = _editingCategoryEmoji ?? '💰';
@@ -310,7 +279,6 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
       return;
     }
 
-    // ✅ 3) 기존 plan 금액 수정
     if (id != null) {
       vm.draftUpdateDailyAmount(
         categoryId: id,
@@ -343,7 +311,6 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
                     child: SingleChildScrollView(
                       child: Column(
                         children: [
-                          // 날짜 위젯
                           CategoryDateSelector(
                             date: vm.selectedDate,
                             onPrev: () => _tryChangeDate(
@@ -357,16 +324,15 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
                             onTapDate: () => setState(() => _showDateModal = true),
                           ),
 
-                          // 리스트 섹션
                           CategoryListsSection(
                             vm: vm,
-                            onTapEditName: (item, isPlan) {
+                            onTapEditName: (CategoryEditItem item, bool isPlan) {
                               _openNameModalForEdit(item, isPlan);
                             },
-                            onTapEditAmount: (item) {
+                            onTapEditAmount: (CategoryEditItem item) {
                               _openAmountModalForEdit(item);
                             },
-                            onMoveRefToPlanRequested: (item, targetIndex) {
+                            onMoveRefToPlanRequested: (CategoryEditItem item, int targetIndex) {
                               _openAmountModalForMoveRefToPlan(item, targetIndex);
                             },
                             onAddPlan: () => _openNameModalForAdd(isPlan: true),
@@ -379,12 +345,10 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
                     ),
                   ),
 
-                  // 저장 버튼
                   _buildBottomSection(vm),
                 ],
               ),
 
-              // 날짜 모달
               if (_showDateModal)
                 CategoryDatePickerModal(
                   isOpen: _showDateModal,
@@ -396,7 +360,6 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
                   },
                 ),
 
-              // 이름/이모지 모달
               if (_showNameModal)
                 CategoryNameModal(
                   isOpen: _showNameModal,
@@ -408,7 +371,6 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
                   },
                 ),
 
-              // 금액 모달
               if (_showAmountModal)
                 CategoryAmountModal(
                   isOpen: _showAmountModal,

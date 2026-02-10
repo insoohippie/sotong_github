@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart';
 import '../../../../component/inputs/custom_text_field.dart';
 
-import '../../../../view_model/category/category_edit_view_model.dart';
-import '../../../../model/category/category_snapshot_item.dart';
+import '../../../../model/category/category_edit_item.dart';
+import '../../../../model/category/ref_category_item.dart';
 
-import 'spending_category_sheet.dart'; // ✅ openSpendingCategorySheetWithKey, SpendingCategoryPick
-import '../../plan/plan_widgets/plan_input_modal/category_utils.dart'; // CategoryPill, dailyPresets
+import 'spending_category_sheet.dart';
+import '../../plan/plan_widgets/plan_input_modal/category_utils.dart'; // CategoryPill
 
 class SpendingInputEntry extends StatefulWidget {
   final Map<String, dynamic> entry;
@@ -30,9 +29,63 @@ class SpendingInputEntry extends StatefulWidget {
 class _SpendingInputEntryState extends State<SpendingInputEntry> {
   late final TextEditingController _categoryController;
 
+  late List<CategoryEditItem> _planCats;
+  late List<RefCategoryItem> _refCats;
+
   @override
   void initState() {
     super.initState();
+
+    _planCats = [
+      const CategoryEditItem(
+        categoryKey: 'plan_food',
+        name: '식비',
+        emoji: '🍽️',
+        order: 0,
+        kind: CategoryKind.plan,
+        dailyAmount: 15000,
+      ),
+      const CategoryEditItem(
+        categoryKey: 'plan_cafe',
+        name: '카페',
+        emoji: '☕',
+        order: 1,
+        kind: CategoryKind.plan,
+        dailyAmount: 5000,
+      ),
+      const CategoryEditItem(
+        categoryKey: 'plan_transport',
+        name: '교통',
+        emoji: '🚌',
+        order: 2,
+        kind: CategoryKind.plan,
+        dailyAmount: 3000,
+      ),
+      const CategoryEditItem(
+        categoryKey: 'plan_shop',
+        name: '쇼핑',
+        emoji: '🛍️',
+        order: 3,
+        kind: CategoryKind.plan,
+        dailyAmount: 10000,
+      ),
+    ];
+
+    _refCats = [
+      const RefCategoryItem(
+        categoryKey: 'ref_gift',
+        name: '선물',
+        emoji: '🎁',
+        order: 0,
+      ),
+      const RefCategoryItem(
+        categoryKey: 'ref_pet',
+        name: '반려동물',
+        emoji: '🐕',
+        order: 1,
+      ),
+    ];
+
     _categoryController = TextEditingController(
       text: (widget.entry['category'] as String?) ?? '',
     );
@@ -56,7 +109,6 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
     super.dispose();
   }
 
-  // ---------- 금액 포맷 ----------
   String _unformatNumber(String v) => v.replaceAll(',', '');
   String _formatNumber(String v) {
     if (v.isEmpty) return '';
@@ -67,46 +119,33 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
           (m) => ',',
     );
   }
-  // -----------------------------
+
+  String? _emojiByKeyOrName({required String? key, required String name}) {
+    if (key != null && key.isNotEmpty) {
+      final p = _planCats.where((e) => e.categoryKey == key).toList();
+      if (p.isNotEmpty) return p.first.emoji;
+      final r = _refCats.where((e) => e.categoryKey == key).toList();
+      if (r.isNotEmpty) return r.first.emoji;
+    }
+    final p2 = _planCats.where((e) => e.name == name).toList();
+    if (p2.isNotEmpty) return p2.first.emoji;
+    final r2 = _refCats.where((e) => e.name == name).toList();
+    if (r2.isNotEmpty) return r2.first.emoji;
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final amountController =
-    widget.entry['amountController'] as TextEditingController;
-    final noteController =
-    widget.entry['noteController'] as TextEditingController;
+    final amountController = widget.entry['amountController'] as TextEditingController;
+    final noteController = widget.entry['noteController'] as TextEditingController;
 
-    final vm = context.watch<CategoryEditViewModel>();
-
-    // ✅ plan/ref 전체 목록
-    final planCats = vm.draftPlan;
-    final refCats = vm.draftRef;
-
-    // ✅ 선택 상태: source / key / name
     final String? selectedSource = widget.entry['categorySource'] as String?;
     final String? selectedKey = widget.entry['categoryKey'] as String?;
     final String selectedName = (widget.entry['category'] as String?) ?? '';
 
     final bool isPlanSelected = selectedSource == 'plan';
 
-    // ✅ 현재 표시할 이모지(선택된 key 우선)
-    String? currentEmoji;
-    if (selectedKey != null && selectedKey.isNotEmpty) {
-      final foundInPlan =
-      planCats.where((c) => c.categoryId == selectedKey).toList();
-      final foundInRef = refCats.where((c) => c.categoryId == selectedKey).toList();
-      currentEmoji = foundInPlan.isNotEmpty
-          ? (foundInPlan.first.emoji ?? '💰')
-          : (foundInRef.isNotEmpty ? (foundInRef.first.emoji ?? '💰') : null);
-    }
-    // key 없으면 name 기반 fallback
-    currentEmoji ??= (() {
-      final p = planCats.where((c) => c.name == selectedName).toList();
-      if (p.isNotEmpty) return p.first.emoji ?? '💰';
-      final r = refCats.where((c) => c.name == selectedName).toList();
-      if (r.isNotEmpty) return r.first.emoji ?? '💰';
-      return null;
-    })();
+    final currentEmoji = _emojiByKeyOrName(key: selectedKey, name: selectedName) ?? '💰';
 
     return Column(
       children: [
@@ -124,33 +163,22 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
             children: [
               Row(
                 children: [
-                  // 카테고리 Pill
                   Expanded(
                     flex: 2,
                     child: CategoryPill(
                       text: _categoryController.text,
-                      presets: dailyPresets,
+                      emoji: currentEmoji, // ✅ 프리셋 없이 emoji만
                       onTap: () async {
                         final picked = await openSpendingCategorySheetWithKey(
                           context,
-                          planItems: planCats,
-                          refItems: refCats,
-
-                          // ✅ ref 편집 허용
-                          onAddRef: (name, emoji) {
-                            vm.draftAddRefCategoryByName(name: name, emoji: emoji);
-                          },
-                          onRemoveRef: (name) {
-                            vm.draftDeleteRefByName(name);
-                          },
-                          onReorderRef: (newOrderNames) {
-                            vm.draftReorderRefByNames(newOrderNames);
-                          },
-
+                          planItems: _planCats,
+                          refItems: _refCats,
+                          onAddRef: null,
+                          onRemoveRef: null,
+                          onReorderRef: null,
                           selectedName: widget.entry['category'] as String?,
                           selectedKey: widget.entry['categoryKey'] as String?,
                         );
-
                         if (picked == null) return;
 
                         setState(() {
@@ -158,8 +186,21 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                           widget.entry['category'] = picked.name;
 
                           widget.entry['categoryKey'] = picked.key;
-                          widget.entry['categorySource'] = picked.source;      // 'plan' | 'ref'
-                          widget.entry['categoryEmoji'] = picked.emoji;        // (선택)
+                          widget.entry['categorySource'] = picked.source;
+                          widget.entry['categoryEmoji'] = picked.emoji;
+
+                          if (picked.source == 'ref' &&
+                              !_refCats.any((e) => e.categoryKey == picked.key)) {
+                            _refCats = [
+                              ..._refCats,
+                              RefCategoryItem(
+                                categoryKey: picked.key,
+                                name: picked.name,
+                                emoji: picked.emoji,
+                                order: _refCats.length,
+                              ),
+                            ];
+                          }
                         });
                       },
                       onClear: () {
@@ -171,17 +212,13 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                           widget.entry.remove('categoryEmoji');
                         });
                       },
-                      customEmoji: currentEmoji,
                       highlight: true,
                       highlightColor: isPlanSelected
                           ? AppColors.primary.withOpacity(0.08)
                           : const Color(0xFF6B7280).withOpacity(0.08),
                     ),
                   ),
-
                   const SizedBox(width: 8),
-
-                  // 금액 입력
                   Expanded(
                     flex: 3,
                     child: CustomTextField(
@@ -199,9 +236,7 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                         if (formatted != value) {
                           amountController.value = TextEditingValue(
                             text: formatted,
-                            selection: TextSelection.collapsed(
-                              offset: formatted.length,
-                            ),
+                            selection: TextSelection.collapsed(offset: formatted.length),
                           );
                         }
                       },
@@ -209,15 +244,11 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                   ),
                 ],
               ),
-
               const SizedBox(height: 8),
-
-              // 노트 입력
               CustomTextField(
                 controller: noteController,
                 hintText: '노트 작성 (20자 이내)',
                 onChanged: (text) {
-                  setState(() {});
                   if (text.length > 20) {
                     noteController.text = text.substring(0, 20);
                     noteController.selection = TextSelection.fromPosition(
@@ -225,21 +256,17 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                     );
                   }
                   widget.entry['note'] = noteController.text;
+                  setState(() {});
                 },
                 height: 60,
               ),
-
-              // 출처 표시 뱃지
               if ((_categoryController.text).trim().isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: isPlanSelected
                             ? AppColors.primary.withOpacity(0.12)
@@ -251,9 +278,7 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: isPlanSelected
-                              ? AppColors.primary
-                              : const Color(0xFF6B7280),
+                          color: isPlanSelected ? AppColors.primary : const Color(0xFF6B7280),
                         ),
                       ),
                     ),
@@ -262,13 +287,8 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
             ],
           ),
         ),
-
         const SizedBox(height: AppSpacing.fieldSpacing),
-        const Divider(
-          color: AppColors.greyBackground,
-          thickness: 1.0,
-          height: 10,
-        ),
+        const Divider(color: AppColors.greyBackground, thickness: 1.0, height: 10),
         const SizedBox(height: AppSpacing.fieldSpacing),
       ],
     );

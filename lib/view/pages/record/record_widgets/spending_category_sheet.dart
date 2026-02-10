@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
-import '../../../../model/category/category_snapshot_item.dart';
+
+import '../../../../model/category/category_edit_item.dart';   // CategoryEditItem, CategoryKind
+import '../../../../model/category/ref_category_item.dart';   // RefCategoryItem
 
 class SpendingCategoryPick {
   final String name;
-  final String key;   // ✅ categoryKey로 저장할 값
+  final String key;     // ✅ categoryKey로 저장할 값
   final String emoji;
-  final String source; // 'plan' | 'ref'
+  final String source;  // 'plan' | 'ref'
   const SpendingCategoryPick({
     required this.name,
     required this.key,
@@ -36,26 +38,26 @@ final List<String> expenseEmojis = [
 
 Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
     BuildContext context, {
-      required List<CategorySnapshotItem> planItems,
-      required List<CategorySnapshotItem> refItems,
+      required List<CategoryEditItem> planItems,  // kind=plan
+      required List<RefCategoryItem> refItems,   // 로컬 편집 대상
 
-      required void Function(String name, String emoji) onAddRef,
-      required void Function(String name) onRemoveRef,
-      required void Function(List<String> newOrderNames) onReorderRef,
+      // ✅ “나중에 저장 연결할 때” 쓰는 옵션 콜백 (지금은 없어도 됨)
+      void Function(String name, String emoji)? onAddRef,
+      void Function(String categoryKey)? onRemoveRef,
+      void Function(List<String> newOrderKeys)? onReorderRef,
 
       String? selectedName,
       String? selectedKey,
     }) async {
-  // ref만 로컬 편집
-  final localRef = List<CategorySnapshotItem>.from(refItems);
+  // ref만 로컬에서 편집
+  final localRef = List<RefCategoryItem>.from(refItems);
 
   bool editMode = false;
   bool showAdd = false;
   bool showEmojiPicker = false;
 
-  String tempName = '';
   String selectedEmoji = '💰';
-
+  final tempNameCtrl = TextEditingController();
   SpendingCategoryPick? result;
 
   await showModalBottomSheet(
@@ -69,8 +71,9 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
       return StatefulBuilder(
         builder: (context, setModalState) {
           void _exitEditMode() {
-            // ✅ ref 순서 저장 콜백
-            onReorderRef(localRef.map((e) => e.name).toList());
+            if (onReorderRef != null) {
+              onReorderRef(localRef.map((e) => e.categoryKey).toList());
+            }
             setModalState(() => editMode = false);
           }
 
@@ -79,7 +82,6 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
             final bg = isPlan
                 ? AppColors.primary.withOpacity(0.12)
                 : const Color(0xFF6B7280).withOpacity(0.12);
-
             final fg = isPlan ? AppColors.primary : const Color(0xFF6B7280);
 
             return Container(
@@ -99,12 +101,15 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
             );
           }
 
-          Widget _chipBody(
-              CategorySnapshotItem item,
-              String source,
-              bool isFeedback,
-              bool isSelected,
-              ) {
+          // --------- CHIP UI 공통 ----------
+          Widget _chipBody({
+            required String name,
+            required String emoji,
+            required String source,
+            required bool isFeedback,
+            required bool isSelected,
+            VoidCallback? onDeleteRef, // ref 편집일 때만
+          }) {
             return Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
@@ -125,11 +130,11 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
               ),
               child: Row(
                 children: [
-                  Text(item.emoji ?? '💰', style: const TextStyle(fontSize: 16)),
+                  Text(emoji, style: const TextStyle(fontSize: 16)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      item.name,
+                      name,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
@@ -140,16 +145,10 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
                   ),
                   const SizedBox(width: 6),
                   _badge(source),
-                  if (editMode && source == 'ref') ...[
+                  if (editMode && source == 'ref' && onDeleteRef != null) ...[
                     const SizedBox(width: 6),
                     GestureDetector(
-                      onTap: () {
-                        setModalState(() {
-                          localRef.removeWhere((e) => e.categoryId == item.categoryId);
-                        });
-                        onRemoveRef(item.name);
-                        if (localRef.isEmpty) setModalState(() => editMode = false);
-                      },
+                      onTap: onDeleteRef,
                       child: Icon(
                         Icons.close,
                         size: 14,
@@ -164,39 +163,79 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
             );
           }
 
-          Widget _chip({
-            required CategorySnapshotItem item,
-            required String source,
-            required bool reorderable,
-            required int index,
-          }) {
+          Widget _planChip(CategoryEditItem item) {
             final isSelected =
             (selectedKey != null && selectedKey!.isNotEmpty)
-                ? (selectedKey == item.categoryId)
+                ? (selectedKey == item.categoryKey)
                 : (selectedName == item.name);
 
+            final w = (MediaQuery.of(context).size.width - 16 * 2 - 8 * 3) / 4;
+
             return SizedBox(
-              width: (MediaQuery.of(context).size.width - 16 * 2 - 8 * 3) / 4,
-              child: reorderable
-                  ? Draggable<String>(
-                data: item.categoryId,
+              width: w,
+              child: GestureDetector(
+                onTap: () {
+                  if (editMode) return; // 편집 중엔 선택 막기(원하면 풀어도 됨)
+                  result = SpendingCategoryPick(
+                    name: item.name,
+                    key: item.categoryKey,
+                    emoji: item.emoji,
+                    source: 'plan',
+                  );
+                  Navigator.pop(ctx);
+                },
+                child: _chipBody(
+                  name: item.name,
+                  emoji: item.emoji,
+                  source: 'plan',
+                  isFeedback: false,
+                  isSelected: isSelected,
+                ),
+              ),
+            );
+          }
+
+          Widget _refChip(RefCategoryItem item, int index) {
+            final isSelected =
+            (selectedKey != null && selectedKey!.isNotEmpty)
+                ? (selectedKey == item.categoryKey)
+                : (selectedName == item.name);
+
+            final w = (MediaQuery.of(context).size.width - 16 * 2 - 8 * 3) / 4;
+
+            return SizedBox(
+              width: w,
+              child: Draggable<String>(
+                data: item.categoryKey,
                 onDragStarted: () => setModalState(() => editMode = true),
                 feedback: Material(
                   color: Colors.transparent,
-                  child: _chipBody(item, source, true, isSelected),
+                  child: _chipBody(
+                    name: item.name,
+                    emoji: item.emoji,
+                    source: 'ref',
+                    isFeedback: true,
+                    isSelected: isSelected,
+                  ),
                 ),
                 childWhenDragging: Opacity(
                   opacity: 0.25,
-                  child: _chipBody(item, source, false, isSelected),
+                  child: _chipBody(
+                    name: item.name,
+                    emoji: item.emoji,
+                    source: 'ref',
+                    isFeedback: false,
+                    isSelected: isSelected,
+                  ),
                 ),
                 child: DragTarget<String>(
                   onWillAcceptWithDetails: (details) =>
-                  details.data != item.categoryId,
+                  details.data != item.categoryKey,
                   onAcceptWithDetails: (details) {
                     setModalState(() {
-                      final draggedId = details.data;
+                      final draggedKey = details.data;
                       final oldIndex =
-                      localRef.indexWhere((e) => e.categoryId == draggedId);
+                      localRef.indexWhere((e) => e.categoryKey == draggedKey);
                       final newIndex = index;
                       if (oldIndex != -1 && oldIndex != newIndex) {
                         final moved = localRef.removeAt(oldIndex);
@@ -205,36 +244,42 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
                       editMode = true;
                     });
                   },
-                  builder: (_, __, ___) =>
-                      _chipBody(item, source, false, isSelected),
+                  builder: (_, __, ___) => GestureDetector(
+                    onTap: () {
+                      if (editMode) return; // 편집 중엔 선택 막기
+                      result = SpendingCategoryPick(
+                        name: item.name,
+                        key: item.categoryKey,
+                        emoji: item.emoji,
+                        source: 'ref',
+                      );
+                      Navigator.pop(ctx);
+                    },
+                    onLongPress: () => setModalState(() => editMode = true),
+                    child: _chipBody(
+                      name: item.name,
+                      emoji: item.emoji,
+                      source: 'ref',
+                      isFeedback: false,
+                      isSelected: isSelected,
+                      onDeleteRef: () {
+                        setModalState(() {
+                          localRef.removeWhere((e) => e.categoryKey == item.categoryKey);
+                        });
+                        onRemoveRef?.call(item.categoryKey);
+                        if (localRef.isEmpty) setModalState(() => editMode = false);
+                      },
+                    ),
+                  ),
                 ),
-              )
-                  : GestureDetector(
-                onTap: () {
-                  if (editMode && source == 'ref') return;
-                  result = SpendingCategoryPick(
-                    name: item.name,
-                    key: item.categoryId,
-                    emoji: item.emoji ?? '💰',
-                    source: source,
-                  );
-                  Navigator.pop(ctx);
-                },
-                onLongPress: () {
-                  if (source == 'ref') setModalState(() => editMode = true);
-                },
-                child: _chipBody(item, source, false, isSelected),
               ),
             );
           }
 
-
-
           Widget _section({
             required String title,
             required String source,
-            required List<CategorySnapshotItem> items,
-            required bool reorderable,
+            required List<Widget> chips,
           }) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -257,19 +302,16 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    for (int i = 0; i < items.length; i++)
-                      _chip(
-                        item: items[i],
-                        source: source,
-                        reorderable: reorderable,
-                        index: i,
-                      ),
-                  ],
+                  children: chips,
                 ),
               ],
             );
           }
+
+          final planChips = planItems.map(_planChip).toList();
+          final refChips = [
+            for (int i = 0; i < localRef.length; i++) _refChip(localRef[i], i),
+          ];
 
           return Padding(
             padding: EdgeInsets.only(
@@ -294,7 +336,6 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
                 ),
                 const SizedBox(height: 16),
 
-                // 헤더
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -332,7 +373,7 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
                             setModalState(() {
                               showAdd = !showAdd;
                               if (showAdd) {
-                                tempName = '';
+                                tempNameCtrl.clear();
                                 selectedEmoji = '💰';
                                 showEmojiPicker = false;
                               }
@@ -386,27 +427,12 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
 
                 const SizedBox(height: 16),
 
-                // PLAN
-                _section(
-                  title: '플랜 카테고리',
-                  source: 'plan',
-                  items: planItems,
-                  reorderable: false,
-                ),
+                _section(title: '플랜 카테고리', source: 'plan', chips: planChips),
+                const SizedBox(height: 16),
+                _section(title: '참고 카테고리', source: 'ref', chips: refChips),
 
                 const SizedBox(height: 16),
 
-                // REF (reorderable)
-                _section(
-                  title: '참고 카테고리',
-                  source: 'ref',
-                  items: localRef,
-                  reorderable: true,
-                ),
-
-                const SizedBox(height: 16),
-
-                // REF 추가
                 if (showAdd) ...[
                   Row(
                     children: [
@@ -430,12 +456,9 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
                         child: SizedBox(
                           height: 60,
                           child: CustomTextField(
-                            controller: TextEditingController(text: tempName)
-                              ..selection = TextSelection.fromPosition(
-                                TextPosition(offset: tempName.length),
-                              ),
+                            controller: tempNameCtrl,
                             hintText: '새 참고 카테고리 이름',
-                            onChanged: (v) => setModalState(() => tempName = v),
+                            onChanged: (_) => setModalState(() {}),
                             height: 60,
                           ),
                         ),
@@ -496,34 +519,32 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: tempName.trim().isNotEmpty
-                          ? () {
-                        final name = tempName.trim();
+                      onPressed: tempNameCtrl.text.trim().isEmpty
+                          ? null
+                          : () {
+                        final name = tempNameCtrl.text.trim();
 
-                        // 중복 방지(PLAN/REF 모두)
+                        // 중복 방지(plan/ref 모두)
                         final dupInPlan = planItems.any((e) => e.name == name);
-                        final dupInRef  = localRef.any((e) => e.name == name);
+                        final dupInRef = localRef.any((e) => e.name == name);
                         if (dupInPlan || dupInRef) return;
 
-                        // add는 VM에서 하고(키 생성), 여기서는 로컬 UI도 즉시 반영해줌
-                        onAddRef(name, selectedEmoji);
-
+                        final key = 'ref_${DateTime.now().millisecondsSinceEpoch}';
                         setModalState(() {
-                          // 로컬에도 즉시 추가(키는 임시로 name 기반 사용)
                           localRef.add(
-                            CategorySnapshotItem(
-                              categoryId: 'temp_${DateTime.now().millisecondsSinceEpoch}',
+                            RefCategoryItem(
+                              categoryKey: key,
                               name: name,
                               emoji: selectedEmoji,
                               order: localRef.length,
-                              dailyAmount: null,
                             ),
                           );
-                          tempName = '';
+                          tempNameCtrl.clear();
                           selectedEmoji = '💰';
                         });
-                      }
-                          : null,
+
+                        onAddRef?.call(name, selectedEmoji);
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -549,5 +570,6 @@ Future<SpendingCategoryPick?> openSpendingCategorySheetWithKey(
     },
   );
 
+  tempNameCtrl.dispose();
   return result;
 }

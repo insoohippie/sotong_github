@@ -18,7 +18,6 @@ class AddIncomePage extends StatefulWidget {
 }
 
 class _AddIncomePageState extends State<AddIncomePage> {
-  // 컨트롤러는 화면에서 관리 (뷰모델은 값만)
   final Map<int, TextEditingController> _amountControllers = {};
   final Map<int, TextEditingController> _contentControllers = {};
 
@@ -52,14 +51,11 @@ class _AddIncomePageState extends State<AddIncomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 입금 내역들
                     ...List.generate(vm.entries.length, (index) {
                       return _buildIncomeEntry(context, vm, index);
                     }),
-
                     const SizedBox(height: AppSpacing.sectionSpacing),
 
-                    // 입금내역 추가 버튼
                     Container(
                       width: double.infinity,
                       height: 60,
@@ -71,9 +67,7 @@ class _AddIncomePageState extends State<AddIncomePage> {
                         color: Colors.transparent,
                         child: InkWell(
                           borderRadius: BorderRadius.circular(12),
-                          onTap: () {
-                            vm.addEntry();
-                          },
+                          onTap: vm.addEntry,
                           child: Center(
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -103,7 +97,6 @@ class _AddIncomePageState extends State<AddIncomePage> {
               ),
             ),
 
-            // 하단 버튼
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: CustomButton(
@@ -118,13 +111,7 @@ class _AddIncomePageState extends State<AddIncomePage> {
     );
   }
 
-  // ===================== 위젯 빌더들 =====================
-
-  Widget _buildIncomeEntry(
-      BuildContext context,
-      AddIncomeViewModel vm,
-      int index,
-      ) {
+  Widget _buildIncomeEntry(BuildContext context, AddIncomeViewModel vm, int index) {
     final entry = vm.entries[index];
 
     return Container(
@@ -133,7 +120,6 @@ class _AddIncomePageState extends State<AddIncomePage> {
         onLongPress: () => _showItemOptions(context, vm, index),
         child: Column(
           children: [
-            // 첫 줄: 카테고리 + 금액
             Row(
               children: [
                 Expanded(
@@ -148,7 +134,6 @@ class _AddIncomePageState extends State<AddIncomePage> {
               ],
             ),
             const SizedBox(height: 8),
-            // 둘째 줄: 내용
             _buildContentField(vm, index, entry),
           ],
         ),
@@ -162,24 +147,20 @@ class _AddIncomePageState extends State<AddIncomePage> {
       int index,
       IncomeEntry entry,
       ) {
+    final name = entry.category.trim();
+    final emoji = name.isEmpty ? '💰' : (vm.categoryEmojis[name] ?? '💰');
+
     return CategoryPill(
       text: entry.category,
-      presets: vm.categories, // 아이콘용 (급여/사업/배당/용돈 등)
-      customEmoji: vm.categoryEmojis[entry.category],
+      emoji: emoji,
       onTap: () => _showCategorySheet(context, vm, index, entry),
-      onClear: () {
-        vm.updateEntry(index, category: '');
-      },
+      onClear: () => vm.updateEntry(index, category: ''),
     );
   }
 
-  Widget _buildContentField(
-      AddIncomeViewModel vm,
-      int index,
-      IncomeEntry entry,
-      ) {
-    final controller = _contentControllers[index] ??=
-        TextEditingController(text: entry.content ?? '');
+  Widget _buildContentField(AddIncomeViewModel vm, int index, IncomeEntry entry) {
+    final controller =
+    _contentControllers[index] ??= TextEditingController(text: entry.content ?? '');
 
     return CustomTextField(
       controller: controller,
@@ -194,13 +175,9 @@ class _AddIncomePageState extends State<AddIncomePage> {
     );
   }
 
-  Widget _buildAmountField(
-      AddIncomeViewModel vm,
-      int index,
-      IncomeEntry entry,
-      ) {
-    final controller = _amountControllers[index] ??=
-        TextEditingController(text: entry.amount ?? '');
+  Widget _buildAmountField(AddIncomeViewModel vm, int index, IncomeEntry entry) {
+    final controller =
+    _amountControllers[index] ??= TextEditingController(text: entry.amount ?? '');
 
     return CustomTextField(
       controller: controller,
@@ -226,8 +203,6 @@ class _AddIncomePageState extends State<AddIncomePage> {
     );
   }
 
-  // ===================== 유틸 / 액션 =====================
-
   String _unformatNumber(String v) => v.replaceAll(',', '');
 
   String _formatNumber(String v) {
@@ -246,73 +221,42 @@ class _AddIncomePageState extends State<AddIncomePage> {
       int index,
       IncomeEntry entry,
       ) {
-    // 프리셋 카테고리 이모지 결정 로직 (수입용)
-    String getPresetEmoji(String name) {
-      switch (name) {
-        case '급여':
-          return '💼';
-        case '사업':
-          return '🏢';
-        case '배당':
-          return '📈';
-        case '용돈':
-          return '🎁';
-        default:
-          return '💰';
-      }
-    }
-
-    // 1) 프리셋 이름 리스트
-    final presetNames = vm.categories.map((c) => c.name).toList();
-    // 2) 커스텀 카테고리
-    final custom = vm.customCategories;
-    // 3) 프리셋 + 커스텀 통합 (중복 제거)
-    final allNames = <String>{
-      ...presetNames,
-      ...custom,
-    }.toList();
-
-    // 카테고리 입력용 컨트롤러 (바텀시트 안에서만 사용)
     final categoryController = TextEditingController(text: entry.category);
+
+    final alreadySelectedNames = vm.entries
+        .map((e) => e.category.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet();
 
     openCategorySheet(
       context,
       categoryController,
-      // onSelected
           (value) {
-        // 선택된 카테고리 뷰모델에 반영
         vm.updateEntry(index, category: value);
+      },
+      categories: vm.categories,          // ✅ 기본4개+커스텀 전체
+      categoryEmojis: vm.categoryEmojis,  // ✅ 이모지 맵
 
-        // 프리셋이면 프리셋 이모지 세팅
-        if (vm.categories.any((c) => c.name == value)) {
-          vm.setCategoryEmoji(value, getPresetEmoji(value));
-        }
+      alreadySelectedNames: alreadySelectedNames,
+      currentSelectedName: entry.category.trim(),
+
+      onSelectedWithEmoji: (name, emoji) {
+        vm.setCategoryEmoji(name, emoji);
       },
-      // 🔹 새 구조: 하나의 리스트로 전달
-      categories: allNames,
-      // 🔹 카테고리별 이모지 맵
-      categoryEmojis: vm.categoryEmojis,
-      // 🔹 새 커스텀 카테고리 추가될 때 (이름 + 이모지)
+
       onCategoryAdded: (name, emoji) {
-        vm.addCustomCategory(name, emoji);
+        vm.addCategoryWithEmoji(name, emoji);
       },
-      // 🔹 카테고리 삭제될 때
       onCategoryRemoved: (name) {
-        vm.removeCustomCategory(name);
+        vm.removeCategory(name);
       },
-      // 🔹 정렬 후 최종 순서 (원하면 뷰모델에 저장)
       onReorder: (newOrder) {
-        // 예: vm.reorderCategories(newOrder);
-        // 아직 정렬 저장 안 할 거면 비워둬도 됨
+        // ✅ 필요하면 여기서 vm 쪽에 순서 저장 로직 붙이면 됨
       },
     );
   }
 
-  void _showItemOptions(
-      BuildContext context,
-      AddIncomeViewModel vm,
-      int index,
-      ) {
+  void _showItemOptions(BuildContext context, AddIncomeViewModel vm, int index) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -344,9 +288,7 @@ class _AddIncomePageState extends State<AddIncomePage> {
                   final ok = vm.removeEntry(index);
                   if (!ok) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('최소 하나의 항목은 유지해야 합니다'),
-                      ),
+                      const SnackBar(content: Text('최소 하나의 항목은 유지해야 합니다')),
                     );
                   }
                 },
@@ -370,10 +312,7 @@ class _AddIncomePageState extends State<AddIncomePage> {
       return;
     }
 
-    // 이번에 입력한 총 금액을 뷰모델에 저장
     vm.appliedAmountText = vm.totalFormatted;
-
-    // 다음 페이지로 이동 (뷰모델에서 금액을 읽어감)
     Navigator.of(context).pushNamed('/apply_income_option');
   }
 }

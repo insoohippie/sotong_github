@@ -78,15 +78,10 @@ class _ChatPlanPageState extends State<ChatPlanPage>
         );
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // ✅ 1) 채팅 초기화
       final viewModel = Provider.of<ChatPlanViewModel>(context, listen: false);
       if (viewModel.messages.isEmpty) {
         viewModel.initializeChat();
       }
-
-      // ✅ 2) 카테고리(오늘 기준) 로드
-      final categoryVM = Provider.of<CategoryEditViewModel>(context, listen: false);
-      await categoryVM.setSelectedDate(DateTime.now());
     });
   }
 
@@ -546,8 +541,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           final step = viewModel.currentStep;
           final raw = _inputController.text;
 
-          final dailyCats = categoryVM.draftRef; // List<CategorySnapshotItem>
-          final dailyEmojiMap = {for (final c in dailyCats) c.name: c.emoji};
+          final dailyCats = localCategoryVM.customDailyExpenseCategories;
+          final dailyEmojiMap = localCategoryVM.dailyExpenseCategoryEmojis;
 
           return Stack(
             children: [
@@ -697,14 +692,18 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   title: '월 수입 입력하기',
                   placeholder: '수입 카테고리',
                   type: EntryType.fixed,
-                  customCategories: localCategoryVM.customIncomeCategories,
-                  onCustomCategoryAdded:
-                  localCategoryVM.addCustomIncomeCategory,
-                  onCustomCategoryRemoved:
-                  localCategoryVM.removeCustomIncomeCategory,
-                  onCustomCategoryAddedWithEmoji:
-                  localCategoryVM.addCustomIncomeCategoryWithEmoji,
+                  customCategories: localCategoryVM.incomeCategories,
+
+                  onCustomCategoryAdded: localCategoryVM.addCustomIncomeCategory,
+                  onCustomCategoryRemoved: localCategoryVM.removeCustomIncomeCategory,
+                  onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomIncomeCategoryWithEmoji,
+
                   categoryEmojis: localCategoryVM.incomeCategoryEmojis,
+
+                  onCategoryOrderChanged: (newOrder) {
+                    localCategoryVM.setIncomeOrder(newOrder);
+                  },
+
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
 
@@ -716,10 +715,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     );
 
                     final itemLines = items
-                        .map(
-                          (e) =>
-                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
-                    )
+                        .map((e) =>
+                    '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -731,7 +728,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                     _suppressNextBottomShow = true;
 
-                    // monthlyFixedCost 섹터 메시지 추가
                     await vm.addMonthlyFixedCostSection();
                   },
                 ),
@@ -743,15 +739,18 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   title: '고정 소비 입력하기',
                   placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
-                  customCategories:
-                  localCategoryVM.customFixedExpenseCategories,
-                  onCustomCategoryAdded:
-                  localCategoryVM.addCustomFixedExpenseCategory,
-                  onCustomCategoryRemoved:
-                  localCategoryVM.removeCustomFixedExpenseCategory,
-                  onCustomCategoryAddedWithEmoji:
-                  localCategoryVM.addCustomFixedExpenseCategoryWithEmoji,
+
+                  customCategories: localCategoryVM.fixedExpenseCategories,
+
+                  onCustomCategoryAdded: localCategoryVM.addCustomFixedExpenseCategory,
+                  onCustomCategoryRemoved: localCategoryVM.removeCustomFixedExpenseCategory,
+                  onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomFixedExpenseCategoryWithEmoji,
+
                   categoryEmojis: localCategoryVM.fixedExpenseCategoryEmojis,
+                  onCategoryOrderChanged: (newOrder) {
+                    localCategoryVM.setFixedOrder(newOrder);
+                  },
+
                   monthlyIncome: context
                       .read<ChatPlanViewModel>()
                       .totalPlan
@@ -759,9 +758,11 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       .totalMetrics
                       .monthlyIncomeAmount
                       .toDouble(),
+
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
                     final now = DateTime.now();
+
                     vm.updateRefData(
                       fixedConsumptions: items,
                       applyDate: DateTime(now.year, now.month, now.day),
@@ -769,10 +770,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     );
 
                     final itemLines = items
-                        .map(
-                          (e) =>
-                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
-                    )
+                        .map((e) =>
+                    '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -781,7 +780,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       MessageType.user,
                     );
 
-                    // dailySpending 섹터 메시지 추가
                     await vm.addDailySpendingSection();
                   },
                 ),
@@ -790,36 +788,18 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                 InputModalWidget(
                   isOpen: _showDailySpendingModal,
                   onClose: () => setState(() => _showDailySpendingModal = false),
-
                   title: '하루 사용 금액',
                   placeholder: '하루 소비 항목',
                   type: EntryType.daily,
 
-                  // ✅ customCategories, emojis도 draftRef 기반
-                  customCategories: dailyCats.map((c) => c.name).toList(),
-                  categoryEmojis: dailyEmojiMap,
+                  customCategories: localCategoryVM.dailyExpenseCategories,
+                  categoryEmojis: localCategoryVM.dailyExpenseCategoryEmojis,
 
-                  // ✅ 추가/삭제는 draftRef만 수정
-                  onCustomCategoryAddedWithEmoji: (name, emoji) async {
-                    categoryVM.draftAddRefCategoryByName(
-                      name: name,
-                      emoji: emoji,
-                    );
-                  },
-
-                  onCustomCategoryAdded: (name) async {
-                    categoryVM.draftAddRefCategoryByName(
-                      name: name,
-                      emoji: '💰',
-                    );
-                  },
-
-                  onCustomCategoryRemoved: (name) async {
-                    categoryVM.draftDeleteRefByName(name);
-
-
-
-
+                  onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomDailyExpenseCategoryWithEmoji,
+                  onCustomCategoryAdded: localCategoryVM.addCustomDailyExpenseCategory,
+                  onCustomCategoryRemoved: localCategoryVM.removeCustomDailyExpenseCategory,
+                  onCategoryOrderChanged: (newOrder) {
+                    localCategoryVM.setDailyOrder(newOrder);
                   },
 
                   monthlyIncome: (() {
@@ -828,7 +808,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     final double income = metrics.monthlyIncomeAmount.toDouble();
                     final double fixed = metrics.monthlyConsumeAmount.toDouble();
 
-
                     final double leftover = income - fixed;
                     return leftover > 0 ? leftover : 0.0;
                   }()),
@@ -836,28 +815,24 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
                     final now = DateTime.now();
+
                     vm.updateRefData(
                       dailyConsumptions: items,
                       applyDate: DateTime(now.year, now.month, now.day),
                       modEndDate: DateTime(now.year, now.month, now.day),
                     );
 
-                    // 계산 결과 확인
                     final calc = vm.calculate();
-                    final hasNoSaving =
-                        calc == null || calc.dailyNetSaving <= 0;
+                    final hasNoSaving = calc == null || calc.dailyNetSaving <= 0;
 
                     if (hasNoSaving) {
-                      // 저축 가능 금액이 없으면 noSaveMoney 섹션으로 이동
                       await vm.addNoSaveMoneySection();
                       return;
                     }
 
                     final itemLines = items
-                        .map(
-                          (e) =>
-                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
-                    )
+                        .map((e) =>
+                    '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -868,7 +843,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       MessageType.user,
                     );
 
-                    // summary 섹터 메시지 추가
                     await vm.addSummarySection();
                   },
                 ),

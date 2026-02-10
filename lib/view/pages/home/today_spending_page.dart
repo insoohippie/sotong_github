@@ -599,11 +599,7 @@ class _TodaySpendingPageState extends State<TodaySpendingPage> {
                   builder: (context, incomeVm, _) {
                     final entries = incomeVm.entries;
 
-                    // 임시 카테고리 옵션: 기본 + 커스텀
-                    final incomeCategories = [
-                      ..._defaultCategoryOptions,
-                      ...incomeVm.customCategories,
-                    ].toSet().toList();
+                    final incomeCategories = _defaultCategoryOptions.toSet().toList();
 
                     return Column(
                       children: [
