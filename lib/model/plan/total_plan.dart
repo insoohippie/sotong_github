@@ -46,16 +46,17 @@ class TotalPlan {
   /// Factory for a blank plan used as a draft during onboarding.
   factory TotalPlan.empty() {
     final now = DateTime.now();
+    final normalizedNow = _normalizeDate(now);
     final metrics = PlanMetrics.fromRange(
-      startDate: now,
-      endDate: now.add(const Duration(days: 29)),
+      startDate: normalizedNow,
+      endDate: normalizedNow.add(const Duration(days: 29)),
       monthlyIncomeAmount: 0,
       monthlyConsumeAmount: 0,
       dailyConsumeAmount: 0,
     );
     final initialSubPlans = _bootstrapSubPlans(
       metrics: metrics,
-      planStart: now,
+      planStart: normalizedNow,
     );
     return TotalPlan(
       planId: '',
@@ -63,10 +64,10 @@ class TotalPlan {
       targetAmount: 0,
       currentAmount: 0,
       currentAsset: 0,
-      startDate: now,
+      startDate: normalizedNow,
       endDate: null,
       modEndDate: null,
-      creationDate: now,
+      creationDate: normalizedNow,
       autoService: false,
       subPlans: initialSubPlans,
       result: TotalResult(
@@ -80,7 +81,7 @@ class TotalPlan {
       //하경 - 모인 금액 계산용
       extraIncomeTotal: 0,
       snapshotAmount: 0,
-      snapshotAt: now,
+      snapshotAt: normalizedNow,
     );
   }
 
@@ -347,15 +348,24 @@ class TotalPlan {
 
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
-    if (value is DateTime) return value;
-    if (value is String) return DateTime.tryParse(value);
-    try {
-      // ignore: avoid_dynamic_calls
-      return (value as dynamic).toDate() as DateTime;
-    } catch (_) {
-      return null;
+    DateTime? parsed;
+    if (value is DateTime) {
+      parsed = value;
+    } else if (value is String) {
+      parsed = DateTime.tryParse(value);
+    } else {
+      try {
+        // ignore: avoid_dynamic_calls
+        parsed = (value as dynamic).toDate() as DateTime;
+      } catch (_) {
+        parsed = null;
+      }
     }
+    return parsed != null ? _normalizeDate(parsed) : null;
   }
+
+  static DateTime _normalizeDate(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
 
   static PlanMetrics _parseMetrics(dynamic map) {
     if (map is Map<String, dynamic>) {

@@ -48,6 +48,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
   Future<_PlanEditInitData>? _initialFuture;
   TotalPlan? _basePlan;
   DateTime? _originalEndDate;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -61,9 +62,9 @@ class _PlanEditPageState extends State<PlanEditPage> {
   }
 
   void _ensureOverrideDatePrompt(
-    BuildContext context,
-    PlanEditViewModel vm,
-  ) {
+      BuildContext context,
+      PlanEditViewModel vm,
+      ) {
     if (_overrideDatePrompted) return;
     _overrideDatePrompted = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -75,9 +76,9 @@ class _PlanEditPageState extends State<PlanEditPage> {
   }
 
   Future<DateTime?> _pickOverrideToday(
-    BuildContext context,
-    PlanEditViewModel vm,
-  ) async {
+      BuildContext context,
+      PlanEditViewModel vm,
+      ) async {
     final now = DateTime.now();
     final planStartSource = vm.totalPlan.startDate ?? now;
     final planStart = DateTime(
@@ -124,6 +125,12 @@ class _PlanEditPageState extends State<PlanEditPage> {
     final refData = widget.initialRefData ?? await refRepo.loadAll();
     refData.planId = plan.planId;
     return _PlanEditInitData(plan: plan, refData: refData);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   /// 저장 비활성 사유 (짧은 메시지)
@@ -341,20 +348,25 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
                   // ▼▼▼ 스크롤 가능한 영역 ▼▼▼
                   Expanded(
-                    child: Scrollbar(
-                      thumbVisibility: false,
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.only(bottom: 5),
-                        child: Column(
-                          children: [
-                            IndexedStack(
-                              index: _selectedTabIndex,
-                              children: const [
-                                _PlanBasicInfoTab(),
-                                _UserInfoTab(),
-                              ],
-                            ),
-                          ],
+                    child: PrimaryScrollController(
+                      controller: _scrollController,
+                      child: Scrollbar(
+                        controller: _scrollController,
+                        thumbVisibility: false,
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.only(bottom: 5),
+                          child: Column(
+                            children: [
+                              IndexedStack(
+                                index: _selectedTabIndex,
+                                children: const [
+                                  _PlanBasicInfoTab(),
+                                  _UserInfoTab(),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

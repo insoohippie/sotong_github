@@ -30,6 +30,7 @@ void main() {
           originalIncome.id: originalIncome,
         },
       );
+      refData.setReferenceDate(DateTime(2025, 9, 1));
 
       final newIncome = refData.addMonthlyIncome(
         applyMonth: DateTime(2025, 9),
@@ -74,6 +75,7 @@ void main() {
           baseline.id: baseline,
         },
       );
+      refData.setReferenceDate(DateTime(2025, 9, 1));
 
       final first = refData.addDailyConsume(
         applyDate: DateTime(2025, 9, 15),

@@ -45,11 +45,14 @@ class SavingPlanCalculator {
 /// Calculator used during onboarding when the entire plan shares identical inputs.
 class InitEndDateCalculator {
   InitEndDateCalculator({required TotalPlan plan})
-      : _delegate = SavingPlanCalculator(plan: plan);
+      : _delegate = SavingPlanCalculator(
+          plan: _normalizePlanStart(plan),
+        );
 
   final SavingPlanCalculator _delegate;
 
-  void updatePlan(TotalPlan plan) => _delegate.updatePlan(plan);
+  void updatePlan(TotalPlan plan) =>
+      _delegate.updatePlan(_normalizePlanStart(plan));
 
   SavingCalculationResult calculate() => _delegate.calculate();
 }
@@ -64,7 +67,7 @@ class UpdateEndDateCalculator {
     required double monthlyFixedCost,
     required double dailySpendingLimit,
     DateTime? today,
-  })  : _plan = plan,
+  })  : _plan = _normalizePlanStart(plan),
         _targetAmount = targetAmount,
         _currentAsset = currentAsset,
         _monthlyIncome = monthlyIncome,
@@ -139,6 +142,18 @@ class UpdateEndDateCalculator {
     }
     return slices;
   }
+}
+
+TotalPlan _normalizePlanStart(TotalPlan plan) {
+  final start = plan.startDate;
+  if (start == null) {
+    return plan;
+  }
+  final normalized = DateTime(start.year, start.month, start.day);
+  if (normalized.isAtSameMomentAs(start)) {
+    return plan;
+  }
+  return plan.copyWith(startDate: normalized);
 }
 
 SavingCalculationResult _runProjection({
