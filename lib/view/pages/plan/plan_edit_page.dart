@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 // UI
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_edit/edit_summary_tile.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/buttons/period_toggle.dart';
 import '../../../component/chart/fl_donut_colored_budget.dart';
@@ -22,7 +23,7 @@ import '../../../view_model/plan/plan_edit_viewmodel.dart';
 
 // Modals
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
-import 'package:sotong_local/component/inputs/single_value_input_modal.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/single_value_input_modal.dart';
 
 class PlanEditPage extends StatefulWidget {
   final TotalPlan? initialPlan;
@@ -428,19 +429,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
         if (!snapshot.hasData || snapshot.hasError) {
           final theme = Theme.of(context);
           return Scaffold(
-            appBar: AppBar(
-              backgroundColor: theme.scaffoldBackgroundColor,
-              elevation: 0,
-              leading: IconButton(
-                icon: Icon(
-                  Icons.arrow_back_ios,
-                  color: theme.colorScheme.onSurface,
-                  size: 24,
-                ),
-                onPressed: () => Navigator.pop(context),
-              ),
-              title: const SizedBox.shrink(),
-            ),
+            appBar: const BackOnlyAppBar(),
             body: Center(
               child: Text(
                 snapshot.hasError
@@ -473,20 +462,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
         builder: (ctx) {
           final theme = Theme.of(ctx);
           return Scaffold(
-            appBar: AppBar(
-              backgroundColor: theme.scaffoldBackgroundColor,
-              elevation: 0,
-              leading: IconButton(
-                icon: Icon(
-                  Icons.arrow_back_ios,
-                  color: theme.colorScheme.onSurface,
-                  size: 24,
-                ),
-                onPressed: () => Navigator.pop(context),
-                style: IconButton.styleFrom(overlayColor: Colors.transparent),
-              ),
-              title: const SizedBox.shrink(),
-            ),
+            appBar: const BackOnlyAppBar(),
             backgroundColor: theme.scaffoldBackgroundColor,
             body: SafeArea(
               child: Column(
