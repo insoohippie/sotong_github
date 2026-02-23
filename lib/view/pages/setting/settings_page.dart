@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../component/appbars/back_only_app_bar.dart';
@@ -106,7 +107,10 @@ class SettingsPage extends StatelessWidget {
                       isDark: isDark,
                       trailing: Switch(
                         value: settingsVM.isDarkMode,
-                        onChanged: (value) => settingsVM.toggleDarkMode(value),
+                        onChanged: (value) {
+                          HapticFeedback.selectionClick();
+                          settingsVM.toggleDarkMode(value);
+                        },
                         activeColor: Colors.white,
                         activeTrackColor: Colors.white.withOpacity(0.5),
                         inactiveThumbColor: Colors.grey.shade400,

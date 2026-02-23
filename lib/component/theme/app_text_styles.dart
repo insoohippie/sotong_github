@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 
 class AppTextStyles {
   static const header = TextStyle(
-    fontFamily: 'Pretendard Variable',
-    fontSize: 26,
+    fontFamily: 'Pretendard',
+    fontSize: 30,
     color: Colors.black,
     fontWeight: FontWeight.w800,
   );
 
   static const paragraph = TextStyle(
     fontFamily: 'Pretendard Variable',
-    fontSize: 13,
+    fontSize: 15,
     color: Colors.black,
     fontWeight: FontWeight.w500,
   );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/view_model/home/home_view_model.dart';
 import 'package:sotong_local/view_model/services/saving_calculator.dart';
@@ -85,7 +86,10 @@ class HomeSavingCenterButton extends StatelessWidget {
 
       return InkWell(
         key: const ValueKey('center-default'),
-        onTap: onOpenCountdown,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onOpenCountdown();
+        },
         child: _circleShell(
           bg: bg,
           border: border,

@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:animated_toggle_switch/animated_toggle_switch.dart';
 
@@ -25,6 +27,7 @@ class _ReportMonthCategorySectionState
   int _shownFromAmount = 0; // 애니메이션 begin용
 
   bool _prevLoading = false;
+  Timer? _hapticTimer;
 
   @override
   void initState() {
@@ -45,8 +48,29 @@ class _ReportMonthCategorySectionState
 
   @override
   void dispose() {
+    _hapticTimer?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  /// 숫자 올라가는 애니(900ms)에 맞춰 쫘라락 햅틱 (9회, 100ms 간격)
+  void _playAmountSequentialHaptic() {
+    _hapticTimer?.cancel();
+    HapticFeedback.selectionClick();
+    int count = 1;
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (!mounted) {
+        _hapticTimer?.cancel();
+        return;
+      }
+      if (count >= 9) {
+        _hapticTimer?.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      HapticFeedback.selectionClick();
+      count++;
+    });
   }
 
   String _formatAmount(int amount) {
@@ -65,6 +89,8 @@ class _ReportMonthCategorySectionState
       _shownAmount = newTo;
       _tabIndex = index;
     });
+    // 금액에 차이가 있을 때만 쫘라락 햅틱 (1원이라도 다르면 재생)
+    if (newTo != _shownFromAmount) _playAmountSequentialHaptic();
 
     _pageController.animateToPage(
       index,
@@ -115,6 +141,7 @@ class _ReportMonthCategorySectionState
           _shownFromAmount = _shownAmount;
           _shownAmount = newTo;
         });
+        _playAmountSequentialHaptic();
       });
     }
 
@@ -180,6 +207,8 @@ class _ReportMonthCategorySectionState
                   _shownAmount = newTo;
                   _tabIndex = i;
                 });
+                // 금액에 차이가 있을 때만 쫘라락 햅틱 (1원이라도 다르면 재생)
+                if (newTo != _shownFromAmount) _playAmountSequentialHaptic();
               },
               itemBuilder: (context, index) {
                 final t = items[index];

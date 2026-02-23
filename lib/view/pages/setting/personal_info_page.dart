@@ -7,7 +7,7 @@ import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/inputs/wheel_date_picker.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../repository/auth_repository.dart';
-import '../../../component/inputs/single_value_input_modal.dart';
+import '../plan/plan_widgets/plan_input_modal/single_value_input_modal.dart';
 
 /// 개인정보 수정 페이지: 이름 / 생년월일 / 비밀번호 수정 / 아이디
 class PersonalInfoPage extends StatefulWidget {
@@ -370,21 +370,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: Theme.of(context).colorScheme.onSurface,
-            size: 24,
-          ),
-          onPressed: () => Navigator.pop(context),
-          style: IconButton.styleFrom(overlayColor: Colors.transparent),
-        ),
-        title: const SizedBox.shrink(),
-        centerTitle: true,
-      ),
+      appBar: const BackOnlyAppBar(),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),

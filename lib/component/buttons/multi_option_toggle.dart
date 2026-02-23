@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class MultiOptionToggle extends StatelessWidget {
   const MultiOptionToggle({
@@ -13,7 +14,7 @@ class MultiOptionToggle extends StatelessWidget {
     /// 선택된 옵션 배경(흰색 칩)의 너비 비율. 1.0 = 한 칸 전체, 0.85 = 칸의 85% (좌우 여백 생김)
     this.indicatorWidthRatio = 1.0,
   }) : assert(labels.length >= 2),
-       assert(indicatorWidthRatio > 0 && indicatorWidthRatio <= 1.0);
+        assert(indicatorWidthRatio > 0 && indicatorWidthRatio <= 1.0);
 
   final List<String> labels;
   final String selected;
@@ -95,6 +96,7 @@ class MultiOptionToggle extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
                     if (isSelected) return;
+                    HapticFeedback.selectionClick();
                     onChanged(label);
                   },
                   child: Center(

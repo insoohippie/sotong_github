@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../../../../component/appbars/back_only_app_bar.dart';
 import '../../../../component/theme/app_border_radius.dart';
 import '../../../../model/setting/past_plan_snapshot.dart';
 import '../../../../repository/past_plan_repository.dart';
@@ -42,22 +43,7 @@ class _PastPlansListPageState extends State<PastPlansListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: Theme.of(context).colorScheme.onSurface,
-            size: 24,
-          ),
-          onPressed: () => Navigator.pop(context),
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-        ),
-        title: const SizedBox.shrink(),
-      ),
+      appBar: const BackOnlyAppBar(),
       body: SafeArea(
         child: !_loaded
             ? const Center(child: CircularProgressIndicator())

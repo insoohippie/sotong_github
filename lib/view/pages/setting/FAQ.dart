@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
 
 import '../../../component/theme/app_colors.dart';
 import '../../../model/setting/faq_item.dart';
@@ -68,18 +69,7 @@ class _FAQPageState extends State<FAQPage> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: iconColor, size: 24),
-          onPressed: () => Navigator.pop(context),
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-        ),
-        title: const SizedBox.shrink(),
-      ),
+      appBar: BackOnlyAppBar(iconColor: iconColor),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),

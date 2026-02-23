@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_field.dart';
@@ -71,6 +72,7 @@ class EmailLoginPage extends StatelessWidget {
                         // 회원가입 버튼 (오른쪽 정렬)
                         TextButton(
                           onPressed: () {
+                            HapticFeedback.selectionClick();
                             Navigator.pushNamed(context, '/signup');
                           },
                           style: TextButton.styleFrom(

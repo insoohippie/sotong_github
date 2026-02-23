@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
+import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_area.dart';
 import '../../../component/inputs/selectable_emoji_selector.dart';
@@ -69,37 +70,9 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
       children: [
         Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(kToolbarHeight),
-            child: AppBar(
-              backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-              elevation: 0,
-              leading: IconButton(
-                icon: Icon(
-                  Icons.arrow_back_ios,
-                  color: Theme.of(context).colorScheme.onSurface,
-                  size: 24,
-                ),
-                onPressed: () => Navigator.pop(context),
-                splashColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-              ),
-              title: Text(
-                '${viewModel.formattedTotal}원 소비',
-                style:
-                Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ) ??
-                    TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurface,
-                    ),
-              ),
-              centerTitle: true,
-            ),
+          appBar: BackOnlyAppBar(
+            title: '${viewModel.formattedTotal}원 소비',
+            centerTitle: true,
           ),
           body: SafeArea(
             child: Column(

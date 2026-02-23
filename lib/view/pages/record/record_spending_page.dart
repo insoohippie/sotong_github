@@ -8,6 +8,7 @@ import '../../../component/buttons/small_rounded_button.dart';
 import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
 
 import '../../../view_model/category/spending_category_view_model.dart';
 import '../../../view_model/record/record_view_model.dart';
@@ -103,36 +104,9 @@ class _RecordSpendingPageState extends State<RecordSpendingPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: AppBar(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          elevation: 0,
-          leading: IconButton(
-            icon: Icon(
-              Icons.arrow_back_ios,
-              color: Theme.of(context).colorScheme.onSurface,
-              size: 24,
-            ),
-            onPressed: () => Navigator.pop(context),
-            splashColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            hoverColor: Colors.transparent,
-          ),
-          title: Text(
-            DateFormat('yyyy년 M월 d일').format(_selectedDate),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ) ??
-                TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-          ),
-          centerTitle: true,
-        ),
+      appBar: BackOnlyAppBar(
+        title: DateFormat('yyyy년 M월 d일').format(_selectedDate),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: Column(

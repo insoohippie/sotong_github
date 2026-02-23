@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
@@ -30,14 +31,19 @@ class CustomButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding:
-          padding ?? EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+      padding ?? EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
       child: SizedBox(
         height: height,
         child: ElevatedButton(
-          onPressed: enabled ? onPressed : null,
+          onPressed: enabled
+              ? () {
+            HapticFeedback.selectionClick();
+            onPressed();
+          }
+              : null,
           style: ElevatedButton.styleFrom(
             backgroundColor:
-                backgroundColor ??
+            backgroundColor ??
                 (enabled ? AppColors.primary : AppColors.disabled),
             foregroundColor: Colors.white,
             minimumSize: Size(double.infinity, height),

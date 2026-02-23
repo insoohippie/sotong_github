@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
 
+import '../../../../component/appbars/back_only_app_bar.dart';
 import '../../../../component/inputs/custom_number_field.dart';
 
 class EditSavingTargetPage extends StatefulWidget {
@@ -53,22 +54,7 @@ class _EditSavingTargetPageState extends State<EditSavingTargetPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-        ),
-        title: const Text(
-          '플랜 수정',
-          style: TextStyle(fontFamily: 'Pretendard Variable'),
-        ),
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        iconTheme: IconThemeData(color: theme.textTheme.bodyLarge?.color),
-      ),
+      appBar: const BackOnlyAppBar(title: '플랜 수정'),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(

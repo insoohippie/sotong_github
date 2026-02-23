@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class TwoOptionToggle extends StatelessWidget {
   const TwoOptionToggle({
@@ -76,6 +77,7 @@ class TwoOptionToggle extends StatelessWidget {
                   behavior: HitTestBehavior.opaque,
                   onTap: () {
                     if (isSelected) return;
+                    HapticFeedback.selectionClick();
                     onChanged(label);
                   },
                   child: Center(

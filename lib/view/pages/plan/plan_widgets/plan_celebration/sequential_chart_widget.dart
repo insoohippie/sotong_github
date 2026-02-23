@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'plan_summary_chart_painter.dart';
 import 'package:sotong_local/component/buttons/multi_option_toggle.dart';
 
@@ -36,6 +39,7 @@ class ChartData {
 class _SequentialChartWidgetState extends State<SequentialChartWidget>
     with TickerProviderStateMixin {
   late final AnimationController _fillController; // 0 -> targetProgress
+  Timer? _hapticTimer;
 
   int _currentIndex = 0;
   double _targetProgress = 0.0; // 0~1
@@ -72,6 +76,22 @@ class _SequentialChartWidgetState extends State<SequentialChartWidget>
     return (p / 100.0).clamp(0.0, 1.0);
   }
 
+  /// 원형 그래프 애니(1500ms)에 맞춰 쫘라락 햅틱 (15회, 100ms 간격)
+  void _playChartSequentialHaptic() {
+    _hapticTimer?.cancel();
+    HapticFeedback.selectionClick();
+    int count = 1;
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (!mounted || count >= 15) {
+        _hapticTimer?.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      HapticFeedback.selectionClick();
+      count++;
+    });
+  }
+
   void _setCurrentItem(int index) {
     if (widget.charts.isEmpty || index < 0 || index >= widget.charts.length) {
       _targetProgress = 0.0;
@@ -80,6 +100,7 @@ class _SequentialChartWidgetState extends State<SequentialChartWidget>
     _targetProgress = _normalizeProgress(widget.charts[index].progress);
     _fillController.reset();
     _fillController.forward(from: 0.0);
+    _playChartSequentialHaptic();
   }
 
   void _onToggleChanged(String selectedLabel) {
@@ -105,6 +126,7 @@ class _SequentialChartWidgetState extends State<SequentialChartWidget>
 
   @override
   void dispose() {
+    _hapticTimer?.cancel();
     _fillController.dispose();
     super.dispose();
   }

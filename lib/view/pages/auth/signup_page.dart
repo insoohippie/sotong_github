@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
 import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
 
-import '../../../component/appbars/custom_app_bar.dart';
 import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/inputs/dual_option_selector.dart';
 import '../../../component/inputs/wheel_date_picker.dart';
@@ -40,22 +40,19 @@ class _SignUpPageState extends State<SignUpPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      resizeToAvoidBottomInset: false,
-
+      resizeToAvoidBottomInset: true,
+      appBar: BackOnlyAppBar(
+        onBack: () {
+          if (vm.currentStep == SignupStep.email) {
+            Navigator.pop(context);
+          } else {
+            vm.previousStep();
+          }
+        },
+      ),
       body: SafeArea(
         child: Column(
           children: [
-            CustomAppBar(
-              title: '',
-              onBack: () {
-                if (vm.currentStep == SignupStep.email) {
-                  Navigator.pop(context);
-                } else {
-                  vm.previousStep();
-                }
-              },
-            ),
-
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(

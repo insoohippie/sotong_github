@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../component/appbars/back_only_app_bar.dart';
+
 class TimeSummaryPage extends StatelessWidget {
   const TimeSummaryPage({super.key});
 
@@ -11,23 +13,7 @@ class TimeSummaryPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: iconColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          '시간으로 변환',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: theme.textTheme.bodyLarge?.color,
-            fontFamily: 'Pretendard Variable',
-          ),
-        ),
-        centerTitle: false,
-      ),
+      appBar: BackOnlyAppBar(title: '시간으로 변환', iconColor: iconColor),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),

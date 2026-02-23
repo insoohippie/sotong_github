@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// 금액 → "만원" 포맷
 String _manWon(num v) {
@@ -87,6 +90,7 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
   int touchedIndex = 0; // 기본: 저축(0번)
   late final AnimationController _ac;
   late final AnimationController _exitController;
+  Timer? _hapticTimer;
 
   // 데이터 캐시
   late List<double> _rawValues; // [save, fixed, var]
@@ -122,11 +126,50 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
           setState(() => _exitingDone = true);
           _ac.forward(from: 0);
           _exitController.reset();
+          _playEnterHaptic();
         });
       }
     });
     _recomputeData();
     _ac.forward(from: 0);
+    _playEnterHaptic();
+  }
+
+  void _playEnterHaptic() {
+    _hapticTimer?.cancel();
+    HapticFeedback.selectionClick();
+    final isFan = _mode == _AnimMode.fan;
+    final interval = isFan
+        ? const Duration(milliseconds: 130)
+        : const Duration(milliseconds: 85);
+    final count = isFan ? 8 : 7;
+    int n = 1;
+    _hapticTimer = Timer.periodic(interval, (timer) {
+      if (!mounted || n >= count) {
+        timer.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      HapticFeedback.selectionClick();
+      n++;
+    });
+  }
+
+  void _playExitHaptic() {
+    _hapticTimer?.cancel();
+    HapticFeedback.selectionClick();
+    const interval = Duration(milliseconds: 70);
+    const count = 7;
+    int n = 1;
+    _hapticTimer = Timer.periodic(interval, (timer) {
+      if (!mounted || n >= count) {
+        timer.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      HapticFeedback.selectionClick();
+      n++;
+    });
   }
 
   @override
@@ -134,12 +177,12 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
     super.didUpdateWidget(oldWidget);
     final dataChanged =
         oldWidget.income != widget.income ||
-        oldWidget.fixed != widget.fixed ||
-        oldWidget.variable != widget.variable ||
-        oldWidget.saving != widget.saving ||
-        oldWidget.minRatio != widget.minRatio ||
-        oldWidget.isOverBudget != widget.isOverBudget ||
-        oldWidget.animationTrigger != widget.animationTrigger;
+            oldWidget.fixed != widget.fixed ||
+            oldWidget.variable != widget.variable ||
+            oldWidget.saving != widget.saving ||
+            oldWidget.minRatio != widget.minRatio ||
+            oldWidget.isOverBudget != widget.isOverBudget ||
+            oldWidget.animationTrigger != widget.animationTrigger;
     if (!dataChanged) return;
 
     // 이미 exit 애니메이션 중이면 재시작하지 않음 → 버벅임 방지
@@ -154,10 +197,12 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
     _recomputeData();
     _exitingDone = false;
     _exitController.forward(from: 0);
+    _playExitHaptic();
   }
 
   @override
   void dispose() {
+    _hapticTimer?.cancel();
     _ac.dispose();
     _exitController.dispose();
     super.dispose();
@@ -249,27 +294,27 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
   }
 
   Widget _buildPieChart(
-    List<double> rawValues,
-    List<double> areaValues,
-    bool isOverBudget,
-    double progressT, {
-    bool showBadges = true,
-    bool isExit = false,
-    double exitT = 0,
-  }) {
+      List<double> rawValues,
+      List<double> areaValues,
+      bool isOverBudget,
+      double progressT, {
+        bool showBadges = true,
+        bool isExit = false,
+        double exitT = 0,
+      }) {
     final colors = isOverBudget
         ? [_cSaveOver, _cFixed, _cVar]
         : [_cSave, _cFixed, _cVar];
 
     final animatedAreas = isExit
         ? List<double>.generate(
-            areaValues.length,
-            (i) => areaValues[i] * _exitSectionProgress(i, exitT),
-          )
+      areaValues.length,
+          (i) => areaValues[i] * _exitSectionProgress(i, exitT),
+    )
         : List<double>.generate(
-            areaValues.length,
-            (i) => areaValues[i] * _sectionProgress(i, progressT),
-          );
+      areaValues.length,
+          (i) => areaValues[i] * _sectionProgress(i, progressT),
+    );
 
     final labels = isOverBudget
         ? ['저축', '월 고정소비', '일일 소비×30']
@@ -289,13 +334,13 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
           badgePositionPercentageOffset: widget.badgeOutsideOffset,
           badgeWidget: showBadges
               ? Opacity(
-                  opacity: (animatedAreas[i] > 0.0001) ? 1 : 0,
-                  child: _TextBadge(
-                    labelTop: labels[i],
-                    labelBottom: _manWon(rawValues[i]),
-                    scale: (i == 0 || isTouched) ? 1.1 : 1.0,
-                  ),
-                )
+            opacity: (animatedAreas[i] > 0.0001) ? 1 : 0,
+            child: _TextBadge(
+              labelTop: labels[i],
+              labelBottom: _manWon(rawValues[i]),
+              scale: (i == 0 || isTouched) ? 1.1 : 1.0,
+            ),
+          )
               : const SizedBox.shrink(),
         ),
       );
@@ -329,26 +374,26 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
       child: RepaintBoundary(
         child: _exitingDone
             ? AnimatedBuilder(
-                animation: _ac,
-                builder: (_, __) => _buildPieChart(
-                  _rawValues,
-                  _areaValues,
-                  widget.isOverBudget,
-                  _ac.value,
-                ),
-              )
+          animation: _ac,
+          builder: (_, __) => _buildPieChart(
+            _rawValues,
+            _areaValues,
+            widget.isOverBudget,
+            _ac.value,
+          ),
+        )
             : AnimatedBuilder(
-                animation: _exitController,
-                builder: (_, __) => _buildPieChart(
-                  _prevRawValues!,
-                  _prevAreaValues!,
-                  _prevIsOverBudget,
-                  0,
-                  showBadges: false,
-                  isExit: true,
-                  exitT: _exitController.value,
-                ),
-              ),
+          animation: _exitController,
+          builder: (_, __) => _buildPieChart(
+            _prevRawValues!,
+            _prevAreaValues!,
+            _prevIsOverBudget,
+            0,
+            showBadges: false,
+            isExit: true,
+            exitT: _exitController.value,
+          ),
+        ),
       ),
     );
   }

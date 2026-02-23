@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
@@ -54,6 +57,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   // 나머지 리스트 애니메이션 (4위부터)
   late AnimationController _emotionListController;
   late AnimationController _categoryListController;
+  Timer? _hapticTimer;
 
   // 하드코딩된 데이터
   late final TotalPlan _plan;
@@ -187,8 +191,25 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     });
   }
 
+  /// 포디움 애니메이션(~2.3초)에 맞춰 쫘라락 햅틱 (12회, 150ms 간격)
+  void _playPodiumSequentialHaptic() {
+    _hapticTimer?.cancel();
+    HapticFeedback.selectionClick();
+    int count = 1;
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 150), (_) {
+      if (!mounted || count >= 12) {
+        _hapticTimer?.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      HapticFeedback.selectionClick();
+      count++;
+    });
+  }
+
   @override
   void dispose() {
+    _hapticTimer?.cancel();
     _pageController.dispose();
     _emotionBarThirdController.dispose();
     _emotionBarSecondController.dispose();
@@ -249,8 +270,6 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     };
 
     // 최근 일지
-    // 최근 일지 (더미 데이터)
-
     _recentDiaries = [
       DaySpending(
         date: now.subtract(const Duration(days: 1)),
@@ -402,6 +421,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                       // 페이지가 변경될 때 애니메이션 재시작
                       if (index == 1) {
                         // 감정 기록 페이지 (2번 카드) - 3위 -> 2위 -> 1위 순서
+                        _playPodiumSequentialHaptic();
                         // 포디움 바 애니메이션 리셋
                         _emotionBarThirdController.reset();
                         _emotionBarSecondController.reset();
@@ -436,6 +456,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                         });
                       } else if (index == 2) {
                         // 소비 기록 페이지 (3번 카드) - 3위 -> 2위 -> 1위 순서
+                        _playPodiumSequentialHaptic();
                         // 포디움 바 애니메이션 리셋
                         _categoryBarThirdController.reset();
                         _categoryBarSecondController.reset();
@@ -801,15 +822,6 @@ class _TotalPlanPageState extends State<TotalPlanPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '감정 기록',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.text,
-              ),
-            ),
-            const SizedBox(height: 16),
             Center(
               child: Text(
                 '감정 기록이 없습니다',
@@ -834,7 +846,6 @@ class _TotalPlanPageState extends State<TotalPlanPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 포디움: 상위 3개 (3위 -> 2위 -> 1위 순서로 애니메이션)
           if (sortedEmotions.length >= 3)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -996,16 +1007,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '소비 기록',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.text,
-            ),
-          ),
           if (_categorySpending.isNotEmpty) ...[
-            const SizedBox(height: 16),
             // 포디움: 상위 3개 (제일 위에 배치)
             Builder(
               builder: (context) {
@@ -1205,21 +1207,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
         return Container(
           padding: const EdgeInsets.all(24),
           decoration: _getCardDecoration(),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '최근 일지',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.text,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildDiaryCalendar(vm),
-            ],
-          ),
+          child: _buildDiaryCalendar(vm),
         );
       },
     );
@@ -1356,7 +1344,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                           if (!isCurrentMonth) return const SizedBox();
 
                           final hasEmotion = vm.hasEmotionRecord(day);
-                          final emoji = vm.emotionEmojiForDay(day);
+                          final emotionLabel = vm.emotionLabelForDay(day);
 
                           return GestureDetector(
                             onTap: () {
@@ -1375,15 +1363,25 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
-                                  if (hasEmotion && emoji.isNotEmpty)
-                                    Text(
-                                      emoji,
-                                      style: const TextStyle(
-                                        fontSize: 20,
-                                        height: 1.0,
+                                  if (hasEmotion &&
+                                      emotionLabel.trim().isNotEmpty)
+                                    SizedBox(
+                                      width: 28,
+                                      height: 28,
+                                      child: Lottie.asset(
+                                        _lottiePathForEmotion(emotionLabel),
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => Text(
+                                          vm.emotionEmojiForDay(day),
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            height: 1.0,
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  if (!hasEmotion || emoji.isEmpty)
+                                  if (!hasEmotion ||
+                                      emotionLabel.trim().isEmpty)
                                     Text(
                                       '$day',
                                       textAlign: TextAlign.center,
@@ -1606,12 +1604,17 @@ class _TotalPlanPageState extends State<TotalPlanPage>
       case '평온':
         return 'assets/animations/emotion_calm.json';
       case '좋음':
+      case '기쁨':
         return 'assets/animations/emotion_good.json';
       case '슬픔':
+      case '피곤':
         return 'assets/animations/emotion_sad.json';
       case '스트레스':
+      case '혼란':
+      case '화남':
         return 'assets/animations/emotion_stress.json';
       case '동기부여':
+      case '플렉스':
         return 'assets/animations/emotion_motivation.json';
       case '아무 감정 없음':
         return 'assets/animations/emotion_none.json';
@@ -1620,3 +1623,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     }
   }
 }
+
+
+
+

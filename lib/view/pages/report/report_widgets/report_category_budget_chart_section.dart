@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:sotong_local/component/theme/app_colors.dart';
@@ -28,6 +29,7 @@ class _ReportCategoryBudgetChartSectionState
   bool _showPopup = false;
   Timer? _selectionTimer;
   Timer? _popupTimer;
+  Timer? _hapticTimer;
 
   // ✅ popup width 측정용
   final GlobalKey _popupKey = GlobalKey();
@@ -37,7 +39,28 @@ class _ReportCategoryBudgetChartSectionState
   void dispose() {
     _selectionTimer?.cancel();
     _popupTimer?.cancel();
+    _hapticTimer?.cancel();
     super.dispose();
+  }
+
+  /// 막대 선택 전환 애니(~300ms)에 맞춰 쫘라락 햅틱 (6회, 50ms 간격)
+  void _playSelectionSequentialHaptic() {
+    _hapticTimer?.cancel();
+    HapticFeedback.selectionClick();
+    int count = 1;
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (!mounted) {
+        _hapticTimer?.cancel();
+        return;
+      }
+      if (count >= 6) {
+        _hapticTimer?.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      HapticFeedback.selectionClick();
+      count++;
+    });
   }
 
   String _formatAmount(int amount) {
@@ -312,6 +335,7 @@ class _ReportCategoryBudgetChartSectionState
   void _startSelectionTransition(String category) {
     _selectionTimer?.cancel();
     _popupTimer?.cancel();
+    _playSelectionSequentialHaptic();
     setState(() {
       _selectedChartCategory = category;
       _isCollapsing = true;

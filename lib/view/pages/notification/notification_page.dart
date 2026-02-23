@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/multi_option_toggle.dart';
 import '../../../component/theme/app_border_radius.dart';
 import '../../../model/notification/notification_item.dart';
@@ -30,19 +31,7 @@ class _NotificationPageState extends State<NotificationPage> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: theme.iconTheme.color,
-            size: 24,
-          ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const SizedBox.shrink(),
-      ),
+      appBar: const BackOnlyAppBar(),
       body: SafeArea(
         child: Column(
           children: [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sotong_local/route.dart';
 
 import '../../../component/theme/app_colors.dart'; // <-- appRoutes 가져오기
@@ -30,6 +31,7 @@ class _HomeTabNavigatorState extends State<HomeTabNavigator> {
   }
 
   void _onTabTapped(int index) {
+    HapticFeedback.selectionClick();
     setState(() {
       _currentIndex = index;
     });

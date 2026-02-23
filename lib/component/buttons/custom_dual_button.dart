@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../texts/paragraph_text.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_spacing.dart';
 
 class CustomDualButton extends StatelessWidget {
   final String leftLabel;
@@ -34,13 +34,22 @@ class CustomDualButton extends StatelessWidget {
               margin: const EdgeInsets.only(right: 4),
               height: height,
               child: ElevatedButton(
-                onPressed: leftEnabled ? onLeftPressed : null,
+                onPressed: leftEnabled
+                    ? () {
+                  HapticFeedback.selectionClick();
+                  onLeftPressed?.call();
+                }
+                    : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: leftEnabled
                       ? AppColors.primary
                       : AppColors.disabled.withOpacity(0.6),
                   foregroundColor: Colors.white,
                   minimumSize: const Size(double.infinity, 60),
+                  elevation: 0,
+                  shadowColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  overlayColor: Colors.transparent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -72,11 +81,20 @@ class CustomDualButton extends StatelessWidget {
                   margin: const EdgeInsets.only(left: 4),
                   height: height,
                   child: ElevatedButton(
-                    onPressed: rightEnabled ? onRightPressed : null,
+                    onPressed: rightEnabled
+                        ? () {
+                      HapticFeedback.selectionClick();
+                      onRightPressed?.call();
+                    }
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: rightBg,
                       foregroundColor: rightFg,
                       minimumSize: const Size(double.infinity, 60),
+                      elevation: 0,
+                      shadowColor: Colors.transparent,
+                      surfaceTintColor: Colors.transparent,
+                      overlayColor: Colors.transparent,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

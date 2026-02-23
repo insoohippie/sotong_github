@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 
 import '../../../../component/buttons/period_toggle.dart';
@@ -20,11 +21,14 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
   // 감정 / 금액 모드
   String selectedMode = '감정'; // '감정' | '금액'
 
-  // 달 넘어갈 때 슬라이드 방향
+  // 달 넘어갈 때 슬라이드 방향 (위/아래)
   int _monthSlideDirection = 0;
+  // 감정↔금액 토글 시 슬라이드 방향 (1: 감정→금액=오른쪽에서 들어옴, -1: 금액→감정=왼쪽에서 들어옴)
+  int _modeSlideDirection = 0;
 
   void _changeMode(String mode) {
     if (mode == selectedMode) return;
+    _modeSlideDirection = (mode == '금액') ? 1 : -1;
     setState(() => selectedMode = mode);
   }
 
@@ -305,28 +309,73 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
                   .toList(),
             ),
             const SizedBox(height: 8),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                // 7칸 기준 한 칸의 "가로" 길이
-                final cellW = constraints.maxWidth / 7;
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 600),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                // 감정→금액: 새 컨텐츠가 오른쪽에서 들어옴. 금액→감정: 왼쪽에서 들어옴
+                final incomingOffset = _modeSlideDirection == 1
+                    ? const Offset(1, 0)
+                    : _modeSlideDirection == -1
+                    ? const Offset(-1, 0)
+                    : Offset.zero;
+                final outgoingOffset = _modeSlideDirection == 1
+                    ? const Offset(-1, 0)
+                    : _modeSlideDirection == -1
+                    ? const Offset(1, 0)
+                    : Offset.zero;
 
-                // childAspectRatio = width / height  -> 값이 커질수록 높이가 줄어듦
-                const ratio = 1.15;
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOutCubic,
+                );
 
-                // 6주(42칸) 고정이므로 그리드 전체 높이
-                final gridH = (cellW / ratio) * 6;
-
-                return SizedBox(
-                  height: gridH,
-                  child: _buildCalendarGrid(
-                    vm: vm,
-                    firstWeekdayOffset: firstWeekdayOffset,
-                    daysInMonth: daysInMonth,
-                    showEmotion: selectedMode == '감정',
-                    childAspectRatio: ratio,
+                // 새 모드(selectedMode) 쪽이 incoming, 이전 모드가 outgoing
+                final isIncoming = child.key == ValueKey<String>(selectedMode);
+                final slideAnim = isIncoming
+                    ? Tween<Offset>(
+                  begin: incomingOffset,
+                  end: Offset.zero,
+                ).animate(curved)
+                    : Tween<Offset>(
+                  begin: Offset.zero,
+                  end: outgoingOffset,
+                ).animate(
+                  CurvedAnimation(
+                    parent: ReverseAnimation(animation),
+                    curve: Curves.easeInOutCubic,
                   ),
                 );
+
+                return ClipRect(
+                  child: SlideTransition(position: slideAnim, child: child),
+                );
               },
+              child: LayoutBuilder(
+                key: ValueKey<String>(selectedMode),
+                builder: (context, constraints) {
+                  // 7칸 기준 한 칸의 "가로" 길이
+                  final cellW = constraints.maxWidth / 7;
+
+                  // childAspectRatio = width / height  -> 값이 커질수록 높이가 줄어듦
+                  const ratio = 1.15;
+
+                  // 6주(42칸) 고정이므로 그리드 전체 높이
+                  final gridH = (cellW / ratio) * 6;
+
+                  return SizedBox(
+                    height: gridH,
+                    child: _buildCalendarGrid(
+                      vm: vm,
+                      firstWeekdayOffset: firstWeekdayOffset,
+                      daysInMonth: daysInMonth,
+                      showEmotion: selectedMode == '감정',
+                      childAspectRatio: ratio,
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -364,6 +413,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
 
         return GestureDetector(
           onTap: () {
+            HapticFeedback.selectionClick();
             showDateDetailModal(context: context, vm: vm, day: day);
           },
           child: Container(

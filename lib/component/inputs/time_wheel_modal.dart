@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:wheel_picker/wheel_picker.dart';
 
 import '../buttons/custom_button.dart';
@@ -23,16 +24,16 @@ class TimeWheelModal extends StatefulWidget {
 
   /// 현재 시간을 바텀시트로 띄우고 선택된 [TimeOfDay]를 반환. 취소 시 null.
   static Future<TimeOfDay?> show(
-    BuildContext context,
-    TimeOfDay current,
-  ) async {
+      BuildContext context,
+      TimeOfDay current,
+      ) async {
     final hour12 = current.hour == 0
         ? 12
         : (current.hour > 12 ? current.hour - 12 : current.hour);
     final isAm = current.hour < 12;
     const minuteOptions = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
     final minute = minuteOptions.reduce(
-      (a, b) => (current.minute - a).abs() < (current.minute - b).abs() ? a : b,
+          (a, b) => (current.minute - a).abs() < (current.minute - b).abs() ? a : b,
     );
 
     return showModalBottomSheet<TimeOfDay>(
@@ -184,7 +185,8 @@ class _TimeWheelModalState extends State<TimeWheelModal> {
                         controller: _amPmController,
                         looping: false,
                         selectedIndexColor: textColor,
-                        onIndexChanged: (index, _) {},
+                        onIndexChanged: (index, _) =>
+                            HapticFeedback.selectionClick(),
                         style: wheelStyle,
                       ),
                     ),
@@ -202,7 +204,8 @@ class _TimeWheelModalState extends State<TimeWheelModal> {
                             Text('${index + 1}', style: textStyle),
                         controller: _hourController,
                         selectedIndexColor: textColor,
-                        onIndexChanged: (index, _) {},
+                        onIndexChanged: (index, _) =>
+                            HapticFeedback.selectionClick(),
                         style: wheelStyle,
                       ),
                     ),
@@ -222,7 +225,8 @@ class _TimeWheelModalState extends State<TimeWheelModal> {
                         ),
                         controller: _minuteController,
                         selectedIndexColor: textColor,
-                        onIndexChanged: (index, _) {},
+                        onIndexChanged: (index, _) =>
+                            HapticFeedback.selectionClick(),
                         style: wheelStyle,
                       ),
                     ),

@@ -1,6 +1,11 @@
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
+import 'package:lottie/lottie.dart';
+
+import '../../../../component/appbars/back_only_app_bar.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart';
 import '../../../../model/setting/past_plan_snapshot.dart';
@@ -23,6 +28,10 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
   bool _emotionPodiumStarted = false;
   bool _categoryPodiumStarted = false;
 
+  // 달력 상태 (4번 카드)
+  late int _selectedYear;
+  late int _selectedMonth;
+
   // 감정 포디움 애니메이션 (2번 카드)
   late AnimationController _emotionBarThirdController;
   late AnimationController _emotionBarSecondController;
@@ -40,11 +49,15 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
   late AnimationController _categoryItemSecondController;
   late AnimationController _categoryItemFirstController;
   late AnimationController _categoryListController;
+  Timer? _hapticTimer;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    final ref = widget.snapshot.endDate ?? widget.snapshot.completedAt;
+    _selectedYear = ref.year;
+    _selectedMonth = ref.month;
 
     const barDuration = Duration(milliseconds: 600);
     const itemDuration = Duration(milliseconds: 500);
@@ -109,9 +122,26 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
     );
   }
 
+  /// 포디움 애니메이션(~2.3초)에 맞춰 쫘라락 햅틱 (12회, 150ms 간격)
+  void _playPodiumSequentialHaptic() {
+    _hapticTimer?.cancel();
+    HapticFeedback.selectionClick();
+    int count = 1;
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 150), (_) {
+      if (!mounted || count >= 12) {
+        _hapticTimer?.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      HapticFeedback.selectionClick();
+      count++;
+    });
+  }
+
   void _startEmotionPodiumAnimation() {
     if (_emotionPodiumStarted || !mounted) return;
     _emotionPodiumStarted = true;
+    _playPodiumSequentialHaptic();
     _emotionBarThirdController.forward();
     Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) _emotionBarSecondController.forward();
@@ -136,6 +166,7 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
   void _startCategoryPodiumAnimation() {
     if (_categoryPodiumStarted || !mounted) return;
     _categoryPodiumStarted = true;
+    _playPodiumSequentialHaptic();
     _categoryBarThirdController.forward();
     Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) _categoryBarSecondController.forward();
@@ -159,6 +190,7 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
 
   @override
   void dispose() {
+    _hapticTimer?.cancel();
     _pageController.dispose();
     _emotionBarThirdController.dispose();
     _emotionBarSecondController.dispose();
@@ -230,22 +262,7 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: Theme.of(context).colorScheme.onSurface,
-            size: 24,
-          ),
-          onPressed: () => Navigator.pop(context),
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-        ),
-        title: const SizedBox.shrink(),
-      ),
+      appBar: const BackOnlyAppBar(),
       body: Column(
         children: [
           Expanded(
@@ -354,13 +371,13 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
                   ),
                   child: _buildCategoryCard(snapshot, nf),
                 ),
-                // 4번 카드: 최근 일지
+                // 4번 카드: 최근 일지 (달력 형태 — totalplan과 동일)
                 SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppSpacing.screenPadding,
                     vertical: 16,
                   ),
-                  child: _buildDiariesCard(snapshot, nf),
+                  child: _buildDiaryCalendarCard(snapshot, nf),
                 ),
               ],
             ),
@@ -404,15 +421,6 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '감정 기록',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
             Center(
               child: Text(
                 '감정 기록이 없습니다',
@@ -437,15 +445,6 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '감정 기록',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 16),
           if (sorted.length >= 3)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -517,6 +516,19 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
                               ),
                             ),
                             const SizedBox(width: 12),
+                            SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: Lottie.asset(
+                                _lottiePathForEmotion(e.key),
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => Text(
+                                  _getEmotionEmoji(e.key),
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 e.key,
@@ -557,7 +569,18 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(_getEmotionEmoji(e.key), style: const TextStyle(fontSize: 20)),
+        SizedBox(
+          width: 48,
+          height: 48,
+          child: Lottie.asset(
+            _lottiePathForEmotion(e.key),
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Text(
+              _getEmotionEmoji(e.key),
+              style: const TextStyle(fontSize: 20),
+            ),
+          ),
+        ),
         const SizedBox(height: 4),
         Text(
           e.key,
@@ -595,6 +618,25 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
     }
   }
 
+  String _lottiePathForEmotion(String emotion) {
+    switch (emotion) {
+      case '평온':
+        return 'assets/animations/emotion_calm.json';
+      case '좋음':
+        return 'assets/animations/emotion_good.json';
+      case '슬픔':
+        return 'assets/animations/emotion_sad.json';
+      case '스트레스':
+        return 'assets/animations/emotion_stress.json';
+      case '동기부여':
+        return 'assets/animations/emotion_motivation.json';
+      case '아무 감정 없음':
+        return 'assets/animations/emotion_none.json';
+      default:
+        return 'assets/animations/emotion_calm.json';
+    }
+  }
+
   Widget _buildCategoryCard(PastPlanSnapshot snapshot, NumberFormat nf) {
     if (snapshot.categorySpending.isEmpty) {
       return Container(
@@ -603,15 +645,6 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '소비 기록',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
             Center(
               child: Text(
                 '소비 기록이 없습니다',
@@ -635,15 +668,6 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '소비 기록',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
-            ),
-          ),
-          const SizedBox(height: 16),
           if (sorted.length >= 3)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -860,133 +884,326 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage>
     );
   }
 
-  Widget _buildDiariesCard(PastPlanSnapshot snapshot, NumberFormat nf) {
-    if (snapshot.diaries.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(24),
-        decoration: _getCardDecoration(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '최근 일지',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Center(
-              child: Text(
-                '일지가 없습니다',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+  /// snapshot.diaries에서 (year, month, day) -> diary 맵 생성
+  Map<String, Map<String, dynamic>> _diaryMapFor(PastPlanSnapshot snapshot) {
+    final map = <String, Map<String, dynamic>>{};
+    for (final d in snapshot.diaries) {
+      final dateStr = d['date'] as String? ?? '';
+      final date = DateTime.tryParse(dateStr);
+      if (date != null) {
+        final key = '${date.year}-${date.month}-${date.day}';
+        map[key] = d;
+      }
     }
+    return map;
+  }
 
-    final sorted = List<Map<String, dynamic>>.from(snapshot.diaries)
-      ..sort((a, b) {
-        final da = DateTime.tryParse(a['date'] as String? ?? '');
-        final db = DateTime.tryParse(b['date'] as String? ?? '');
-        if (da == null || db == null) return 0;
-        return db.compareTo(da);
-      });
+  /// 4번 카드: 달력 형태 (totalplan과 동일)
+  Widget _buildDiaryCalendarCard(PastPlanSnapshot snapshot, NumberFormat nf) {
+    final theme = Theme.of(context);
+    final diaryMap = _diaryMapFor(snapshot);
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: _getCardDecoration(context),
+      child: _buildDiaryCalendar(diaryMap, nf, theme),
+    );
+  }
+
+  Widget _buildDiaryCalendar(
+      Map<String, Map<String, dynamic>> diaryMap,
+      NumberFormat nf,
+      ThemeData theme,
+      ) {
+    final firstDayOfMonth = DateTime(_selectedYear, _selectedMonth, 1);
+    final lastDayOfMonth = DateTime(_selectedYear, _selectedMonth + 1, 0);
+    final firstWeekday = firstDayOfMonth.weekday;
+    final daysInMonth = lastDayOfMonth.day;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(
+              theme.brightness == Brightness.dark ? 0.2 : 0.05,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '최근 일지',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.onSurface,
+          // 월 선택
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (_selectedMonth == 1) {
+                        _selectedMonth = 12;
+                        _selectedYear--;
+                      } else {
+                        _selectedMonth--;
+                      }
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.chevron_left,
+                      color: theme.colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '$_selectedYear년 $_selectedMonth월',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (_selectedMonth == 12) {
+                        _selectedMonth = 1;
+                        _selectedYear++;
+                      } else {
+                        _selectedMonth++;
+                      }
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.chevron_right,
+                      color: theme.colorScheme.onSurfaceVariant,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          ...sorted.take(20).map((d) {
-            final dateStr = d['date'] as String? ?? '';
-            final date = DateTime.tryParse(dateStr);
-            final displayDate = date != null
-                ? DateFormat('MM.dd').format(date)
-                : dateStr;
-            final amount = (d['totalAmount'] as num?)?.toInt();
-            final emotion = d['emotion'] as String? ?? '';
-            final comment = d['comment'] as String? ?? '';
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayDate,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (emotion.isNotEmpty)
-                          Text(
-                            emotion,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
-                          ),
-                        if (comment.isNotEmpty) ...[
-                          if (emotion.isNotEmpty) const SizedBox(height: 4),
-                          Text(
-                            comment,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (amount != null && amount > 0)
-                    Text(
-                      '${nf.format(amount)}원',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).colorScheme.onSurface,
+          // 달력 그리드
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Row(
+                  children: ['일', '월', '화', '수', '목', '금', '토']
+                      .map(
+                        (day) => Expanded(
+                      child: Text(
+                        day,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: day == '일'
+                              ? Colors.red
+                              : theme.colorScheme.onSurface,
+                        ),
                       ),
                     ),
-                ],
-              ),
-            );
-          }),
+                  )
+                      .toList(),
+                ),
+                const SizedBox(height: 8),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    const ratio = 1.15;
+                    return SizedBox(
+                      height: (constraints.maxWidth / 7 / ratio) * 6,
+                      child: GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          childAspectRatio: ratio,
+                        ),
+                        itemCount: 42,
+                        itemBuilder: (context, index) {
+                          final day = index - firstWeekday + 1;
+                          final isCurrentMonth = day > 0 && day <= daysInMonth;
+
+                          if (!isCurrentMonth) return const SizedBox();
+
+                          final key = '$_selectedYear-$_selectedMonth-$day';
+                          final diary = diaryMap[key];
+                          final hasEmotion =
+                              diary != null &&
+                                  (diary['emotion'] as String? ?? '').isNotEmpty;
+                          final emoji = hasEmotion
+                              ? _getEmotionEmoji(
+                            diary['emotion'] as String? ?? '',
+                          )
+                              : '';
+
+                          return GestureDetector(
+                            onTap: () {
+                              if (diary != null) {
+                                _showPastPlanDiaryModal(context, diary, nf);
+                              }
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  if (hasEmotion && emoji.isNotEmpty)
+                                    SizedBox(
+                                      width: 28,
+                                      height: 28,
+                                      child: Lottie.asset(
+                                        _lottiePathForEmotion(
+                                          diary['emotion'] as String? ?? '',
+                                        ),
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (_, __, ___) => Text(
+                                          emoji,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            height: 1.0,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  if (!hasEmotion || emoji.isEmpty)
+                                    Text(
+                                      '$day',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: theme.colorScheme.onSurface,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _showPastPlanDiaryModal(
+      BuildContext context,
+      Map<String, dynamic> diary,
+      NumberFormat nf,
+      ) {
+    final theme = Theme.of(context);
+    final dateStr = diary['date'] as String? ?? '';
+    final date = DateTime.tryParse(dateStr);
+    final displayDate = date != null
+        ? DateFormat('yyyy.MM.dd').format(date)
+        : dateStr;
+    final amount = (diary['totalAmount'] as num?)?.toInt();
+    final emotion = diary['emotion'] as String? ?? '';
+    final comment = diary['comment'] as String? ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+        decoration: BoxDecoration(
+          color: theme.scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: theme.dividerColor,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              Text(
+                displayDate,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              if (emotion.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Text(
+                      _getEmotionEmoji(emotion),
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      emotion,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (comment.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  comment,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (amount != null && amount > 0) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '${nf.format(amount)}원',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

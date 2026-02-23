@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../../component/appbars/custom_app_bar.dart';
+import '../../../../component/appbars/back_only_app_bar.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart';
 import '../../../../view_model/addIncome/add_income_view_model.dart';
@@ -67,13 +67,10 @@ class _ApplyIncomeOptionPageState extends State<ApplyIncomeOptionPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: const BackOnlyAppBar(),
       body: SafeArea(
         child: Column(
           children: [
-            CustomAppBar(
-              title: '',
-              onBack: () => Navigator.of(context).pop(),
-            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.screenPadding),

@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter/services.dart';
 
+import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/time_wheel_modal.dart';
 import '../../../component/buttons/period_toggle.dart';
 import '../../../component/theme/app_border_radius.dart';
 import '../../../component/theme/app_colors.dart';
-import '../../../model/notification/alarm.dart';
-import '../../../view_model/setting/alarm_view_model.dart';
+import '../../../model/notification/notification_settings.dart';
+import '../../../services/local_notification_service.dart';
+import '../../../services/notification_settings_storage.dart';
 
 class NotificationSettingPage extends StatefulWidget {
   const NotificationSettingPage({Key? key}) : super(key: key);
@@ -38,6 +40,44 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
   // 일간 / 주간 토글 (일간: 데일리 알림만, 주간: 주간 알림만)
   String _alertRange = '일간';
 
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    final settings = await NotificationSettingsStorage.instance.load();
+    if (mounted) {
+      setState(() {
+        _attendanceEnabled = settings.attendanceEnabled;
+        _attendanceTime = settings.attendanceTime;
+        _motivationEnabled = settings.motivationEnabled;
+        _motivationTime = settings.motivationTime;
+        _weeklyReportEnabled = settings.weeklyReportEnabled;
+        _emotionReportEnabled = settings.emotionReportEnabled;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _saveAndSchedule() async {
+    final settings = NotificationSettings(
+      attendanceEnabled: _attendanceEnabled,
+      attendanceHour: _attendanceTime.hour,
+      attendanceMinute: _attendanceTime.minute,
+      motivationEnabled: _motivationEnabled,
+      motivationHour: _motivationTime.hour,
+      motivationMinute: _motivationTime.minute,
+      weeklyReportEnabled: _weeklyReportEnabled,
+      emotionReportEnabled: _emotionReportEnabled,
+    );
+    await NotificationSettingsStorage.instance.save(settings);
+    await LocalNotificationService.instance.updateSchedules(settings);
+  }
+
   static const _sectionTitleStyle = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.w700,
@@ -47,24 +87,16 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: const BackOnlyAppBar(),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const SizedBox.shrink(),
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: Theme.of(context).colorScheme.onSurface,
-            size: 24,
-          ),
-          onPressed: () => Navigator.pop(context),
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-        ),
-      ),
+      appBar: const BackOnlyAppBar(),
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -315,7 +347,10 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
               ),
               Switch(
                 value: enabled,
-                onChanged: onToggle,
+                onChanged: (v) {
+                  HapticFeedback.selectionClick();
+                  onToggle(v);
+                },
                 activeColor: const Color(0xFF2563EB),
                 inactiveThumbColor: Colors.grey.shade400,
                 inactiveTrackColor: Colors.grey.shade300,
@@ -377,10 +412,16 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
             description: '매일 설정한 시간에 소비 기록을 도와드려요!',
             purpose: '소비 기록 습관을 만들 수 있도록, 정해진 시간에 푸시로 리마인드해드립니다.',
             enabled: _attendanceEnabled,
-            onToggle: (v) => setState(() => _attendanceEnabled = v),
+            onToggle: (v) => setState(() {
+              _attendanceEnabled = v;
+              _saveAndSchedule();
+            }),
             isDaily: true,
             selectedTime: _attendanceTime,
-            onTimeChanged: (t) => setState(() => _attendanceTime = t),
+            onTimeChanged: (t) => setState(() {
+              _attendanceTime = t;
+              _saveAndSchedule();
+            }),
             examples: const [
               '오늘 소비를 기록하셨나요? 지금 입력해보세요!',
               '어제 소비를 깜빡하신 것 같아요! 지금 추가해볼까요?',
@@ -395,10 +436,16 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
             description: '매일 설정한 시간에 절약 시간과 소비 피드백을 전달해드려요!',
             purpose: '소비 패턴과 플랜 도달 시간을 계산해, 실천 목표를 제안합니다.',
             enabled: _motivationEnabled,
-            onToggle: (v) => setState(() => _motivationEnabled = v),
+            onToggle: (v) => setState(() {
+              _motivationEnabled = v;
+              _saveAndSchedule();
+            }),
             isDaily: true,
             selectedTime: _motivationTime,
-            onTimeChanged: (t) => setState(() => _motivationTime = t),
+            onTimeChanged: (t) => setState(() {
+              _motivationTime = t;
+              _saveAndSchedule();
+            }),
             examples: const [
               '이번 주 절약한 시간: 총 3시간 20분 ⏱',
               '식비 지출이 많았어요! 이번 주는 도시락 한번 도전해보는 건 어때요? 🍱',
@@ -414,7 +461,10 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
             description: '매주 일요일 저녁, 소비 패턴을 분석해 알려드려요.',
             purpose: '한 주 동안의 소비 데이터를 바탕으로 반복된 습관이나 특이 패턴을 정리해드립니다.',
             enabled: _weeklyReportEnabled,
-            onToggle: (v) => setState(() => _weeklyReportEnabled = v),
+            onToggle: (v) => setState(() {
+              _weeklyReportEnabled = v;
+              _saveAndSchedule();
+            }),
             isDaily: false,
             examples: const [
               '이번 주 \'배달🍕\'에 가장 많이 쓰셨어요! 반복된 습관일까요?',
@@ -430,7 +480,10 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
             description: '매주 일요일 저녁, 소비일지의 감정 기록을 분석해드립니다.',
             purpose: '소비에 기록된 감정과 소비일지를 바탕으로 소비와 감정의 흐름을 알려드립니다.',
             enabled: _emotionReportEnabled,
-            onToggle: (v) => setState(() => _emotionReportEnabled = v),
+            onToggle: (v) => setState(() {
+              _emotionReportEnabled = v;
+              _saveAndSchedule();
+            }),
             isDaily: false,
             examples: const [
               '이번 주 \'짜증😤\'과 쇼핑이 자주 함께 있었어요. 감정 소비 조심해볼까요?',
@@ -487,8 +540,11 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
               ),
               Switch(
                 value: enabled,
-                onChanged: onToggle,
-                activeColor: Colors.white,
+                onChanged: (v) {
+                  HapticFeedback.selectionClick();
+                  onToggle(v);
+                },
+                activeColor: isDark ? Colors.white : null,
                 activeTrackColor: isDark ? Colors.white.withOpacity(0.5) : null,
                 inactiveThumbColor: Colors.grey.shade400,
                 inactiveTrackColor: Colors.grey.shade300,
@@ -788,7 +844,10 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
           ),
           Switch(
             value: enabled,
-            onChanged: onToggle,
+            onChanged: (v) {
+              HapticFeedback.selectionClick();
+              onToggle(v);
+            },
             activeColor: const Color(0xFF2563EB),
             inactiveThumbColor: Colors.grey.shade400,
             inactiveTrackColor: Colors.grey.shade300,
@@ -893,7 +952,10 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
               ),
               Switch(
                 value: enabled,
-                onChanged: onToggle,
+                onChanged: (v) {
+                  HapticFeedback.selectionClick();
+                  onToggle(v);
+                },
                 activeColor: const Color(0xFF2563EB),
                 inactiveThumbColor: Colors.grey.shade400,
                 inactiveTrackColor: Colors.grey.shade300,
@@ -1184,7 +1246,10 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
               ),
               Switch(
                 value: enabled,
-                onChanged: onToggle,
+                onChanged: (v) {
+                  HapticFeedback.selectionClick();
+                  onToggle(v);
+                },
                 activeColor: const Color(0xFF2563EB),
                 inactiveThumbColor: Colors.grey.shade400,
                 inactiveTrackColor: Colors.grey.shade300,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/theme/app_colors.dart';
 
 /// 버전관리 화면: 앱 아이콘 + 소통 / 1.0.0 + 업데이트 버튼 (카톡 앱관리 스타일)
@@ -12,22 +13,7 @@ class VersionPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back_ios,
-            color: Theme.of(context).colorScheme.onSurface,
-            size: 24,
-          ),
-          onPressed: () => Navigator.pop(context),
-          splashColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          hoverColor: Colors.transparent,
-        ),
-        title: const SizedBox.shrink(),
-      ),
+      appBar: const BackOnlyAppBar(),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
