@@ -14,6 +14,7 @@ class MonthSelectorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -22,16 +23,20 @@ class MonthSelectorRow extends StatelessWidget {
           onTap: onPrev,
           child: Padding(
             padding: const EdgeInsets.all(6),
-            child: Icon(Icons.chevron_left, size: 20, color: Colors.grey[700]),
+            child: Icon(
+              Icons.chevron_left,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
         const SizedBox(width: 8),
         Text(
           '${month}월',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
-            color: Colors.black87,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(width: 8),
@@ -40,7 +45,11 @@ class MonthSelectorRow extends StatelessWidget {
           onTap: onNext,
           child: Padding(
             padding: const EdgeInsets.all(6),
-            child: Icon(Icons.chevron_right, size: 20, color: Colors.grey[700]),
+            child: Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ],

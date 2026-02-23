@@ -8,7 +8,7 @@ import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/chat_bottom_
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/chat_message_widget.dart';
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
 
-import '../../../view_model/category/local_category_view_model.dart';
+import '../../../view_model/category/plan_category_view_model.dart';
 import '../../../view_model/plan/enums/chat_step.dart';
 import '../../../view_model/services/saving_calculator.dart';
 import '../../../model/plan/chat_message.dart';
@@ -312,7 +312,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     return Scaffold(
       resizeToAvoidBottomInset: true,
 
-      body: Consumer3<ChatPlanViewModel, CategoryEditViewModel, LocalCategoryViewModel>(
+      body: Consumer3<ChatPlanViewModel, CategoryEditViewModel, PlanCategoryViewModel>(
         builder: (context, viewModel, categoryVM, localCategoryVM, child) {
           _maybeScrollToBottomOnNewMessage(
             viewModel.messages,
@@ -540,9 +540,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
           final step = viewModel.currentStep;
           final raw = _inputController.text;
-
-          final dailyCats = localCategoryVM.customDailyExpenseCategories;
-          final dailyEmojiMap = localCategoryVM.dailyExpenseCategoryEmojis;
 
           return Stack(
             children: [

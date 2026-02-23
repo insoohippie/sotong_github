@@ -17,7 +17,7 @@ class EmailLoginPage extends StatelessWidget {
     final vm = context.watch<LoginViewModel>();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -35,7 +35,7 @@ class EmailLoginPage extends StatelessWidget {
                       parts: const [
                         TextPart('재미있게 ', Colors.black),
                         TextPart('소통', AppColors.primary),
-                        TextPart('하며\n',Colors.black),
+                        TextPart('하며\n', Colors.black),
                         TextPart('소', AppColors.primary),
                         TextPart('비 ', Colors.black),
                         TextPart('통', AppColors.primary),
@@ -55,7 +55,7 @@ class EmailLoginPage extends StatelessWidget {
                       hintText: '비밀번호 입력',
                       obscureText: true,
                     ),
-                                               const SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -99,23 +99,26 @@ class EmailLoginPage extends StatelessWidget {
             // 로그인 버튼 + 로딩 인디케이터
             vm.isLoading
                 ? const SizedBox(
-                    height: 48,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
+              height: 48,
+              child: Center(child: CircularProgressIndicator()),
+            )
                 : CustomButton(
-                    text: '로그인',
-                    onPressed: () async {
-                      final success = await vm.login();
+              text: '로그인',
+              onPressed: () async {
+                final success = await vm.login();
 
-                      if (!context.mounted) return;
+                if (!context.mounted) return;
 
-                      if (success) {
-                        // 로그인 직후 새 uid 기준으로 홈 데이터 강제 리로드
-                        await context.read<HomeViewModel>().refresh();
-                        Navigator.pushReplacementNamed(context, '/home_tab_navigator');
-                      }
-                    },
-                ),
+                if (success) {
+                  // 로그인 직후 새 uid 기준으로 홈 데이터 강제 리로드
+                  await context.read<HomeViewModel>().refresh();
+                  Navigator.pushReplacementNamed(
+                    context,
+                    '/home_tab_navigator',
+                  );
+                }
+              },
+            ),
             const SizedBox(height: 40),
           ],
         ),

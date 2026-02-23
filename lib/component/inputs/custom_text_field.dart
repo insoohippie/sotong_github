@@ -18,6 +18,7 @@ class CustomTextField extends StatelessWidget {
   final Key? inputKey;
   final bool enabled;
   final List<TextInputFormatter>? inputFormatters;
+  final TextStyle? style;
 
   const CustomTextField({
     Key? key,
@@ -34,15 +35,26 @@ class CustomTextField extends StatelessWidget {
     this.suffix,
     this.enabled = true,
     this.inputFormatters,
+    this.style,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final Color bgColor =
         backgroundColor ??
         (controller.text.isEmpty
-            ? AppColors.greyBackground
-            : AppColors.lightBlue);
+            ? (isDark ? theme.colorScheme.surface : AppColors.greyBackground)
+            : (isDark ? theme.colorScheme.surface : AppColors.lightBlue));
+
+    final TextStyle baseStyle = style ?? AppTextStyles.paragraph;
+    final TextStyle effectiveStyle = isDark && style == null
+        ? baseStyle.copyWith(color: theme.colorScheme.onSurface)
+        : baseStyle;
+    final Color hintColor = isDark
+        ? theme.colorScheme.onSurfaceVariant
+        : AppColors.subText;
 
     return Container(
       height: height,
@@ -56,14 +68,16 @@ class CustomTextField extends StatelessWidget {
         key: inputKey,
         focusNode: focusNode,
         controller: controller,
-        style: AppTextStyles.paragraph,
+        style: effectiveStyle,
         textAlignVertical: TextAlignVertical.center,
         enabled: enabled,
         decoration: InputDecoration(
           isCollapsed: false,
           isDense: true,
           hintText: hintText,
-          hintStyle: AppTextStyles.paragraph.copyWith(color: AppColors.subText),
+          hintStyle: (style ?? AppTextStyles.paragraph).copyWith(
+            color: hintColor,
+          ),
           border: InputBorder.none,
           suffixIcon: suffix,
         ),

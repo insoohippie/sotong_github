@@ -39,7 +39,7 @@ class _SignUpPageState extends State<SignUpPage> {
     final vm = context.watch<SignupViewModel>();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       resizeToAvoidBottomInset: false,
 
       body: SafeArea(
@@ -60,14 +60,15 @@ class _SignUpPageState extends State<SignUpPage> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.screenPadding,
-                ).copyWith(
-                  bottom: 120,
-                ),
+                ).copyWith(bottom: 120),
                 child: Column(
                   children: [
-                    if (vm.currentStep == SignupStep.email) _buildEmailField(vm),
-                    if (vm.currentStep == SignupStep.password) _buildPasswordField(vm),
-                    if (vm.currentStep == SignupStep.userInfo) _buildUserInfoField(context, vm),
+                    if (vm.currentStep == SignupStep.email)
+                      _buildEmailField(vm),
+                    if (vm.currentStep == SignupStep.password)
+                      _buildPasswordField(vm),
+                    if (vm.currentStep == SignupStep.userInfo)
+                      _buildUserInfoField(context, vm),
                   ],
                 ),
               ),
@@ -152,7 +153,7 @@ class _SignUpPageState extends State<SignUpPage> {
         SizedBox(height: AppSpacing.itemSpacing),
         if (!vm.isPasswordValid && vm.passwordController.text.isNotEmpty)
           ...vm.passwordErrors.map(
-            (msg) => Text('• $msg', style: AppTextStyles.errorText),
+                (msg) => Text('• $msg', style: AppTextStyles.errorText),
           ),
       ],
     );

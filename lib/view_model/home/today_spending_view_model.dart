@@ -93,7 +93,8 @@ class TodaySpendingViewModel extends ChangeNotifier {
 
   /// ---- entries CRUD ----
   Future<void> addEntry({
-    required String category,
+    required String categoryKey, // ✅ 추가
+    required String category,    // 표시용
     required double amount,
     required String note,
   }) async {
@@ -101,6 +102,7 @@ class TodaySpendingViewModel extends ChangeNotifier {
 
     final newEntry = SpendingEntry(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
+      categoryKey: categoryKey,
       category: category,
       amount: amount,
       note: note,
@@ -119,6 +121,7 @@ class TodaySpendingViewModel extends ChangeNotifier {
 
   Future<void> updateEntry({
     required String entryId,
+    required String categoryKey, // ✅ 추가
     required String category,
     required double amount,
     required String note,
@@ -127,7 +130,12 @@ class TodaySpendingViewModel extends ChangeNotifier {
 
     final newEntries = _day!.entries.map((e) {
       if (e.id != entryId) return e;
-      return e.copyWith(category: category, amount: amount, note: note);
+      return e.copyWith(
+        categoryKey: categoryKey,
+        category: category,
+        amount: amount,
+        note: note,
+      );
     }).toList();
 
     _day = _day!.copyWith(

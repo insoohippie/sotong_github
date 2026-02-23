@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:sotong_local/component/chart/semi_gauge_chart.dart';
+import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/view_model/home/home_view_model.dart';
 
 import 'home_saving_center_button.dart';
@@ -33,7 +34,6 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
   late final Animation<double> _greenAnim;
   late final Animation<double> _blueAnim;
 
-
   @override
   void initState() {
     super.initState();
@@ -47,7 +47,10 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
       vsync: this,
     );
 
-    _greenAnim = CurvedAnimation(parent: _greenController, curve: Curves.easeOut);
+    _greenAnim = CurvedAnimation(
+      parent: _greenController,
+      curve: Curves.easeOut,
+    );
     _blueAnim = CurvedAnimation(parent: _blueController, curve: Curves.easeOut);
 
     _greenController.addStatusListener((status) {
@@ -101,7 +104,12 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
     super.dispose();
   }
 
-  void _handleTapGauge(TapDownDetails details, double minP, double maxP, bool isUserLarger) {
+  void _handleTapGauge(
+      TapDownDetails details,
+      double minP,
+      double maxP,
+      bool isUserLarger,
+      ) {
     const size = Size(300, 300);
     final center = Offset(size.width / 2, size.height / 2);
     final local = details.localPosition;
@@ -139,6 +147,11 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final gaugeBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : const Color(0xFFF1F1F1);
 
     final planProgress = (widget.planPercent / 100.0).clamp(0.0, 1.0);
     final userProgress = (widget.userPercent / 100.0).clamp(0.0, 1.0);
@@ -154,18 +167,21 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
               child: CustomPaint(
                 painter: SemiGaugePainter(
                   progress: 1.0,
-                  backgroundColor: const Color(0xFFF1F1F1),
-                  progressColorStart: const Color(0xFFF1F1F1),
-                  progressColorEnd: const Color(0xFFF1F1F1),
+                  backgroundColor: gaugeBg,
+                  progressColorStart: gaugeBg,
+                  progressColorEnd: gaugeBg,
                   strokeWidth: 22,
                   isFullCircle: true,
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               '플랜 그래프와 사용자 그래프 수치가 같습니다',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -191,9 +207,9 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                   size: const Size(300, 300),
                   painter: SemiGaugePainter(
                     progress: 1.0,
-                    backgroundColor: const Color(0xFFF1F1F1),
-                    progressColorStart: const Color(0xFFF1F1F1),
-                    progressColorEnd: const Color(0xFFF1F1F1),
+                    backgroundColor: gaugeBg,
+                    progressColorStart: gaugeBg,
+                    progressColorEnd: gaugeBg,
                     strokeWidth: 22,
                     isFullCircle: true,
                   ),
@@ -241,8 +257,13 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
 
                 // 탭 영역 판별용 투명 레이어
                 GestureDetector(
-                  onTapDown: (d) => _handleTapGauge(d, minP, maxP, isUserLarger),
-                  child: Container(width: 300, height: 300, color: Colors.transparent),
+                  onTapDown: (d) =>
+                      _handleTapGauge(d, minP, maxP, isUserLarger),
+                  child: Container(
+                    width: 300,
+                    height: 300,
+                    color: Colors.transparent,
+                  ),
                 ),
 
                 // 중앙 버튼
@@ -260,10 +281,18 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
           // 범례
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              _LegendDot(color: Color(0xFF0062FF), text: '플랜 그래프', textColor: Color(0xFF0062FF)),
-              SizedBox(width: 20),
-              _LegendDot(color: Color(0xFF7DAFFF), text: '사용자 그래프', textColor: Color(0xFF7DAFFF)),
+            children: [
+              _LegendDot(
+                color: AppColors.primary,
+                text: '플랜 그래프',
+                textColor: AppColors.primary,
+              ),
+              const SizedBox(width: 20),
+              _LegendDot(
+                color: const Color(0xFF7DAFFF),
+                text: '사용자 그래프',
+                textColor: const Color(0xFF7DAFFF),
+              ),
             ],
           ),
         ],
@@ -288,7 +317,11 @@ class _LegendDot extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 6),
         Text(text, style: TextStyle(fontSize: 12, color: textColor)),
       ],

@@ -11,7 +11,7 @@ class AppTextStyles {
 
   static const paragraph = TextStyle(
     fontFamily: 'Pretendard Variable',
-    fontSize: 17,
+    fontSize: 13,
     color: Colors.black,
     fontWeight: FontWeight.w500,
   );

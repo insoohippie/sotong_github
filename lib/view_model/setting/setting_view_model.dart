@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/adapters.dart';
 
 import '../../repository/auth_repository.dart';
 import '../../repository/record_repository.dart';
+
+const String _kDarkModeKey = 'isDarkMode';
 
 class SettingViewModel extends ChangeNotifier {
   final AuthRepository _authRepository;
@@ -11,13 +14,24 @@ class SettingViewModel extends ChangeNotifier {
   bool get isDarkMode => _isDarkMode;
   bool isOnline = true;
 
-  SettingViewModel(
-      this._authRepository,
-      this._recordRepository,
-      );
+  SettingViewModel(this._authRepository, this._recordRepository) {
+    _loadDarkMode();
+  }
+
+  void _loadDarkMode() {
+    try {
+      _isDarkMode =
+      Hive.box('settings').get(_kDarkModeKey, defaultValue: false) as bool;
+    } catch (_) {
+      _isDarkMode = false;
+    }
+  }
 
   void toggleDarkMode(bool value) {
     _isDarkMode = value;
+    try {
+      Hive.box('settings').put(_kDarkModeKey, value);
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -37,5 +51,4 @@ class SettingViewModel extends ChangeNotifier {
     // 3) 로그아웃
     await _authRepository.logout();
   }
-
 }

@@ -41,134 +41,138 @@ class _PastPlansListPageState extends State<PastPlansListPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          '지난 플랜 돌아보기',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-            fontFamily: 'Pretendard Variable',
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: Theme.of(context).colorScheme.onSurface,
+            size: 24,
           ),
+          onPressed: () => Navigator.pop(context),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
         ),
-        centerTitle: false,
+        title: const SizedBox.shrink(),
       ),
       body: SafeArea(
         child: !_loaded
             ? const Center(child: CircularProgressIndicator())
             : _list.isEmpty
             ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.history_edu,
-                      size: 64,
-                      color: Colors.grey.shade400,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      '완료한 플랜이 없어요',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey.shade600,
-                        fontFamily: 'Pretendard Variable',
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '플랜을 완료하면 여기에 기록돼요',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade500,
-                        fontFamily: 'Pretendard Variable',
-                      ),
-                    ),
-                  ],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.history_edu,
+                size: 64,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '완료한 플랜이 없어요',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontFamily: 'Pretendard Variable',
                 ),
-              )
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '플랜을 완료하면 여기에 기록돼요',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontFamily: 'Pretendard Variable',
+                ),
+              ),
+            ],
+          ),
+        )
             : ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 16,
-                ),
-                itemCount: _list.length,
-                itemBuilder: (context, index) {
-                  final snapshot = _list[index];
-                  final completedStr = DateFormat(
-                    'yyyy.MM.dd',
-                  ).format(snapshot.completedAt);
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: AppBorderRadius.card,
-                      border: Border.all(color: const Color(0xFFE5E7EB)),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 16,
+          ),
+          itemCount: _list.length,
+          itemBuilder: (context, index) {
+            final snapshot = _list[index];
+            final completedStr = DateFormat(
+              'yyyy.MM.dd',
+            ).format(snapshot.completedAt);
+            final theme = Theme.of(context);
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: AppBorderRadius.card,
+                border: Border.all(color: theme.dividerColor),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: AppBorderRadius.card,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
+                  hoverColor: Colors.transparent,
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            PastPlanDetailPage(snapshot: snapshot),
+                      ),
+                    );
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 18,
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: AppBorderRadius.card,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  PastPlanDetailPage(snapshot: snapshot),
-                            ),
-                          );
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 18,
-                          ),
-                          child: Row(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      snapshot.planName.isEmpty
-                                          ? '플랜'
-                                          : snapshot.planName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 16,
-                                        color: Colors.black,
-                                        fontFamily: 'Pretendard Variable',
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${snapshot.daysTaken}일 · $completedStr 완료',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.grey.shade600,
-                                        fontFamily: 'Pretendard Variable',
-                                      ),
-                                    ),
-                                  ],
+                              Text(
+                                snapshot.planName.isEmpty
+                                    ? '플랜'
+                                    : snapshot.planName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13,
+                                  color: theme.colorScheme.onSurface,
+                                  fontFamily: 'Pretendard Variable',
                                 ),
                               ),
-                              const Icon(
-                                Icons.chevron_right,
-                                color: Colors.black,
+                              const SizedBox(height: 4),
+                              Text(
+                                '${snapshot.daysTaken}일 · $completedStr 완료',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color:
+                                  theme.colorScheme.onSurfaceVariant,
+                                  fontFamily: 'Pretendard Variable',
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ],
                     ),
-                  );
-                },
+                  ),
+                ),
               ),
+            );
+          },
+        ),
       ),
     );
   }

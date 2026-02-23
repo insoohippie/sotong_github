@@ -127,13 +127,14 @@ class _SequentialChartWidgetState extends State<SequentialChartWidget>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 토글 버튼
+        // 토글 버튼 (선택된 칩 너비를 칸의 85%로 제한 → 좌우 여백)
         MultiOptionToggle(
           labels: _toggleLabels,
           selected: _selectedToggle,
           onChanged: _onToggleChanged,
           width: 320,
-          height: 34,
+          height: 30,
+          indicatorWidthRatio: 0.85,
         ),
         const SizedBox(height: 50), // 토글과 차트 사이 패딩
         // 차트 위젯 (퍼센트에 따라 색상 결정)
@@ -161,13 +162,10 @@ class _SingleChartWidget extends StatelessWidget {
   // 퍼센트에 따른 색상 결정
   Color _getColorByPercent(int percent) {
     if (percent >= 70) {
-      // 70~100: 파랑색
       return const Color(0xFF0062FF);
     } else if (percent >= 40) {
-      // 40~69: 연한 초록색
       return const Color(0xFF6BCF7F);
     } else {
-      // 0~39: 연한 빨강색
       return const Color(0xFFFF8A8A);
     }
   }
@@ -176,11 +174,15 @@ class _SingleChartWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     const double size = 200;
     const double strokeWidth = 21.0;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bgRingColor = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : const Color(0xFFF1F1F1);
 
     return AnimatedBuilder(
       animation: fillController,
       builder: (context, _) {
-        // 0 -> targetProgress 애니메이션
         final fillValue = CurvedAnimation(
           parent: fillController,
           curve: Curves.easeOutCubic,
@@ -194,17 +196,15 @@ class _SingleChartWidget extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // 배경 링
                 CustomPaint(
                   size: const Size(size, size),
-                  painter: const PlanSummaryChartPainter(
+                  painter: PlanSummaryChartPainter(
                     progress: 1.0,
-                    backgroundColor: Color(0xFFF1F1F1),
-                    progressColor: Color(0xFFF1F1F1),
+                    backgroundColor: bgRingColor,
+                    progressColor: bgRingColor,
                     strokeWidth: strokeWidth,
                   ),
                 ),
-                // 진행 링
                 CustomPaint(
                   size: const Size(size, size),
                   painter: PlanSummaryChartPainter(
@@ -214,12 +214,12 @@ class _SingleChartWidget extends StatelessWidget {
                     strokeWidth: strokeWidth,
                   ),
                 ),
-                // 중앙 퍼센트 (카운트업 애니메이션 - fillController와 동기화)
                 Text(
                   '${(fillValue * percent).round()}%',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 34,
                     fontWeight: FontWeight.w800,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ],

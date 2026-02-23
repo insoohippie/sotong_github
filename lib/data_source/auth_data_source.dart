@@ -24,13 +24,15 @@ class AuthDataSource {
       print('🔐 loginWithAuth success: ${cred.user?.email}');
       return cred;
     } on FirebaseAuthException catch (e) {
-      print('🔥 FirebaseAuthException code = ${e.code}, message = ${e.message}');
+      print(
+        '🔥 FirebaseAuthException code = ${e.code}, message = ${e.message}',
+      );
 
       switch (e.code) {
         case 'user-not-found':
           throw Exception('존재하지 않는 이메일입니다.');
-        case 'wrong-password':      // 일부 버전
-        case 'invalid-credential':  // 네가 받은 버전
+        case 'wrong-password': // 일부 버전
+        case 'invalid-credential': // 네가 받은 버전
           throw Exception('비밀번호가 일치하지 않습니다.');
         case 'invalid-email':
           throw Exception('이메일 형식이 올바르지 않습니다.');
@@ -67,11 +69,18 @@ class AuthDataSource {
 
   // 회원 생성 (Auth)
   Future<UserCredential> createUser(String email, String password) {
-    return _auth.createUserWithEmailAndPassword(email: email, password: password);
+    return _auth.createUserWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
   }
 
   // users/{uid} 쓰기
-  Future<void> setUserDoc(String uid, Map<String, dynamic> data, {bool merge = true}) {
+  Future<void> setUserDoc(
+      String uid,
+      Map<String, dynamic> data, {
+        bool merge = true,
+      }) {
     final ref = _firestore.collection('users').doc(uid);
     return merge ? ref.set(data, SetOptions(merge: true)) : ref.set(data);
   }
@@ -84,5 +93,22 @@ class AuthDataSource {
   /// 로그아웃
   Future<void> signOut() async {
     await _auth.signOut();
+  }
+
+  /// 현재 비밀번호 확인 (재인증만 수행)
+  Future<void> verifyCurrentPassword(String password) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('로그인이 필요합니다.');
+    final email = user.email;
+    if (email == null || email.isEmpty) throw Exception('이메일 정보가 없습니다.');
+    final cred = EmailAuthProvider.credential(email: email, password: password);
+    await user.reauthenticateWithCredential(cred);
+  }
+
+  /// 비밀번호 변경 (재인증 후 새 비밀번호로 변경 - verifyCurrentPassword 호출 직후에만 사용)
+  Future<void> updatePasswordTo(String newPassword) async {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('로그인이 필요합니다.');
+    await user.updatePassword(newPassword);
   }
 }

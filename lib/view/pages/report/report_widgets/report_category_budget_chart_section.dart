@@ -55,8 +55,9 @@ class _ReportCategoryBudgetChartSectionState
     required double popupWidth,
   }) {
     // spaceBetween 근사: 첫 막대는 0, 마지막 막대는 chartWidth에 위치
-    final double centerX =
-    (count <= 1) ? chartWidth / 2 : (chartWidth * index / (count - 1));
+    final double centerX = (count <= 1)
+        ? chartWidth / 2
+        : (chartWidth * index / (count - 1));
 
     final double rawLeft = centerX - (popupWidth / 2);
     final double maxLeft = math.max(0.0, chartWidth - popupWidth);
@@ -74,15 +75,18 @@ class _ReportCategoryBudgetChartSectionState
     final displayData = _reorderChartData(chartData);
     final maxY = _getMaxY(displayData);
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.12),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -196,8 +200,7 @@ class _ReportCategoryBudgetChartSectionState
                                       as String?;
                                       final isSelected =
                                           _showSelectionLayout &&
-                                              category ==
-                                                  _selectedChartCategory;
+                                              category == _selectedChartCategory;
                                       return Padding(
                                         padding: const EdgeInsets.only(top: 8),
                                         child: Text(
@@ -207,9 +210,7 @@ class _ReportCategoryBudgetChartSectionState
                                             fontWeight: isSelected
                                                 ? FontWeight.w700
                                                 : FontWeight.w500,
-                                            color: isSelected
-                                                ? Colors.black
-                                                : Colors.black87,
+                                            color: theme.colorScheme.onSurface,
                                           ),
                                         ),
                                       );
@@ -233,15 +234,20 @@ class _ReportCategoryBudgetChartSectionState
                               drawVerticalLine: false,
                               horizontalInterval: maxY == 0 ? 1 : maxY / 4,
                               getDrawingHorizontalLine: (value) => FlLine(
-                                color: Colors.grey[200],
+                                color: theme.dividerColor,
                                 strokeWidth: 1,
                               ),
                             ),
                             borderData: FlBorderData(show: false),
-                            barGroups: _buildBarGroups(displayData, maxY),
+                            barGroups: _buildBarGroups(
+                              displayData,
+                              maxY,
+                              theme,
+                            ),
                           ),
-                          swapAnimationDuration:
-                          const Duration(milliseconds: 260),
+                          swapAnimationDuration: const Duration(
+                            milliseconds: 260,
+                          ),
                           swapAnimationCurve: Curves.easeOutCubic,
                         ),
                       ),
@@ -271,8 +277,7 @@ class _ReportCategoryBudgetChartSectionState
                                   spent:
                                   (popupData['spent'] as num?)?.toInt() ??
                                       0,
-                                  needsBudget:
-                                  popupData['needsBudget'] == true,
+                                  needsBudget: popupData['needsBudget'] == true,
                                   formatter: _formatAmount,
                                   periodLabel: vm.budgetPeriod,
                                 ),
@@ -326,7 +331,9 @@ class _ReportCategoryBudgetChartSectionState
     });
   }
 
-  List<Map<String, dynamic>> _reorderChartData(List<Map<String, dynamic>> data) {
+  List<Map<String, dynamic>> _reorderChartData(
+      List<Map<String, dynamic>> data,
+      ) {
     if (_selectedChartCategory == null || !_showSelectionLayout) {
       return List<Map<String, dynamic>>.from(data);
     }
@@ -365,6 +372,7 @@ class _ReportCategoryBudgetChartSectionState
   List<BarChartGroupData> _buildBarGroups(
       List<Map<String, dynamic>> data,
       double maxY,
+      ThemeData theme,
       ) {
     return List.generate(data.length, (index) {
       final item = data[index];
@@ -385,12 +393,14 @@ class _ReportCategoryBudgetChartSectionState
       final hasSelection = _selectedChartCategory != null;
       final collapsePhase =
           hasSelection && (_isCollapsing || !_showSelectionLayout);
-      final layoutActive = hasSelection && _showSelectionLayout && !_isCollapsing;
+      final layoutActive =
+          hasSelection && _showSelectionLayout && !_isCollapsing;
       final isSelected = layoutActive && category == _selectedChartCategory;
 
       final baseWidth = isTotal ? 48.0 : 36.0;
-      final rodWidth =
-      layoutActive ? (isSelected ? baseWidth + 12 : baseWidth - 8) : baseWidth;
+      final rodWidth = layoutActive
+          ? (isSelected ? baseWidth + 12 : baseWidth - 8)
+          : baseWidth;
 
       double scaledBudget;
       double scaledSpent;
@@ -426,15 +436,19 @@ class _ReportCategoryBudgetChartSectionState
       final radiusValue = isSelected ? 16.0 : 8.0;
       const epsilon = 0.0001;
 
+      final isDark = theme.brightness == Brightness.dark;
+      final greyBar = isDark
+          ? theme.colorScheme.onSurfaceVariant.withOpacity(0.3)
+          : Colors.grey[300]!;
       final List<BarChartRodStackItem> stackItems = [];
 
       if (lowerHeight > epsilon) {
         final Color lowerColor;
         if (needsBudget) {
-          lowerColor = Colors.grey[300]!;
+          lowerColor = greyBar;
         } else {
           lowerColor = isOverBudget
-              ? Colors.grey[300]!
+              ? greyBar
               : (isSelected
               ? AppColors.primary.withOpacity(0.92)
               : AppColors.primary);
@@ -444,8 +458,10 @@ class _ReportCategoryBudgetChartSectionState
 
       final upperSegHeight = (upperHeight - lowerHeight).clamp(0.0, maxY);
       if (upperSegHeight > epsilon) {
-        final upperColor = isOverBudget ? hoverRed : Colors.grey[300]!;
-        stackItems.add(BarChartRodStackItem(lowerHeight, upperHeight, upperColor));
+        final upperColor = isOverBudget ? hoverRed : greyBar;
+        stackItems.add(
+          BarChartRodStackItem(lowerHeight, upperHeight, upperColor),
+        );
       }
 
       if (stackItems.isEmpty) {
@@ -472,6 +488,13 @@ class _ReportCategoryBudgetChartSectionState
   }
 
   Widget _buildCategoryEditButton(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final btnBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : Colors.grey.shade100;
+    final btnBorder = isDark ? theme.dividerColor : Colors.grey.shade300;
+
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () {
@@ -481,20 +504,20 @@ class _ReportCategoryBudgetChartSectionState
         height: 34,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: btnBg,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.grey[300]!, width: 1),
+          border: Border.all(color: btnBorder, width: 1),
         ),
         child: Row(
-          children: const [
-            Icon(Icons.tune, size: 16, color: Colors.black87),
-            SizedBox(width: 6),
+          children: [
+            Icon(Icons.tune, size: 16, color: theme.colorScheme.onSurface),
+            const SizedBox(width: 6),
             Text(
               '카테고리 편집',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: theme.colorScheme.onSurface,
               ),
             ),
           ],
@@ -509,8 +532,8 @@ class _ReportCategoryBudgetChartSectionState
     return TwoOptionToggle(
       labels: periods,
       selected: vm.budgetPeriod,
-      width: 120,
-      height: 34,
+      width: 106,
+      height: 30,
       onChanged: (period) {
         if (vm.budgetPeriod != period) {
           _resetSelectionState();
@@ -540,14 +563,18 @@ class _SelectedChartPopup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withOpacity(
+              theme.brightness == Brightness.dark ? 0.3 : 0.08,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -559,10 +586,10 @@ class _SelectedChartPopup extends StatelessWidget {
         children: [
           Text(
             category,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: Colors.black87,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 6),
@@ -570,10 +597,10 @@ class _SelectedChartPopup extends StatelessWidget {
             needsBudget
                 ? '$periodLabel 총 예산: 설정 필요'
                 : '$periodLabel 총 예산: ₩${formatter(budget)}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: Colors.black87,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 2),
@@ -624,10 +651,7 @@ class _SelectedChartPopup extends StatelessWidget {
 typedef OnWidgetSizeChange = void Function(Size size);
 
 class _MeasureSize extends StatefulWidget {
-  const _MeasureSize({
-    required this.onChange,
-    required this.child,
-  });
+  const _MeasureSize({required this.onChange, required this.child});
 
   final OnWidgetSizeChange onChange;
   final Widget child;

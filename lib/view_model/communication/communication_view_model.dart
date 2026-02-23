@@ -176,6 +176,12 @@ class CommunicationViewModel extends ChangeNotifier {
   // 달력 UI에서 쓰는 헬퍼들
   int spendingAmountForDay(int day) => spendingForDay(day);
 
+  /// 해당 날짜에 저장된 감정 라벨 (평온, 좋음, 슬픔 등) — 달력/상세에서 Lottie 경로 매핑용
+  String emotionLabelForDay(int day) {
+    final date = DateTime(selectedYear, selectedMonth, day);
+    return _daySpending(date)?.emotion ?? '';
+  }
+
   String emotionEmojiForDay(int day) {
     final date = DateTime(selectedYear, selectedMonth, day);
     final emotion = _daySpending(date)?.emotion ?? '';

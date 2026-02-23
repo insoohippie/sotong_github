@@ -324,11 +324,11 @@ class _TodaySpendingPageState extends State<TodaySpendingPage> {
                                 amountController.text.replaceAll(',', ''),
                               );
 
-                              await vm.addEntry(
-                                category: selectedCategory!,
-                                amount: amount,
-                                note: noteController.text,
-                              );
+                              // await vm.addEntry(
+                              //   category: selectedCategory!,
+                              //   amount: amount,
+                              //   note: noteController.text,
+                              // );
 
                               if (context.mounted) Navigator.of(context).pop();
                             },
@@ -452,12 +452,12 @@ class _TodaySpendingPageState extends State<TodaySpendingPage> {
                                 amountController.text.replaceAll(',', ''),
                               );
 
-                              await vm.updateEntry(
-                                entryId: entry.id,
-                                category: selectedCategory!,
-                                amount: amount,
-                                note: noteController.text,
-                              );
+                              // await vm.updateEntry(
+                              //   entryId: entry.id,
+                              //   category: selectedCategory!,
+                              //   amount: amount,
+                              //   note: noteController.text,
+                              // );
 
                               if (context.mounted) Navigator.of(context).pop();
                             },
@@ -1241,7 +1241,7 @@ class _TodaySpendingPageState extends State<TodaySpendingPage> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [

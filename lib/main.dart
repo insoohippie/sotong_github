@@ -1,23 +1,25 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
+import 'package:sotong_local/repository/plan_mutation_repository.dart';
 import 'firebase_options.dart';
 import 'route.dart';
-import 'component/theme/app_colors.dart';
+import 'component/theme/app_theme.dart';
 
 // DataSources
 import 'data_source/auth_data_source.dart';
 import 'data_source/plan_data_source.dart';
 import 'data_source/record_data_source.dart';
 import 'data_source/ref_data_data_source.dart';
+import 'data_source/ref_category_data_source.dart';
 
 // Repositories
 import 'repository/auth_repository.dart';
 import 'repository/plan_repository.dart';
 import 'repository/record_repository.dart';
 import 'repository/ref_data_repository.dart';
+import 'repository/ref_category_repository.dart';
 
 // EventBus
 import 'services/plan_saved_event_bus.dart';
@@ -29,8 +31,11 @@ import 'view_model/auth/signup_view_model.dart';
 import 'view_model/plan/chat_plan_viewmodel.dart';
 import 'view_model/home/home_view_model.dart';
 import 'view_model/home/today_spending_view_model.dart';
-import 'view_model/category/local_category_view_model.dart';
+
+import 'view_model/category/plan_category_view_model.dart';
 import 'view_model/category/category_edit_view_model.dart';
+import 'view_model/category/spending_category_view_model.dart';
+
 import 'view_model/record/record_view_model.dart';
 import 'view_model/report/report_view_model.dart';
 import 'view_model/communication/communication_view_model.dart';
@@ -47,6 +52,7 @@ Future<void> main() async {
   await Hive.openBox('monthly_spending');
   await Hive.openBox('categories');
   await Hive.openBox('past_plans');
+  await Hive.openBox('settings');
 
   // 2) Firebase 초기화
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -76,6 +82,7 @@ class MyApp extends StatelessWidget {
         Provider<PlanDataSource>(create: (_) => PlanDataSource()),
         Provider<RecordDataSource>(create: (_) => RecordDataSource()),
         Provider<RefDataDataSource>(create: (_) => RefDataDataSource()),
+        Provider<RefCategoryDataSource>(create: (_) => RefCategoryDataSource()),
 
         // 3) Repositories
         Provider<AuthRepository>(
@@ -87,6 +94,9 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthDataSource>(),
           ),
         ),
+        Provider<PlanMutationRepository>(
+          create: (_) => PlanMutationRepository(),
+        ),
         Provider<RecordRepository>(
           create: (ctx) => RecordRepository(
             ctx.read<RecordDataSource>(),
@@ -96,6 +106,12 @@ class MyApp extends StatelessWidget {
         Provider<RefDataRepository>(
           create: (ctx) => RefDataRepository(
             ctx.read<RefDataDataSource>(),
+            ctx.read<AuthDataSource>(),
+          ),
+        ),
+        Provider<RefCategoryRepository>(
+          create: (ctx) => RefCategoryRepository(
+            ctx.read<RefCategoryDataSource>(),
             ctx.read<AuthDataSource>(),
           ),
         ),
@@ -148,12 +164,20 @@ class MyApp extends StatelessWidget {
             ctx.read<SpendingEventBus>(),
           ),
         ),
-        ChangeNotifierProvider(create: (_) => LocalCategoryViewModel()),
+        ChangeNotifierProvider(create: (_) => PlanCategoryViewModel()),
+        ChangeNotifierProvider<SpendingCategoryViewModel>(
+          create: (ctx) => SpendingCategoryViewModel(
+            ctx.read<PlanRepository>(),
+            ctx.read<RefDataRepository>(),
+            ctx.read<RefCategoryRepository>(),
+          ),
+        ),
         ChangeNotifierProvider(
           create: (context) => CategoryEditViewModel(
-            // context.read<CategoryPrefsRepository>(),
             context.read<PlanRepository>(),
             context.read<RefDataRepository>(),
+            context.read<RefCategoryRepository>(),
+            context.read<PlanMutationRepository>(),
           ),
         ),
         ChangeNotifierProvider<SettingViewModel>(
@@ -166,19 +190,17 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<AlarmViewModel>(create: (_) => AlarmViewModel()),
         ChangeNotifierProvider<NotificationViewModel>(create: (_) => NotificationViewModel(),),
       ],
-      child: MaterialApp(
-        title: 'Sotong App',
-        // debugShowCheckedModeBanner: false, //???
-        theme: ThemeData(
-          scaffoldBackgroundColor: Colors.white,
-          primaryColor: AppColors.primary,
-          colorScheme: ColorScheme.fromSwatch().copyWith(
-            primary: AppColors.primary,
-            secondary: AppColors.primary,
-          ),
-        ),
-        initialRoute: '/logo_splash',
-        routes: appRoutes,
+      child: Consumer<SettingViewModel>(
+        builder: (context, settingVM, _) {
+          return MaterialApp(
+            title: 'Sotong App',
+            theme: lightTheme,
+            darkTheme: darkTheme,
+            themeMode: settingVM.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            initialRoute: '/login',
+            routes: appRoutes,
+          );
+        },
       ),
     );
   }

@@ -10,8 +10,8 @@ import '../../../../../component/texts/caption_with_dot.dart';
 import '../../../../../component/texts/header_text.dart';
 import '../../../../../component/theme/app_spacing.dart';
 
-import 'footer_daily.dart';
-import 'footer_default.dart';
+import 'footer/footer_daily.dart';
+import 'footer/footer_default.dart';
 import 'input_item_row.dart';
 
 class InputModalWidget extends StatefulWidget {

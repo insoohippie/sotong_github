@@ -16,19 +16,164 @@ class PastPlanDetailPage extends StatefulWidget {
   State<PastPlanDetailPage> createState() => _PastPlanDetailPageState();
 }
 
-class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
+class _PastPlanDetailPageState extends State<PastPlanDetailPage>
+    with TickerProviderStateMixin {
   late final PageController _pageController;
   int _currentPage = 0;
+  bool _emotionPodiumStarted = false;
+  bool _categoryPodiumStarted = false;
+
+  // 감정 포디움 애니메이션 (2번 카드)
+  late AnimationController _emotionBarThirdController;
+  late AnimationController _emotionBarSecondController;
+  late AnimationController _emotionBarFirstController;
+  late AnimationController _emotionItemThirdController;
+  late AnimationController _emotionItemSecondController;
+  late AnimationController _emotionItemFirstController;
+  late AnimationController _emotionListController;
+
+  // 카테고리 포디움 애니메이션 (3번 카드)
+  late AnimationController _categoryBarThirdController;
+  late AnimationController _categoryBarSecondController;
+  late AnimationController _categoryBarFirstController;
+  late AnimationController _categoryItemThirdController;
+  late AnimationController _categoryItemSecondController;
+  late AnimationController _categoryItemFirstController;
+  late AnimationController _categoryListController;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+
+    const barDuration = Duration(milliseconds: 600);
+    const itemDuration = Duration(milliseconds: 500);
+    const listDuration = Duration(milliseconds: 600);
+
+    _emotionBarThirdController = AnimationController(
+      duration: barDuration,
+      vsync: this,
+    );
+    _emotionBarSecondController = AnimationController(
+      duration: barDuration,
+      vsync: this,
+    );
+    _emotionBarFirstController = AnimationController(
+      duration: barDuration,
+      vsync: this,
+    );
+    _emotionItemThirdController = AnimationController(
+      duration: itemDuration,
+      vsync: this,
+    );
+    _emotionItemSecondController = AnimationController(
+      duration: itemDuration,
+      vsync: this,
+    );
+    _emotionItemFirstController = AnimationController(
+      duration: itemDuration,
+      vsync: this,
+    );
+    _emotionListController = AnimationController(
+      duration: listDuration,
+      vsync: this,
+    );
+
+    _categoryBarThirdController = AnimationController(
+      duration: barDuration,
+      vsync: this,
+    );
+    _categoryBarSecondController = AnimationController(
+      duration: barDuration,
+      vsync: this,
+    );
+    _categoryBarFirstController = AnimationController(
+      duration: barDuration,
+      vsync: this,
+    );
+    _categoryItemThirdController = AnimationController(
+      duration: itemDuration,
+      vsync: this,
+    );
+    _categoryItemSecondController = AnimationController(
+      duration: itemDuration,
+      vsync: this,
+    );
+    _categoryItemFirstController = AnimationController(
+      duration: itemDuration,
+      vsync: this,
+    );
+    _categoryListController = AnimationController(
+      duration: listDuration,
+      vsync: this,
+    );
+  }
+
+  void _startEmotionPodiumAnimation() {
+    if (_emotionPodiumStarted || !mounted) return;
+    _emotionPodiumStarted = true;
+    _emotionBarThirdController.forward();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) _emotionBarSecondController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) _emotionBarFirstController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) _emotionItemThirdController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) _emotionItemSecondController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 1800), () {
+      if (mounted) _emotionItemFirstController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 2300), () {
+      if (mounted) _emotionListController.forward();
+    });
+  }
+
+  void _startCategoryPodiumAnimation() {
+    if (_categoryPodiumStarted || !mounted) return;
+    _categoryPodiumStarted = true;
+    _categoryBarThirdController.forward();
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) _categoryBarSecondController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) _categoryBarFirstController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) _categoryItemThirdController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (mounted) _categoryItemSecondController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 1800), () {
+      if (mounted) _categoryItemFirstController.forward();
+    });
+    Future.delayed(const Duration(milliseconds: 2300), () {
+      if (mounted) _categoryListController.forward();
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _emotionBarThirdController.dispose();
+    _emotionBarSecondController.dispose();
+    _emotionBarFirstController.dispose();
+    _emotionItemThirdController.dispose();
+    _emotionItemSecondController.dispose();
+    _emotionItemFirstController.dispose();
+    _emotionListController.dispose();
+    _categoryBarThirdController.dispose();
+    _categoryBarSecondController.dispose();
+    _categoryBarFirstController.dispose();
+    _categoryItemThirdController.dispose();
+    _categoryItemSecondController.dispose();
+    _categoryItemFirstController.dispose();
+    _categoryListController.dispose();
     super.dispose();
   }
 
@@ -38,14 +183,17 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
     return const Color(0xFFFF8A8A);
   }
 
-  BoxDecoration _getCardDecoration() {
+  BoxDecoration _getCardDecoration(BuildContext context) {
+    final theme = Theme.of(context);
     return BoxDecoration(
-      color: Colors.white,
+      color: theme.colorScheme.surface,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+      border: Border.all(color: theme.dividerColor, width: 1),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.08),
+          color: Colors.black.withOpacity(
+            theme.brightness == Brightness.dark ? 0.2 : 0.08,
+          ),
           blurRadius: 12,
           offset: const Offset(0, 4),
           spreadRadius: 0,
@@ -79,31 +227,35 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
     final snapshot = widget.snapshot;
     final nf = NumberFormat.decimalPattern('ko_KR');
 
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          snapshot.planName.isEmpty ? '플랜' : snapshot.planName,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-            fontFamily: 'Pretendard Variable',
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: Theme.of(context).colorScheme.onSurface,
+            size: 24,
           ),
+          onPressed: () => Navigator.pop(context),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
         ),
-        centerTitle: false,
+        title: const SizedBox.shrink(),
       ),
       body: Column(
         children: [
           Expanded(
             child: PageView(
               controller: _pageController,
-              onPageChanged: (i) => setState(() => _currentPage = i),
+              onPageChanged: (i) {
+                setState(() => _currentPage = i);
+                if (i == 1) _startEmotionPodiumAnimation();
+                if (i == 2) _startCategoryPodiumAnimation();
+              },
               children: [
                 // 1번 카드: 플랜 요약 (차트 + 평균 페이스/저축)
                 SingleChildScrollView(
@@ -111,69 +263,79 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
                     horizontal: AppSpacing.screenPadding,
                     vertical: 16,
                   ),
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: _getCardDecoration(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SequentialChartWidget(
-                          charts: _chartsFromSnapshot(snapshot),
-                        ),
-                        const SizedBox(height: 50),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: _getCardDecoration(context),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '평균 페이스',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.subText,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${snapshot.averagePace ?? '0'}% / 일',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                            SequentialChartWidget(
+                              charts: _chartsFromSnapshot(snapshot),
                             ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '평균 하루 저축 금액',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.subText,
-                                    ),
+                            const SizedBox(height: 50),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '평균 페이스',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${snapshot.averagePace ?? '0'}% / 일',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '${nf.format(snapshot.averageDailySaving ?? 0)}원',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                    ),
+                                ),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '평균 하루 저축 금액',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${nf.format(snapshot.averageDailySaving ?? 0)}원',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
                 // 2번 카드: 감정 포디움
@@ -203,28 +365,34 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
               ],
             ),
           ),
-          // 페이지 인디케이터
+          const SizedBox(height: 16),
           Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(4, (i) {
-                return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 3),
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _currentPage == i
-                        ? AppColors.primary
-                        : Colors.grey.shade300,
-                  ),
-                );
-              }),
-            ),
+            padding: const EdgeInsets.only(bottom: 270),
+            child: _buildPageIndicator(),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPageIndicator() {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(4, (i) {
+        final isSelected = _currentPage == i;
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          width: isSelected ? 10 : 8,
+          height: 8,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isSelected
+                ? AppColors.primary
+                : theme.colorScheme.onSurfaceVariant.withOpacity(0.5),
+          ),
+        );
+      }),
     );
   }
 
@@ -232,23 +400,26 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
     if (snapshot.emotionCounts.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
-        decoration: _getCardDecoration(),
+        decoration: _getCardDecoration(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '감정 기록',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: AppColors.text,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
             Center(
               child: Text(
                 '감정 기록이 없습니다',
-                style: TextStyle(fontSize: 14, color: AppColors.subText),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ],
@@ -262,16 +433,16 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
 
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _getCardDecoration(),
+      decoration: _getCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '감정 기록',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 10,
               fontWeight: FontWeight.bold,
-              color: AppColors.text,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 16),
@@ -280,107 +451,104 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _buildStaticPodiumColumn(
+                _buildAnimatedPodiumWithItem(
+                  barController: _emotionBarSecondController,
+                  itemController: _emotionItemSecondController,
+                  title: _buildEmotionItem(sorted[1], 2, total),
                   height: 175 / 1.5,
-                  color: const Color(0xFFC0C0C0),
+                  width: 77,
+                  backgroundColor: const Color(0xFFC0C0C0),
                   rank: 2,
-                  child: _buildEmotionItem(sorted[1], 2, total),
                 ),
                 const SizedBox(width: 3),
-                _buildStaticPodiumColumn(
+                _buildAnimatedPodiumWithItem(
+                  barController: _emotionBarFirstController,
+                  itemController: _emotionItemFirstController,
+                  title: _buildEmotionItem(sorted[0], 1, total),
                   height: 175,
-                  color: const Color(0xFFFFD700),
+                  width: 77,
+                  backgroundColor: const Color(0xFFFFD700),
                   rank: 1,
-                  child: _buildEmotionItem(sorted[0], 1, total),
                 ),
                 const SizedBox(width: 3),
-                _buildStaticPodiumColumn(
+                _buildAnimatedPodiumWithItem(
+                  barController: _emotionBarThirdController,
+                  itemController: _emotionItemThirdController,
+                  title: _buildEmotionItem(sorted[2], 3, total),
                   height: 175 / 2.5,
-                  color: const Color(0xFFCD7F32),
+                  width: 77,
+                  backgroundColor: const Color(0xFFCD7F32),
                   rank: 3,
-                  child: _buildEmotionItem(sorted[2], 3, total),
                 ),
               ],
             ),
           if (sorted.length > 3) ...[
             const SizedBox(height: 24),
-            ...sorted.skip(3).toList().asMap().entries.map((entry) {
-              final index = entry.key + 4;
-              final e = entry.value;
-              final pct = total > 0
-                  ? (e.value / total * 100).toStringAsFixed(1)
-                  : '0';
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      alignment: Alignment.center,
-                      child: Text(
-                        '$index',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.subText,
+            AnimatedBuilder(
+              animation: _emotionListController,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: _emotionListController.value,
+                  child: Column(
+                    children: sorted.skip(3).toList().asMap().entries.map((
+                        entry,
+                        ) {
+                      final index = entry.key + 4;
+                      final e = entry.value;
+                      final pct = total > 0
+                          ? (e.value / total * 100).toStringAsFixed(1)
+                          : '0';
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              alignment: Alignment.center,
+                              child: Text(
+                                '$index',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                e.key,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${e.value}회 · ${pct}%',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        e.key,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.text,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${e.value}회 · ${pct}%',
-                      style: TextStyle(fontSize: 12, color: AppColors.subText),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildStaticPodiumColumn({
-    required double height,
-    required Color color,
-    required int rank,
-    required Widget child,
-  }) {
-    const width = 77.0;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        child,
-        const SizedBox(height: 8),
-        Container(
-          width: width,
-          height: height,
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            '$rank',
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -389,19 +557,22 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(_getEmotionEmoji(e.key), style: const TextStyle(fontSize: 28)),
+        Text(_getEmotionEmoji(e.key), style: const TextStyle(fontSize: 20)),
         const SizedBox(height: 4),
         Text(
           e.key,
-          style: const TextStyle(
-            fontSize: 14,
+          style: TextStyle(
+            fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: AppColors.text,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
         Text(
           '${e.value}회 · ${pct}%',
-          style: TextStyle(fontSize: 12, color: AppColors.subText),
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -428,23 +599,26 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
     if (snapshot.categorySpending.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
-        decoration: _getCardDecoration(),
+        decoration: _getCardDecoration(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '소비 기록',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: AppColors.text,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
             Center(
               child: Text(
                 '소비 기록이 없습니다',
-                style: TextStyle(fontSize: 14, color: AppColors.subText),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ],
@@ -457,16 +631,16 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
 
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _getCardDecoration(),
+      decoration: _getCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '소비 기록',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 10,
               fontWeight: FontWeight.bold,
-              color: AppColors.text,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 16),
@@ -475,102 +649,211 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _buildStaticPodiumColumn(
+                _buildAnimatedPodiumWithItem(
+                  barController: _categoryBarSecondController,
+                  itemController: _categoryItemSecondController,
+                  title: _buildCategoryItem(sorted[1], 2, nf),
                   height: 175 / 1.5,
-                  color: const Color(0xFFC0C0C0),
+                  width: 77,
+                  backgroundColor: const Color(0xFFC0C0C0),
                   rank: 2,
-                  child: _buildCategoryItem(sorted[1], 2, nf),
                 ),
                 const SizedBox(width: 3),
-                _buildStaticPodiumColumn(
+                _buildAnimatedPodiumWithItem(
+                  barController: _categoryBarFirstController,
+                  itemController: _categoryItemFirstController,
+                  title: _buildCategoryItem(sorted[0], 1, nf),
                   height: 175,
-                  color: const Color(0xFFFFD700),
+                  width: 77,
+                  backgroundColor: const Color(0xFFFFD700),
                   rank: 1,
-                  child: _buildCategoryItem(sorted[0], 1, nf),
                 ),
                 const SizedBox(width: 3),
-                _buildStaticPodiumColumn(
+                _buildAnimatedPodiumWithItem(
+                  barController: _categoryBarThirdController,
+                  itemController: _categoryItemThirdController,
+                  title: _buildCategoryItem(sorted[2], 3, nf),
                   height: 175 / 2.5,
-                  color: const Color(0xFFCD7F32),
+                  width: 77,
+                  backgroundColor: const Color(0xFFCD7F32),
                   rank: 3,
-                  child: _buildCategoryItem(sorted[2], 3, nf),
                 ),
               ],
             ),
           if (sorted.length > 3) ...[
             const SizedBox(height: 24),
-            ...sorted.skip(3).toList().asMap().entries.map((entry) {
-              final index = entry.key + 4;
-              final e = entry.value;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      alignment: Alignment.center,
-                      child: Text(
-                        '$index',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.subText,
+            AnimatedBuilder(
+              animation: _categoryListController,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: _categoryListController.value,
+                  child: Column(
+                    children: sorted.skip(3).toList().asMap().entries.map((
+                        entry,
+                        ) {
+                      final index = entry.key + 4;
+                      final e = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 40,
+                              alignment: Alignment.center,
+                              child: Text(
+                                '$index',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                e.key,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${nf.format(e.value.round())}원',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        e.key,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.text,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '${nf.format(e.value.round())}원',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.text,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
           ],
         ],
       ),
     );
   }
 
+  Widget _buildAnimatedPodiumWithItem({
+    required AnimationController barController,
+    required AnimationController itemController,
+    required Widget title,
+    required double height,
+    required double width,
+    required Color backgroundColor,
+    int? rank,
+  }) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: width,
+          child: Center(
+            child: AnimatedBuilder(
+              animation: itemController,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: itemController.value,
+                  child: Transform.scale(
+                    scale: 0.5 + (itemController.value * 0.5),
+                    child: title,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        AnimatedBuilder(
+          animation: barController,
+          builder: (context, child) {
+            return Transform.translate(
+              offset: Offset(0, (1 - barController.value) * 200),
+              child: Opacity(
+                opacity: barController.value,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    RotatedBox(
+                      quarterTurns: 2,
+                      child: Transform(
+                        transform: Matrix4.identity()
+                          ..setEntry(3, 2, 0.02)
+                          ..rotateX(3.14 / 10),
+                        alignment: Alignment.center,
+                        child: Container(
+                          height: 10,
+                          width: width - 3,
+                          color: backgroundColor.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ),
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: width,
+                          height: height,
+                          decoration: BoxDecoration(color: backgroundColor),
+                        ),
+                        if (rank != null)
+                          Text(
+                            '$rank',
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildCategoryItem(
-    MapEntry<String, double> e,
-    int rank,
-    NumberFormat nf,
-  ) {
+      MapEntry<String, double> e,
+      int rank,
+      NumberFormat nf,
+      ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           e.key,
-          style: const TextStyle(
-            fontSize: 14,
+          style: TextStyle(
+            fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: AppColors.text,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 4),
         Text(
           '${nf.format(e.value.round())}원',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.bold,
-            color: AppColors.text,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],
@@ -581,23 +864,26 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
     if (snapshot.diaries.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(24),
-        decoration: _getCardDecoration(),
+        decoration: _getCardDecoration(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '최근 일지',
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: AppColors.text,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 16),
             Center(
               child: Text(
                 '일지가 없습니다',
-                style: TextStyle(fontSize: 14, color: AppColors.subText),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ],
@@ -615,16 +901,16 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
 
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: _getCardDecoration(),
+      decoration: _getCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '최근 일지',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 10,
               fontWeight: FontWeight.bold,
-              color: AppColors.text,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 16),
@@ -653,7 +939,7 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.subText,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -664,10 +950,10 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
                         if (emotion.isNotEmpty)
                           Text(
                             emotion,
-                            style: const TextStyle(
-                              fontSize: 14,
+                            style: TextStyle(
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.text,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                           ),
                         if (comment.isNotEmpty) ...[
@@ -676,7 +962,9 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
                             comment,
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.subText,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
@@ -688,10 +976,10 @@ class _PastPlanDetailPageState extends State<PastPlanDetailPage> {
                   if (amount != null && amount > 0)
                     Text(
                       '${nf.format(amount)}원',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.text,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
                     ),
                 ],

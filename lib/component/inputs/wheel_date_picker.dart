@@ -19,10 +19,12 @@ class WheelDateSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final bool isEmpty = selectedDate.isEmpty;
     final Color bgColor = isEmpty
-        ? const Color(0xFFEDEDED)
-        : const Color(0xFFEDF4FF);
+        ? (isDark ? theme.colorScheme.surface : const Color(0xFFEDEDED))
+        : (isDark ? theme.colorScheme.surface : const Color(0xFFEDF4FF));
 
     return GestureDetector(
       onTap: () {
@@ -40,7 +42,9 @@ class WheelDateSelector extends StatelessWidget {
         child: Text(
           isEmpty ? hintText : selectedDate,
           style: AppTextStyles.paragraph.copyWith(
-            color: isEmpty ? Colors.grey : Colors.black,
+            color: isEmpty
+                ? theme.colorScheme.onSurfaceVariant
+                : theme.colorScheme.onSurface,
           ),
         ),
       ),
@@ -52,6 +56,19 @@ class WheelDateSelector extends StatelessWidget {
     int selectedYear = 2000;
     int selectedMonth = 1;
     int selectedDay = 1;
+
+    // 기존 선택값이 있으면 파싱하여 초기화
+    if (selectedDate.isNotEmpty) {
+      final parsed = DateTime.tryParse(selectedDate);
+      if (parsed != null) {
+        final now = DateTime.now();
+        selectedYear = parsed.year.clamp(1900, now.year);
+        selectedMonth = parsed.month.clamp(1, 12);
+        final lastDay = DateTime(selectedYear, selectedMonth + 1, 0).day;
+        selectedDay = parsed.day.clamp(1, lastDay);
+        tempPickedDate = DateTime(selectedYear, selectedMonth, selectedDay);
+      }
+    }
 
     showModalBottomSheet(
       context: context,

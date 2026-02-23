@@ -7,7 +7,7 @@ import 'package:sotong_local/component/texts/subtext.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/component/theme/app_spacing.dart';
 
-import '../../../../../view_model/plan/chat_plan_viewmodel.dart';
+import '../../../../../../view_model/plan/chat_plan_viewmodel.dart';
 
 class FooterDaily extends StatefulWidget {
   final double total;           // 일일 총합

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 
 import '../../../../component/buttons/period_toggle.dart';
 import '../../../../component/theme/app_colors.dart';
@@ -18,34 +19,13 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
     with SingleTickerProviderStateMixin {
   // 감정 / 금액 모드
   String selectedMode = '감정'; // '감정' | '금액'
-  late final PageController _modePageController;
 
   // 달 넘어갈 때 슬라이드 방향
   int _monthSlideDirection = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _modePageController = PageController(initialPage: 0);
-  }
-
-  @override
-  void dispose() {
-    _modePageController.dispose();
-    super.dispose();
-  }
-
   void _changeMode(String mode) {
     if (mode == selectedMode) return;
-    setState(() {
-      selectedMode = mode;
-    });
-    final targetIndex = mode == '감정' ? 0 : 1;
-    _modePageController.animateToPage(
-      targetIndex,
-      duration: const Duration(milliseconds: 500),
-      curve: Curves.easeInOut,
-    );
+    setState(() => selectedMode = mode);
   }
 
   String _formatWonShort(int v) {
@@ -96,13 +76,13 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
 
   bool _isHoliday(DateTime d) => _holidayYmd.contains(_ymd(d));
 
-  Color _weekdayHeaderColor(String day) {
+  Color _weekdayHeaderColor(BuildContext context, String day) {
     if (day == '일') return Colors.red;
     if (day == '토') return Colors.blue;
-    return Colors.black87;
+    return Theme.of(context).colorScheme.onSurface;
   }
 
-  Color _dayNumberColor(DateTime date) {
+  Color _dayNumberColor(BuildContext context, DateTime date) {
     // 공휴일은 빨강
     if (_isHoliday(date)) return Colors.red;
 
@@ -110,18 +90,19 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
     if (date.weekday == DateTime.sunday) return Colors.red;
     if (date.weekday == DateTime.saturday) return Colors.blue;
 
-    return Colors.black87;
+    return Theme.of(context).colorScheme.onSurface;
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = widget.vm;
 
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -139,10 +120,10 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
             children: [
               Text(
                 '${vm.selectedYear}년',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               _buildModeToggle(),
@@ -158,6 +139,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
   // ───────────────── 월 선택 다이얼 ─────────────────
 
   Widget _buildMonthSelector(CommunicationViewModel vm) {
+    final theme = Theme.of(context);
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -174,7 +156,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
               padding: const EdgeInsets.all(4),
               child: Icon(
                 Icons.chevron_left,
-                color: Colors.grey[700],
+                color: theme.colorScheme.onSurfaceVariant,
                 size: 20,
               ),
             ),
@@ -182,10 +164,10 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
           const SizedBox(width: 8),
           Text(
             '${vm.selectedMonth}월',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(width: 8),
@@ -201,7 +183,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
               padding: const EdgeInsets.all(4),
               child: Icon(
                 Icons.chevron_right,
-                color: Colors.grey[700],
+                color: theme.colorScheme.onSurfaceVariant,
                 size: 20,
               ),
             ),
@@ -214,13 +196,16 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
   // ──────────────── 달력 + 모드 다이얼 ────────────────
 
   Widget _buildCalendarWithModeDials(CommunicationViewModel vm) {
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(
+              theme.brightness == Brightness.dark ? 0.2 : 0.05,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -243,6 +228,8 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
       labels: const ['감정', '금액'],
       selected: selectedMode,
       onChanged: (v) => _changeMode(v),
+      width: 106,
+      height: 30,
     );
   }
 
@@ -310,7 +297,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: _weekdayHeaderColor(day),
+                      color: _weekdayHeaderColor(context, day),
                     ),
                   ),
                 ),
@@ -331,31 +318,12 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
 
                 return SizedBox(
                   height: gridH,
-                  child: PageView(
-                    controller: _modePageController,
-                    physics: const ClampingScrollPhysics(),
-                    onPageChanged: (index) {
-                      final mode = index == 0 ? '감정' : '금액';
-                      if (mode != selectedMode) {
-                        setState(() => selectedMode = mode);
-                      }
-                    },
-                    children: [
-                      _buildCalendarGrid(
-                        vm: vm,
-                        firstWeekdayOffset: firstWeekdayOffset,
-                        daysInMonth: daysInMonth,
-                        showEmotion: true,
-                        childAspectRatio: ratio,
-                      ),
-                      _buildCalendarGrid(
-                        vm: vm,
-                        firstWeekdayOffset: firstWeekdayOffset,
-                        daysInMonth: daysInMonth,
-                        showEmotion: false,
-                        childAspectRatio: ratio,
-                      ),
-                    ],
+                  child: _buildCalendarGrid(
+                    vm: vm,
+                    firstWeekdayOffset: firstWeekdayOffset,
+                    daysInMonth: daysInMonth,
+                    showEmotion: selectedMode == '감정',
+                    childAspectRatio: ratio,
                   ),
                 );
               },
@@ -388,7 +356,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
         if (!isCurrentMonth) return const SizedBox();
 
         final date = DateTime(vm.selectedYear, vm.selectedMonth, day);
-        final dayTextColor = _dayNumberColor(date);
+        final dayTextColor = _dayNumberColor(context, date);
 
         final hasEmotion = vm.hasEmotionRecord(day);
         final hasAmount = vm.spendingAmountForDay(day) > 0;
@@ -396,11 +364,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
 
         return GestureDetector(
           onTap: () {
-            showDateDetailModal(
-              context: context,
-              vm: vm,
-              day: day,
-            );
+            showDateDetailModal(context: context, vm: vm, day: day);
           },
           child: Container(
             margin: const EdgeInsets.all(2),
@@ -410,8 +374,8 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
             ),
             child: LayoutBuilder(
               builder: (context, c) {
-                final bool isOverLimit = vm.dailySpendingLimit > 0 &&
-                    amount > vm.dailySpendingLimit;
+                final bool isOverLimit =
+                    vm.dailySpendingLimit > 0 && amount > vm.dailySpendingLimit;
 
                 final showDayText =
                 (!showEmotion || (showEmotion && !hasEmotion));
@@ -421,19 +385,13 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
                   children: [
                     // 금액 모드
                     if (!showEmotion && hasAmount)
-                      AmountUnderlineCell(
-                        day: day,
-                        isOverLimit: isOverLimit,
-                      ),
+                      AmountUnderlineCell(day: day, isOverLimit: isOverLimit),
 
-                    // 감정 모드: 이모지
+                    // 감정 모드: Lottie (감정별 JSON)
                     if (showEmotion && hasEmotion)
-                      Text(
-                        vm.emotionEmojiForDay(day),
-                        style: const TextStyle(
-                          fontSize: 20,
-                          height: 1.0,
-                        ),
+                      _LottieEmotionForDay(
+                        emotionLabel: vm.emotionLabelForDay(day),
+                        size: 28,
                       ),
 
                     // 날짜 텍스트 (토/일/공휴일 색)
@@ -458,11 +416,55 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
   }
 }
 
+class _LottieEmotionForDay extends StatelessWidget {
+  const _LottieEmotionForDay({required this.emotionLabel, this.size = 28});
+
+  final String emotionLabel;
+  final double size;
+
+  static String _path(String emotion) {
+    switch (emotion) {
+      case '평온':
+        return 'assets/animations/emotion_calm.json';
+      case '좋음':
+        return 'assets/animations/emotion_good.json';
+      case '슬픔':
+        return 'assets/animations/emotion_sad.json';
+      case '스트레스':
+        return 'assets/animations/emotion_stress.json';
+      case '동기부여':
+        return 'assets/animations/emotion_motivation.json';
+      case '아무 감정 없음':
+        return 'assets/animations/emotion_none.json';
+      default:
+        return 'assets/animations/emotion_calm.json';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final path = _path(emotionLabel.trim().isEmpty ? '평온' : emotionLabel);
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Lottie.asset(
+        path,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return Center(
+            child: Text(
+              '🙂',
+              style: TextStyle(fontSize: size * 0.7, height: 1.0),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _AmountCircle extends StatelessWidget {
-  const _AmountCircle({
-    required this.size,
-    required this.isOverLimit,
-  });
+  const _AmountCircle({required this.size, required this.isOverLimit});
 
   final double size;
   final bool isOverLimit;
@@ -545,12 +547,7 @@ class MoneyIconCell extends StatelessWidget {
     final level = _level();
     final path = 'assets/images/money$level.png';
 
-    return Image.asset(
-      path,
-      width: size,
-      height: size,
-      fit: BoxFit.contain,
-    );
+    return Image.asset(path, width: size, height: size, fit: BoxFit.contain);
   }
 }
 
@@ -578,18 +575,15 @@ class OutlineCircleCell extends StatelessWidget {
           height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: base.withOpacity(0.8),
-              width: 2,
-            ),
+            border: Border.all(color: base.withOpacity(0.8), width: 2),
           ),
         ),
         Text(
           '$day',
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
+            color: Theme.of(context).colorScheme.onSurface,
           ),
         ),
       ],

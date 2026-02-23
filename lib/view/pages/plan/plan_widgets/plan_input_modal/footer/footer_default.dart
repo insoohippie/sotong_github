@@ -6,10 +6,13 @@ import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/component/theme/app_spacing.dart';
 
 class FooterDefault extends StatefulWidget {
-  final double total;         // 고정소비/수입 합계 (수입일 땐 isOverBudget=false로 들어옴)
+  final double total; // 고정소비/수입 합계 (수입일 땐 isOverBudget=false로 들어옴)
   final VoidCallback onComplete;
-  final bool isOverBudget;    // 예산 초과 여부 (고정소비가 월수입 초과일 때)
+  final bool isOverBudget; // 예산 초과 여부 (고정소비가 월수입 초과일 때)
   final double monthlyIncome;
+
+  /// true면 합계 0이어도 완료 가능, false면 합계 0이면 완료 버튼 비활성화 (월 수입 모달용)
+  final bool allowZeroTotal;
 
   const FooterDefault({
     Key? key,
@@ -17,13 +20,15 @@ class FooterDefault extends StatefulWidget {
     required this.onComplete,
     this.isOverBudget = false,
     this.monthlyIncome = 0,
+    this.allowZeroTotal = true,
   }) : super(key: key);
 
   @override
   State<FooterDefault> createState() => _FooterDefaultState();
 }
 
-class _FooterDefaultState extends State<FooterDefault> with TickerProviderStateMixin {
+class _FooterDefaultState extends State<FooterDefault>
+    with TickerProviderStateMixin {
   late AnimationController _shakeController;
   late Animation<double> _shake;
 
@@ -56,6 +61,7 @@ class _FooterDefaultState extends State<FooterDefault> with TickerProviderStateM
   @override
   Widget build(BuildContext context) {
     final over = widget.isOverBudget;
+    final canComplete = !over && (widget.allowZeroTotal || widget.total > 0);
 
     return Container(
       padding: const EdgeInsets.all(AppSpacing.screenPadding),
@@ -64,7 +70,11 @@ class _FooterDefaultState extends State<FooterDefault> with TickerProviderStateM
         border: const Border(top: BorderSide(color: Color(0xFFF0F0F0))),
         borderRadius: const BorderRadius.all(Radius.circular(20)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, -2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
         ],
       ),
       child: Column(
@@ -77,9 +87,13 @@ class _FooterDefaultState extends State<FooterDefault> with TickerProviderStateM
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const ParagraphText(text: '총합:', fontWeight: FontWeight.bold),
+                    const ParagraphText(
+                      text: '총합:',
+                      fontWeight: FontWeight.bold,
+                    ),
                     ParagraphText(
-                      text: '${NumberFormat('#,###').format(widget.total.toInt())}원',
+                      text:
+                      '${NumberFormat('#,###').format(widget.total.toInt())}원',
                       fontWeight: FontWeight.bold,
                       color: over ? const Color(0xFFF02121) : AppColors.primary,
                     ),
@@ -90,9 +104,9 @@ class _FooterDefaultState extends State<FooterDefault> with TickerProviderStateM
           ),
           const SizedBox(height: 40),
           CustomButton(
-            text: over ? '예산을 초과했어요' : '완료',
-            onPressed: over ? () {} : widget.onComplete,
-            enabled: !over,
+            text: over ? '예산을 초과했어요' : (canComplete ? '완료' : '월 수입을 입력해 주세요'),
+            onPressed: canComplete ? widget.onComplete : () {},
+            enabled: canComplete,
           ),
         ],
       ),

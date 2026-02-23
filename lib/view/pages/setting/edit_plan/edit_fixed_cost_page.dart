@@ -45,7 +45,7 @@ class _EditFixedCostPageState extends State<EditFixedCostPage> {
     final number = int.parse(numbers);
     return number.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
+          (Match m) => '${m[1]},',
     );
   }
 
@@ -57,6 +57,9 @@ class _EditFixedCostPageState extends State<EditFixedCostPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
         ),
         title: const Text(
           '플랜 수정',
@@ -169,9 +172,9 @@ class _EditFixedCostPageState extends State<EditFixedCostPage> {
                   child: ElevatedButton(
                     onPressed: _isValidInput()
                         ? () {
-                            // 다음 페이지로 이동하는 로직
-                            Navigator.pushNamed(context, '/edit_saving_target');
-                          }
+                      // 다음 페이지로 이동하는 로직
+                      Navigator.pushNamed(context, '/edit_saving_target');
+                    }
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isValidInput()

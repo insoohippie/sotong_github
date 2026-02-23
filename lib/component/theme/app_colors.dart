@@ -19,4 +19,12 @@ class AppColors {
 
   static const Color disabled = Color(0xFFDDDDDD); // 비활성화 버튼 회색
   static const Color darkBlue = Color(0xFF00368C); // 어두운 파랑
+
+  // 다크모드
+  static const Color darkBackground = Color(0xFF121212);
+  static const Color darkSurface = Color(0xFF1E1E1E);
+  static const Color darkText = Color(0xFFE1E1E1);
+  static const Color darkSubText = Color(0xFFB0B0B0);
+  static const Color darkBorder = Color(0xFF2E2E2E);
+  static const Color darkDivider = Color(0xFF2E2E2E);
 }

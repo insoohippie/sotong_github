@@ -11,18 +11,21 @@ class CategoryListsSection extends StatelessWidget {
   const CategoryListsSection({
     super.key,
     required this.vm,
-    this.onTapEditName,
-    this.onTapEditAmount,
-    this.onMoveRefToPlanRequested, // ✅ Page와 이름 일치
+    this.onTapEditNamePlan,
+    this.onTapEditAmountPlan,
+    this.onTapEditNameRef,
     this.onAddPlan,
     this.onAddRef,
   });
 
   final CategoryEditViewModel vm;
 
-  final void Function(CategoryEditItem item, bool isPlan)? onTapEditName;
-  final void Function(CategoryEditItem item)? onTapEditAmount;
-  final void Function(CategoryEditItem item, int targetIndex)? onMoveRefToPlanRequested;
+  // plan
+  final void Function(CategoryEditItem item)? onTapEditNamePlan;
+  final void Function(CategoryEditItem item)? onTapEditAmountPlan;
+
+  // ref
+  final void Function(RefCategoryItem item)? onTapEditNameRef;
 
   final VoidCallback? onAddPlan;
   final VoidCallback? onAddRef;
@@ -40,12 +43,7 @@ class CategoryListsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final planList = vm.draftPlan;
-
-    // ✅ ref 하드코딩 (원하면 여기만 나중에 VM 연결)
-    const refList = <RefCategoryItem>[
-      RefCategoryItem(categoryKey: 'demo_food', name: '식비', emoji: '🍽️', order: 0),
-      RefCategoryItem(categoryKey: 'demo_cafe', name: '카페', emoji: '☕', order: 1),
-    ];
+    final refList = vm.draftRef;
 
     final dailySum = _calcDailySum(planList);
     final reachDate = _calcReachDate(dailySum, vm.targetAmount);
@@ -53,29 +51,28 @@ class CategoryListsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // ✅ 맨 위
+        CategoryPlanProgressBox(
+          dailyLimitSum: dailySum,
+          reachDate: reachDate,
+        ),
+
         CategoryEditListsWidget(
           planItems: planList,
           refItems: refList,
 
-          // plan callbacks
-          onTapEditName: (item, isPlan) => onTapEditName?.call(item, isPlan),
-          onTapEditAmount: (item) => onTapEditAmount?.call(item),
-          onDeletePlan: (item) => vm.draftDelete(item.categoryKey),
-          onReorderPlan: (oldIndex, newIndex) => vm.draftReorderPlan(oldIndex, newIndex),
-
-          // add
+          // plan actions
+          onTapEditNamePlan: (item) => onTapEditNamePlan?.call(item),
+          onTapEditAmountPlan: (item) => onTapEditAmountPlan?.call(item),
+          onDeletePlan: (item) => vm.draftDeletePlan(item.categoryKey),
+          onReorderPlanByKeys: (keys) => vm.draftReorderPlanByKeys(keys),
           onAddPlan: onAddPlan ?? () {},
+
+          // ref actions
+          onTapEditNameRef: (item) => onTapEditNameRef?.call(item),
+          onDeleteRef: (item) => vm.draftRemoveRefByKey(item.categoryKey),
+          onReorderRefByKeys: (keys) => vm.draftReorderRefByKeys(keys),
           onAddRef: onAddRef ?? () {},
-
-          // ref->plan 요청(지금은 ref 하드코딩이라 실제론 안 쓰는 수준)
-          onMoveRefToPlanRequested: (item, targetIndex) {
-            onMoveRefToPlanRequested?.call(item, targetIndex);
-          },
-        ),
-
-        CategoryPlanProgressBox(
-          dailyLimitSum: dailySum,
-          reachDate: reachDate,
         ),
       ],
     );

@@ -32,7 +32,9 @@ import 'package:sotong_local/view/pages/category/category_edit.dart';
 import 'package:sotong_local/view/pages/notification/notification_page.dart';
 
 import 'package:sotong_local/view/pages/setting/settings_page.dart';
+import 'package:sotong_local/view/pages/setting/personal_info_page.dart';
 import 'package:sotong_local/view/pages/setting/FAQ.dart';
+import 'package:sotong_local/view/pages/setting/version.dart';
 
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_daily_limit_page.dart';
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_fixed_cost_page.dart';
@@ -83,7 +85,9 @@ final Map<String, WidgetBuilder> appRoutes = {
 
   // 설정 페이지
   '/setting': (_) => const SettingsPage(),
+  '/personal_info': (_) => const PersonalInfoPage(),
   '/faq': (_) => const FAQPage(),
+  '/version': (_) => const VersionPage(),
   // 과거 플랜 리스트 페이지
   '/past_plans': (_) => const PastPlansListPage(),
 

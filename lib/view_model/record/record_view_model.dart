@@ -29,6 +29,7 @@ class RecordViewModel extends ChangeNotifier {
     amountController.addListener(updateTotal);
 
     spendingEntries.add({
+      'categoryKey': '',
       'category': '',
       'amountController': amountController,
       'noteController': noteController,
@@ -62,6 +63,7 @@ class RecordViewModel extends ChangeNotifier {
     amountController.addListener(updateTotal);
 
     spendingEntries.add({
+      'categoryKey': '',
       'category': '',
       'amountController': amountController,
       'noteController': noteController,
@@ -123,16 +125,21 @@ class RecordViewModel extends ChangeNotifier {
   }
 
   Future<void> saveAllForDate(DateTime date) async {
-    // 1) VM 내부 entries → SpendingEntry 리스트로 변환
     final entries = spendingEntries.map((entry) {
+      final categoryKey = entry['categoryKey'] as String? ?? ''; // ✅
+      final category = entry['category'] as String? ?? '';
+      final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
+      final note = entry['note'] as String? ?? '';
+
       return SpendingEntry(
-        category: entry['category'] as String? ?? '',
-        amount: (entry['amount'] as num?)?.toDouble() ?? 0.0,
-        note: entry['note'] as String? ?? '', id: '',
+        id: '', // id 없으면 fromMap에서 안정 id로 보정됨(혹은 여기서 생성해도 됨)
+        categoryKey: categoryKey,
+        category: category,
+        amount: amount,
+        note: note,
       );
     }).toList();
 
-    // 2) DaySpending 도메인 모델 구성
     final day = DaySpending(
       date: date,
       totalAmount: totalSpending,
@@ -141,10 +148,7 @@ class RecordViewModel extends ChangeNotifier {
       entries: entries,
     );
 
-    // 3) Repository를 통해 Firestore의 users/{uid}/records/{yyyy-MM} 갱신
     await _recordRepo.upsertDaySpending(day);
-
-    // 4) 🔥 소비가 저장되었음을 다른 뷰모델(레포트/소통)에 알리기
     _spendingEventBus.fire(SpendingUpdatedEvent(date));
   }
 

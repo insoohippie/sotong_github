@@ -15,13 +15,14 @@ class ReportMonthCategorySection extends StatefulWidget {
       _ReportMonthCategorySectionState();
 }
 
-class _ReportMonthCategorySectionState extends State<ReportMonthCategorySection> {
+class _ReportMonthCategorySectionState
+    extends State<ReportMonthCategorySection> {
   late final PageController _pageController;
 
   int _tabIndex = 3; // 0..3
 
-  int _shownAmount = 0;      // 지금 화면에 보여준 금액
-  int _shownFromAmount = 0;  // 애니메이션 begin용
+  int _shownAmount = 0; // 지금 화면에 보여준 금액
+  int _shownFromAmount = 0; // 애니메이션 begin용
 
   bool _prevLoading = false;
 
@@ -31,7 +32,12 @@ class _ReportMonthCategorySectionState extends State<ReportMonthCategorySection>
     _pageController = PageController(initialPage: _tabIndex);
 
     final vm = context.read<ReportViewModel>();
-    final itemsInit = [vm.savingTotal, vm.incomeTotal, vm.fixedExpenseTotal, vm.variableExpenseTotal];
+    final itemsInit = [
+      vm.savingTotal,
+      vm.incomeTotal,
+      vm.fixedExpenseTotal,
+      vm.variableExpenseTotal,
+    ];
 
     _shownAmount = itemsInit[_tabIndex];
     _shownFromAmount = _shownAmount;
@@ -114,12 +120,20 @@ class _ReportMonthCategorySectionState extends State<ReportMonthCategorySection>
 
     _prevLoading = nowLoading;
 
+    final theme = Theme.of(context);
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 2)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(
+              theme.brightness == Brightness.dark ? 0.2 : 0.12,
+            ),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -286,8 +300,8 @@ class _ReportMonthCategorySectionState extends State<ReportMonthCategorySection>
       child: MultiOptionToggle(
         labels: labels,
         selected: labels[_tabIndex],
-        width: 320,     // 원하는 폭으로 조절
-        height: 34,
+        width: 320,
+        height: 30,
         onChanged: (label) {
           final index = labels.indexOf(label);
           if (index < 0) return;
@@ -296,7 +310,6 @@ class _ReportMonthCategorySectionState extends State<ReportMonthCategorySection>
       ),
     );
   }
-
 }
 
 /* ───────────────── internal models/widgets ───────────────── */
@@ -306,11 +319,7 @@ class _MoneyTab {
   final IconData icon;
   final int value;
 
-  _MoneyTab({
-    required this.label,
-    required this.icon,
-    required this.value,
-  });
+  _MoneyTab({required this.label, required this.icon, required this.value});
 }
 
 class _MoneySlideCard extends StatelessWidget {
@@ -336,9 +345,7 @@ class _MoneySlideCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
       child: Column(
         children: [
           Expanded(
@@ -348,27 +355,26 @@ class _MoneySlideCard extends StatelessWidget {
               children: [
                 Opacity(
                   opacity: isLoading ? 0.0 : 1.0,
-                  child:
-                    TweenAnimationBuilder<int>(
-                      key: ValueKey('$title-$to-$tabIndex'),
-                      tween: IntTween(begin: from, end: to),
-                      duration: const Duration(milliseconds: 900),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, value, _) {
-                        return FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '${format(value)}원',
-                            style: const TextStyle(
-                              fontSize: 26,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.black87,
-                            ),
+                  child: TweenAnimationBuilder<int>(
+                    key: ValueKey('$title-$to-$tabIndex'),
+                    tween: IntTween(begin: from, end: to),
+                    duration: const Duration(milliseconds: 900),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) {
+                      return FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${format(value)}원',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),

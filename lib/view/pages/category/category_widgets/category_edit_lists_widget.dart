@@ -1,56 +1,48 @@
 import 'dart:ui' show FontFeature;
-
 import 'package:flutter/material.dart';
 
+import '../../../../component/buttons/small_rounded_button.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_text_styles.dart';
 
 import '../../../../model/category/category_edit_item.dart';
 import '../../../../model/category/ref_category_item.dart';
 
-class _DragPayload {
-  final CategoryEditItem item;
-  const _DragPayload({required this.item});
-}
-
-class CategoryEditListsWidget extends StatefulWidget {
+class CategoryEditListsWidget extends StatelessWidget {
   const CategoryEditListsWidget({
     super.key,
     required this.planItems,
     required this.refItems,
 
-    required this.onTapEditName,
-    required this.onTapEditAmount,
+    // plan
+    required this.onTapEditNamePlan,
+    required this.onTapEditAmountPlan,
     required this.onDeletePlan,
-    required this.onReorderPlan,
-
+    required this.onReorderPlanByKeys,
     required this.onAddPlan,
-    required this.onAddRef,
 
-    // ref->plan “요청”만(지금 ref 하드코딩이라 실사용 거의 없음)
-    required this.onMoveRefToPlanRequested,
+    // ref
+    required this.onTapEditNameRef,
+    required this.onDeleteRef,
+    required this.onReorderRefByKeys,
+    required this.onAddRef,
   });
 
   final List<CategoryEditItem> planItems;
   final List<RefCategoryItem> refItems;
 
-  final void Function(CategoryEditItem item, bool isPlan) onTapEditName;
-  final void Function(CategoryEditItem item) onTapEditAmount;
-
+  // plan callbacks
+  final void Function(CategoryEditItem item) onTapEditNamePlan;
+  final void Function(CategoryEditItem item) onTapEditAmountPlan;
   final void Function(CategoryEditItem item) onDeletePlan;
-  final void Function(int oldIndex, int newIndex) onReorderPlan;
-
+  final void Function(List<String> newOrderKeys) onReorderPlanByKeys;
   final VoidCallback onAddPlan;
+
+  // ref callbacks
+  final void Function(RefCategoryItem item) onTapEditNameRef;
+  final void Function(RefCategoryItem item) onDeleteRef;
+  final void Function(List<String> newOrderKeys) onReorderRefByKeys;
   final VoidCallback onAddRef;
-
-  final void Function(CategoryEditItem item, int targetIndex) onMoveRefToPlanRequested;
-
-  @override
-  State<CategoryEditListsWidget> createState() => _CategoryEditListsWidgetState();
-}
-
-class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
-  bool _isDragging = false;
 
   String _formatAmount(int amount) {
     return '${amount.toString().replaceAllMapped(
@@ -59,35 +51,28 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
     )}원';
   }
 
-  Widget _itemDropZone({
-    required int targetIndex,
-    required void Function(_DragPayload data) onAccept,
+  /// ✅ index 기반(old/new)을 "key 배열"로 변환해서 VM에 전달
+  List<String> _reorderKeys({
+    required List<String> keys,
+    required int oldIndex,
+    required int newIndex,
   }) {
-    return DragTarget<_DragPayload>(
-      onWillAccept: (data) => data != null,
-      onAccept: onAccept,
-      builder: (context, candidate, rejected) {
-        final highlighted = candidate.isNotEmpty;
-        final shouldShow = highlighted || _isDragging;
-        return Container(
-          height: highlighted ? 12 : (shouldShow ? 6 : 4),
-          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          decoration: BoxDecoration(
-            color: highlighted
-                ? AppColors.primary
-                : (shouldShow ? Colors.grey.withOpacity(0.25) : Colors.transparent),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        );
-      },
-    );
+    final list = List<String>.from(keys);
+    if (oldIndex < 0 || oldIndex >= list.length) return list;
+    if (newIndex < 0 || newIndex > list.length) return list;
+
+    if (oldIndex < newIndex) newIndex -= 1;
+    final moved = list.removeAt(oldIndex);
+    list.insert(newIndex, moved);
+    return list;
   }
 
-  Widget _planTile({required CategoryEditItem item}) {
-    final amount = item.dailyAmount ?? 0;
-
+  // =========================
+  // Tiles
+  // =========================
+  Widget _planTile(BuildContext context, CategoryEditItem item, int index) {
     return Dismissible(
-      key: ValueKey('plan-${item.categoryKey}'),
+      key: ValueKey('plan-dismiss-${item.categoryKey}'),
       direction: DismissDirection.endToStart,
       background: Container(
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
@@ -99,8 +84,9 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
         padding: const EdgeInsets.only(right: 20),
         child: const Icon(Icons.delete, color: Colors.white, size: 24),
       ),
-      onDismissed: (_) => widget.onDeletePlan(item),
+      onDismissed: (_) => onDeletePlan(item),
       child: Container(
+        key: ValueKey('plan-tile-${item.categoryKey}'), // ✅ Reorderable 안정 key
         margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -109,32 +95,8 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
         ),
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          leading: LongPressDraggable<_DragPayload>(
-            data: _DragPayload(item: item),
-            onDragStarted: () => setState(() => _isDragging = true),
-            onDragEnd: (_) => setState(() => _isDragging = false),
-            feedback: Material(
-              elevation: 6,
-              borderRadius: BorderRadius.circular(8),
-              child: Opacity(
-                opacity: 0.9,
-                child: SizedBox(
-                  width: MediaQuery.of(context).size.width - 48,
-                  child: _dragFeedbackTile(item: item),
-                ),
-              ),
-            ),
-            childWhenDragging: Opacity(
-              opacity: 0.3,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.drag_handle, color: AppColors.subText),
-                  const SizedBox(width: 8),
-                  Text(item.emoji, style: const TextStyle(fontSize: 20)),
-                ],
-              ),
-            ),
+          leading: ReorderableDragStartListener(
+            index: index,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -148,15 +110,15 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
             children: [
               Expanded(
                 child: GestureDetector(
-                  onTap: () => widget.onTapEditName(item, true),
+                  onTap: () => onTapEditNamePlan(item),
                   child: Text(item.name, style: AppTextStyles.paragraph),
                 ),
               ),
               const SizedBox(width: 10),
               GestureDetector(
-                onTap: () => widget.onTapEditAmount(item),
+                onTap: () => onTapEditAmountPlan(item),
                 child: Text(
-                  _formatAmount(amount),
+                  _formatAmount(item.dailyAmount ?? 0),
                   style: AppTextStyles.paragraph.copyWith(
                     fontWeight: FontWeight.w700,
                     color: AppColors.primary,
@@ -171,50 +133,62 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
     );
   }
 
-  Widget _dragFeedbackTile({required CategoryEditItem item}) {
-    final amount = item.dailyAmount ?? 0;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.drag_handle, color: AppColors.subText),
-            const SizedBox(width: 8),
-            Text(item.emoji, style: const TextStyle(fontSize: 20)),
-          ],
+  Widget _refTile(BuildContext context, RefCategoryItem item, int index) {
+    return Dismissible(
+      key: ValueKey('ref-dismiss-${item.categoryKey}'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(8),
         ),
-        title: Row(
-          children: [
-            Expanded(child: Text(item.name, style: AppTextStyles.paragraph)),
-            Text(
-              _formatAmount(amount),
-              style: AppTextStyles.paragraph.copyWith(
-                fontWeight: FontWeight.w700,
-                color: AppColors.primary,
-              ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white, size: 24),
+      ),
+      onDismissed: (_) => onDeleteRef(item),
+      child: Container(
+        key: ValueKey('ref-tile-${item.categoryKey}'), // ✅ Reorderable 안정 key
+        margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          leading: ReorderableDragStartListener(
+            index: index,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.drag_handle, color: AppColors.subText),
+                const SizedBox(width: 8),
+                Text(item.emoji, style: const TextStyle(fontSize: 20)),
+              ],
             ),
-          ],
+          ),
+          title: GestureDetector(
+            onTap: () => onTapEditNameRef(item),
+            child: Text(item.name, style: AppTextStyles.paragraph),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPlanSection() {
-    final items = widget.planItems;
+  // =========================
+  // Sections
+  // =========================
+  Widget _buildPlanSection(BuildContext context) {
+    final items = planItems;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -236,56 +210,40 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
             ],
           ),
         ),
+
         if (items.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             child: Text(
-              '플랜 카테고리가 없습니다.',
+              '카테고리가 없습니다. 아래에서 추가해보세요.',
               style: AppTextStyles.subtext.copyWith(color: AppColors.subText),
             ),
           )
-        else ...[
-          for (int i = 0; i < items.length; i++) ...[
-            _itemDropZone(
-              targetIndex: i,
-              onAccept: (data) {
-                final oldIndex =
-                items.indexWhere((e) => e.categoryKey == data.item.categoryKey);
-                if (oldIndex == -1 || oldIndex == i) return;
-                widget.onReorderPlan(oldIndex, i);
-              },
-            ),
-            _planTile(item: items[i]),
-          ],
-          _itemDropZone(
-            targetIndex: items.length,
-            onAccept: (data) {
-              final oldIndex =
-              items.indexWhere((e) => e.categoryKey == data.item.categoryKey);
-              if (oldIndex == -1 || oldIndex == items.length) return;
-              widget.onReorderPlan(oldIndex, items.length);
+        else
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false, // ✅ 핸들 드래그만
+            itemCount: items.length,
+            onReorder: (oldIndex, newIndex) {
+              final keys = items.map((e) => e.categoryKey).toList();
+              final newKeys = _reorderKeys(keys: keys, oldIndex: oldIndex, newIndex: newIndex);
+              onReorderPlanByKeys(newKeys);
+            },
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return _planTile(context, item, index);
             },
           ),
-        ],
+
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Center(
-            child: OutlinedButton.icon(
-              onPressed: widget.onAddPlan,
-              icon: const Icon(Icons.add_circle_outline, size: 20),
-              label: const Text(
-                '추가',
-                style: TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary, width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
+            child: SmallRoundedButton(
+              text: '추가',
+              backgroundColor: AppColors.greyBackground,
+              textColor: AppColors.text,
+              onPressed: onAddPlan,
             ),
           ),
         ),
@@ -293,8 +251,8 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
     );
   }
 
-  Widget _buildRefSectionHardcoded() {
-    final demo = widget.refItems;
+  Widget _buildRefSection(BuildContext context) {
+    final items = refItems;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -313,7 +271,7 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
               ),
               const SizedBox(height: 8),
               Text(
-                '자주 쓰는 카테고리를 모아둘 수 있습니다. (현재는 준비중)',
+                '자주 쓰는 카테고리를 모아둘 수 있습니다.',
                 style: AppTextStyles.subtext.copyWith(
                   color: AppColors.subText,
                   fontSize: 13,
@@ -323,49 +281,39 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
           ),
         ),
 
-        for (final r in demo)
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade200),
+        if (items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            child: Text(
+              '참고 카테고리가 없습니다.',
+              style: AppTextStyles.subtext.copyWith(color: AppColors.subText),
             ),
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: Text(r.emoji, style: const TextStyle(fontSize: 20)),
-              title: Text(r.name, style: AppTextStyles.paragraph),
-              trailing: Text(
-                '준비중',
-                style: AppTextStyles.subtext.copyWith(color: AppColors.subText),
-              ),
-              // 나중에 ref -> plan 이동 기능 생기면 여기서 요청 가능
-              onTap: () {
-                // 예: 특정 targetIndex로 옮기고 싶으면 0/끝 등으로 호출
-                // 지금은 “준비중”이므로 실제로는 안 쓰는 흐름
-              },
-            ),
+          )
+        else
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: items.length,
+            onReorder: (oldIndex, newIndex) {
+              final keys = items.map((e) => e.categoryKey).toList();
+              final newKeys = _reorderKeys(keys: keys, oldIndex: oldIndex, newIndex: newIndex);
+              onReorderRefByKeys(newKeys);
+            },
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return _refTile(context, item, index);
+            },
           ),
 
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Center(
-            child: OutlinedButton.icon(
-              onPressed: null,
-              icon: const Icon(Icons.add_circle_outline, size: 20),
-              label: const Text(
-                '추가 (준비중)',
-                style: TextStyle(
-                  fontFamily: 'Pretendard',
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary, width: 1.5),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
+            child: SmallRoundedButton(
+              text: '추가',
+              backgroundColor: AppColors.greyBackground,
+              textColor: AppColors.text,
+              onPressed: onAddRef,
             ),
           ),
         ),
@@ -377,9 +325,9 @@ class _CategoryEditListsWidgetState extends State<CategoryEditListsWidget> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _buildPlanSection(),
+        _buildPlanSection(context),
         const Divider(height: 1, thickness: 1),
-        _buildRefSectionHardcoded(),
+        _buildRefSection(context),
       ],
     );
   }

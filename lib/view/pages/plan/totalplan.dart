@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
+import 'package:provider/provider.dart';
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_celebration/sequential_chart_widget.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../model/plan/total_plan.dart';
+import '../../../view_model/communication/communication_view_model.dart';
+import '../communication/comm_widgets/date_detail_modal.dart';
 import '../../../model/plan/plan_metrics.dart';
 import '../../../model/plan/sub_plan.dart';
 import '../../../model/record/day_spending.dart';
@@ -246,6 +249,8 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     };
 
     // 최근 일지
+    // 최근 일지 (더미 데이터)
+
     _recentDiaries = [
       DaySpending(
         date: now.subtract(const Duration(days: 1)),
@@ -253,46 +258,98 @@ class _TotalPlanPageState extends State<TotalPlanPage>
         emotion: '좋음',
         comment: '오늘은 친구들과 맛있는 식사를 했다. 기분이 좋았다!',
         entries: [
-          SpendingEntry(id: '1', category: '식비', amount: 25000, note: '저녁 식사'),
-          SpendingEntry(id: '2', category: '카페', amount: 10000, note: '커피'),
+          SpendingEntry(
+            id: '1',
+            categoryKey: '식비', // ✅ 추가
+            category: '식비',
+            amount: 25000,
+            note: '저녁 식사',
+          ),
+          SpendingEntry(
+            id: '2',
+            categoryKey: '카페',
+            category: '카페',
+            amount: 10000,
+            note: '커피',
+          ),
         ],
       ),
+
       DaySpending(
         date: now.subtract(const Duration(days: 2)),
         totalAmount: 28000,
         emotion: '평온',
         comment: '평범하지만 만족스러운 하루였다.',
         entries: [
-          SpendingEntry(id: '3', category: '식비', amount: 15000, note: '점심'),
-          SpendingEntry(id: '4', category: '교통비', amount: 13000, note: '지하철'),
+          SpendingEntry(
+            id: '3',
+            categoryKey: '식비',
+            category: '식비',
+            amount: 15000,
+            note: '점심',
+          ),
+          SpendingEntry(
+            id: '4',
+            categoryKey: '교통비',
+            category: '교통비',
+            amount: 13000,
+            note: '지하철',
+          ),
         ],
       ),
+
       DaySpending(
         date: now.subtract(const Duration(days: 3)),
         totalAmount: 45000,
         emotion: '좋음',
         comment: '새로운 옷을 샀다. 스타일이 마음에 든다!',
         entries: [
-          SpendingEntry(id: '5', category: '쇼핑', amount: 45000, note: '옷 구매'),
+          SpendingEntry(
+            id: '5',
+            categoryKey: '쇼핑',
+            category: '쇼핑',
+            amount: 45000,
+            note: '옷 구매',
+          ),
         ],
       ),
+
       DaySpending(
         date: now.subtract(const Duration(days: 5)),
         totalAmount: 32000,
         emotion: '슬픔',
         comment: '오늘은 조금 우울했다. 하지만 내일은 더 나아질 거야.',
         entries: [
-          SpendingEntry(id: '6', category: '식비', amount: 20000, note: '저녁'),
-          SpendingEntry(id: '7', category: '여가', amount: 12000, note: '영화'),
+          SpendingEntry(
+            id: '6',
+            categoryKey: '식비',
+            category: '식비',
+            amount: 20000,
+            note: '저녁',
+          ),
+          SpendingEntry(
+            id: '7',
+            categoryKey: '여가',
+            category: '여가',
+            amount: 12000,
+            note: '영화',
+          ),
         ],
       ),
+
       DaySpending(
         date: now.subtract(const Duration(days: 7)),
         totalAmount: 25000,
         emotion: '평온',
         comment: '집에서 푹 쉬는 하루였다.',
         entries: [
-          SpendingEntry(id: '8', category: '식비', amount: 25000, note: '배달음식'),
+          SpendingEntry(
+            id: '8',
+            categoryKey: '식비',
+            category: '식비',
+            amount: 25000,
+            note: '배달음식',
+          ),
         ],
       ),
     ];
@@ -555,12 +612,12 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     final diaries = _recentDiaries
         .map(
           (d) => {
-            'date': d.date.toIso8601String(),
-            'totalAmount': d.totalAmount,
-            'emotion': d.emotion,
-            'comment': d.comment,
-          },
-        )
+        'date': d.date.toIso8601String(),
+        'totalAmount': d.totalAmount,
+        'emotion': d.emotion,
+        'comment': d.comment,
+      },
+    )
         .toList();
 
     return PastPlanSnapshot(
@@ -768,7 +825,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
       ..sort((a, b) => b.value.compareTo(a.value));
     final totalCount = _emotionCounts.values.fold(
       0,
-      (sum, count) => sum + count,
+          (sum, count) => sum + count,
     );
 
     return Container(
@@ -839,12 +896,12 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                   opacity: _emotionListController.value,
                   child: Column(
                     children: sortedEmotions.skip(3).toList().asMap().entries.map((
-                      entry,
-                    ) {
+                        entry,
+                        ) {
                       final index = entry.key + 4; // 4위부터
                       final emotionEntry = entry.value;
                       final percentage =
-                          (emotionEntry.value / totalCount * 100);
+                      (emotionEntry.value / totalCount * 100);
 
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
@@ -877,17 +934,17 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                                         fit: BoxFit.contain,
                                         errorBuilder:
                                             (context, error, stackTrace) {
-                                              return Text(
+                                          return Text(
+                                            emotionEntry.key,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: _getEmotionColor(
                                                 emotionEntry.key,
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: _getEmotionColor(
-                                                    emotionEntry.key,
-                                                  ),
-                                                ),
-                                              );
-                                            },
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
                                     ),
                                   ),
@@ -949,15 +1006,13 @@ class _TotalPlanPageState extends State<TotalPlanPage>
           ),
           if (_categorySpending.isNotEmpty) ...[
             const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
             // 포디움: 상위 3개 (제일 위에 배치)
             Builder(
               builder: (context) {
                 final sortedCategories =
-                    (_categorySpending.entries.toList()
-                          ..sort((a, b) => b.value.compareTo(a.value)))
-                        .toList();
+                (_categorySpending.entries.toList()
+                  ..sort((a, b) => b.value.compareTo(a.value)))
+                    .toList();
 
                 if (sortedCategories.length >= 3) {
                   return Column(
@@ -1025,50 +1080,50 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                                     .asMap()
                                     .entries
                                     .map((entry) {
-                                      final index = entry.key + 4; // 4위부터
-                                      final categoryEntry = entry.value;
+                                  final index = entry.key + 4; // 4위부터
+                                  final categoryEntry = entry.value;
 
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 16,
+                                  return Padding(
+                                    padding: const EdgeInsets.only(
+                                      bottom: 16,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 40,
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            '$index',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.subText,
+                                            ),
+                                          ),
                                         ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              width: 40,
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                '$index',
-                                                style: TextStyle(
-                                                  fontSize: 18,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppColors.subText,
-                                                ),
-                                              ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            categoryEntry.key,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppColors.text,
                                             ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Text(
-                                                categoryEntry.key,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: AppColors.text,
-                                                ),
-                                              ),
-                                            ),
-                                            Text(
-                                              '${_nf.format(categoryEntry.value.round())}원',
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                                color: AppColors.text,
-                                              ),
-                                            ),
-                                          ],
+                                          ),
                                         ),
-                                      );
-                                    })
+                                        Text(
+                                          '${_nf.format(categoryEntry.value.round())}원',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.text,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                })
                                     .toList(),
                               ),
                             );
@@ -1137,44 +1192,45 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     );
   }
 
-  // 최근 일지 기록 카드 (달력 형태)
+  // 최근 일지 기록 카드 (달력 형태) — 소통 페이지 달력·실제 기록 연동
   Widget _buildRecentDiariesCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: _getCardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '최근 일지',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: AppColors.text,
-            ),
+    return Consumer<CommunicationViewModel>(
+      builder: (context, vm, _) {
+        if (vm.selectedYear != _selectedYear ||
+            vm.selectedMonth != _selectedMonth) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            vm.loadMonth(DateTime(_selectedYear, _selectedMonth, 1));
+          });
+        }
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: _getCardDecoration(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '최근 일지',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.text,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildDiaryCalendar(vm),
+            ],
           ),
-          const SizedBox(height: 16),
-          _buildDiaryCalendar(),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // 달력 위젯
-  Widget _buildDiaryCalendar() {
+  // 달력 위젯 (소통 VM 연동: 실제 감정·소비 기록 표시, 날짜 탭 시 상세 모달)
+  Widget _buildDiaryCalendar(CommunicationViewModel vm) {
     final firstDayOfMonth = DateTime(_selectedYear, _selectedMonth, 1);
     final lastDayOfMonth = DateTime(_selectedYear, _selectedMonth + 1, 0);
     final firstWeekday = firstDayOfMonth.weekday;
     final daysInMonth = lastDayOfMonth.day;
-
-    // 날짜별 일지 매핑
-    final Map<int, DaySpending> diaryMap = {};
-    for (var diary in _recentDiaries) {
-      if (diary.date.year == _selectedYear &&
-          diary.date.month == _selectedMonth) {
-        diaryMap[diary.date.day] = diary;
-      }
-    }
 
     return Container(
       decoration: BoxDecoration(
@@ -1206,6 +1262,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                         _selectedMonth--;
                       }
                     });
+                    vm.loadMonth(DateTime(_selectedYear, _selectedMonth, 1));
                   },
                   child: Container(
                     padding: const EdgeInsets.all(4),
@@ -1236,6 +1293,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                         _selectedMonth++;
                       }
                     });
+                    vm.loadMonth(DateTime(_selectedYear, _selectedMonth, 1));
                   },
                   child: Container(
                     padding: const EdgeInsets.all(4),
@@ -1259,17 +1317,17 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                   children: ['일', '월', '화', '수', '목', '금', '토']
                       .map(
                         (day) => Expanded(
-                          child: Text(
-                            day,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: day == '일' ? Colors.red : Colors.black87,
-                            ),
-                          ),
+                      child: Text(
+                        day,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: day == '일' ? Colors.red : Colors.black87,
                         ),
-                      )
+                      ),
+                    ),
+                  )
                       .toList(),
                 ),
                 const SizedBox(height: 8),
@@ -1286,10 +1344,10 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 7,
-                              childAspectRatio: ratio,
-                            ),
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          childAspectRatio: ratio,
+                        ),
                         itemCount: 42,
                         itemBuilder: (context, index) {
                           final day = index - firstWeekday + 1;
@@ -1297,15 +1355,17 @@ class _TotalPlanPageState extends State<TotalPlanPage>
 
                           if (!isCurrentMonth) return const SizedBox();
 
-                          final diary = diaryMap[day];
-                          final hasEmotion = diary?.emotion.isNotEmpty ?? false;
+                          final hasEmotion = vm.hasEmotionRecord(day);
+                          final emoji = vm.emotionEmojiForDay(day);
 
                           return GestureDetector(
-                            onTap: diary != null
-                                ? () {
-                                    _showDiaryDetail(context, diary);
-                                  }
-                                : null,
+                            onTap: () {
+                              showDateDetailModal(
+                                context: context,
+                                vm: vm,
+                                day: day,
+                              );
+                            },
                             child: Container(
                               margin: const EdgeInsets.all(2),
                               decoration: BoxDecoration(
@@ -1315,16 +1375,15 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
-                                  // 감정 이모지 또는 날짜
-                                  if (hasEmotion && diary != null)
+                                  if (hasEmotion && emoji.isNotEmpty)
                                     Text(
-                                      _getEmotionEmoji(diary.emotion),
+                                      emoji,
                                       style: const TextStyle(
                                         fontSize: 20,
                                         height: 1.0,
                                       ),
                                     ),
-                                  if (!hasEmotion)
+                                  if (!hasEmotion || emoji.isEmpty)
                                     Text(
                                       '$day',
                                       textAlign: TextAlign.center,
@@ -1352,87 +1411,12 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   }
 
   // 감정 이모지 변환
-  String _getEmotionEmoji(String emotion) {
-    switch (emotion) {
-      case '좋음':
-        return '😊';
-      case '슬픔':
-        return '😢';
-      case '스트레스':
-        return '😰';
-      case '동기부여':
-        return '💪';
-      case '평온':
-        return '😌';
-      case '아무 감정 없음':
-        return '😐';
-      default:
-        return '😊';
-    }
-  }
-
-  // 일지 상세 정보 표시
-  void _showDiaryDetail(BuildContext context, DaySpending diary) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          DateFormat('yyyy년 MM월 dd일').format(diary.date),
-          style: const TextStyle(fontSize: 16),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (diary.emotion.isNotEmpty) ...[
-              Row(
-                children: [
-                  Text(
-                    _getEmotionEmoji(diary.emotion),
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    diary.emotion,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-            ],
-            if (diary.comment.isNotEmpty) ...[
-              Text(diary.comment, style: const TextStyle(fontSize: 14)),
-              const SizedBox(height: 12),
-            ],
-            if (diary.totalAmount != null && diary.totalAmount! > 0)
-              Text(
-                '소비: ${_nf.format(diary.totalAmount)}원',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('닫기'),
-          ),
-        ],
-      ),
-    );
-  }
-
   // 감정 포디움 아이템 빌더
   Widget _buildEmotionPodiumItem(
-    MapEntry<String, int> emotionEntry,
-    int rank,
-    int totalCount,
-  ) {
+      MapEntry<String, int> emotionEntry,
+      int rank,
+      int totalCount,
+      ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1482,9 +1466,9 @@ class _TotalPlanPageState extends State<TotalPlanPage>
 
   // 소비 카테고리 포디움 아이템 빌더
   Widget _buildCategoryPodiumItem(
-    MapEntry<String, double> categoryEntry,
-    int rank,
-  ) {
+      MapEntry<String, double> categoryEntry,
+      int rank,
+      ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -1620,19 +1604,19 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   String _lottiePathForEmotion(String emotion) {
     switch (emotion) {
       case '평온':
-        return 'assets/animations/평온.json';
+        return 'assets/animations/emotion_calm.json';
       case '좋음':
-        return 'assets/animations/좋음.json';
+        return 'assets/animations/emotion_good.json';
       case '슬픔':
-        return 'assets/animations/슬픔.json';
+        return 'assets/animations/emotion_sad.json';
       case '스트레스':
-        return 'assets/animations/스트레스.json';
+        return 'assets/animations/emotion_stress.json';
       case '동기부여':
-        return 'assets/animations/동기부여.json';
+        return 'assets/animations/emotion_motivation.json';
       case '아무 감정 없음':
-        return 'assets/animations/아무 감정 없음.json';
+        return 'assets/animations/emotion_none.json';
       default:
-        return 'assets/animations/평온.json'; // Fallback
+        return 'assets/animations/emotion_calm.json'; // Fallback
     }
   }
 }

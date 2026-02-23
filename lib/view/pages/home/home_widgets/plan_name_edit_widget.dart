@@ -15,7 +15,7 @@ Future<void> showPlanNameEditSheet(BuildContext context) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -73,9 +73,9 @@ class _PlanNameEditSheetBodyState extends State<_PlanNameEditSheetBody> {
 
     if (ok) {
       Navigator.pop(context); // 시트 닫기
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('플랜 이름이 변경되었어요!')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('플랜 이름이 변경되었어요!')));
     } else {
       // vm.error 활용
       final msg = vm.error ?? '이름 변경에 실패했어요. 잠시 후 다시 시도해주세요.';
@@ -106,7 +106,7 @@ class _PlanNameEditSheetBodyState extends State<_PlanNameEditSheetBody> {
               height: 4,
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: Colors.black12,
+                color: Theme.of(context).dividerColor,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),

@@ -1,10 +1,7 @@
-import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data_source/auth_data_source.dart';
 import '../model/auth/signup_info.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthRepository {
   final AuthDataSource _dataSource;
@@ -35,8 +32,8 @@ class AuthRepository {
     info.userID = user.uid;
 
     final data = {
-      ...info.toMap(),                 // 도메인 → Map
-      'id': info.email,                // 이메일 인덱스 필드 유지 시
+      ...info.toMap(), // 도메인 → Map
+      'id': info.email, // 이메일 인덱스 필드 유지 시
       'createdAt': FieldValue.serverTimestamp(),
     };
 
@@ -59,9 +56,44 @@ class AuthRepository {
   /// 현재 로그인 UID (필요시)
   String? get currentUserId => _dataSource.currentUser?.uid;
 
+  /// 현재 로그인 사용자 이메일 (설정 등 표시용)
+  String get currentUserEmail => _dataSource.currentUser?.email?.trim() ?? '';
+
+  /// Firestore에서 생년월일 조회
+  Future<String?> getBirthday() async {
+    final uid = currentUserId;
+    if (uid == null) return null;
+    try {
+      final doc = await _dataSource.getUserDoc(uid);
+      return doc.data()?['birthday'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 프로필 수정 (이름, 생년월일) - Firestore
+  Future<void> updateProfile({String? name, String? birthday}) async {
+    final uid = currentUserId;
+    if (uid == null) throw Exception('로그인이 필요합니다.');
+    final data = <String, dynamic>{};
+    if (name != null) data['name'] = name;
+    if (birthday != null) data['birthday'] = birthday;
+    if (data.isEmpty) return;
+    await _dataSource.setUserDoc(uid, data, merge: true);
+  }
+
+  /// 현재 비밀번호 확인 (재인증)
+  Future<void> verifyCurrentPassword(String password) async {
+    await _dataSource.verifyCurrentPassword(password);
+  }
+
+  /// 비밀번호 변경 (verifyCurrentPassword 성공 직후에만 호출)
+  Future<void> updatePasswordTo(String newPassword) async {
+    await _dataSource.updatePasswordTo(newPassword);
+  }
+
   /// 로그아웃
   Future<void> logout() async {
     await _dataSource.signOut();
   }
-
 }

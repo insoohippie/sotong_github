@@ -45,7 +45,7 @@ class _EditDailyLimitPageState extends State<EditDailyLimitPage> {
     final number = int.parse(numbers);
     return number.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
+          (Match m) => '${m[1]},',
     );
   }
 
@@ -57,6 +57,9 @@ class _EditDailyLimitPageState extends State<EditDailyLimitPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
         ),
         title: const Text(
           '플랜 수정',
@@ -125,9 +128,9 @@ class _EditDailyLimitPageState extends State<EditDailyLimitPage> {
                   child: ElevatedButton(
                     onPressed: _isValidInput
                         ? () {
-                            // 다음 페이지로 이동하는 로직 (마지막 페이지이므로 완료 처리)
-                            Navigator.pushNamed(context, '/home');
-                          }
+                      // 다음 페이지로 이동하는 로직 (마지막 페이지이므로 완료 처리)
+                      Navigator.pushNamed(context, '/home');
+                    }
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isValidInput

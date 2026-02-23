@@ -1,113 +1,38 @@
+// plan_category_sheet.dart
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
-
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 
-/// =======================
-///  CategoryPill (왼쪽 칩) - 프리셋 없음
-/// =======================
-class CategoryPill extends StatelessWidget {
-  final String text;
-  final String emoji;
-  final VoidCallback onTap;
-  final VoidCallback onClear;
-  final double height;
-
-  final bool highlight;
-  final Color highlightColor;
-
-  const CategoryPill({
-    super.key,
-    required this.text,
-    required this.emoji,
-    required this.onTap,
-    required this.onClear,
-    this.height = 60,
-    this.highlight = false,
-    this.highlightColor = const Color(0xFFFFF1F1),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final name = text.trim();
-    final hasValue = name.isNotEmpty;
-
-    final Color bgColor = (hasValue && highlight)
-        ? highlightColor
-        : (hasValue ? AppColors.lightBlue : AppColors.greyBackground);
-
-    final Color textColor = hasValue ? Colors.black : AppColors.subText;
-
-    final displayEmoji = (emoji.trim().isNotEmpty) ? emoji : '💰';
-
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onClear,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: height,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            if (!hasValue)
-              Icon(Icons.add, size: 18, color: AppColors.subText)
-            else
-              Text(displayEmoji, style: const TextStyle(fontSize: 16)),
-
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                hasValue ? name : '입력',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: textColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// =======================
-///  소비 이모지 리스트
-/// =======================
 final List<String> expenseEmojis = [
-  '💰','💸','💳','🏦','💵','💶','💷','💴','🪙','💎',
-  '🍕','🍔','🍟','🌭','🥪','🌮','🌯','🥙','🍱','🍜',
-  '☕','🥤','🧋','🍵','🍶','🍷','🍸','🍹','🍺','🍻',
-  '🛍️','🛒','💍','👕','👖','👗','👠','👟','🎒','👜',
-  '🎬','🎮','🎯','🎲','🎪','🎨','🎭','🎡','🎠',
-  '🚗','🚕','🚙','🚌','🚎','🏎️','🚓','🚑','🚒','🚐',
-  '✈️','🚁','🚀','🛸','🚢','⛵','🚤','🛥️','🚂',
-  '🏠','🏡','🏢','🏬','🏪','🏫','🏩','🏨','🏛️',
-  '💊','🏥','⚕️','🩺','💉','🧬','🦠','🧪','🧫','🧼',
-  '📱','💻','⌨️','🖥️','🖨️','📠','📞','☎️','📺','📻',
-  '🏋️','🤸','🧘','🏊','🚴','🏃','⚽','🏀','🏈','🎾',
-  '📚','✏️','📝','📋','📊','📈','📉','💼','🗂️','📁',
-  '🎁','🎂','🍰','🧁','🍭','🍬','🍫','🍩','🍪','🥧',
-  '🌱','🌿','🌾','🌻','🌺','🌸','🌼','🌷','🌹','🥀',
-  '🐕','🐈','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯',
+  // 음식
+  '🍕', '🍔', '🍟', '🌭', '🥪', '🌮', '🌯', '🥙', '🍱', '🍜',
+  '☕', '🥤', '🧋', '🍵', '🍶', '🍷', '🍸', '🍹', '🍺', '🍻',
+  '🎂', '🍰', '🧁', '🍭', '🍬', '🍫', '🍩', '🍪', '🥧',
+
+  // 취미·생활
+  '🎬', '🎮', '🎯', '🎲', '🎪', '🎨', '🎭', '🎡', '🎠',
+  '🛍️', '🛒', '💍', '👕', '👖', '👗', '👠', '👟', '🎒', '👜',
+  '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '✈️', '🚁', '🚀', '🛸',
+  '🚢', '⛵', '🚤', '🛥️', '🚂',
+  '🏋️', '🤸', '🧘', '🏊', '🚴', '🏃', '⚽', '🏀', '🏈', '🎾',
+  '📚', '✏️', '📝', '🎁',
+  '🌱', '🌿', '🌾', '🌻', '🌺', '🌸', '🌼', '🌷', '🌹', '🥀',
+  '🐕', '🐈', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+  '💊', '🏥', '⚕️', '🩺', '💉',
+  '📱', '💻', '⌨️', '🖥️', '📞', '📺', '📻',
+  '🚓', '🚑', '🚒', '🚐',
+
+  // 돈·부동산·투자
+  '💰', '💸', '💳', '🏦', '💵', '💶', '💷', '💴', '🪙', '💎',
+  '🏠', '🏡', '🏢', '🏬', '🏪', '🏫', '🏩', '🏨', '🏛️',
+  '📊', '📈', '📉', '💼', '🗂️', '📁', '📋',
+  '🖨️', '📠',
+  '🧬', '🦠', '🧪', '🧫', '🧼',
 ];
 
-/// =======================
-///  새 카테고리 선택 바텀시트
-///  - 프리셋/커스텀 구분 없음
-///  - 한 줄 4개
-///  - 추가 버튼으로 칩 생성
-/// =======================
-Future<void> openCategorySheet(
+Future<void> openPlanCategorySheet(
     BuildContext context,
     TextEditingController controller,
     void Function(String) onSelected, {
@@ -164,7 +89,7 @@ Future<void> openCategorySheet(
           }
 
           void exitEditModeAndNotify() {
-            if (onReorder != null) onReorder(localCategories);
+            onReorder?.call(localCategories);
             setModalState(() => isEditMode = false);
           }
 
@@ -197,8 +122,7 @@ Future<void> openCategorySheet(
             return LayoutBuilder(
               builder: (context, constraints) {
                 const double spacing = 8.0;
-                final double chipWidth =
-                    (constraints.maxWidth - spacing * 3) / 4;
+                final double chipWidth = (constraints.maxWidth - spacing * 3) / 4;
 
                 return Wrap(
                   spacing: spacing,
@@ -216,10 +140,7 @@ Future<void> openCategorySheet(
                         feedback: Material(
                           color: Colors.transparent,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                             decoration: BoxDecoration(
                               color: AppColors.primary,
                               borderRadius: BorderRadius.circular(16),
@@ -237,10 +158,7 @@ Future<void> openCategorySheet(
                         childWhenDragging: Opacity(
                           opacity: 0.3,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 6,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF3F4F6),
                               borderRadius: BorderRadius.circular(16),
@@ -264,7 +182,7 @@ Future<void> openCategorySheet(
                               isEditMode = true;
                             });
                           },
-                          builder: (context, candidateData, rejectedData) {
+                          builder: (context, _, __) {
                             return GestureDetector(
                               onTap: () {
                                 if (isEditMode) return;
@@ -273,9 +191,7 @@ Future<void> openCategorySheet(
                                 final current = (currentSelectedName ?? '').trim();
 
                                 final isDuplicate =
-                                    alreadySelectedNames.contains(picked) &&
-                                        picked != current;
-
+                                    alreadySelectedNames.contains(picked) && picked != current;
                                 if (isDuplicate) {
                                   showInlineError('이미 선택된 카테고리입니다.');
                                   return;
@@ -301,19 +217,12 @@ Future<void> openCategorySheet(
                               },
                               onLongPress: () => setModalState(() => isEditMode = true),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 6,
-                                ),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: selected
-                                      ? AppColors.primary
-                                      : const Color(0xFFF3F4F6),
+                                  color: selected ? AppColors.primary : const Color(0xFFF3F4F6),
                                   borderRadius: BorderRadius.circular(16),
                                   border: Border.all(
-                                    color: selected
-                                        ? AppColors.primary
-                                        : const Color(0xFFE5E7EB),
+                                    color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
                                   ),
                                 ),
                                 child: Row(
@@ -410,17 +319,14 @@ Future<void> openCategorySheet(
                                 GestureDetector(
                                   onTap: exitEditModeAndNotify,
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     margin: const EdgeInsets.only(right: 8),
                                     decoration: BoxDecoration(
                                       color: Colors.grey[200],
                                       borderRadius: BorderRadius.circular(999),
                                     ),
-                                    child: Row(
-                                      children: const [
+                                    child: const Row(
+                                      children: [
                                         Icon(Icons.check, size: 14),
                                         SizedBox(width: 4),
                                         Text('편집 완료', style: TextStyle(fontSize: 11)),
@@ -444,22 +350,16 @@ Future<void> openCategorySheet(
                                   width: 28,
                                   height: 28,
                                   decoration: BoxDecoration(
-                                    color: showAddForm
-                                        ? AppColors.primary
-                                        : const Color(0xFFF3F4F6),
+                                    color: showAddForm ? AppColors.primary : const Color(0xFFF3F4F6),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: showAddForm
-                                          ? AppColors.primary
-                                          : const Color(0xFFE5E7EB),
+                                      color: showAddForm ? AppColors.primary : const Color(0xFFE5E7EB),
                                     ),
                                   ),
                                   child: Icon(
                                     showAddForm ? Icons.close : Icons.add,
                                     size: 16,
-                                    color: showAddForm
-                                        ? Colors.white
-                                        : const Color(0xFF6B7280),
+                                    color: showAddForm ? Colors.white : const Color(0xFF6B7280),
                                   ),
                                 ),
                               ),
@@ -471,16 +371,11 @@ Future<void> openCategorySheet(
                       if (isEditMode) ...[
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppColors.primary.withOpacity(0.3),
-                            ),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
                           ),
                           child: Row(
                             children: [
@@ -489,10 +384,7 @@ Future<void> openCategorySheet(
                               const Expanded(
                                 child: Text(
                                   '편집 모드: 칩을 드래그해 순서를 바꾸거나 X 버튼으로 삭제할 수 있어요.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF1F2933),
-                                  ),
+                                  style: TextStyle(fontSize: 11, color: Color(0xFF1F2933)),
                                 ),
                               ),
                             ],
@@ -623,8 +515,7 @@ Future<void> openCategorySheet(
                                 return;
                               }
 
-                              final dupSelected =
-                                  alreadySelectedNames.contains(name) && name != current;
+                              final dupSelected = alreadySelectedNames.contains(name) && name != current;
                               if (dupSelected) {
                                 showInlineError('이미 선택된 카테고리입니다.');
                                 return;
@@ -648,9 +539,7 @@ Future<void> openCategorySheet(
                                 : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
                             child: const Text(
                               '추가',

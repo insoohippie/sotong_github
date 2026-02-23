@@ -8,7 +8,8 @@ import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../model/addIncome/income_entry.dart';
 import '../../../view_model/addIncome/add_income_view_model.dart';
-import '../plan/plan_widgets/plan_input_modal/category_utils.dart';
+import 'add_income_widgets/add_income_category_pill.dart';
+import 'add_income_widgets/add_income_category_sheet.dart';
 
 class AddIncomePage extends StatefulWidget {
   const AddIncomePage({super.key});
@@ -150,7 +151,7 @@ class _AddIncomePageState extends State<AddIncomePage> {
     final name = entry.category.trim();
     final emoji = name.isEmpty ? '💰' : (vm.categoryEmojis[name] ?? '💰');
 
-    return CategoryPill(
+    return AddIncomeCategoryPill(
       text: entry.category,
       emoji: emoji,
       onTap: () => _showCategorySheet(context, vm, index, entry),
@@ -228,7 +229,7 @@ class _AddIncomePageState extends State<AddIncomePage> {
         .where((name) => name.isNotEmpty)
         .toSet();
 
-    openCategorySheet(
+    openAddIncomeCategorySheet(
       context,
       categoryController,
           (value) {

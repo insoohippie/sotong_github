@@ -58,31 +58,41 @@ class CustomDualButton extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.only(left: 4),
-              height: height,
-              child: ElevatedButton(
-                onPressed: rightEnabled ? onRightPressed : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: rightEnabled
-                      ? AppColors.disabled
-                      : AppColors.disabled,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(double.infinity, 60),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            child: Builder(
+              builder: (context) {
+                final theme = Theme.of(context);
+                final isDark = theme.brightness == Brightness.dark;
+                final rightBg = isDark
+                    ? theme.colorScheme.surfaceContainerHighest
+                    : AppColors.disabled;
+                final rightFg = isDark
+                    ? theme.colorScheme.onSurface
+                    : Colors.black;
+                return Container(
+                  margin: const EdgeInsets.only(left: 4),
+                  height: height,
+                  child: ElevatedButton(
+                    onPressed: rightEnabled ? onRightPressed : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: rightBg,
+                      foregroundColor: rightFg,
+                      minimumSize: const Size(double.infinity, 60),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: ParagraphText(
+                      text: rightLabel,
+                      color: rightFg,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  textStyle: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                child: ParagraphText(
-                  text: rightLabel,
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+                );
+              },
             ),
           ),
         ],

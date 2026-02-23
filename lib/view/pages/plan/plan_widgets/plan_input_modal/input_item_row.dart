@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/model/refData/entry.dart';
-
-import 'category_utils.dart'; // openCategorySheet / CategoryPill
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/plan_category_pill.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/plan_category_sheet.dart';
 
 enum ItemKind { daily, income, fixed }
 
@@ -219,12 +219,12 @@ class InputItemRow extends StatelessWidget {
     final bool hasInput = selectedName.isNotEmpty ||
         (double.tryParse(_un(amountController.text)) ?? 0.0) > 0.0;
 
-    return CategoryPill(
+    return PlanCategoryPill(
       text: categoryController.text,
       emoji: selectedEmoji,
       onTap: () {
         debugPrint('[CategorySheet] kind=$kind categories=${allNames.length} ${allNames.take(10).toList()}');
-        openCategorySheet(
+        openPlanCategorySheet(
           context,
           categoryController,
               (val) => onUpdate(item.idx, 'category', val),

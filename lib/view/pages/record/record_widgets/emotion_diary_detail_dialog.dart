@@ -14,6 +14,25 @@ class EmotionDiaryDetailDialog extends StatelessWidget {
     required this.selectedDate,
   });
 
+  static String _lottiePathForEmotion(String emotion) {
+    switch (emotion) {
+      case '평온':
+        return 'assets/animations/emotion_calm.json';
+      case '좋음':
+        return 'assets/animations/emotion_good.json';
+      case '슬픔':
+        return 'assets/animations/emotion_sad.json';
+      case '스트레스':
+        return 'assets/animations/emotion_stress.json';
+      case '동기부여':
+        return 'assets/animations/emotion_motivation.json';
+      case '아무 감정 없음':
+        return 'assets/animations/emotion_none.json';
+      default:
+        return 'assets/animations/emotion_calm.json';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -42,12 +61,12 @@ class EmotionDiaryDetailDialog extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // 감정 애니메이션
+            // 감정 애니메이션 (영문 파일명 사용)
             Container(
               width: 80,
               height: 80,
               child: Lottie.asset(
-                'assets/animations/${diary.emotionAnimation}',
+                _lottiePathForEmotion(diary.emotion),
                 fit: BoxFit.contain,
               ),
             ),

@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/theme/app_colors.dart';
 
-import '../../../view_model/category/category_edit_view_model.dart';
+import '../../../model/category/ref_category_item.dart';
 import '../../../model/category/category_edit_item.dart';
+import '../../../view_model/category/category_edit_view_model.dart';
 
-import 'category_widgets/category_date_selector.dart';
 import 'category_widgets/category_lists_section.dart';
 import 'category_widgets/category_name_modal.dart';
 import 'category_widgets/category_amount_modal.dart';
-
-enum _UnsavedAction { save, discard, cancel }
 
 class CategoryEditPage extends StatefulWidget {
   const CategoryEditPage({super.key});
@@ -20,31 +19,86 @@ class CategoryEditPage extends StatefulWidget {
   State<CategoryEditPage> createState() => _CategoryEditPageState();
 }
 
-class _CategoryEditPageState extends State<CategoryEditPage> {
-  bool _showDateModal = false;
-  bool _showNameModal = false;
-  bool _showAmountModal = false;
+class _CategoryEditPageState extends State<CategoryEditPage>
+    with TickerProviderStateMixin {
+  // ========= UI flags =========
+  bool _showNameSheet = false;
+  bool _showAmountSheet = false;
 
+  // ========= Name sheet controller =========
+  late final AnimationController _nameSheetCtrl;
+  late final Animation<Offset> _nameSheetSlide;
+  late final Animation<double> _nameScrimFade;
+
+  // ========= Amount sheet controller =========
+  late final AnimationController _amountSheetCtrl;
+  late final Animation<Offset> _amountSheetSlide;
+  late final Animation<double> _amountScrimFade;
+
+  // ========= Editing state =========
   String? _editingCategoryId;
   String? _editingCategoryName;
   String? _editingCategoryEmoji;
-  bool _editingIsPlan = false;
+  bool _editingIsPlan = false; // plan vs ref
+  int _editingAmount = 1;
 
-  int _editingAmount = 0;
-
-  // ✅ ref 기능 미구현(현재 UI 연결만 유지)
+  // ✅ (ref->plan move은 지금 미구현이라 남겨만 둠)
   CategoryEditItem? _pendingMoveRefItem;
   int? _pendingMoveTargetIndex;
 
   @override
   void initState() {
     super.initState();
+
+    // name sheet anim
+    _nameSheetCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+      reverseDuration: const Duration(milliseconds: 260),
+    );
+    _nameSheetSlide = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _nameSheetCtrl, curve: Curves.easeOut));
+    _nameScrimFade = CurvedAnimation(
+      parent: _nameSheetCtrl,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    );
+
+    // amount sheet anim
+    _amountSheetCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+      reverseDuration: const Duration(milliseconds: 260),
+    );
+    _amountSheetSlide = Tween<Offset>(
+      begin: const Offset(0, 1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _amountSheetCtrl, curve: Curves.easeOut));
+    _amountScrimFade = CurvedAnimation(
+      parent: _amountSheetCtrl,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CategoryEditViewModel>().loadForSelectedDate();
+      context.read<CategoryEditViewModel>().initOnce();
     });
   }
 
-  Future<void> _save(CategoryEditViewModel vm, {bool popOnSuccess = true}) async {
+  @override
+  void dispose() {
+    _nameSheetCtrl.dispose();
+    _amountSheetCtrl.dispose();
+    super.dispose();
+  }
+
+  // =========================================================
+  // 저장
+  // =========================================================
+  Future<void> _save(
+      CategoryEditViewModel vm, {
+        bool popOnSuccess = true,
+      }) async {
     final ok = await vm.saveDraftForSelectedDate();
     if (!mounted) return;
 
@@ -84,9 +138,9 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: Row(
+              child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
+                children: [
                   Icon(Icons.save, color: Colors.white),
                   SizedBox(width: 8),
                   Text(
@@ -107,202 +161,307 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
     );
   }
 
-  Future<_UnsavedAction?> _showUnsavedDialog() {
-    return showDialog<_UnsavedAction>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        title: const Text('저장되지 않은 변경이 있어요'),
-        content: const Text(
-          '날짜를 이동하면 현재 변경사항이 사라질 수 있어요.\n어떻게 할까요?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, _UnsavedAction.cancel),
-            child: const Text('취소'),
+  // =========================================================
+  // ✅ 시트 안전 처리: 동시에 안 열리게
+  // =========================================================
+  Future<void> _closeNameSheet({bool setFalse = true}) async {
+    if (!_showNameSheet) return;
+    await _nameSheetCtrl.reverse();
+    if (!mounted) return;
+    if (setFalse) setState(() => _showNameSheet = false);
+  }
+
+  Future<void> _closeAmountSheet({bool setFalse = true}) async {
+    if (!_showAmountSheet) return;
+    await _amountSheetCtrl.reverse();
+    if (!mounted) return;
+    if (setFalse) setState(() => _showAmountSheet = false);
+  }
+
+  Future<void> _openNameSheet() async {
+    // ✅ amount가 열려있으면 닫고 열기 (동시 오픈 방지)
+    if (_showAmountSheet) {
+      await _closeAmountSheet(setFalse: true);
+    }
+    if (!mounted) return;
+
+    setState(() => _showNameSheet = true);
+    _nameSheetCtrl.forward(from: 0);
+  }
+
+  Future<void> _openAmountSheet() async {
+    // ✅ name이 열려있으면 닫고 열기 (동시 오픈 방지)
+    if (_showNameSheet) {
+      await _closeNameSheet(setFalse: true);
+    }
+    if (!mounted) return;
+
+    setState(() => _showAmountSheet = true);
+    _amountSheetCtrl.forward(from: 0);
+  }
+
+  // =========================================================
+  // 이름/이모지 시트 열기 (추가/수정)
+  // =========================================================
+  void _openNameForAdd({required bool isPlan}) {
+    _editingCategoryId = null;
+    _editingCategoryName = null;
+    _editingCategoryEmoji = '💰';
+    _editingIsPlan = isPlan;
+    _editingAmount = 1;
+
+    _pendingMoveRefItem = null;
+    _pendingMoveTargetIndex = null;
+
+    _openNameSheet();
+  }
+
+  void _openNameForEditPlan(CategoryEditItem item) {
+    _editingCategoryId = item.categoryKey;
+    _editingCategoryName = item.name;
+    _editingCategoryEmoji = item.emoji;
+    _editingIsPlan = true;
+    _editingAmount = item.dailyAmount ?? 1;
+
+    _pendingMoveRefItem = null;
+    _pendingMoveTargetIndex = null;
+
+    _openNameSheet();
+  }
+
+  void _openNameForEditRef(RefCategoryItem item) {
+    _editingCategoryId = item.categoryKey;
+    _editingCategoryName = item.name;
+    _editingCategoryEmoji = item.emoji;
+    _editingIsPlan = false;
+    _editingAmount = 1;
+
+    _pendingMoveRefItem = null;
+    _pendingMoveTargetIndex = null;
+
+    _openNameSheet();
+  }
+
+  // =========================================================
+  // 이름/이모지 완료
+  // - ✅ Plan 신규 추가: 이름/이모지 받고 -> 금액 시트 띄움
+  // - ✅ Plan 수정: 이름/이모지 업데이트만
+  // - ✅ Ref 신규/수정: 금액 없음
+  // =========================================================
+  void _onNameComplete(
+      CategoryEditViewModel vm, {
+        required String name,
+        required String emoji,
+      }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    // 시트 닫기
+    await _closeNameSheet(setFalse: true);
+    if (!mounted) return;
+
+    // ✅ 신규 추가
+    if (_editingCategoryId == null) {
+      // ✅ Plan 신규: 금액 시트로 이어서
+      if (_editingIsPlan) {
+        final newKey = 'cat_${DateTime.now().millisecondsSinceEpoch}';
+        _editingCategoryId = newKey;
+        _editingCategoryName = trimmed;
+        _editingCategoryEmoji = emoji;
+        _editingAmount = 1;
+
+        // ✅ 금액 시트 오픈
+        await _openAmountSheet();
+        return;
+      }
+
+      // ✅ Ref 신규: 바로 draft 반영 (금액 없음)
+      vm.draftAddRef(name: trimmed, emoji: emoji);
+      _clearEditingState();
+      return;
+    }
+
+    // ✅ 기존 수정
+    if (_editingIsPlan) {
+      vm.draftUpdateMeta(
+        categoryKey: _editingCategoryId!,
+        name: trimmed,
+        emoji: emoji,
+      );
+    } else {
+      vm.draftUpdateRefMeta(
+        categoryKey: _editingCategoryId!,
+        name: trimmed,
+        emoji: emoji,
+      );
+    }
+
+    _clearEditingState();
+  }
+
+  // =========================================================
+  // 금액 시트 열기/완료
+  // =========================================================
+  void _openAmountForEdit(CategoryEditItem item) {
+    _editingCategoryId = item.categoryKey;
+    _editingCategoryName = item.name;
+    _editingCategoryEmoji = item.emoji;
+    _editingIsPlan = true;
+    _editingAmount = item.dailyAmount ?? 1;
+
+    _pendingMoveRefItem = null;
+    _pendingMoveTargetIndex = null;
+
+    _openAmountSheet();
+  }
+
+  void _onAmountComplete(CategoryEditViewModel vm, int amount) async {
+    if (amount < 1) return;
+
+    await _closeAmountSheet(setFalse: true);
+    if (!mounted) return;
+
+    // ✅ ref->plan move 미구현 (지금 호출될 일 없음)
+    if (_pendingMoveRefItem != null && _pendingMoveTargetIndex != null) {
+      _pendingMoveRefItem = null;
+      _pendingMoveTargetIndex = null;
+      _clearEditingState();
+      return;
+    }
+
+    final id = _editingCategoryId;
+    final name = _editingCategoryName;
+    final emoji = (_editingCategoryEmoji ?? '💰');
+
+    // ✅ Plan 신규 추가(이름 시트에서 newKey 세팅 후 들어오는 케이스)
+    if (id != null && name != null && _editingIsPlan) {
+      // 신규인지/수정인지 구분: draft에 이미 있으면 update, 없으면 add
+      final exists = vm.draftPlan.any((e) => e.categoryKey == id);
+
+      if (!exists) {
+        vm.draftAddCategory(
+          isPlan: true,
+          categoryKey: id,
+          name: name,
+          emoji: emoji,
+          dailyAmount: amount,
+        );
+      } else {
+        vm.draftUpdateDailyAmount(
+          categoryKey: id,
+          dailyAmount: amount,
+        );
+      }
+
+      _clearEditingState();
+      return;
+    }
+
+    // ✅ 기존 plan 금액 수정
+    if (id != null) {
+      vm.draftUpdateDailyAmount(
+        categoryKey: id,
+        dailyAmount: amount,
+      );
+    }
+
+    _clearEditingState();
+  }
+
+  void _clearEditingState() {
+    _editingCategoryId = null;
+    _editingCategoryName = null;
+    _editingCategoryEmoji = null;
+    _editingIsPlan = false;
+    _editingAmount = 1;
+    _pendingMoveRefItem = null;
+    _pendingMoveTargetIndex = null;
+  }
+
+  // =========================================================
+  // Overlay builders
+  // =========================================================
+  Widget _buildNameSheetOverlay(CategoryEditViewModel vm) {
+    final isEditMode = _editingCategoryId != null;
+
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          // scrim
+          FadeTransition(
+            opacity: _nameScrimFade,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _closeNameSheet,
+              child: Container(color: Colors.black54),
+            ),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, _UnsavedAction.discard),
-            child: const Text('버리기'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, _UnsavedAction.save),
-            child: const Text('저장'),
+
+          // sheet
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SlideTransition(
+              position: _nameSheetSlide,
+              child: CategoryNameModal(
+                // ✅ 네 프로젝트에서 isOpen 제거해도 됨. 대신 isEditMode는 넘겨줘야 함.
+                isEditMode: isEditMode,
+                initialName: _editingCategoryName,
+                initialEmoji: _editingCategoryEmoji,
+                onClose: _closeNameSheet,
+                onComplete: (name, emoji) {
+                  _onNameComplete(vm, name: name, emoji: emoji);
+                },
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _tryChangeDate(CategoryEditViewModel vm, DateTime nextDate) async {
-    if (!vm.hasUnsavedChanges) {
-      await vm.setSelectedDate(nextDate);
-      return;
-    }
+  Widget _buildAmountSheetOverlay(CategoryEditViewModel vm) {
+    return Positioned.fill(
+      child: Stack(
+        children: [
+          // scrim
+          FadeTransition(
+            opacity: _amountScrimFade,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _closeAmountSheet,
+              child: Container(color: Colors.black54),
+            ),
+          ),
 
-    final action = await _showUnsavedDialog();
-    if (!mounted) return;
-
-    if (action == null || action == _UnsavedAction.cancel) return;
-
-    if (action == _UnsavedAction.save) {
-      final ok = await vm.saveDraftForSelectedDate();
-      if (!mounted) return;
-
-      if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(vm.error ?? '저장에 실패했습니다.')),
-        );
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('카테고리가 저장되었습니다.')),
-      );
-
-      await vm.setSelectedDate(nextDate);
-      return;
-    }
-
-    if (action == _UnsavedAction.discard) {
-      await vm.loadForSelectedDate();
-      await vm.setSelectedDate(nextDate);
-      return;
-    }
-  }
-
-  void _openNameModalForAdd({required bool isPlan}) {
-    setState(() {
-      _editingCategoryId = null;
-      _editingCategoryName = null;
-      _editingCategoryEmoji = '💰';
-      _editingIsPlan = isPlan;
-      _showNameModal = true;
-    });
-  }
-
-  void _openNameModalForEdit(CategoryEditItem item, bool isPlan) {
-    setState(() {
-      _editingCategoryId = item.categoryKey;
-      _editingCategoryName = item.name;
-      _editingCategoryEmoji = item.emoji;
-      _editingIsPlan = isPlan;
-      _showNameModal = true;
-    });
-  }
-
-  void _onNameModalComplete(
-      CategoryEditViewModel vm, {
-        required String name,
-        required String emoji,
-      }) {
-    final trimmed = name.trim();
-    if (trimmed.isEmpty) return;
-
-    setState(() => _showNameModal = false);
-
-    if (_editingCategoryId == null) {
-      final newId = 'cat_${DateTime.now().millisecondsSinceEpoch}';
-
-      if (_editingIsPlan) {
-        setState(() {
-          _editingCategoryId = newId;
-          _editingCategoryName = trimmed;
-          _editingCategoryEmoji = emoji;
-          _editingAmount = 1; // ✅ 최소 1
-          _showAmountModal = true;
-        });
-        return;
-      } else {
-        // ref 미구현 (현재는 무시)
-        return;
-      }
-    }
-
-    vm.draftUpdateMeta(
-      categoryId: _editingCategoryId!,
-      name: trimmed,
-      emoji: emoji,
+          // sheet
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: SlideTransition(
+              position: _amountSheetSlide,
+              child: CategoryAmountModal(
+                initialAmount: _editingAmount,
+                onClose: _closeAmountSheet,
+                onComplete: (amount) {
+                  _onAmountComplete(vm, amount);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  void _openAmountModalForEdit(CategoryEditItem item) {
-    setState(() {
-      _editingCategoryId = item.categoryKey;
-      _editingAmount = item.dailyAmount ?? 1;
-      _showAmountModal = true;
-
-      _pendingMoveRefItem = null;
-      _pendingMoveTargetIndex = null;
-    });
-  }
-
-  void _openAmountModalForMoveRefToPlan(CategoryEditItem item, int targetIndex) {
-    // ref 미구현(호출될 일 없음) — 남겨만 둠
-    setState(() {
-      _pendingMoveRefItem = item;
-      _pendingMoveTargetIndex = targetIndex;
-      _editingAmount = 1;
-      _showAmountModal = true;
-    });
-  }
-
-  void _onAmountModalComplete(CategoryEditViewModel vm, int amount) {
-    if (amount < 1) return;
-
-    setState(() => _showAmountModal = false);
-
-    if (_pendingMoveRefItem != null && _pendingMoveTargetIndex != null) {
-      // ref 미구현(호출될 일 없음)
-      _pendingMoveRefItem = null;
-      _pendingMoveTargetIndex = null;
-      return;
-    }
-
-    final id = _editingCategoryId;
-    final name = _editingCategoryName;
-    final emoji = _editingCategoryEmoji ?? '💰';
-
-    if (id != null && name != null && _editingIsPlan) {
-      vm.draftAddCategory(
-        isPlan: true,
-        categoryId: id,
-        name: name,
-        emoji: emoji,
-        dailyAmount: amount,
-      );
-
-      _editingCategoryId = null;
-      _editingCategoryName = null;
-      _editingCategoryEmoji = null;
-      _editingIsPlan = false;
-      return;
-    }
-
-    if (id != null) {
-      vm.draftUpdateDailyAmount(
-        categoryId: id,
-        dailyAmount: amount,
-      );
-    }
-  }
-
+  // =========================================================
+  // UI
+  // =========================================================
   @override
   Widget build(BuildContext context) {
     return Consumer<CategoryEditViewModel>(
       builder: (context, vm, _) {
         return Scaffold(
           backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.black),
-              onPressed: () => Navigator.pop(context),
-            ),
-            title: const SizedBox.shrink(),
-            centerTitle: false,
-          ),
+          appBar: const BackOnlyAppBar(),
           body: Stack(
             children: [
               Column(
@@ -310,76 +469,34 @@ class _CategoryEditPageState extends State<CategoryEditPage> {
                   Expanded(
                     child: SingleChildScrollView(
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          CategoryDateSelector(
-                            date: vm.selectedDate,
-                            onPrev: () => _tryChangeDate(
-                              vm,
-                              vm.selectedDate.subtract(const Duration(days: 1)),
-                            ),
-                            onNext: () => _tryChangeDate(
-                              vm,
-                              vm.selectedDate.add(const Duration(days: 1)),
-                            ),
-                            onTapDate: () => setState(() => _showDateModal = true),
-                          ),
-
                           CategoryListsSection(
                             vm: vm,
-                            onTapEditName: (CategoryEditItem item, bool isPlan) {
-                              _openNameModalForEdit(item, isPlan);
-                            },
-                            onTapEditAmount: (CategoryEditItem item) {
-                              _openAmountModalForEdit(item);
-                            },
-                            onMoveRefToPlanRequested: (CategoryEditItem item, int targetIndex) {
-                              _openAmountModalForMoveRefToPlan(item, targetIndex);
-                            },
-                            onAddPlan: () => _openNameModalForAdd(isPlan: true),
-                            onAddRef: () => _openNameModalForAdd(isPlan: false),
+                            onTapEditNamePlan: (item) =>
+                                _openNameForEditPlan(item),
+                            onTapEditAmountPlan: (item) =>
+                                _openAmountForEdit(item),
+                            onTapEditNameRef: (refItem) =>
+                                _openNameForEditRef(refItem),
+                            onAddPlan: () => _openNameForAdd(isPlan: true),
+                            onAddRef: () => _openNameForAdd(isPlan: false),
                           ),
-
                           const SizedBox(height: 80),
                         ],
                       ),
                     ),
                   ),
-
                   _buildBottomSection(vm),
                 ],
               ),
 
-              if (_showDateModal)
-                CategoryDatePickerModal(
-                  isOpen: _showDateModal,
-                  initialDate: vm.selectedDate,
-                  onClose: () => setState(() => _showDateModal = false),
-                  onDateSelected: (date) async {
-                    setState(() => _showDateModal = false);
-                    await _tryChangeDate(vm, date);
-                  },
-                ),
+              // ✅ Name sheet overlay (애니메이션 + scrim)
+              if (_showNameSheet) _buildNameSheetOverlay(vm),
 
-              if (_showNameModal)
-                CategoryNameModal(
-                  isOpen: _showNameModal,
-                  initialName: _editingCategoryName,
-                  initialEmoji: _editingCategoryEmoji,
-                  onClose: () => setState(() => _showNameModal = false),
-                  onComplete: (name, emoji) {
-                    _onNameModalComplete(vm, name: name, emoji: emoji);
-                  },
-                ),
-
-              if (_showAmountModal)
-                CategoryAmountModal(
-                  isOpen: _showAmountModal,
-                  initialAmount: _editingAmount,
-                  onClose: () => setState(() => _showAmountModal = false),
-                  onComplete: (amount) {
-                    _onAmountModalComplete(vm, amount);
-                  },
-                ),
+              // ✅ Amount sheet overlay (애니메이션 + scrim)
+              if (_showAmountSheet) _buildAmountSheetOverlay(vm),
             ],
           ),
         );

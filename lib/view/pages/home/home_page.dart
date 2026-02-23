@@ -29,7 +29,6 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-
   // 소비 입력 컨테이너에서 날짜 관련 함수
   DateTime _selectedDate = DateTime.now(); // 오늘 날짜
 
@@ -77,27 +76,28 @@ class _HomePageState extends State<HomePage> {
     final displayDate = _formatDate(_selectedDate);
     final actualSpent = vm.todaySpending.toDouble();
     final todaySpending = '${vm.todaySpending}원';
-    final dailyLimit = double.tryParse(
-      fixedSpending.replaceAll(RegExp(r'[^0-9]'), ''),
-    ) ?? 0.0;
+    final dailyLimit =
+        double.tryParse(fixedSpending.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
 
     final hasRecord = actualSpent > 0;
     final isOverLimit = hasRecord && dailyLimit > 0 && actualSpent > dailyLimit;
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final containerBackgroundColor = !hasRecord
-        ? Colors.grey[200]!
+        ? (isDark ? theme.colorScheme.surface : Colors.grey[200]!)
         : isOverLimit
-        ? const Color(0xFFFFEFEF)
-        : const Color(0xFFEFF5FF);
+        ? (isDark ? const Color(0xFF3D2020) : const Color(0xFFFFEFEF))
+        : (isDark ? theme.colorScheme.surface : const Color(0xFFEFF5FF));
 
     final spentTextColor = !hasRecord
-        ? AppColors.text
+        ? theme.colorScheme.onSurface
         : isOverLimit
         ? const Color(0xFFFF5F5F)
-        : const Color(0xFF0062FF);
+        : AppColors.primary;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -115,12 +115,13 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.screenPadding,
+                  ),
                   child: Column(
                     children: [
                       RoundedInfoContainer(
-                        backgroundColor: Colors.white,
+                        backgroundColor: theme.colorScheme.surface,
                         padding: 12,
                         child: Column(
                           children: [
@@ -130,7 +131,10 @@ class _HomePageState extends State<HomePage> {
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: AppColors.planTagBackground,
                                         borderRadius: BorderRadius.circular(8),
@@ -143,7 +147,8 @@ class _HomePageState extends State<HomePage> {
                                     ),
                                     const SizedBox(width: 8),
                                     InkWell(
-                                      onTap: () async => await showPlanNameEditSheet(context),
+                                      onTap: () async =>
+                                      await showPlanNameEditSheet(context),
                                       child: const Icon(
                                         Icons.edit,
                                         size: 20,
@@ -154,7 +159,6 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ],
                             ),
-
 
                             const SizedBox(height: 24),
 
@@ -180,8 +184,9 @@ class _HomePageState extends State<HomePage> {
                         backgroundColor: containerBackgroundColor,
                         padding: 20,
                         child: Column(
-                          crossAxisAlignment:
-                          hasRecord ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+                          crossAxisAlignment: hasRecord
+                              ? CrossAxisAlignment.start
+                              : CrossAxisAlignment.center,
                           children: [
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -189,17 +194,26 @@ class _HomePageState extends State<HomePage> {
                                 ParagraphText(
                                   text: displayDate,
                                   fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                                 Row(
                                   children: [
                                     InkWell(
                                       onTap: () => _changeDate(-1),
-                                      child: const Icon(Icons.chevron_left),
+                                      child: Icon(
+                                        Icons.chevron_left,
+                                        color:
+                                        theme.colorScheme.onSurfaceVariant,
+                                      ),
                                     ),
                                     const SizedBox(width: 4),
                                     InkWell(
                                       onTap: () => _changeDate(1),
-                                      child: const Icon(Icons.chevron_right),
+                                      child: Icon(
+                                        Icons.chevron_right,
+                                        color:
+                                        theme.colorScheme.onSurfaceVariant,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -211,7 +225,10 @@ class _HomePageState extends State<HomePage> {
                               SmallRoundedButton(
                                 text: "소비 기록하러 가기",
                                 onPressed: () {
-                                  Navigator.of(context, rootNavigator: true).pushNamed(
+                                  Navigator.of(
+                                    context,
+                                    rootNavigator: true,
+                                  ).pushNamed(
                                     '/record_spending',
                                     arguments: _selectedDate,
                                   );
@@ -220,7 +237,10 @@ class _HomePageState extends State<HomePage> {
                             else
                               InkWell(
                                 onTap: () {
-                                  Navigator.of(context, rootNavigator: true).pushNamed(
+                                  Navigator.of(
+                                    context,
+                                    rootNavigator: true,
+                                  ).pushNamed(
                                     '/today_spending',
                                     arguments: _selectedDate,
                                   );
@@ -234,14 +254,17 @@ class _HomePageState extends State<HomePage> {
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    const Text(' / ',
-                                        style: TextStyle(
-                                            color: AppColors.text,
-                                            fontWeight: FontWeight.bold)),
+                                    Text(
+                                      ' / ',
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onSurface,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
                                     Text(
                                       fixedSpending,
-                                      style: const TextStyle(
-                                        color: AppColors.text,
+                                      style: TextStyle(
+                                        color: theme.colorScheme.onSurface,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
@@ -287,5 +310,3 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
-
-

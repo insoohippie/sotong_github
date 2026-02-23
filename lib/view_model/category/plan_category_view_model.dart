@@ -3,7 +3,7 @@
 
 import 'package:flutter/foundation.dart';
 
-class LocalCategoryViewModel extends ChangeNotifier {
+class PlanCategoryViewModel extends ChangeNotifier {
   // =========================
   // ✅ 기본 카테고리(항상 존재해야 함)
   // =========================
