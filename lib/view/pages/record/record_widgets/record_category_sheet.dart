@@ -8,8 +8,6 @@ import 'package:sotong_local/component/inputs/custom_text_field.dart';
 import '../../../../model/category/category_edit_item.dart';
 import '../../../../model/category/ref_category_item.dart';
 
-// ✅ 너가 둔 위치에 맞춰 import 경로 조정해줘
-// 예) record/record_widgets/drag_grid.dart 라면 그 경로로 바꾸기
 import '../../../../view_model/category/spending_category_view_model.dart';
 import 'drag_grid.dart';
 
@@ -57,7 +55,7 @@ final List<String> recordExpenseEmojis = [
 
 Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
     BuildContext context, {
-      required List<CategoryEditItem> planItems,
+      required List<CategoryEditItem> planItems, // ✅ (호출부 호환 유지) - 시트 내부에선 live vm.planItems 사용
       required List<RefCategoryItem> refItems,
       Future<RefCategoryItem?> Function(String name, String emoji)? onAddRef,
       void Function(String categoryKey)? onRemoveRef,
@@ -65,8 +63,14 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
       String? selectedName,
       String? selectedKey,
     }) async {
-  // ✅ ref는 모달 안에서만 로컬로 바꾸고, 저장은 콜백으로
-  var localRef = List<RefCategoryItem>.from(refItems);
+  // ✅ ref: "저장된 상태" 기준 스냅샷(편집 완료 눌러야만 커밋)
+  var committedRef = List<RefCategoryItem>.from(refItems);
+
+  // ✅ ref: 모달 내부에서만 변경되는 draft
+  var localRef = List<RefCategoryItem>.from(committedRef);
+
+  // ✅ ref 삭제도 편집 완료 때만 저장되도록 큐에 담기
+  final pendingRemoveKeys = <String>{};
 
   bool isPlanTab = true;
   bool editMode = false;
@@ -79,7 +83,6 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
 
   RecordCategoryPick? result;
 
-
   await showModalBottomSheet(
     context: context,
     isScrollControlled: true,
@@ -90,10 +93,14 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
     builder: (ctx) {
       return StatefulBuilder(
         builder: (context, setModalState) {
+          // ✅ live vm (plan/ref 모두 여기서 바로 반영되게)
+          final vm = ctx.watch<SpendingCategoryViewModel>();
+          final planItemsLive = vm.planItems;
+          final refItemsLive = vm.refItems;
+
           // -------------------------
           // helpers
           // -------------------------
-
           void showSheetToast(String message) {
             final overlay = Overlay.of(ctx, rootOverlay: true);
             if (overlay == null) return;
@@ -102,7 +109,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
               builder: (_) => Positioned(
                 left: 16,
                 right: 16,
-                bottom: 140, // ✅ 시트 위로 살짝 띄우기 (필요하면 120~180 조절)
+                bottom: 140,
                 child: IgnorePointer(
                   child: Material(
                     color: Colors.transparent,
@@ -133,15 +140,9 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
             });
           }
 
-          void saveRefOrderIfNeeded() {
-            if (!isPlanTab && onReorderRef != null) {
-              onReorderRef(localRef.map((e) => e.categoryKey).toList());
-            }
-          }
-
           bool _isSameDay(DateTime a, DateTime b) =>
               a.year == b.year && a.month == b.month && a.day == b.day;
-          final vm = ctx.watch<SpendingCategoryViewModel>();
+
           final selectedDate = vm.selectedDate;
           final isToday = _isSameDay(selectedDate, DateTime.now());
 
@@ -156,6 +157,77 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
             if (isPlanTab) return;
             editMode = true;
             closeAddUI();
+          }
+
+          void cancelEditChanges() {
+            // ✅ 편집 완료 없이 닫거나 탭 전환 시: 변경사항 폐기
+            localRef = List<RefCategoryItem>.from(committedRef);
+            pendingRemoveKeys.clear();
+            editMode = false;
+            closeAddUI();
+          }
+
+          Future<void> commitEditChanges() async {
+            // ✅ 삭제 저장(편집 완료 시점에만)
+            if (onRemoveRef != null) {
+              for (final k in pendingRemoveKeys) {
+                onRemoveRef!(k);
+              }
+            }
+            pendingRemoveKeys.clear();
+
+            // ✅ 정렬 저장(편집 완료 시점에만)
+            if (onReorderRef != null) {
+              onReorderRef(localRef.map((e) => e.categoryKey).toList());
+            }
+
+            // ✅ 커밋 스냅샷 갱신
+            committedRef = List<RefCategoryItem>.from(localRef);
+          }
+
+          bool _hasUnsavedEditChanges() {
+            if (!editMode) return false;
+
+            if (pendingRemoveKeys.isNotEmpty) return true;
+
+            final a = committedRef.map((e) => e.categoryKey).toList();
+            final b = localRef.map((e) => e.categoryKey).toList();
+
+            if (a.length != b.length) return true;
+            for (int i = 0; i < a.length; i++) {
+              if (a[i] != b[i]) return true;
+            }
+            return false;
+          }
+
+          Future<bool> _confirmDiscardDialog() async {
+            final res = await showDialog<bool>(
+              context: ctx,
+              barrierDismissible: true,
+              builder: (dCtx) {
+                return AlertDialog(
+                  title: const Text(
+                    '변경사항이 있어요',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  content: const Text('저장하지 않고 닫으면 변경사항이 사라져요.\n그래도 닫을까요?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dCtx, false),
+                      child: const Text('계속 편집'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dCtx, true),
+                      child: const Text(
+                        '폐기하고 닫기',
+                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+            return res ?? false;
           }
 
           bool isSelectedItem({required String key, required String name}) {
@@ -173,11 +245,15 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
             await nav.pushNamed('/category_edit');
             if (!ctx.mounted) return;
 
+            // ✅ 여기만 제대로 하면 plan/ref 모두 최신값으로 즉시 반영됨
             final vmRead = ctx.read<SpendingCategoryViewModel>();
             await vmRead.initForDate(vmRead.selectedDate);
 
             setModalState(() {
-              localRef = List<RefCategoryItem>.from(vmRead.refItems);
+              // ✅ ref만: 시트 편집 로직 때문에 committed/local 갱신 필요
+              committedRef = List<RefCategoryItem>.from(vmRead.refItems);
+              localRef = List<RefCategoryItem>.from(committedRef);
+              pendingRemoveKeys.clear();
               editMode = false;
               closeAddUI();
             });
@@ -198,7 +274,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                 Container(
                   width: double.infinity,
                   height: height,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8), // ✅ 10→8로 살짝 줄임
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
                     color: selected ? AppColors.primary : const Color(0xFFF3F4F6),
                     borderRadius: BorderRadius.circular(16),
@@ -221,7 +297,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(emoji, style: const TextStyle(fontSize: 18)),
-                        const SizedBox(height: 4), // ✅ 6→4
+                        const SizedBox(height: 4),
                         Text(
                           name,
                           textAlign: TextAlign.center,
@@ -229,18 +305,16 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                           overflow: TextOverflow.ellipsis,
                           softWrap: true,
                           style: TextStyle(
-                            fontSize: 11.5,        // ✅ 12→11.5 (60 높이에 안정적으로 들어감)
+                            fontSize: 11.5,
                             fontWeight: FontWeight.w800,
                             color: selected ? Colors.white : const Color(0xFF111827),
-                            height: 1.05,          // ✅ 줄간격 살짝 줄임
+                            height: 1.05,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-
-                // ✅ 삭제 X는 레이아웃에 영향을 안 주도록 우상단 오버레이
                 if (showDelete)
                   Positioned(
                     top: 6,
@@ -271,7 +345,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
           }
 
           // -------------------------
-          // Plan chip
+          // Plan chip (live planItems)
           // -------------------------
           Widget planChip(CategoryEditItem item) {
             final selected = isSelectedItem(key: item.categoryKey, name: item.name);
@@ -318,11 +392,10 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                 );
                 Navigator.pop(ctx);
               },
+              // ✅ 꾹 눌러서 편집 진입(참고 탭에서만)
               onLongPress: () {
                 if (isPlanTab) return;
-                setModalState(() {
-                  enterEditMode();
-                });
+                setModalState(() => enterEditMode());
               },
               child: chipBody(
                 name: item.name,
@@ -332,13 +405,11 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                 height: 60,
                 onDeleteRef: editMode
                     ? () {
+                  // ✅ 삭제도 "편집 완료" 눌러야 저장되도록 로컬 반영 + 큐 적재
                   setModalState(() {
+                    pendingRemoveKeys.add(item.categoryKey);
                     localRef.removeWhere((e) => e.categoryKey == item.categoryKey);
-                    if (localRef.isEmpty) editMode = false;
                   });
-                  onRemoveRef?.call(item.categoryKey);
-                  // 삭제 후에도 순서 저장(선택사항이지만 UX 좋음)
-                  onReorderRef?.call(localRef.map((e) => e.categoryKey).toList());
                 }
                     : null,
               ),
@@ -346,17 +417,11 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
           }
 
           // -------------------------
-          // toggle add
+          // add (ref에서만)
           // -------------------------
           void toggleAdd() {
-            if (isPlanTab) {
-              showSheetToast('플랜 카테고리는 오늘 날짜에서만 수정이 가능해요.');
-              return;
-            }
-
             setModalState(() {
               showAdd = !showAdd;
-
               if (showAdd) {
                 tempNameCtrl.clear();
                 selectedEmoji = '💰';
@@ -367,15 +432,56 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
             });
           }
 
-          final planChips = planItems.map(planChip).toList();
-
-          // -------------------------
-          // UI
-          // -------------------------
+          final planChips = planItemsLive.map(planChip).toList();
           final bool settingsEnabled = isToday;
+
+          // ✅ ref grid: 편집 모드 아닐 때는 드래그 기능 자체 없음(절대 안움직임)
+          Widget buildRefGrid() {
+            const gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 4,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              mainAxisExtent: 60,
+            );
+
+            return ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: editMode
+                  ? DragGrid<RefCategoryItem>(
+                itemList: localRef,
+                itemKey: (item) => ValueKey(item.categoryKey),
+                reorderableKey: const ValueKey('ref_grid_edit'),
+                sliverGridDelegate: gridDelegate,
+                enableLongPress: true,
+                longPressDelay: Duration.zero, // ✅ 바로 드래그 시작(최대한 즉시)
+                onReorder: (newList) {
+                  // ✅ 저장 호출 X (편집 완료에서만)
+                  setModalState(() {
+                    localRef = List<RefCategoryItem>.from(newList);
+                  });
+                },
+                itemBuilder: (context, item, index) => refGridItem(item, index),
+              )
+                  : GridView.builder(
+                shrinkWrap: true,
+                physics: const BouncingScrollPhysics(),
+                gridDelegate: gridDelegate,
+                itemCount: localRef.length,
+                itemBuilder: (context, index) => refGridItem(localRef[index], index),
+              ),
+            );
+          }
+
           return WillPopScope(
             onWillPop: () async {
-              saveRefOrderIfNeeded();
+              // ✅ 편집 중이고 변경사항 있으면: 폐기 확인
+              if (_hasUnsavedEditChanges()) {
+                final discard = await _confirmDiscardDialog();
+                if (!discard) return false;
+
+                setModalState(() => cancelEditChanges());
+                return true;
+              }
               return true;
             },
             child: Padding(
@@ -407,19 +513,20 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                       TwoOptionToggle(
                         labels: const ['플랜', '참고'],
                         selected: isPlanTab ? '플랜' : '참고',
-                        onChanged: (v) {
+                        onChanged: (v) async {
                           final nextIsPlan = (v == '플랜');
 
+                          // ✅ ref 편집 중 + 변경사항 있으면 탭 전환 전에 폐기 확인
+                          if (!isPlanTab && editMode && _hasUnsavedEditChanges()) {
+                            final discard = await _confirmDiscardDialog();
+                            if (!discard) return;
+                            setModalState(() => cancelEditChanges());
+                          }
+
                           setModalState(() {
-                            // ✅ ref -> plan으로 나갈 때 저장 + 편집 종료 + 추가칸 닫기
-                            if (isPlanTab == false && nextIsPlan == true) {
-                              saveRefOrderIfNeeded();
-                              editMode = false;
-                              closeAddUI();
-                            }
                             isPlanTab = nextIsPlan;
 
-                            // ✅ plan 탭에서는 편집/추가 상태 의미 없으니 정리
+                            // ✅ plan 탭에서는 add/edit 의미 없으니 정리
                             if (isPlanTab) {
                               editMode = false;
                               closeAddUI();
@@ -429,15 +536,18 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                         width: 140,
                         height: 30,
                       ),
+
                       Row(
                         children: [
+                          // ✅ 편집 완료는 ref + editMode에서만
                           if (!isPlanTab && editMode)
                             GestureDetector(
-                              onTap: () {
+                              onTap: () async {
+                                await commitEditChanges();
+                                if (!ctx.mounted) return;
                                 setModalState(() {
-                                  saveRefOrderIfNeeded();
-                                  closeAddUI();
                                   editMode = false;
+                                  closeAddUI();
                                 });
                               },
                               child: Container(
@@ -457,29 +567,31 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                               ),
                             ),
 
-                          GestureDetector(
-                            onTap: toggleAdd,
-                            child: Opacity(
-                              opacity: isPlanTab ? 0.35 : 1,
+                          // ✅ 추가 버튼: 참고 탭에서만 보이게(플랜 탭에서는 숨김)
+                          if (!isPlanTab) ...[
+                            GestureDetector(
+                              onTap: toggleAdd,
                               child: Container(
                                 width: 28,
                                 height: 28,
                                 decoration: BoxDecoration(
-                                  color: showAdd ? Color(0xFFD1D5DB) : const Color(0xFFF3F4F6),
+                                  color: showAdd ? const Color(0xFFD1D5DB) : const Color(0xFFF3F4F6),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: showAdd ? Color(0xFF9CA3AF) : const Color(0xFFE5E7EB),
+                                    color: showAdd ? const Color(0xFF9CA3AF) : const Color(0xFFE5E7EB),
                                   ),
                                 ),
                                 child: Icon(
                                   showAdd ? Icons.close : Icons.add,
                                   size: 16,
-                                  color: showAdd ? Color(0xFF374151) : const Color(0xFF6B7280),
+                                  color: showAdd ? const Color(0xFF374151) : const Color(0xFF6B7280),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
+                            const SizedBox(width: 8),
+                          ],
+
+                          // ✅ 설정 버튼: 기존대로 오늘 아니면 비활성 + 토스트
                           Opacity(
                             opacity: settingsEnabled ? 1 : 0.35,
                             child: GestureDetector(
@@ -493,9 +605,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF3F4F6),
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: const Color(0xFFE5E7EB),
-                                  ),
+                                  border: Border.all(color: const Color(0xFFE5E7EB)),
                                 ),
                                 child: const Icon(
                                   Icons.settings,
@@ -512,35 +622,21 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
 
                   const SizedBox(height: 16),
 
-                  // ✅ plan: Wrap / ref: DragGrid
-                  if (isPlanTab)
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: planChips,
-                    )
-                  else
-                    DragGrid<RefCategoryItem>(
-                      itemList: localRef,
-                      itemKey: (item) => ValueKey(item.categoryKey), // ✅ 핵심
-                      reorderableKey: ValueKey(
-                        'ref_${localRef.map((e) => e.categoryKey).join(',')}',
+                  IndexedStack(
+                    index: isPlanTab ? 0 : 1,
+                    children: [
+
+                      // plan
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: planChips,
                       ),
-                      sliverGridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 4,
-                        crossAxisSpacing: 10,
-                        mainAxisSpacing: 10,
-                        mainAxisExtent: 60,
-                      ),
-                      enableLongPress: editMode,
-                      onReorder: (newList) {
-                        setModalState(() {
-                          localRef = List<RefCategoryItem>.from(newList);
-                        });
-                        onReorderRef?.call(localRef.map((e) => e.categoryKey).toList());
-                      },
-                      itemBuilder: (context, item, index) => refGridItem(item, index),
-                    ),
+
+                      // ref
+                      buildRefGrid(),
+                    ],
+                  ),
 
                   const SizedBox(height: 16),
 
@@ -635,7 +731,9 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                             ? null
                             : () async {
                           final name = tempNameCtrl.text.trim();
-                          final dupInPlan = planItems.any((e) => e.name == name);
+
+                          // ✅ 중복 체크: plan은 live, ref는 localRef 기준
+                          final dupInPlan = planItemsLive.any((e) => e.name == name);
                           final dupInRef = localRef.any((e) => e.name == name);
                           if (dupInPlan || dupInRef) return;
 
@@ -643,14 +741,10 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                           if (created == null) return;
 
                           setModalState(() {
+                            // ✅ 추가는 onAddRef가 저장까지 끝내므로 즉시 반영 + 커밋으로 취급
                             localRef.add(created);
-                          });
-
-                          // ✅ 요구사항: 추가 완료되면 “추가 영역 닫기”
-                          setModalState(() {
+                            committedRef = List<RefCategoryItem>.from(localRef);
                             closeAddUI();
-                            // 추가 후 편집모드로 유지할지 여부는 선택
-                            // editMode = false;
                           });
                         },
                         style: ElevatedButton.styleFrom(

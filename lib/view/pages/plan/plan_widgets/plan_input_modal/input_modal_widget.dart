@@ -249,7 +249,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
     });
   }
 
-  // ✅ 불변 Entry: copyWith로 교체
+  // 불변 Entry: copyWith로 교체
   void updateItem(int idx, String field, dynamic value) {
     final i = items.indexWhere((e) => e.idx == idx);
     if (i == -1) return;
@@ -260,14 +260,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
       final nextName = (value as String);
       final nextTrim = nextName.trim();
 
-      // categoryKey 정책(현재 그대로 유지)
-      final prevKey = current.categoryKey;
-      final prevNameTrim = current.category.trim();
-      final nextKey = (prevKey.trim().isEmpty || prevKey == prevNameTrim)
-          ? nextTrim
-          : prevKey;
-
-      // ✅ 프리셋 금지: categoryEmojis에 있으면 그거, 없으면 💰
       final emojiMap = widget.categoryEmojis ?? const <String, String>{};
       final pickedEmoji = emojiMap[nextTrim];
 
@@ -277,8 +269,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
       items[i] = current.copyWith(
         category: nextName,
-        categoryKey: nextKey,
         emoji: nextEmoji,
+        categoryKey: current.categoryKey,
       );
     } else if (field == 'amount') {
       final nextAmount = (value as num).toDouble();

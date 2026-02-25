@@ -1,5 +1,3 @@
-// lib/view/pages/report/report_page.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -13,7 +11,6 @@ class ReportPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 이미 main 에서 ReportViewModel 주입됨
     return const _ReportPageContent();
   }
 }
@@ -26,19 +23,44 @@ class _ReportPageContent extends StatefulWidget {
 }
 
 class _ReportPageContentState extends State<_ReportPageContent> {
+  bool _requestedInit = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      final vm = context.read<ReportViewModel>();
-      if (!vm.hasData) await vm.loadInitial();
+      if (_requestedInit) return;
+      _requestedInit = true;
+
+      // ✅ 내 VM 기준: loadInitial()
+      await context.read<ReportViewModel>().loadInitial();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ReportViewModel>();
+
+    // 로딩/에러 처리(선택)
+    if (vm.isLoading && vm.budgetChart == null) {
+      return const SafeArea(
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (vm.error != null && vm.budgetChart == null) {
+      return SafeArea(
+        child: Center(
+          child: Text(
+            vm.error!,
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+      );
+    }
+
+    // ✅ 배너 인사이트: vm.insights
+    final insights = vm.insights;
 
     return SafeArea(
       child: Column(
@@ -50,10 +72,12 @@ class _ReportPageContentState extends State<_ReportPageContent> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 12),
+
+                  // ✅ 배너(원래 쓰던 UI 유지)
                   SlidingBanner(
-                    itemCount: vm.insights.length,
+                    itemCount: insights.length,
                     itemBuilder: (context, index) {
-                      final insight = vm.insights[index];
+                      final insight = insights[index];
                       final Color color = insight['color'] as Color;
                       final IconData icon = insight['icon'] as IconData;
                       final String title = insight['title'] as String;
@@ -80,9 +104,9 @@ class _ReportPageContentState extends State<_ReportPageContent> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -95,9 +119,12 @@ class _ReportPageContentState extends State<_ReportPageContent> {
                     autoSlideDuration: const Duration(seconds: 3),
                     onPageChanged: vm.setInsightIndex,
                   ),
+
                   const SizedBox(height: 20),
                   const ReportCategoryBudgetChartSection(),
                   const SizedBox(height: 24),
+
+                  // ✅ MonthCategorySection은 2차니까 일단 유지
                   const ReportMonthCategorySection(),
                   const SizedBox(height: 24),
                 ],

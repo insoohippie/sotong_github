@@ -14,12 +14,6 @@ import '../../repository/plan_mutation_repository.dart';
 import '../../repository/ref_category_repository.dart';
 import '../../repository/ref_data_repository.dart';
 
-/// ✅ CategoryEditViewModel (PlanEditViewModel 방식으로 저장 통일)
-/// - 저장 버튼 시점에만 서버 반영
-/// - (NEW) 선택 날짜 applyDate 기준으로 "해당 날짜를 포함하는 dailyConsume"을 찾아 draft 구성
-/// - (NEW) 같은 날 수정이면: dailyConsume 새로 만들지 않고 기존 문서(entries) 덮어쓰기
-/// - 다른 날 수정이면: UpdateDailyCommand → PlanMutationRepository.applyDaily()로 plan/refData 동시 갱신
-/// - planRepo.replacePlan(updatedPlan) + refRepo.saveDailyConsume(변경된 daily들) 업서트
 class CategoryEditViewModel extends ChangeNotifier {
   CategoryEditViewModel(
       this._planRepo,
@@ -33,7 +27,6 @@ class CategoryEditViewModel extends ChangeNotifier {
   final RefCategoryRepository _refCatRepo;
   final PlanMutationRepository _planMutRepo;
 
-  // ref categories doc id (소비입력창과 통일)
   final String _refDocId = 'recordSpending';
 
   // -----------------
@@ -58,7 +51,7 @@ class CategoryEditViewModel extends ChangeNotifier {
   String? get error => _error;
 
   // -----------------
-  // Draft
+  // Draft (편집 대상)
   // -----------------
   List<CategoryEditItem> _draftPlan = [];
   List<CategoryEditItem> get draftPlan {
@@ -74,9 +67,15 @@ class CategoryEditViewModel extends ChangeNotifier {
     return list;
   }
 
-  // 저장용: 최근 reorder 결과를 키 배열로 캐시(원하면 UI에서 직접 사용 가능)
   List<String> _draftPlanOrderKeys = const [];
   List<String> get draftPlanOrderKeys => _draftPlanOrderKeys;
+
+  // -----------------
+  // ✅ Base Snapshot (로드 직후 상태 = "저장된 상태" 기준)
+  // - 저장 안 하고 나갈 때 여기로 되돌리기 위해 필요
+  // -----------------
+  List<CategoryEditItem> _basePlan = [];
+  List<RefCategoryItem> _baseRef = [];
 
   // -----------------
   // Dirty
@@ -101,7 +100,6 @@ class CategoryEditViewModel extends ChangeNotifier {
   // ===========================================================
   static DateTime _normalizeDay(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  // ✅ 날짜 d를 포함하는 dailyConsume 찾기 (s <= d <= e)
   DailyConsume? _findDailyConsumeForDate(Iterable<DailyConsume> all, DateTime date) {
     final d = _normalizeDay(date);
 
@@ -113,15 +111,10 @@ class CategoryEditViewModel extends ChangeNotifier {
 
     if (candidates.isEmpty) return null;
 
-    // 여러 개면 가장 최근 startDate 우선
     candidates.sort((a, b) => b.startDate.compareTo(a.startDate));
     return candidates.first;
   }
 
-  String _formatYearMonth(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}';
-
-  // ✅ 중복정책: trim + 공백정리 + 소문자
   String _normalizeName(String s) => s.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
 
   String _fallbackEmojiByName(String name, {String fallback = '💰'}) {
@@ -162,6 +155,22 @@ class CategoryEditViewModel extends ChangeNotifier {
     ];
   }
 
+  // ✅ 로드 직후 base 스냅샷 갱신
+  void _snapshotBase() {
+    _basePlan = _draftPlan.map((e) => e.copyWith()).toList(growable: false);
+    _baseRef = _draftRef.map((e) => e.copyWith()).toList(growable: false);
+  }
+
+  // ✅ 저장 안 하고 나갈 때 호출: draft를 "로드 당시(base)"로 복구
+  void discardDraft() {
+    _draftPlan = _basePlan.map((e) => e.copyWith()).toList();
+    _draftRef = _baseRef.map((e) => e.copyWith()).toList();
+    _normalizeOrdersPlanOnly();
+    _normalizeOrdersRefOnly();
+    _dirty = false;
+    notifyListeners();
+  }
+
   // ===========================================================
   // Init / Date
   // ===========================================================
@@ -192,6 +201,9 @@ class CategoryEditViewModel extends ChangeNotifier {
         _loadPlanDraftInternal(),
         _loadRefDraftInternal(),
       ]);
+
+      // ✅ 로드 완료 시점의 상태를 base로 박아두고 dirty 해제
+      _snapshotBase();
       _dirty = false;
     } catch (e) {
       _error = e.toString();
@@ -201,7 +213,6 @@ class CategoryEditViewModel extends ChangeNotifier {
     }
   }
 
-  /// ✅ (CHANGED) 월 head가 아니라 "선택 날짜를 포함하는 dailyConsume" 기준으로 draft 구성
   Future<void> _loadPlanDraftInternal() async {
     final plan = await _planRepo.getLatestPlanForCurrentUser();
     _latestPlan = plan;
@@ -212,11 +223,7 @@ class CategoryEditViewModel extends ChangeNotifier {
     }
 
     final ref = await _refRepo.loadAll();
-
-    final daily = _findDailyConsumeForDate(
-      ref.dailyConsumeMap.values,
-      _selectedDate,
-    );
+    final daily = _findDailyConsumeForDate(ref.dailyConsumeMap.values, _selectedDate);
 
     if (daily == null) {
       _draftPlan = [];
@@ -261,7 +268,7 @@ class CategoryEditViewModel extends ChangeNotifier {
   }
 
   // ===========================================================
-  // Plan Draft Editing APIs
+  // Draft Editing APIs (기존 그대로)
   // ===========================================================
   void draftAddCategory({
     required bool isPlan,
@@ -372,9 +379,6 @@ class CategoryEditViewModel extends ChangeNotifier {
     _markDirty();
   }
 
-  // ===========================================================
-  // Ref Draft Editing APIs
-  // ===========================================================
   bool _existsRefName(String name, {String? exceptKey}) {
     final norm = _normalizeName(name);
     return _draftRef.any((e) => e.categoryKey != exceptKey && _normalizeName(e.name) == norm);
@@ -458,7 +462,7 @@ class CategoryEditViewModel extends ChangeNotifier {
   }
 
   // ===========================================================
-  // Save
+  // Save (너 코드 그대로 + 저장 성공 시 base 갱신)
   // ===========================================================
   Future<bool> saveDraftForSelectedDate() async {
     if (_isSaving) return false;
@@ -476,24 +480,21 @@ class CategoryEditViewModel extends ChangeNotifier {
       final ref = await _refRepo.loadAll();
       final applyDate = _normalizeDay(_selectedDate);
 
-      // ✅ applyDate를 포함하는 dailyConsume 찾기
       final activeDaily = _findDailyConsumeForDate(ref.dailyConsumeMap.values, applyDate);
       if (activeDaily == null) {
         _error = '선택 날짜의 dailyConsume을 찾지 못했습니다.';
         return false;
       }
 
-      // ✅ “같은 날 수정” 판단 (startDate == applyDate면 덮어쓰기)
       final isSameDayOverwrite = _normalizeDay(activeDaily.startDate) == applyDate;
       final previousDailyId = activeDaily.id;
 
-      // ✅ 1) draftPlan -> newEntries (무조건 먼저 생성!)
       final newEntries = <Entry>[];
       for (int i = 0; i < _draftPlan.length; i++) {
         final c = _draftPlan[i];
         newEntries.add(
           Entry(
-            idx: i, // legacy
+            idx: i,
             order: i,
             amount: (c.dailyAmount ?? 1).toDouble(),
             categoryKey: c.categoryKey,
@@ -506,14 +507,12 @@ class CategoryEditViewModel extends ChangeNotifier {
         );
       }
 
-      // ✅ 2) 같은 날 수정이면: 문서 추가 생성 없이 entries만 덮어쓰기
       if (isSameDayOverwrite) {
         final overwritten = activeDaily.copyWith(
           entries: List<Entry>.unmodifiable(newEntries),
         );
         await _refRepo.saveDailyConsume(overwritten);
 
-        // ref 카테고리 저장(기존 정책 유지: 저장 버튼에서만 반영)
         final refToSave = List<RefCategoryItem>.from(_draftRef)
           ..sort((a, b) => a.order.compareTo(b.order));
         final normalizedRef = [
@@ -528,11 +527,13 @@ class CategoryEditViewModel extends ChangeNotifier {
 
         _normalizeOrdersPlanOnly();
         _normalizeOrdersRefOnly();
+
+        // ✅ 저장 성공: base 갱신 + dirty 해제
+        _snapshotBase();
         _clearDirty();
         return true;
       }
 
-      // ✅ 3) 다른 날 수정이면: applyDaily로 "이전 daily endDate 잘라내고" 새 daily 생성 + plan 갱신
       final modEndDate = _normalizeDay(plan.modEndDate ?? plan.endDate ?? applyDate);
       final safeModEnd = applyDate.isAfter(modEndDate) ? applyDate : modEndDate;
 
@@ -562,7 +563,6 @@ class CategoryEditViewModel extends ChangeNotifier {
       final updatedPlan = mutation.totalPlan;
       final updatedDailyMap = mutation.dailyConsumes;
 
-      // refData 저장: 새 daily + previous daily(잘린 endDate 반영) 업서트
       final toUpsertIds = <String>{newDailyId, previousDailyId};
       for (final id in toUpsertIds) {
         final daily = updatedDailyMap[id];
@@ -573,7 +573,6 @@ class CategoryEditViewModel extends ChangeNotifier {
 
       await _planRepo.replacePlan(updatedPlan);
 
-      // ref 카테고리 저장
       final refToSave = List<RefCategoryItem>.from(_draftRef)
         ..sort((a, b) => a.order.compareTo(b.order));
       final normalizedRef = [
@@ -589,6 +588,8 @@ class CategoryEditViewModel extends ChangeNotifier {
       _normalizeOrdersPlanOnly();
       _normalizeOrdersRefOnly();
 
+      // ✅ 저장 성공: base 갱신 + dirty 해제
+      _snapshotBase();
       _clearDirty();
       return true;
     } catch (e) {
@@ -601,7 +602,7 @@ class CategoryEditViewModel extends ChangeNotifier {
   }
 
   // ===========================================================
-  // ID Generators
+  // ID Generators (너 코드 그대로)
   // ===========================================================
   String _nextDailyId({
     required DateTime applyDate,

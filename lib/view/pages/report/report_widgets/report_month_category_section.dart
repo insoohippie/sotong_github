@@ -1,12 +1,12 @@
+// lib/view/pages/report/report_widgets/report_month_category_section.dart
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:animated_toggle_switch/animated_toggle_switch.dart';
 
 import '../../../../component/buttons/multi_option_toggle.dart';
 import '../../../../component/inputs/month_selector_row.dart';
-import '../../../../component/theme/app_colors.dart';
 import '../../../../view_model/report/report_view_model.dart';
 
 class ReportMonthCategorySection extends StatefulWidget {
@@ -17,8 +17,7 @@ class ReportMonthCategorySection extends StatefulWidget {
       _ReportMonthCategorySectionState();
 }
 
-class _ReportMonthCategorySectionState
-    extends State<ReportMonthCategorySection> {
+class _ReportMonthCategorySectionState extends State<ReportMonthCategorySection> {
   late final PageController _pageController;
 
   int _tabIndex = 3; // 0..3
@@ -53,7 +52,6 @@ class _ReportMonthCategorySectionState
     super.dispose();
   }
 
-  /// 숫자 올라가는 애니(900ms)에 맞춰 쫘라락 햅틱 (9회, 100ms 간격)
   void _playAmountSequentialHaptic() {
     _hapticTimer?.cancel();
     HapticFeedback.selectionClick();
@@ -89,7 +87,7 @@ class _ReportMonthCategorySectionState
       _shownAmount = newTo;
       _tabIndex = index;
     });
-    // 금액에 차이가 있을 때만 쫘라락 햅틱 (1원이라도 다르면 재생)
+
     if (newTo != _shownFromAmount) _playAmountSequentialHaptic();
 
     _pageController.animateToPage(
@@ -133,8 +131,6 @@ class _ReportMonthCategorySectionState
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-
-        // 이미 같은 값이면 스킵
         if (_shownAmount == newTo) return;
 
         setState(() {
@@ -165,16 +161,6 @@ class _ReportMonthCategorySectionState
       ),
       child: Column(
         children: [
-          // Padding(
-          //   padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
-          //   child: Column(
-          //     children: [
-          //       _buildMonthSelector(vm),
-          //       const SizedBox(height: 14),
-          //       _buildToggleWithLabels(items),
-          //     ],
-          //   ),
-          // ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
             child: Column(
@@ -185,7 +171,6 @@ class _ReportMonthCategorySectionState
                   onNext: () => vm.changeMonth(1),
                 ),
                 const SizedBox(height: 14),
-
                 Align(
                   alignment: Alignment.centerRight,
                   child: _buildToggleWithLabels(items),
@@ -207,10 +192,10 @@ class _ReportMonthCategorySectionState
                   _shownAmount = newTo;
                   _tabIndex = i;
                 });
-                // 금액에 차이가 있을 때만 쫘라락 햅틱 (1원이라도 다르면 재생)
                 if (newTo != _shownFromAmount) _playAmountSequentialHaptic();
               },
               itemBuilder: (context, index) {
+                // ✅ PageView.builder에서 t 안 쓰는 건 너가 그대로 두기로 했으니 유지
                 final t = items[index];
                 return Padding(
                   padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
@@ -232,96 +217,6 @@ class _ReportMonthCategorySectionState
     );
   }
 
-  Widget _buildMonthSelector(ReportViewModel vm) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: () => vm.changeMonth(-1),
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Icon(Icons.chevron_left, size: 20, color: Colors.grey[700]),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          '${vm.selectedMonth}월',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: Colors.black87,
-          ),
-        ),
-        const SizedBox(width: 8),
-        InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: () => vm.changeMonth(1),
-          child: Padding(
-            padding: const EdgeInsets.all(6),
-            child: Icon(Icons.chevron_right, size: 20, color: Colors.grey[700]),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Widget _buildToggleWithLabels(List<_MoneyTab> items) {
-  //   const double cellW = 74;
-  //
-  //   Widget iconBuilder(int i) {
-  //     final tab = items[i];
-  //     final selected = i == _tabIndex;
-  //     return Center(
-  //       child: Icon(
-  //         tab.icon,
-  //         size: 20,
-  //         color: selected ? Colors.white : Colors.grey[600],
-  //       ),
-  //     );
-  //   }
-  //
-  //   return Column(
-  //     children: [
-  //       AnimatedToggleSwitch<int>.size(
-  //         current: _tabIndex,
-  //         values: const [0, 1, 2, 3],
-  //         indicatorSize: const Size.fromWidth(cellW),
-  //         borderWidth: 0,
-  //         styleBuilder: (i) => ToggleStyle(
-  //           backgroundColor: Colors.grey[100]!,
-  //           indicatorColor: AppColors.primary,
-  //         ),
-  //         iconBuilder: iconBuilder,
-  //         onChanged: (i) => _jumpToTab(i, items),
-  //       ),
-  //
-  //       const SizedBox(height: 8),
-  //
-  //       Row(
-  //         mainAxisAlignment: MainAxisAlignment.center,
-  //         children: List.generate(items.length, (i) {
-  //           final selected = i == _tabIndex;
-  //           return SizedBox(
-  //             width: cellW,
-  //             child: Text(
-  //               items[i].label,
-  //               textAlign: TextAlign.center,
-  //               maxLines: 1,
-  //               overflow: TextOverflow.ellipsis,
-  //               style: TextStyle(
-  //                 fontSize: 12,
-  //                 fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-  //                 color: selected ? Colors.black87 : Colors.grey[500],
-  //               ),
-  //             ),
-  //           );
-  //         }),
-  //       ),
-  //     ],
-  //   );
-  // }
-
   Widget _buildToggleWithLabels(List<_MoneyTab> items) {
     final labels = items.map((e) => e.label).toList();
 
@@ -340,8 +235,6 @@ class _ReportMonthCategorySectionState
     );
   }
 }
-
-/* ───────────────── internal models/widgets ───────────────── */
 
 class _MoneyTab {
   final String label;

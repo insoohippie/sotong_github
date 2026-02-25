@@ -7,29 +7,27 @@ import 'package:sotong_local/component/theme/app_colors.dart';
 
 final List<String> expenseEmojis = [
   // 음식
-  '🍕', '🍔', '🍟', '🌭', '🥪', '🌮', '🌯', '🥙', '🍱', '🍜',
-  '☕', '🥤', '🧋', '🍵', '🍶', '🍷', '🍸', '🍹', '🍺', '🍻',
-  '🎂', '🍰', '🧁', '🍭', '🍬', '🍫', '🍩', '🍪', '🥧',
-
+  '🍕','🍔','🍟','🌭','🥪','🌮','🌯','🥙','🍱','🍜',
+  '☕','🥤','🧋','🍵','🍶','🍷','🍸','🍹','🍺','🍻',
+  '🎂','🍰','🧁','🍭','🍬','🍫','🍩','🍪','🥧',
   // 취미·생활
-  '🎬', '🎮', '🎯', '🎲', '🎪', '🎨', '🎭', '🎡', '🎠',
-  '🛍️', '🛒', '💍', '👕', '👖', '👗', '👠', '👟', '🎒', '👜',
-  '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '✈️', '🚁', '🚀', '🛸',
-  '🚢', '⛵', '🚤', '🛥️', '🚂',
-  '🏋️', '🤸', '🧘', '🏊', '🚴', '🏃', '⚽', '🏀', '🏈', '🎾',
-  '📚', '✏️', '📝', '🎁',
-  '🌱', '🌿', '🌾', '🌻', '🌺', '🌸', '🌼', '🌷', '🌹', '🥀',
-  '🐕', '🐈', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
-  '💊', '🏥', '⚕️', '🩺', '💉',
-  '📱', '💻', '⌨️', '🖥️', '📞', '📺', '📻',
-  '🚓', '🚑', '🚒', '🚐',
-
+  '🎬','🎮','🎯','🎲','🎪','🎨','🎭','🎡','🎠',
+  '🛍️','🛒','💍','👕','👖','👗','👠','👟','🎒','👜',
+  '🚗','🚕','🚙','🚌','🚎','🏎️','✈️','🚁','🚀','🛸',
+  '🚢','⛵','🚤','🛥️','🚂',
+  '🏋️','🤸','🧘','🏊','🚴','🏃','⚽','🏀','🏈','🎾',
+  '📚','✏️','📝','🎁',
+  '🌱','🌿','🌾','🌻','🌺','🌸','🌼','🌷','🌹','🥀',
+  '🐕','🐈','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯',
+  '💊','🏥','⚕️','🩺','💉',
+  '📱','💻','⌨️','🖥️','📞','📺','📻',
+  '🚓','🚑','🚒','🚐',
   // 돈·부동산·투자
-  '💰', '💸', '💳', '🏦', '💵', '💶', '💷', '💴', '🪙', '💎',
-  '🏠', '🏡', '🏢', '🏬', '🏪', '🏫', '🏩', '🏨', '🏛️',
-  '📊', '📈', '📉', '💼', '🗂️', '📁', '📋',
-  '🖨️', '📠',
-  '🧬', '🦠', '🧪', '🧫', '🧼',
+  '💰','💸','💳','🏦','💵','💶','💷','💴','🪙','💎',
+  '🏠','🏡','🏢','🏬','🏪','🏫','🏩','🏨','🏛️',
+  '📊','📈','📉','💼','🗂️','📁','📋',
+  '🖨️','📠',
+  '🧬','🦠','🧪','🧫','🧼',
 ];
 
 Future<void> openPlanCategorySheet(
@@ -39,26 +37,35 @@ Future<void> openPlanCategorySheet(
       required List<String> categories,
       required Map<String, String> categoryEmojis,
 
-      /// ✅ 중복 선택 방지용
+      /// ✅ 다른 행에서 이미 선택된 카테고리들
       required Set<String> alreadySelectedNames,
       String? currentSelectedName,
 
       void Function(String name, String emoji)? onSelectedWithEmoji,
+
+      /// ✅ (name, emoji) 저장 + key 보장은 VM에서 처리
       void Function(String name, String emoji)? onCategoryAdded,
+
+      /// (호환용) 여기선 안씀
       void Function(String name)? onCategoryRemoved,
       void Function(List<String> newOrder)? onReorder,
     }) async {
   String temp = controller.text;
-  TextEditingController? tempController;
 
   // 로컬 복사본
-  List<String> localCategories = [...categories];
-  Map<String, String> localEmojis = Map<String, String>.from(categoryEmojis);
+  final List<String> localCategories = [...categories];
+  final Map<String, String> localEmojis = Map<String, String>.from(categoryEmojis);
 
-  bool isEditMode = false;
-  bool showAddForm = false;
-  bool showEmojiPicker = false;
+  // 입력 컨트롤러
+  final tempController = TextEditingController(text: '');
+
+  // UI 상태
   String selectedEmoji = '💰';
+  bool showEmojiPicker = false;
+
+  // 인라인 에러
+  String? inlineError;
+  Timer? inlineErrorTimer;
 
   await showModalBottomSheet(
     context: context,
@@ -68,34 +75,57 @@ Future<void> openPlanCategorySheet(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (ctx) {
+      // ✅ 바텀시트 닫힌 뒤 Timer가 setState 못하게 안전장치
+      void safeSetModalState(void Function(void Function()) setModalState, void Function() fn) {
+        if (!ctx.mounted) return;
+        setModalState(fn);
+      }
+
+      void showInlineError(StateSetter setModalState, String msg) {
+        inlineErrorTimer?.cancel();
+        safeSetModalState(setModalState, () => inlineError = msg);
+
+        inlineErrorTimer = Timer(const Duration(seconds: 2), () {
+          if (!ctx.mounted) return; // ✅ 핵심(크래시 방지)
+          setModalState(() => inlineError = null);
+        });
+      }
+
+      void clearInlineError(StateSetter setModalState) {
+        inlineErrorTimer?.cancel();
+        safeSetModalState(setModalState, () => inlineError = null);
+      }
+
+      Future<void> pickAndClose({
+        required String name,
+        required String emoji,
+      }) async {
+        // ✅ 키보드/포커스 해제
+        FocusScope.of(ctx).unfocus();
+
+        // ✅ 타이머 정리(닫힌 뒤 setState 방지)
+        inlineErrorTimer?.cancel();
+
+        // 선택 반영
+        controller.text = name;
+        onSelected(name);
+        onSelectedWithEmoji?.call(name, emoji);
+
+        // 키보드가 내려갈 틈을 아주 조금 주고 닫기(UX)
+        await Future.delayed(const Duration(milliseconds: 80));
+        if (ctx.mounted) Navigator.pop(ctx);
+      }
+
+      bool isDuplicateSelected(String picked) {
+        final current = (currentSelectedName ?? '').trim();
+        return alreadySelectedNames.contains(picked) && picked != current;
+      }
+
       return StatefulBuilder(
         builder: (context, setModalState) {
-          String? inlineError;
-          Timer? inlineErrorTimer;
-
-          void showInlineError(String msg) {
-            inlineErrorTimer?.cancel();
-            setModalState(() => inlineError = msg);
-            inlineErrorTimer = Timer(const Duration(seconds: 2), () {
-              if (Navigator.of(ctx).canPop()) {
-                setModalState(() => inlineError = null);
-              }
-            });
-          }
-
-          void clearInlineError() {
-            inlineErrorTimer?.cancel();
-            setModalState(() => inlineError = null);
-          }
-
-          void exitEditModeAndNotify() {
-            onReorder?.call(localCategories);
-            setModalState(() => isEditMode = false);
-          }
-
           Widget buildChipContent(String name, bool selected) {
             final emoji = (localEmojis[name]?.trim().isNotEmpty ?? false)
-                ? localEmojis[name]!
+                ? localEmojis[name]!.trim()
                 : '💰';
 
             return Row(
@@ -127,140 +157,39 @@ Future<void> openPlanCategorySheet(
                 return Wrap(
                   spacing: spacing,
                   runSpacing: spacing,
-                  children: localCategories.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final name = entry.value;
-                    final bool selected = temp == name;
+                  children: localCategories.map((name) {
+                    final picked = name.trim();
+                    final bool selected = temp == picked;
+                    final bool disabled = isDuplicateSelected(picked);
 
                     return SizedBox(
                       width: chipWidth,
-                      child: Draggable<String>(
-                        data: name,
-                        onDragStarted: () => setModalState(() => isEditMode = true),
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.25),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                      child: GestureDetector(
+                        onTap: () async {
+                          if (disabled) {
+                            showInlineError(setModalState, '이미 선택된 카테고리입니다.');
+                            return;
+                          }
+
+                          final emoji = (localEmojis[picked]?.trim().isNotEmpty ?? false)
+                              ? localEmojis[picked]!.trim()
+                              : '💰';
+
+                          setModalState(() => temp = picked);
+                          clearInlineError(setModalState);
+
+                          await pickAndClose(name: picked, emoji: emoji);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: selected ? AppColors.primary : const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
                             ),
-                            child: buildChipContent(name, true),
                           ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.3,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF3F4F6),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
-                            ),
-                            child: buildChipContent(name, false),
-                          ),
-                        ),
-                        child: DragTarget<String>(
-                          onWillAcceptWithDetails: (details) => details.data != name,
-                          onAcceptWithDetails: (details) {
-                            setModalState(() {
-                              final dragged = details.data;
-                              final oldIndex = localCategories.indexOf(dragged);
-                              final newIndex = index;
-
-                              if (oldIndex != -1 && oldIndex != newIndex) {
-                                final item = localCategories.removeAt(oldIndex);
-                                localCategories.insert(newIndex, item);
-                              }
-                              isEditMode = true;
-                            });
-                          },
-                          builder: (context, _, __) {
-                            return GestureDetector(
-                              onTap: () {
-                                if (isEditMode) return;
-
-                                final picked = name.trim();
-                                final current = (currentSelectedName ?? '').trim();
-
-                                final isDuplicate =
-                                    alreadySelectedNames.contains(picked) && picked != current;
-                                if (isDuplicate) {
-                                  showInlineError('이미 선택된 카테고리입니다.');
-                                  return;
-                                }
-
-                                final emoji =
-                                (localEmojis[picked]?.trim().isNotEmpty ?? false)
-                                    ? localEmojis[picked]!
-                                    : '💰';
-
-                                setModalState(() {
-                                  localEmojis[picked] = emoji;
-                                  temp = picked;
-                                  tempController?.text = temp;
-                                });
-
-                                controller.text = picked;
-                                onSelected(picked);
-                                onSelectedWithEmoji?.call(picked, emoji);
-
-                                clearInlineError();
-                                Navigator.pop(ctx);
-                              },
-                              onLongPress: () => setModalState(() => isEditMode = true),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: selected ? AppColors.primary : const Color(0xFFF3F4F6),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Expanded(child: buildChipContent(name, selected)),
-                                    if (isEditMode) ...[
-                                      const SizedBox(width: 4),
-                                      GestureDetector(
-                                        onTap: () {
-                                          setModalState(() {
-                                            localCategories.remove(name);
-                                            localEmojis.remove(name);
-                                            onCategoryRemoved?.call(name);
-
-                                            if (temp == name) {
-                                              temp = '';
-                                              tempController?.text = '';
-                                            }
-                                            if (localCategories.isEmpty) {
-                                              isEditMode = false;
-                                            }
-                                          });
-                                        },
-                                        child: Icon(
-                                          Icons.close,
-                                          size: 14,
-                                          color: selected
-                                              ? Colors.white.withOpacity(0.8)
-                                              : const Color(0xFF9CA3AF),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+                          child: buildChipContent(picked, selected),
                         ),
                       ),
                     );
@@ -268,6 +197,37 @@ Future<void> openPlanCategorySheet(
                 );
               },
             );
+          }
+
+          Future<void> handleAdd() async {
+            final name = tempController.text.trim();
+            if (name.isEmpty) return;
+
+            if (localCategories.contains(name)) {
+              showInlineError(setModalState, '이미 있는 카테고리 이름이에요.');
+              return;
+            }
+
+            if (isDuplicateSelected(name)) {
+              showInlineError(setModalState, '이미 선택된 카테고리입니다.');
+              return;
+            }
+
+            final emoji = selectedEmoji.trim().isNotEmpty ? selectedEmoji.trim() : '💰';
+
+            // ✅ 추가 + VM 저장
+            setModalState(() {
+              localCategories.add(name);
+              localEmojis[name] = emoji;
+              temp = name;
+              showEmojiPicker = false;
+            });
+
+            onCategoryAdded?.call(name, emoji);
+            clearInlineError(setModalState);
+
+            // ✅ 추가하자마자 선택 + 닫기
+            await pickAndClose(name: name, emoji: emoji);
           }
 
           return Padding(
@@ -302,256 +262,155 @@ Future<void> openPlanCategorySheet(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            '카테고리 선택',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF374151),
+                      const Text(
+                        '카테고리 선택',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF374151),
+                        ),
+                      ),
+
+                      // ✅ 인라인 에러 (항상 같은 자리에서 보여서 안 가려짐)
+                      AnimatedSize(
+                        duration: const Duration(milliseconds: 150),
+                        child: inlineError == null
+                            ? const SizedBox(height: 0)
+                            : Padding(
+                          padding: const EdgeInsets.only(top: 10),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF2F2),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFFCA5A5)),
+                            ),
+                            child: Text(
+                              inlineError!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFDC2626),
+                              ),
                             ),
                           ),
-                          Row(
-                            children: [
-                              if (isEditMode)
-                                GestureDetector(
-                                  onTap: exitEditModeAndNotify,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    margin: const EdgeInsets.only(right: 8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.grey[200],
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: const Row(
-                                      children: [
-                                        Icon(Icons.check, size: 14),
-                                        SizedBox(width: 4),
-                                        Text('편집 완료', style: TextStyle(fontSize: 11)),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              GestureDetector(
-                                onTap: () {
-                                  setModalState(() {
-                                    showAddForm = !showAddForm;
-                                    if (showAddForm) {
-                                      tempController?.clear();
-                                      temp = '';
-                                      selectedEmoji = '💰';
-                                      clearInlineError();
-                                    }
-                                  });
-                                },
-                                child: Container(
-                                  width: 28,
-                                  height: 28,
-                                  decoration: BoxDecoration(
-                                    color: showAddForm ? AppColors.primary : const Color(0xFFF3F4F6),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: showAddForm ? AppColors.primary : const Color(0xFFE5E7EB),
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    showAddForm ? Icons.close : Icons.add,
-                                    size: 16,
-                                    color: showAddForm ? Colors.white : const Color(0xFF6B7280),
-                                  ),
-                                ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+                      buildCategoryGrid(),
+
+                      const SizedBox(height: 16),
+
+                      // ✅ 항상 보이는 입력/이모지/추가 버튼
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () => setModalState(() => showEmojiPicker = !showEmojiPicker),
+                            child: Container(
+                              width: 60,
+                              height: 60,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF3F4F6),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFE5E7EB)),
                               ),
-                            ],
+                              child: Center(
+                                child: Text(selectedEmoji, style: const TextStyle(fontSize: 24)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: SizedBox(
+                              height: 60,
+                              child: CustomTextField(
+                                controller: tempController,
+                                hintText: '새 카테고리 이름',
+                                onChanged: (_) {
+                                  // 입력 중 에러 지우고 싶으면 활성화
+                                  // clearInlineError(setModalState);
+                                },
+                                height: 60,
+                              ),
+                            ),
                           ),
                         ],
                       ),
 
-                      if (isEditMode) ...[
-                        const SizedBox(height: 8),
+                      if (showEmojiPicker) ...[
+                        const SizedBox(height: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          height: 120,
+                          padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                            color: const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE5E7EB)),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, size: 14, color: AppColors.primary),
-                              const SizedBox(width: 6),
-                              const Expanded(
-                                child: Text(
-                                  '편집 모드: 칩을 드래그해 순서를 바꾸거나 X 버튼으로 삭제할 수 있어요.',
-                                  style: TextStyle(fontSize: 11, color: Color(0xFF1F2933)),
+                          child: GridView.builder(
+                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 8,
+                              crossAxisSpacing: 4,
+                              mainAxisSpacing: 4,
+                            ),
+                            itemCount: expenseEmojis.length,
+                            itemBuilder: (context, index) {
+                              final emoji = expenseEmojis[index];
+                              return GestureDetector(
+                                onTap: () {
+                                  setModalState(() {
+                                    selectedEmoji = emoji;
+                                    showEmojiPicker = false;
+                                  });
+                                },
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: selectedEmoji == emoji
+                                        ? AppColors.primary.withOpacity(0.1)
+                                        : Colors.transparent,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      emoji,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        color: selectedEmoji == emoji ? AppColors.primary : null,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ],
+                              );
+                            },
                           ),
                         ),
                       ],
 
                       const SizedBox(height: 12),
-                      buildCategoryGrid(),
 
-                      if (inlineError != null) ...[
-                        const SizedBox(height: 10),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            inlineError!,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFFDC2626),
-                            ),
-                          ),
-                        ),
-                      ],
-
-                      const SizedBox(height: 16),
-
-                      if (showAddForm) ...[
-                        Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () => setModalState(() => showEmojiPicker = !showEmojiPicker),
-                              child: Container(
-                                width: 60,
-                                height: 60,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F4F6),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                                ),
-                                child: Center(
-                                  child: Text(selectedEmoji, style: const TextStyle(fontSize: 24)),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: SizedBox(
-                                height: 60,
-                                child: Builder(
-                                  builder: (context) {
-                                    tempController ??= TextEditingController(text: temp);
-                                    return CustomTextField(
-                                      controller: tempController!,
-                                      hintText: '새 카테고리 이름',
-                                      onChanged: (v) => setModalState(() => temp = v),
-                                      height: 60,
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        if (showEmojiPicker) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            height: 120,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF9FAFB),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: handleAdd,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
-                            ),
-                            child: GridView.builder(
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 8,
-                                crossAxisSpacing: 4,
-                                mainAxisSpacing: 4,
-                              ),
-                              itemCount: expenseEmojis.length,
-                              itemBuilder: (context, index) {
-                                final emoji = expenseEmojis[index];
-                                return GestureDetector(
-                                  onTap: () {
-                                    setModalState(() {
-                                      selectedEmoji = emoji;
-                                      showEmojiPicker = false;
-                                    });
-                                  },
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: selectedEmoji == emoji
-                                          ? AppColors.primary.withOpacity(0.1)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        emoji,
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          color: selectedEmoji == emoji ? AppColors.primary : null,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
                             ),
                           ),
-                        ],
-
-                        const SizedBox(height: 12),
-
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: temp.trim().isNotEmpty
-                                ? () {
-                              final name = temp.trim();
-                              final current = (currentSelectedName ?? '').trim();
-
-                              if (localCategories.contains(name)) {
-                                showInlineError('이미 있는 카테고리 이름이에요.');
-                                return;
-                              }
-
-                              final dupSelected = alreadySelectedNames.contains(name) && name != current;
-                              if (dupSelected) {
-                                showInlineError('이미 선택된 카테고리입니다.');
-                                return;
-                              }
-
-                              setModalState(() {
-                                localCategories.add(name);
-                                localEmojis[name] = selectedEmoji;
-                              });
-
-                              onCategoryAdded?.call(name, selectedEmoji);
-
-                              setModalState(() {
-                                temp = '';
-                                tempController?.clear();
-                                selectedEmoji = '💰';
-                              });
-
-                              clearInlineError();
-                            }
-                                : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                            child: const Text(
-                              '추가',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                fontSize: 15,
-                              ),
+                          child: const Text(
+                            '추가',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                              fontSize: 15,
                             ),
                           ),
                         ),
-                      ],
+                      ),
                     ],
                   ),
                 ),

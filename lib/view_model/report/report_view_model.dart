@@ -1,174 +1,158 @@
 // lib/view_model/report/report_view_model.dart
-
 import 'dart:async';
-
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color, IconData, Icons;
 import 'package:intl/intl.dart';
+
 import 'package:sotong_local/component/theme/app_colors.dart';
 
-import 'package:sotong_local/repository/record_repository.dart';
-import 'package:sotong_local/model/record/monthly_spending.dart';
-import 'package:sotong_local/model/record/day_spending.dart';
-import 'package:sotong_local/model/record/spending_entry.dart';
-import 'package:sotong_local/services/spending_event_bus.dart';
+import '../../repository/record_repository.dart';
+import '../../model/record/monthly_spending.dart';
+import '../../model/record/day_spending.dart';
+import '../../model/refData/ref_data.dart';
+import '../../model/report/report_models.dart';
+import '../../repository/ref_data_repository.dart';
 
 class ReportViewModel extends ChangeNotifier {
-  final RecordRepository _recordRepository;
-  late final StreamSubscription<SpendingUpdatedEvent> _spendingSub;
+  ReportViewModel(this._recordRepo, this._refRepo);
 
-  ReportViewModel(this._recordRepository, SpendingEventBus eventBus) {
-    _selectedBaseDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  final RecordRepository _recordRepo;
+  final RefDataRepository _refRepo;
 
-    _spendingSub = eventBus.stream.listen((_) {
-      reloadForCurrentMonth();
-    });
-  }
-
-  // ───────── 상태 ─────────
-
+  // ─────────────────────────────
+  // state
+  // ─────────────────────────────
   bool _isLoading = false;
   String? _error;
 
-  late DateTime _selectedBaseDate;
-
-  String budgetPeriod = '월간';
-  String selectedCategory = '변동소비';
-  bool isCategoryDropdownOpen = false;
-
-  int currentInsightIndex = 0;
-
-  MonthlySpending? _monthly;
-
-  bool get hasData => _monthly != null;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  int get selectedMonth => _selectedBaseDate.month;
-  int get selectedYear => _selectedBaseDate.year;
+  final NumberFormat _nf = NumberFormat('#,###');
 
-  // ───────── 집계 데이터(상단 카드: 선택된 월 기준 유지) ─────────
+  // 배너 인덱스
+  int _insightIndex = 0;
+  int get insightIndex => _insightIndex;
+  void setInsightIndex(int i) {
+    _insightIndex = i;
+    notifyListeners();
+  }
 
-  Map<String, int> _monthlyCategorySpent = {};
-  Map<String, int> _weeklyCategorySpent = {}; // 혹시 향후 사용 대비 유지
+  // 월 선택
+  int selectedYear = DateTime.now().year;
+  int selectedMonth = DateTime.now().month;
 
-  int incomeTotal = 0;
-  int fixedExpenseTotal = 0;
-  int variableExpenseTotal = 0;
-  int savingTotal = 0;
+  // 주간/월간 (뷰에서 쓰는 이름: rangeType)
+  ReportRangeType _rangeType = ReportRangeType.weekly;
+  ReportRangeType get rangeType => _rangeType;
 
-  /// 소비 수치 중심 인사이트 5종 (총 소비, 하루 평균, 최다 카테고리, 예산 대비, 소비 추세)
+  void setRangeType(ReportRangeType next) {
+    if (_rangeType == next) return;
+    _rangeType = next;
+    _rebuildAll();
+  }
+
+  void changeMonth(int delta) {
+    var y = selectedYear;
+    var m = selectedMonth + delta;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    } else if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+    selectedYear = y;
+    selectedMonth = m;
+    _rebuildAll();
+  }
+
+  // ─────────────────────────────
+  // data cache
+  // ─────────────────────────────
+  final Map<String, MonthlySpending> _monthCache = {}; // yyyy-MM -> monthly
+  RefData? _refData;
+
+  // record에서 본 "마지막 카테고리 이름" 캐시 (표시용 fallback)
+  final Map<String, String> _lastRecordNameByKey = {};
+
+  // 차트 모델
+  ReportCategoryBudgetChart? _budgetChart;
+  ReportCategoryBudgetChart? get budgetChart => _budgetChart;
+
+  // MonthCategorySection에서 쓰는 합계(일단 "기록 기반"으로 유지)
+  int _incomeTotal = 0;
+  int _savingTotal = 0;
+  int _fixedExpenseTotal = 0;
+  int _variableExpenseTotal = 0;
+
+  int get incomeTotal => _incomeTotal;
+  int get savingTotal => _savingTotal;
+  int get fixedExpenseTotal => _fixedExpenseTotal;
+  int get variableExpenseTotal => _variableExpenseTotal;
+
+  // ─────────────────────────────
+  // init (뷰에서 쓰는 이름: loadInitial)
+  // ─────────────────────────────
+  bool _didInit = false;
+
+  Future<void> loadInitial() async {
+    if (_didInit) return;
+    _didInit = true;
+    await _rebuildAll();
+  }
+
+  // ─────────────────────────────
+  // derived
+  // ─────────────────────────────
+  String get rangeLabel {
+    if (_rangeType == ReportRangeType.weekly) return '주간';
+    return '월간';
+  }
+
+  ReportRange get range {
+    final now = _dateOnly(DateTime.now());
+
+    if (_rangeType == ReportRangeType.weekly) {
+      // ✅ 월요일 시작 고정
+      final monday = now.subtract(Duration(days: (now.weekday + 6) % 7));
+      final sunday = monday.add(const Duration(days: 6));
+      return ReportRange(start: _dateOnly(monday), end: _dateOnly(sunday));
+    } else {
+      final start = DateTime(selectedYear, selectedMonth, 1);
+      final end = DateTime(selectedYear, selectedMonth + 1, 0);
+      return ReportRange(start: _dateOnly(start), end: _dateOnly(end));
+    }
+  }
+
+  // ✅ 뷰에서 쓰는 이름: insights
   List<Map<String, dynamic>> get insights => _buildReportInsights();
 
-  // ✅ 최근 7/30일 차트 집계를 위해 여러 월을 캐시
-  final Map<String, MonthlySpending> _monthCache = {}; // key: 'yyyy-MM'
-
-  // ✅ 아직 플랜 예산 연결 전: 하루소비한도 하드코딩(테스트용)
-  // TODO: 나중에 Plan에서 가져와서 세팅
-  int hardDailySpendingLimit = 20000;
-
-  // ───────── 차트 데이터 (여기만 "최근 7/30일" 기준) ─────────
-  // ✅ 마지막 축: '총소비' = 모든 카테고리 합 spent
-  // ✅ '총소비'의 budget = 하루소비한도 * (월간=30, 주간=7)
-  List<Map<String, dynamic>> get currentBudgetData {
-    final days = _daysInRecentPeriod(budgetPeriod);
-
-    // 1) spent 집계
-    final Map<String, int> spentByCategory = {};
-    int totalSpentAll = 0;
-
-    for (final d in days) {
-      for (final e in d.entries) {
-        final cat = e.category.trim();
-        if (cat.isEmpty) continue;
-
-        final amt = (e.amount as num).round(); // double -> int
-        if (amt == 0) continue;
-
-        spentByCategory[cat] = (spentByCategory[cat] ?? 0) + amt;
-        totalSpentAll += amt;
-      }
-    }
-
-    // 2) ✅ 임시 카테고리 예산(예산 연결 전 UI 테스트)
-    //    - 여기 없는 카테고리는 needsBudget=true로 뜨게 함
-    final Map<String, int> hardBudget = {
-      '식비': 180000,
-      '카페': 70000,
-      '쇼핑': 120000,
-      '여가': 90000,
-    };
-
-    // 3) 카테고리 리스트 구성
-    final List<Map<String, dynamic>> out = [];
-    final categories = spentByCategory.keys.toList()..sort();
-
-    for (final cat in categories) {
-      final spent = spentByCategory[cat] ?? 0;
-
-      final hasBudget = hardBudget.containsKey(cat);
-      final budget = hasBudget ? hardBudget[cat]! : 0;
-
-      out.add({
-        'category': cat,
-        'spent': spent,
-        'budget': budget,
-        'needsBudget': !hasBudget,
-      });
-    }
-
-    // 4) ✅ 마지막 축: 총소비 (budget = 하루소비한도 * 30/7)
-    final int periodDays = (budgetPeriod == '주간') ? 7 : 30;
-    final int totalBudget = hardDailySpendingLimit * periodDays;
-
-    out.add({
-      'category': '총소비',
-      'spent': totalSpentAll,
-      'budget': totalBudget,
-      'needsBudget': false,
-      'isTotal': true,
-    });
-
-    return out;
-  }
-
-  double get maxYForCurrentBudget {
-    if (currentBudgetData.isEmpty) return 100000;
-
-    double maxVal = 0;
-    for (final e in currentBudgetData) {
-      final spent = (e['spent'] as num?)?.toDouble() ?? 0.0;
-      final budget = (e['budget'] as num?)?.toDouble() ?? 0.0;
-      final highest = (spent > budget) ? spent : budget;
-      if (highest > maxVal) maxVal = highest;
-    }
-
-    return (maxVal * 1.2).ceilToDouble().clamp(1.0, double.infinity);
-  }
-
-  // ───────── 인사이트 (소비 수치 중심 5종) ─────────
-
-  static final _nf = NumberFormat.decimalPattern('ko_KR');
-
   List<Map<String, dynamic>> _buildReportInsights() {
-    final days7 = _daysInRecentPeriod('주간');
-    final total7 = _totalSpentFromDays(days7);
-    final avgDaily7 = days7.isEmpty ? 0 : (total7 / 7).round();
-    final topCat7 = _topCategoryFromDays(days7);
-    final budget7 = hardDailySpendingLimit * 7;
-    final ratio7 = budget7 > 0 ? (total7 / budget7 * 100).round() : 0;
-    final prev7 = _totalSpentPrevious7Days();
-    final trend7 = prev7 > 0 ? ((total7 - prev7) / prev7 * 100).round() : 0;
+    // 인사이트는 “최근 7일” 기준으로 고정
+    final r7 = _recent7Range();
+    final spent7 = _sumSpentInRange(r7);
+
+    // ✅ budget7 = dailyConsume overlap 기반 “진짜 예산”
+    final budget7 = _sumPlannedInRange(r7);
+
+    final avgDaily7 = (spent7 / 7).round();
+    final topCat7 = _topCategoryNameInRange(r7);
+    final ratio7 = budget7 > 0 ? (spent7 / budget7 * 100).round() : 0;
+
+    final prev7 = _sumSpentInRange(_previous7Range());
+    final trend7 = prev7 > 0 ? ((spent7 - prev7) / prev7 * 100).round() : 0;
 
     return [
       {
-        'title': total7 > 0
-            ? '최근 7일 동안 총 ${_nf.format(total7)}원을 소비했어요.'
+        'title': spent7 > 0
+            ? '최근 7일 동안 총 ${_nf.format(spent7)}원을 소비했어요.'
             : '최근 7일간 소비 기록이 없어요.',
         'icon': Icons.account_balance_wallet,
         'color': AppColors.primary,
       },
       {
-        'title': days7.isNotEmpty
+        'title': spent7 > 0
             ? '최근 7일 기준 하루 평균 소비는 ${_nf.format(avgDaily7)}원이에요.'
             : '최근 7일 기록이 없어요.',
         'icon': Icons.trending_up,
@@ -186,9 +170,7 @@ class ReportViewModel extends ChangeNotifier {
             ? '최근 7일은 설정한 예산의 ${ratio7}%를 사용했어요.'
             : '예산을 설정하면 예산 대비 소비를 볼 수 있어요.',
         'icon': Icons.savings,
-        'color': ratio7 > 100
-            ? const Color(0xFFD32F2F)
-            : const Color(0xFF43A047),
+        'color': ratio7 > 100 ? const Color(0xFFD32F2F) : const Color(0xFF43A047),
       },
       {
         'title': prev7 > 0
@@ -200,206 +182,354 @@ class ReportViewModel extends ChangeNotifier {
     ];
   }
 
-  int _totalSpentFromDays(List<DaySpending> days) {
-    int sum = 0;
-    for (final d in days) {
-      for (final e in d.entries) {
-        sum += (e.amount as num).round();
-      }
-    }
-    return sum;
-  }
-
-  String? _topCategoryFromDays(List<DaySpending> days) {
-    final Map<String, int> byCat = {};
-    for (final d in days) {
-      for (final e in d.entries) {
-        final cat = e.category.trim();
-        if (cat.isEmpty) continue;
-        final amt = (e.amount as num).round();
-        byCat[cat] = (byCat[cat] ?? 0) + amt;
-      }
-    }
-    if (byCat.isEmpty) return null;
-    return byCat.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
-  }
-
-  int _totalSpentPrevious7Days() {
-    final today = _dateOnly(DateTime.now());
-    final startPrev = today.subtract(const Duration(days: 13));
-    final endPrev = today.subtract(const Duration(days: 7));
-    int sum = 0;
-    for (final m in _monthCache.values) {
-      for (final d in m.days.values) {
-        final date = _dateOnly(d.date);
-        if (date.isBefore(startPrev) || date.isAfter(endPrev)) continue;
-        for (final e in d.entries) {
-          sum += (e.amount as num).round();
-        }
-      }
-    }
-    return sum;
-  }
-
-  // ───────── 데이터 로딩 ─────────
-
-  Future<void> _loadForMonth(DateTime month) async {
-    _isLoading = true;
+  // ─────────────────────────────
+  // main rebuild
+  // ─────────────────────────────
+  Future<void> _rebuildAll() async {
+    _setLoading(true);
+    _setError(null);
     notifyListeners();
 
     try {
-      // ✅ 상단 카드: 선택된 월 로드(유지)
-      _monthly = await _recordRepository.loadMonthlySpendingByDate(month);
+      // 1) 월 기록 로드(선택월)
+      await _ensureMonthLoaded(DateTime(selectedYear, selectedMonth, 1));
 
-      // ✅ 캐시에도 저장
-      if (_monthly != null) {
-        _monthCache[_monthKey(month)] = _monthly!;
-      }
+      // 2) RefData 로드
+      _refData ??= await _refRepo.loadAll();
 
-      // ✅ 차트(최근 7/30일) 커버 월 프리로드
-      await _preloadMonthsForRecentPeriod(days: 30);
+      // 3) chart 빌드(합의안 A)
+      final r = range;
+      _budgetChart = _buildBudgetChart(range: r);
 
-      _recomputeAggregates();
-      _error = null;
-    } catch (_) {
-      _error = '데이터를 불러오는 중 오류가 발생했어요';
-    }
+      // 4) MonthCategorySection totals (일단 기록 기반)
+      _recomputeMonthTotalsFromRecords();
 
-    _isLoading = false;
-    notifyListeners();
-  }
-
-  Future<void> reloadForCurrentMonth() async {
-    await _loadForMonth(_selectedBaseDate);
-  }
-
-  bool _didInitialLoad = false;
-
-  Future<void> loadInitial() async {
-    if (_didInitialLoad) return;
-    _didInitialLoad = true;
-
-    if (hasData) return;
-
-    await reloadForCurrentMonth();
-  }
-
-  void _recomputeAggregates() {
-    _monthlyCategorySpent.clear();
-    _weeklyCategorySpent.clear();
-
-    incomeTotal = 0;
-    fixedExpenseTotal = 0;
-    variableExpenseTotal = 0;
-    savingTotal = 0;
-
-    if (_monthly == null) return;
-
-    // ✅ 상단 카드(선택된 월) 계산 유지
-    for (final DaySpending day in _monthly!.days.values) {
-      for (final SpendingEntry e in day.entries) {
-        if (e.category.isEmpty || e.amount == 0) continue;
-
-        final amt = (e.amount as num).round();
-        _monthlyCategorySpent[e.category] =
-            (_monthlyCategorySpent[e.category] ?? 0) + amt;
-
-        // 기존대로 변동소비만 더함
-        variableExpenseTotal += amt;
-      }
+      _setError(null);
+    } catch (e) {
+      _setError('리포트 로드 실패: $e');
+    } finally {
+      _setLoading(false);
+      notifyListeners();
     }
   }
 
-  // ───────── UI 액션 ─────────
+  // ─────────────────────────────
+  // chart build
+  // planned: dailyConsume overlap 누적
+  // spent: record range 필터 합산
+  // chart categories: “플랜 카테고리 합집합(+기타)”
+  // ─────────────────────────────
+  ReportCategoryBudgetChart _buildBudgetChart({required ReportRange range}) {
+    const etcKey = 'etc';
 
-  void setBudgetPeriod(String period) {
-    if (budgetPeriod == period) return;
-    budgetPeriod = period;
+    final plannedByKey = <String, int>{};
+    final nameByKey = <String, String>{};
+    final emojiByKey = <String, String>{};
 
-    // ✅ 주간/월간 바뀌면 필요한 월들 미리 로드
-    _preloadMonthsForRecentPeriod(days: period == '주간' ? 7 : 30);
+    final spentByKey = <String, int>{};
 
-    notifyListeners();
-  }
+    // 1) planned
+    final refData = _refData;
+    if (refData != null) {
+      for (final dc in refData.dailyConsumeMap.values) {
+        final overlap = _overlapDays(
+          rangeStart: range.start,
+          rangeEnd: range.end,
+          docStart: _dateOnly(dc.startDate),
+          docEnd: _dateOnly(dc.endDate),
+        );
+        if (overlap <= 0) continue;
 
-  void changeMonth(int delta) {
-    _selectedBaseDate = DateTime(
-      _selectedBaseDate.year,
-      _selectedBaseDate.month + delta,
-      1,
-    );
-    _loadForMonth(_selectedBaseDate);
-  }
+        for (final e in dc.entries) {
+          final key = (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
+          final add = (e.amount * overlap).round();
 
-  void toggleCategoryDropdown() {
-    isCategoryDropdownOpen = !isCategoryDropdownOpen;
-    notifyListeners();
-  }
+          plannedByKey[key] = (plannedByKey[key] ?? 0) + add;
 
-  void selectCategory(String category) {
-    selectedCategory = category;
-    isCategoryDropdownOpen = false;
-    notifyListeners();
-  }
-
-  void setInsightIndex(int index) {
-    currentInsightIndex = index;
-    notifyListeners();
-  }
-
-  // ================== Recent 7/30 helpers ==================
-
-  DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
-
-  String _monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
-
-  Future<void> _ensureMonthLoaded(DateTime anyDay) async {
-    final key = _monthKey(anyDay);
-    if (_monthCache.containsKey(key)) return;
-
-    final monthAnchor = DateTime(anyDay.year, anyDay.month, 1);
-    final monthly = await _recordRepository.loadMonthlySpendingByDate(
-      monthAnchor,
-    );
-    _monthCache[key] = monthly;
-  }
-
-  Future<void> _preloadMonthsForRecentPeriod({required int days}) async {
-    final today = _dateOnly(DateTime.now());
-    final start = today.subtract(Duration(days: days - 1));
-
-    DateTime cursor = DateTime(start.year, start.month, 1);
-    final endMonth = DateTime(today.year, today.month, 1);
-
-    while (!cursor.isAfter(endMonth)) {
-      await _ensureMonthLoaded(cursor);
-      cursor = DateTime(cursor.year, cursor.month + 1, 1);
-    }
-  }
-
-  List<DaySpending> _daysInRecentPeriod(String period) {
-    final today = _dateOnly(DateTime.now());
-    final int days = (period == '주간') ? 7 : 30;
-    final start = today.subtract(Duration(days: days - 1));
-
-    final List<DaySpending> out = [];
-
-    for (final m in _monthCache.values) {
-      for (final d in m.days.values) {
-        final date = _dateOnly(d.date);
-        if (!date.isBefore(start) && !date.isAfter(today)) {
-          out.add(d);
+          nameByKey[key] ??= (e.category.trim().isEmpty ? '기타' : e.category.trim());
+          emojiByKey[key] ??= '💰';
         }
       }
     }
 
+    // 2) spent (categoryKey 기준)
+    final days = _daysInRange(range);
+    for (final d in days) {
+      for (final e in d.entries) {
+        final key = (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
+        spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
+      }
+    }
+
+    // 3) keys = 플랜 합집합 (+etc 필요 시)
+    nameByKey.putIfAbsent(etcKey, () => '기타');
+    emojiByKey.putIfAbsent(etcKey, () => '🧩');
+
+    // planned에 없는 spent는 etc로 몰기
+    int etcSpent = spentByKey[etcKey] ?? 0;
+    spentByKey.forEach((k, v) {
+      if (k == etcKey) return;
+      if (!plannedByKey.containsKey(k)) {
+        etcSpent += v;
+      }
+    });
+    spentByKey[etcKey] = etcSpent;
+
+    final keys = plannedByKey.keys.toSet();
+    if ((spentByKey[etcKey] ?? 0) > 0) keys.add(etcKey);
+
+    final rows = keys.map((k) {
+      final name = nameByKey[k] ??
+          (k == etcKey ? '기타' : (_lastRecordNameByKey[k] ?? k));
+
+      final emoji = emojiByKey[k] ?? (k == etcKey ? '🧩' : '💰');
+
+      return ReportCategoryBudgetRow(
+        categoryKey: k,
+        name: name,
+        emoji: emoji,
+        planned: plannedByKey[k] ?? 0,
+        spent: spentByKey[k] ?? 0,
+        isTotal: false,
+      );
+    }).toList();
+
+    // 4) 정렬: spent 큰 순, 기타는 맨 뒤
+    rows.sort((a, b) => b.spent.compareTo(a.spent));
+    final etcIndex = rows.indexWhere((e) => e.categoryKey == etcKey);
+    if (etcIndex >= 0) {
+      final etc = rows.removeAt(etcIndex);
+      rows.add(etc);
+    }
+
+    // 5) 총소비 row
+    final totalSpent = rows.fold<int>(0, (s, r) => s + r.spent);
+    final totalPlanned = rows.fold<int>(0, (s, r) => s + r.planned);
+    rows.add(
+      ReportCategoryBudgetRow(
+        categoryKey: '__total__',
+        name: '총소비',
+        emoji: '📌',
+        planned: totalPlanned,
+        spent: totalSpent,
+        isTotal: true,
+      ),
+    );
+
+    return ReportCategoryBudgetChart(range: range, rows: List.unmodifiable(rows));
+  }
+
+  // ─────────────────────────────
+  // totals for month section (임시: record기반)
+  // ─────────────────────────────
+  void _recomputeMonthTotalsFromRecords() {
+    final monthly = _monthCache[_monthKey(DateTime(selectedYear, selectedMonth, 1))];
+    if (monthly == null) {
+      _incomeTotal = 0;
+      _savingTotal = 0;
+      _fixedExpenseTotal = 0;
+      _variableExpenseTotal = 0;
+      return;
+    }
+
+    int sum = 0;
+    for (final d in monthly.days.values) {
+      for (final e in d.entries) {
+        sum += e.amount.round();
+      }
+    }
+
+    _variableExpenseTotal = sum;
+    _fixedExpenseTotal = 0;
+
+    _incomeTotal = 0;
+    _savingTotal = 0;
+  }
+
+  // ─────────────────────────────
+  // range helpers
+  // ─────────────────────────────
+  List<DaySpending> _daysInRange(ReportRange r) {
+    final start = _dateOnly(r.start);
+    final end = _dateOnly(r.end);
+
+    final out = <DaySpending>[];
+    final months = _monthsCovered(start, end);
+    for (final m in months) {
+      final mm = _monthCache[_monthKey(m)];
+      if (mm == null) continue;
+
+      for (final d in mm.days.values) {
+        final day = _dateOnly(d.date);
+        if (day.isBefore(start) || day.isAfter(end)) continue;
+
+        // ✅ record 기반 "마지막 이름" 캐시
+        for (final e in d.entries) {
+          final key = e.categoryKey.trim();
+          if (key.isEmpty) continue;
+          final name = e.category.trim();
+          if (name.isNotEmpty) _lastRecordNameByKey[key] = name;
+        }
+
+        out.add(d);
+      }
+    }
     out.sort((a, b) => a.date.compareTo(b.date));
     return out;
   }
 
-  @override
-  void dispose() {
-    _spendingSub.cancel();
-    super.dispose();
+  // ─────────────────────────────
+  // insight helpers
+  // ─────────────────────────────
+  ReportRange _recent7Range() {
+    final now = _dateOnly(DateTime.now());
+    final start = now.subtract(const Duration(days: 6));
+    return ReportRange(start: start, end: now);
   }
+
+  ReportRange _previous7Range() {
+    final now = _dateOnly(DateTime.now());
+    final end = now.subtract(const Duration(days: 7));
+    final start = end.subtract(const Duration(days: 6));
+    return ReportRange(start: start, end: end);
+  }
+
+  int _sumSpentInRange(ReportRange r) {
+    final days = _daysInRange(r);
+    int sum = 0;
+    for (final d in days) {
+      for (final e in d.entries) {
+        sum += e.amount.round();
+      }
+    }
+    return sum;
+  }
+
+  int _sumPlannedInRange(ReportRange r) {
+    final refData = _refData;
+    if (refData == null) return 0;
+
+    int sum = 0;
+    for (final dc in refData.dailyConsumeMap.values) {
+      final overlap = _overlapDays(
+        rangeStart: r.start,
+        rangeEnd: r.end,
+        docStart: _dateOnly(dc.startDate),
+        docEnd: _dateOnly(dc.endDate),
+      );
+      if (overlap <= 0) continue;
+
+      for (final e in dc.entries) {
+        sum += (e.amount * overlap).round();
+      }
+    }
+    return sum;
+  }
+
+  // ✅ FIX: top category는 categoryKey로 집계
+  // 표시명은 (1) 플랜 이름(dailyConsume) (2) record 마지막 이름 (3) fallback
+  String? _topCategoryNameInRange(ReportRange r) {
+    const etcKey = 'etc';
+
+    final days = _daysInRange(r);
+    final spentByKey = <String, int>{};
+
+    for (final d in days) {
+      for (final e in d.entries) {
+        final key = e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
+        spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
+      }
+    }
+    if (spentByKey.isEmpty) return null;
+
+    final top = spentByKey.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final topKey = top.key;
+
+    final planName = _planNameForKey(topKey);
+    if (planName != null && planName.trim().isNotEmpty) return planName.trim();
+
+    final recordName = _lastRecordNameByKey[topKey];
+    if (recordName != null && recordName.trim().isNotEmpty) return recordName.trim();
+
+    return topKey == etcKey ? '기타' : topKey;
+  }
+
+  String? _planNameForKey(String key) {
+    final refData = _refData;
+    if (refData == null) return null;
+
+    for (final dc in refData.dailyConsumeMap.values) {
+      for (final e in dc.entries) {
+        if (e.categoryKey.trim() == key.trim()) {
+          final name = e.category.trim();
+          if (name.isNotEmpty) return name;
+        }
+      }
+    }
+    return null;
+  }
+
+  // ─────────────────────────────
+  // overlap logic
+  // ─────────────────────────────
+  int _overlapDays({
+    required DateTime rangeStart,
+    required DateTime rangeEnd,
+    required DateTime docStart,
+    required DateTime docEnd,
+  }) {
+    final rs = _dateOnly(rangeStart);
+    final re = _dateOnly(rangeEnd);
+    final ds = _dateOnly(docStart);
+    final de = _dateOnly(docEnd);
+
+    final start = rs.isAfter(ds) ? rs : ds;
+    final end = re.isBefore(de) ? re : de;
+    if (end.isBefore(start)) return 0;
+
+    return end.difference(start).inDays + 1; // inclusive
+  }
+
+  // ─────────────────────────────
+  // cache load helpers
+  // ─────────────────────────────
+  Future<void> _ensureMonthLoaded(DateTime anchorMonthFirstDay) async {
+    final key = _monthKey(anchorMonthFirstDay);
+    if (_monthCache.containsKey(key)) return;
+
+    final loaded = await _recordRepo.loadMonthlySpendingByDate(anchorMonthFirstDay);
+    _monthCache[key] = loaded;
+
+    // prev / next pre-load (기존 구조 유지)
+    final prev = DateTime(anchorMonthFirstDay.year, anchorMonthFirstDay.month - 1, 1);
+    final next = DateTime(anchorMonthFirstDay.year, anchorMonthFirstDay.month + 1, 1);
+
+    if (!_monthCache.containsKey(_monthKey(prev))) {
+      final prevLoaded = await _recordRepo.loadMonthlySpendingByDate(prev);
+      _monthCache[_monthKey(prev)] = prevLoaded;
+    }
+    if (!_monthCache.containsKey(_monthKey(next))) {
+      final nextLoaded = await _recordRepo.loadMonthlySpendingByDate(next);
+      _monthCache[_monthKey(next)] = nextLoaded;
+    }
+  }
+
+  List<DateTime> _monthsCovered(DateTime start, DateTime end) {
+    final s = DateTime(start.year, start.month, 1);
+    final e = DateTime(end.year, end.month, 1);
+
+    final out = <DateTime>[];
+    var cursor = s;
+    while (!cursor.isAfter(e)) {
+      out.add(cursor);
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+    }
+    return out;
+  }
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+  String _monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
+
+  void _setLoading(bool v) => _isLoading = v;
+  void _setError(String? msg) => _error = msg;
 }

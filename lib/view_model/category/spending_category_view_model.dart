@@ -4,18 +4,15 @@ import '../../model/category/category_edit_item.dart';
 import '../../model/category/ref_category_item.dart';
 import '../../model/refData/daily_consume.dart';
 import '../../model/refData/entry.dart';
-import '../../repository/plan_repository.dart';
 import '../../repository/ref_data_repository.dart';
 import '../../repository/ref_category_repository.dart';
 
 class SpendingCategoryViewModel extends ChangeNotifier {
   SpendingCategoryViewModel(
-      this._planRepo,
       this._refDataRepo,
       this._refCatRepo,
       );
 
-  final PlanRepository _planRepo;
   final RefDataRepository _refDataRepo;
   final RefCategoryRepository _refCatRepo;
 
@@ -50,9 +47,6 @@ class SpendingCategoryViewModel extends ChangeNotifier {
   // -------------------------
   static DateTime _normalizeDay(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  String _formatYearMonth(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}${d.month.toString().padLeft(2, '0')}';
-
   String _fallbackEmojiByName(String name, {String fallback = '💰'}) {
     switch (name) {
       case '급여':
@@ -77,6 +71,7 @@ class SpendingCategoryViewModel extends ChangeNotifier {
         return fallback;
     }
   }
+
   DailyConsume? _findDailyConsumeForDate(
       Iterable<DailyConsume> all,
       DateTime date,
@@ -92,9 +87,17 @@ class SpendingCategoryViewModel extends ChangeNotifier {
 
     if (candidates.isEmpty) return null;
 
-    // 2) 여러 개면 "가장 최근에 시작한 것" 우선 (보통 최신 적용분)
+    // 2) 여러 개면 "가장 최근에 시작한 것" 우선
     candidates.sort((a, b) => b.startDate.compareTo(a.startDate));
     return candidates.first;
+  }
+
+  /// ✅ cat_ prefix + ms + counter 로 "동일 ms" 충돌만 방지
+  int _keyCounter = 0;
+  String _newCategoryKey() {
+    final ms = DateTime.now().millisecondsSinceEpoch;
+    _keyCounter = (_keyCounter + 1) % 1000000;
+    return 'cat_${ms}_$_keyCounter';
   }
 
   // -------------------------
@@ -167,7 +170,6 @@ class SpendingCategoryViewModel extends ChangeNotifier {
     }
   }
 
-
   // -------------------------
   // load ref (users/{uid}/refCategories/recordSpending)
   // -------------------------
@@ -175,9 +177,9 @@ class SpendingCategoryViewModel extends ChangeNotifier {
     try {
       _refItems = await _refCatRepo.fetchRefCategories(docId: _docId);
 
-      // ✅ 처음 1회: 기본 4개 자동 생성
+      // ✅ 처음 1회: 기본 4개 자동 생성 (고유키)
       if (_refItems.isEmpty) {
-        _refItems = _defaultRefSeed();
+        _refItems = _defaultRefSeedUniqueKeys();
         await _persistRef();
       }
     } catch (e) {
@@ -186,14 +188,15 @@ class SpendingCategoryViewModel extends ChangeNotifier {
     }
   }
 
-  List<RefCategoryItem> _defaultRefSeed() {
-    // 원하는 4개로 바꿔도 됨 (key는 고정 추천)
-    return const [
-      RefCategoryItem(categoryKey: 'ref_gift', name: '선물', emoji: '🎁', order: 0),
-      RefCategoryItem(categoryKey: 'ref_pet', name: '반려동물', emoji: '🐕', order: 1),
-      RefCategoryItem(categoryKey: 'ref_health', name: '건강', emoji: '💊', order: 2),
-      RefCategoryItem(categoryKey: 'ref_etc', name: '기타', emoji: '🧾', order: 3),
+  List<RefCategoryItem> _defaultRefSeedUniqueKeys() {
+    // ✅ seed도 고유키(cat_...)로 생성
+    final list = <RefCategoryItem>[
+      RefCategoryItem(categoryKey: _newCategoryKey(), name: '선물', emoji: '🎁', order: 0),
+      RefCategoryItem(categoryKey: _newCategoryKey(), name: '반려동물', emoji: '🐕', order: 1),
+      RefCategoryItem(categoryKey: _newCategoryKey(), name: '건강', emoji: '💊', order: 2),
+      RefCategoryItem(categoryKey: _newCategoryKey(), name: '기타', emoji: '🧾', order: 3),
     ];
+    return list;
   }
 
   Future<void> _persistRef() async {
@@ -216,7 +219,7 @@ class SpendingCategoryViewModel extends ChangeNotifier {
     final dupInRef = _refItems.any((e) => e.name == n);
     if (dupInPlan || dupInRef) return null;
 
-    final key = 'ref_${DateTime.now().millisecondsSinceEpoch}';
+    final key = _newCategoryKey(); // ✅ cat_ 고유키
     final item = RefCategoryItem(
       categoryKey: key,
       name: n,
@@ -226,6 +229,7 @@ class SpendingCategoryViewModel extends ChangeNotifier {
 
     _refItems = [..._refItems, item];
     notifyListeners();
+
     await _persistRef();
     return item;
   }

@@ -1,7 +1,10 @@
+// plan_category_view_model.dart
 // 이 파일은 플랜 생성 때 입력받는 카테고리에만 사용할 예정
 // 기본 4개의 카테고리들이 있고, 추가하고 선택 가능
 
 import 'package:flutter/foundation.dart';
+
+import '../../services/category_key.dart';
 
 class PlanCategoryViewModel extends ChangeNotifier {
   // =========================
@@ -32,6 +35,10 @@ class PlanCategoryViewModel extends ChangeNotifier {
     '여가': '🎮',
   };
 
+  PlanCategoryViewModel() {
+    _ensureBaseKeys(); // ✅ 기본 4개 key를 생성/보장
+  }
+
   // =========================
   // ✅ 커스텀 저장소
   // =========================
@@ -44,6 +51,53 @@ class PlanCategoryViewModel extends ChangeNotifier {
   final Map<String, String> _dailyExpenseCategoryEmojis = {};
 
   // =========================
+  // ✅ (추가) name -> categoryKey 저장소 (핵심)
+  // - base + custom 모두 여기에 key를 보관
+  // - 플랜 생성 단계에서만 쓰므로 메모리 유지면 충분
+  // =========================
+  final Map<String, String> _incomeNameToKey = {};
+  final Map<String, String> _fixedNameToKey = {};
+  final Map<String, String> _dailyNameToKey = {};
+
+  bool _baseKeyInitialized = false;
+
+  void _ensureBaseKeys() {
+    if (_baseKeyInitialized) return;
+    _baseKeyInitialized = true;
+
+    for (final n in baseIncomeCategories) {
+      _incomeNameToKey[n] ??= CategoryKey.newKey();
+    }
+    for (final n in baseFixedExpenseCategories) {
+      _fixedNameToKey[n] ??= CategoryKey.newKey();
+    }
+    for (final n in baseDailyExpenseCategories) {
+      _dailyNameToKey[n] ??= CategoryKey.newKey();
+    }
+  }
+
+  /// ✅ 외부에서 name으로 key를 얻을 때 쓰는 함수들
+  /// - 존재하면 기존 key 반환
+  /// - 없으면 새로 생성해서 저장
+  String keyOfIncome(String name) {
+    _ensureBaseKeys();
+    final n = name.trim();
+    return _incomeNameToKey[n] ??= CategoryKey.newKey();
+  }
+
+  String keyOfFixed(String name) {
+    _ensureBaseKeys();
+    final n = name.trim();
+    return _fixedNameToKey[n] ??= CategoryKey.newKey();
+  }
+
+  String keyOfDaily(String name) {
+    _ensureBaseKeys();
+    final n = name.trim();
+    return _dailyNameToKey[n] ??= CategoryKey.newKey();
+  }
+
+  // =========================
   // ✅ 정렬(order) 저장소 (메모리 유지)
   // =========================
   final List<String> _incomeOrder = [];
@@ -52,9 +106,6 @@ class PlanCategoryViewModel extends ChangeNotifier {
 
   // =========================
   // ✅ UI에서 쓰는 getter (order 기반)
-  // - base + custom 전체를 항상 포함
-  // - order가 비어있으면 base+custom 순서로 초기화
-  // - 새로 추가된 항목은 뒤에 붙임 / 삭제된 항목은 제거
   // =========================
   List<String> get incomeCategories => _ensureOrder(
     base: baseIncomeCategories,
@@ -101,9 +152,13 @@ class PlanCategoryViewModel extends ChangeNotifier {
   Map<String, String> get customFixedExpenseEmojis => Map.unmodifiable(_fixedExpenseCategoryEmojis);
   Map<String, String> get customDailyEmojis => Map.unmodifiable(_dailyExpenseCategoryEmojis);
 
+  /// (옵션) 디버그용 key 맵
+  Map<String, String> get incomeNameToKey => Map.unmodifiable(_incomeNameToKey);
+  Map<String, String> get fixedNameToKey => Map.unmodifiable(_fixedNameToKey);
+  Map<String, String> get dailyNameToKey => Map.unmodifiable(_dailyNameToKey);
+
   // =========================
-  // ✅ 바텀시트 정렬 저장 (핵심)
-  // openCategorySheet의 onReorder(newOrder)와 연결할 함수들
+  // ✅ 바텀시트 정렬 저장
   // =========================
   void setIncomeOrder(List<String> newOrder) => _setOrder(
     order: _incomeOrder,
@@ -135,7 +190,10 @@ class PlanCategoryViewModel extends ChangeNotifier {
     if (_customIncomeCategories.contains(trimmed)) return;
 
     _customIncomeCategories.add(trimmed);
-    // order는 getter에서 자동 보정되지만, UI 즉시 반영을 위해 notify
+
+    // ✅ key 보장
+    _incomeNameToKey[trimmed] ??= CategoryKey.newKey();
+
     notifyListeners();
   }
 
@@ -145,6 +203,10 @@ class PlanCategoryViewModel extends ChangeNotifier {
 
     if (!_customIncomeCategories.contains(trimmed)) _customIncomeCategories.add(trimmed);
     _incomeCategoryEmojis[trimmed] = emoji.trim().isEmpty ? '💰' : emoji.trim();
+
+    // ✅ key 보장
+    _incomeNameToKey[trimmed] ??= CategoryKey.newKey();
+
     notifyListeners();
   }
 
@@ -154,12 +216,17 @@ class PlanCategoryViewModel extends ChangeNotifier {
     if (baseIncomeCategories.contains(trimmed)) {
       // 기본은 리스트에서 제거 불가: override emoji만 제거
       _incomeCategoryEmojis.remove(trimmed);
+      // ✅ 기본 key는 유지 (같은 세션에서 안정적으로 사용)
       notifyListeners();
       return;
     }
 
     _customIncomeCategories.remove(trimmed);
     _incomeCategoryEmojis.remove(trimmed);
+
+    // ✅ key도 정리
+    _incomeNameToKey.remove(trimmed);
+
     notifyListeners();
   }
 
@@ -172,6 +239,10 @@ class PlanCategoryViewModel extends ChangeNotifier {
     if (_customFixedExpenseCategories.contains(trimmed)) return;
 
     _customFixedExpenseCategories.add(trimmed);
+
+    // ✅ key 보장
+    _fixedNameToKey[trimmed] ??= CategoryKey.newKey();
+
     notifyListeners();
   }
 
@@ -179,8 +250,14 @@ class PlanCategoryViewModel extends ChangeNotifier {
     final trimmed = category.trim();
     if (trimmed.isEmpty) return;
 
-    if (!_customFixedExpenseCategories.contains(trimmed)) _customFixedExpenseCategories.add(trimmed);
-    _fixedExpenseCategoryEmojis[trimmed] = emoji.trim().isEmpty ? '💰' : emoji.trim();
+    if (!_customFixedExpenseCategories.contains(trimmed)) {
+      _customFixedExpenseCategories.add(trimmed);
+    }
+    _fixedExpenseCategoryEmojis[trimmed] = emoji.trim().isNotEmpty ? emoji.trim() : '💰';
+
+    // ✅ key 보장
+    _fixedNameToKey[trimmed] ??= CategoryKey.newKey();
+
     notifyListeners();
   }
 
@@ -189,12 +266,17 @@ class PlanCategoryViewModel extends ChangeNotifier {
 
     if (baseFixedExpenseCategories.contains(trimmed)) {
       _fixedExpenseCategoryEmojis.remove(trimmed);
+      // ✅ 기본 key는 유지
       notifyListeners();
       return;
     }
 
     _customFixedExpenseCategories.remove(trimmed);
     _fixedExpenseCategoryEmojis.remove(trimmed);
+
+    // ✅ key 정리
+    _fixedNameToKey.remove(trimmed);
+
     notifyListeners();
   }
 
@@ -207,6 +289,10 @@ class PlanCategoryViewModel extends ChangeNotifier {
     if (_customDailyExpenseCategories.contains(trimmed)) return;
 
     _customDailyExpenseCategories.add(trimmed);
+
+    // ✅ key 보장
+    _dailyNameToKey[trimmed] ??= CategoryKey.newKey();
+
     notifyListeners();
   }
 
@@ -214,8 +300,14 @@ class PlanCategoryViewModel extends ChangeNotifier {
     final trimmed = category.trim();
     if (trimmed.isEmpty) return;
 
-    if (!_customDailyExpenseCategories.contains(trimmed)) _customDailyExpenseCategories.add(trimmed);
-    _dailyExpenseCategoryEmojis[trimmed] = emoji.trim().isEmpty ? '💰' : emoji.trim();
+    if (!_customDailyExpenseCategories.contains(trimmed)) {
+      _customDailyExpenseCategories.add(trimmed);
+    }
+    _dailyExpenseCategoryEmojis[trimmed] = emoji.trim().isNotEmpty ? emoji.trim() : '💰';
+
+    // ✅ key 보장
+    _dailyNameToKey[trimmed] ??= CategoryKey.newKey();
+
     notifyListeners();
   }
 
@@ -224,12 +316,17 @@ class PlanCategoryViewModel extends ChangeNotifier {
 
     if (baseDailyExpenseCategories.contains(trimmed)) {
       _dailyExpenseCategoryEmojis.remove(trimmed);
+      // ✅ 기본 key 유지
       notifyListeners();
       return;
     }
 
     _customDailyExpenseCategories.remove(trimmed);
     _dailyExpenseCategoryEmojis.remove(trimmed);
+
+    // ✅ key 정리
+    _dailyNameToKey.remove(trimmed);
+
     notifyListeners();
   }
 
@@ -241,6 +338,8 @@ class PlanCategoryViewModel extends ChangeNotifier {
     required List<String> custom,
     required List<String> order,
   }) {
+    _ensureBaseKeys(); // ✅ base key는 항상 준비
+
     final all = [...base, ...custom];
 
     // 최초 초기화

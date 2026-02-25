@@ -154,7 +154,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider<ReportViewModel>(
           create: (ctx) => ReportViewModel(
             ctx.read<RecordRepository>(),
-            ctx.read<SpendingEventBus>(),
+            ctx.read<RefDataRepository>(),
+            // ctx.read<SpendingEventBus>(),
           ),
         ),
         ChangeNotifierProvider<CommunicationViewModel>(
@@ -167,7 +168,6 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PlanCategoryViewModel()),
         ChangeNotifierProvider<SpendingCategoryViewModel>(
           create: (ctx) => SpendingCategoryViewModel(
-            ctx.read<PlanRepository>(),
             ctx.read<RefDataRepository>(),
             ctx.read<RefCategoryRepository>(),
           ),

@@ -122,6 +122,33 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     return NumberFormat('#,###').format(number);
   }
 
+  List<Entry> _normalizeEntries({
+    required List<Entry> items,
+    required String Function(String name) keyOf,
+    required Map<String, String> emojiMap,
+    required EntryType forcedType,
+  }) {
+    return items.asMap().entries.map((e) {
+      final i = e.key;
+      final it = e.value;
+
+      final name = it.category.trim();
+      final key = keyOf(name);
+      final emoji = (emojiMap[name]?.trim().isNotEmpty ?? false)
+          ? emojiMap[name]!.trim()
+          : '💰';
+
+      return it.copyWith(
+        idx: i,
+        order: i,
+        category: name,
+        categoryKey: key,
+        emoji: emoji,
+        type: forcedType,
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     bool shouldWaitForAnimation(ChatStep step) {
@@ -703,17 +730,24 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
-
+                    final local = context.read<PlanCategoryViewModel>();
                     final now = DateTime.now();
+
+                    final normalized = _normalizeEntries(
+                      items: items,
+                      keyOf: local.keyOfIncome,
+                      emojiMap: local.incomeCategoryEmojis,
+                      forcedType: EntryType.fixed,
+                    );
+
                     vm.updateRefData(
-                      fixedIncomes: items,
+                      fixedIncomes: normalized,
                       applyDate: DateTime(now.year, now.month, now.day),
                       modEndDate: DateTime(now.year, now.month, now.day),
                     );
 
-                    final itemLines = items
-                        .map((e) =>
-                    '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                    final itemLines = normalized
+                        .map((e) => '\n${e.emoji} ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -724,7 +758,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     await vm.waitForTypingToFinish();
 
                     _suppressNextBottomShow = true;
-
                     await vm.addMonthlyFixedCostSection();
                   },
                 ),
@@ -758,17 +791,24 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
+                    final local = context.read<PlanCategoryViewModel>();
                     final now = DateTime.now();
 
+                    final normalized = _normalizeEntries(
+                      items: items,
+                      keyOf: local.keyOfFixed,
+                      emojiMap: local.fixedExpenseCategoryEmojis,
+                      forcedType: EntryType.fixed,
+                    );
+
                     vm.updateRefData(
-                      fixedConsumptions: items,
+                      fixedConsumptions: normalized,
                       applyDate: DateTime(now.year, now.month, now.day),
                       modEndDate: DateTime(now.year, now.month, now.day),
                     );
 
-                    final itemLines = items
-                        .map((e) =>
-                    '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                    final itemLines = normalized
+                        .map((e) => '\n${e.emoji} ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -811,25 +851,31 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
+                    final local = context.read<PlanCategoryViewModel>();
                     final now = DateTime.now();
 
+                    final normalized = _normalizeEntries(
+                      items: items,
+                      keyOf: local.keyOfDaily,
+                      emojiMap: local.dailyExpenseCategoryEmojis,
+                      forcedType: EntryType.daily,
+                    );
+
                     vm.updateRefData(
-                      dailyConsumptions: items,
+                      dailyConsumptions: normalized,
                       applyDate: DateTime(now.year, now.month, now.day),
                       modEndDate: DateTime(now.year, now.month, now.day),
                     );
 
                     final calc = vm.calculate();
                     final hasNoSaving = calc == null || calc.dailyNetSaving <= 0;
-
                     if (hasNoSaving) {
                       await vm.addNoSaveMoneySection();
                       return;
                     }
 
-                    final itemLines = items
-                        .map((e) =>
-                    '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
+                    final itemLines = normalized
+                        .map((e) => '\n${e.emoji} ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
