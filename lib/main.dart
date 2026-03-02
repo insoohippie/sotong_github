@@ -49,8 +49,9 @@ Future<void> main() async {
 
   // 1) Hive 초기화
   await Hive.initFlutter();
+  await Hive.openBox('refData');
+  await Hive.openBox('ref_categories');
   await Hive.openBox('monthly_spending');
-  await Hive.openBox('categories');
   await Hive.openBox('past_plans');
   await Hive.openBox('settings');
 
@@ -151,11 +152,11 @@ class MyApp extends StatelessWidget {
             ctx.read<SpendingEventBus>(),
           ),
         ),
-        ChangeNotifierProvider<ReportViewModel>(
-          create: (ctx) => ReportViewModel(
-            ctx.read<RecordRepository>(),
-            ctx.read<RefDataRepository>(),
-            // ctx.read<SpendingEventBus>(),
+        ChangeNotifierProvider(
+          create: (context) => ReportViewModel(
+            context.read<RecordRepository>(),
+            context.read<RefDataRepository>(),
+            eventBus: context.read<SpendingEventBus>(),
           ),
         ),
         ChangeNotifierProvider<CommunicationViewModel>(

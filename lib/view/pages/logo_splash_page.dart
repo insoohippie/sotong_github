@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
+
+import '../../../view_model/home/home_view_model.dart';
 
 enum LogoIntroStyle { slide, pop } // slide: 스르르, pop: 팡 하고 자리잡기
 
@@ -27,19 +30,44 @@ class _LogoSplashPageState extends State<LogoSplashPage>
   Animation<Offset>? _slide; // slide 전용
   Animation<double>? _scale; // pop 전용
 
-  late Timer _timer;
+  Timer? _timer;
+  bool _navigated = false;
 
+  /// ✅ 핵심: auth 복원 완료 후 분기 + (로그인 상태면) 홈 refresh
   Future<void> _goNext() async {
-    final user = FirebaseAuth.instance.currentUser;
+    if (_navigated) return;
+    _navigated = true;
 
-    // ✅ 로그인 유지 중이면 홈으로, 아니면 로그인으로
-    final nextRoute = (user != null) ? '/home_tab_navigator' : '/login';
+    try {
+      // 1) FirebaseAuth 세션 복원 완료를 "확정"으로 기다림
+      // - 앱 재실행 직후 currentUser가 null이었다가 잠시 뒤 채워지는 문제 해결
+      final user = await FirebaseAuth.instance.authStateChanges().first;
 
-    if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      nextRoute,
-          (route) => false,
-    );
+      if (!mounted) return;
+
+      // 2) 로그인 상태면 홈 데이터 강제 리로드(로그인 버튼 루트와 동일 동작)
+      if (user != null) {
+        await context.read<HomeViewModel>().refresh();
+        if (!mounted) return;
+
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/home_tab_navigator',
+              (route) => false,
+        );
+      } else {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          '/login',
+              (route) => false,
+        );
+      }
+    } catch (_) {
+      // 혹시 authStateChanges가 예외 나는 경우(드물지만) 안전하게 로그인으로 보냄
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/login',
+            (route) => false,
+      );
+    }
   }
 
   @override
@@ -60,25 +88,23 @@ class _LogoSplashPageState extends State<LogoSplashPage>
 
     // 스타일별 트윈 셋업
     if (widget.style == LogoIntroStyle.slide) {
-      // 살짝 아래에서 스르르 올라오기
       _slide = Tween<Offset>(
         begin: const Offset(0, 0.18),
         end: Offset.zero,
       ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
     } else {
-      // 살짝 작게 시작해서 팡 하고 자리 잡기
       _scale = Tween<double>(begin: 0.82, end: 1.0).animate(
         CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack),
       );
     }
 
-    // ✅ 지정 시간 뒤 자동 로그인 분기
+    // ✅ 지정 시간 뒤 이동 (delay는 "연출용"이고, 로그인 판단은 auth 확정 후)
     _timer = Timer(widget.delay, _goNext);
   }
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     _ctrl.dispose();
     super.dispose();
   }
@@ -86,7 +112,7 @@ class _LogoSplashPageState extends State<LogoSplashPage>
   @override
   Widget build(BuildContext context) {
     final logo = Image.asset(
-      'assets/images/bot_profile.png', // 로고 파일 경로
+      'assets/images/bot_profile.png',
       width: widget.size,
       height: widget.size,
     );

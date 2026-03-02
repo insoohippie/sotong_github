@@ -166,9 +166,9 @@ class _ReportMonthCategorySectionState extends State<ReportMonthCategorySection>
             child: Column(
               children: [
                 MonthSelectorRow(
-                  month: vm.selectedMonth,
-                  onPrev: () => vm.changeMonth(-1),
-                  onNext: () => vm.changeMonth(1),
+                  month: vm.monthSectionMonth,
+                  onPrev: () => vm.changeMonthSection(-1),
+                  onNext: () => vm.changeMonthSection(1),
                 ),
                 const SizedBox(height: 14),
                 Align(
