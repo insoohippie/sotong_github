@@ -41,7 +41,6 @@ class PlanEditBackAppBar extends StatelessWidget {
                 return PlanEditPage(
                   initialPlan: vm.totalPlan,
                   initialRefData: vm.refData,
-                  requireApplyDate: false,
                 );
               },
             ),

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../component/appbars/back_only_app_bar.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../component/theme/app_spacing.dart';
-import '../../../../view_model/addIncome/add_income_view_model.dart';
+import '../../../../view_model/record/record_add_income_view_model.dart';
 
 class ApplyIncomeOptionPage extends StatefulWidget {
   const ApplyIncomeOptionPage({super.key});
@@ -22,10 +22,10 @@ class _ApplyIncomeOptionPageState extends State<ApplyIncomeOptionPage> {
     });
   }
 
-  Widget _buildDescriptionText(AddIncomeViewModel vm) {
+  Widget _buildDescriptionText(RecordAddIncomeViewModel vm) {
     if (_selectedOption == 'period') {
       return Text(
-        vm.periodPreviewText, // ex) "1,000,000원을 기간에 반영하면 30일이 줄어들어요!"
+        vm.periodPreviewText,
         textAlign: TextAlign.center,
         style: const TextStyle(
           fontSize: 14,
@@ -37,7 +37,7 @@ class _ApplyIncomeOptionPageState extends State<ApplyIncomeOptionPage> {
       );
     } else if (_selectedOption == 'limit') {
       return Text(
-        vm.limitPreviewText, // ex) "1,000,000원을 소비한도 금액에 반영하면..."
+        vm.limitPreviewText,
         textAlign: TextAlign.center,
         style: const TextStyle(
           fontSize: 14,
@@ -63,7 +63,7 @@ class _ApplyIncomeOptionPageState extends State<ApplyIncomeOptionPage> {
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<AddIncomeViewModel>();
+    final vm = context.watch<RecordAddIncomeViewModel>();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -78,8 +78,6 @@ class _ApplyIncomeOptionPageState extends State<ApplyIncomeOptionPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: AppSpacing.sectionSpacing2),
-
-                    // 메인 텍스트
                     RichText(
                       textAlign: TextAlign.left,
                       text: const TextSpan(
@@ -90,7 +88,7 @@ class _ApplyIncomeOptionPageState extends State<ApplyIncomeOptionPage> {
                           height: 1.4,
                         ),
                         children: [
-                          TextSpan(text: '지출에 변화가 생겼어요.\n'),
+                          TextSpan(text: '수입이 생겼어요.\n'),
                           TextSpan(
                             text: '소비 한도',
                             style: TextStyle(color: AppColors.primary),
@@ -114,20 +112,15 @@ class _ApplyIncomeOptionPageState extends State<ApplyIncomeOptionPage> {
                         ],
                       ),
                     ),
-
                     const SizedBox(height: AppSpacing.sectionSpacing2),
-
-                    // 선택 옵션
                     Column(
                       children: [
-                        // 기간
                         _buildOptionButton(
                           label: '기간을 줄일래요',
                           selected: _selectedOption == 'period',
                           onTap: () => _selectOption('period'),
                         ),
                         const SizedBox(height: AppSpacing.fieldSpacing),
-                        // 한도
                         _buildOptionButton(
                           label: '소비한도를 늘릴래요',
                           selected: _selectedOption == 'limit',
@@ -135,8 +128,6 @@ class _ApplyIncomeOptionPageState extends State<ApplyIncomeOptionPage> {
                         ),
                       ],
                     ),
-
-                    // 설명 메시지
                     if (_selectedOption != null) ...[
                       const SizedBox(height: AppSpacing.sectionSpacing2),
                       Container(
@@ -153,14 +144,11 @@ class _ApplyIncomeOptionPageState extends State<ApplyIncomeOptionPage> {
                         child: _buildDescriptionText(vm),
                       ),
                     ],
-
                     const SizedBox(height: 80),
                   ],
                 ),
               ),
             ),
-
-            // 하단 버튼
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(AppSpacing.screenPadding),

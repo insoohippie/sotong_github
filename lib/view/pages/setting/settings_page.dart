@@ -69,7 +69,7 @@ class SettingsPage extends StatelessWidget {
                           MaterialPageRoute(
                             builder: (_) => PlanEditPage(
                               useLocalDraft: false,
-                              requireApplyDate: false,
+                              // requireApplyDate: false,
                             ),
                           ),
                         );

@@ -298,7 +298,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
     });
   }
 
-  Future<void> _closeWithAnimation() async {
+  Future<void> _closeAfterSubmit() async {
     if (_ctrl.status == AnimationStatus.dismissed ||
         _ctrl.status == AnimationStatus.reverse) {
       return;
@@ -335,7 +335,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
     widget.onComplete(valid, getTotalAmount());
     debugPrint(valid.map((e) => '${e.category}=${e.emoji}').join(' | '));
-    await _closeWithAnimation();
+    await _closeAfterSubmit();
     setState(() => error = '');
   }
 
@@ -472,8 +472,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
         children: [
           FadeTransition(
             opacity: _scrimFade,
-            child: GestureDetector(
-              onTap: _closeWithAnimation,
+            child: AbsorbPointer(
+              absorbing: true,
               child: Container(color: Colors.black54),
             ),
           ),

@@ -53,7 +53,7 @@ class PlanMutationRepository {
               .copyWith(
             monthlyIncomeId: newIncome.id,
             monthlyIncomeRef: newIncome,
-            sumMonthlyIncome: monthlySum,
+            monthlyIncomeAmount: monthlySum,
           )
               .recalculateNetAmounts();
         });
@@ -85,7 +85,7 @@ class PlanMutationRepository {
               .copyWith(
             monthlyConsumeId: newConsume.id,
             monthlyConsumeRef: newConsume,
-            sumMonthlyConsume: monthlySum,
+            monthlyConsumeAmount: monthlySum,
           )
               .recalculateNetAmounts();
         });
@@ -95,7 +95,7 @@ class PlanMutationRepository {
     }
 
     final recalculatedPlan =
-        totalPlan.copyWith(subPlans: updatedSubPlans).recalculateTotals();
+    totalPlan.copyWith(subPlans: updatedSubPlans).recalculateTotals();
 
     return PlanMutationResult(
       totalPlan: recalculatedPlan,
@@ -119,7 +119,7 @@ class PlanMutationRepository {
     final updatedDaily = Map<String, DailyConsume>.from(dailyConsumes);
 
     final normalizedApply =
-        DateTime(command.applyDate.year, command.applyDate.month, command.applyDate.day);
+    DateTime(command.applyDate.year, command.applyDate.month, command.applyDate.day);
     if (command.previousDailyId != null) {
       final prev = updatedDaily[command.previousDailyId];
       if (prev != null) {
@@ -181,7 +181,7 @@ class PlanMutationRepository {
           .copyWith(
         dailyConsumeId: newDaily.id,
         dailyConsumeRef: newDaily,
-        sumDailyConsume: dailySum,
+        dailyConsumeAmount: dailySum,
         endDate: rightEnd,
       )
           .recalculateNetAmounts();
@@ -208,7 +208,7 @@ class PlanMutationRepository {
           .copyWith(
         dailyConsumeId: newDaily.id,
         dailyConsumeRef: newDaily,
-        sumDailyConsume: dailySum,
+        dailyConsumeAmount: dailySum,
         endDate: endDate,
       )
           .recalculateNetAmounts();
@@ -231,12 +231,12 @@ class PlanMutationRepository {
             .copyWith(
           dailyConsumeId: newDaily.id,
           dailyConsumeRef: newDaily,
-          sumDailyConsume: dailySum,
+          dailyConsumeAmount: dailySum,
         )
             .recalculateNetAmounts();
       });
       var truncatedSubPlan =
-          subPlan.copyWith(miniPlans: patched).recalculate();
+      subPlan.copyWith(miniPlans: patched).recalculate();
       if (_isSameMonth(month, command.modEndDate)) {
         truncatedSubPlan = _truncateSubPlan(truncatedSubPlan, command.modEndDate);
       }
@@ -246,8 +246,8 @@ class PlanMutationRepository {
     _removeSubPlansAfter(command.modEndDate, updatedSubPlans);
 
     final recalculatedPlan =
-        totalPlan.copyWith(subPlans: updatedSubPlans, modEndDate: command.modEndDate)
-            .recalculateTotals();
+    totalPlan.copyWith(subPlans: updatedSubPlans, modEndDate: command.modEndDate)
+        .recalculateTotals();
 
     return PlanMutationResult(
       totalPlan: recalculatedPlan,
@@ -262,7 +262,7 @@ class PlanMutationRepository {
   static int _sumEntries(List<Entry> entries) {
     return entries.fold<int>(
       0,
-      (sum, entry) => sum + entry.amount.round(),
+          (sum, entry) => sum + entry.amount.round(),
     );
   }
 
@@ -270,9 +270,9 @@ class PlanMutationRepository {
       '${month.year.toString().padLeft(4, '0')}${month.month.toString().padLeft(2, '0')}';
 
   static DailyConsume? _findDailyForDate(
-    Iterable<DailyConsume> dailyConsumes,
-    DateTime date,
-  ) {
+      Iterable<DailyConsume> dailyConsumes,
+      DateTime date,
+      ) {
     for (final daily in dailyConsumes) {
       if (!daily.startDate.isAfter(date) && !daily.endDate.isBefore(date)) {
         return daily;
@@ -329,17 +329,17 @@ class PlanMutationRepository {
     }
     return subPlan
         .copyWith(
-          headDocId: headId!,
-          miniPlans: updated,
-          fractionalEndSeconds: fractionalSeconds,
-        )
+      headDocId: headId!,
+      miniPlans: updated,
+      fractionalEndSeconds: fractionalSeconds,
+    )
         .recalculate();
   }
 
   void _removeSubPlansAfter(
-    DateTime cutoff,
-    Map<String, SubPlan> subPlans,
-  ) {
+      DateTime cutoff,
+      Map<String, SubPlan> subPlans,
+      ) {
     final cutoffKey = _formatYearMonth(cutoff);
     final toRemove = subPlans.keys
         .where((key) => key.compareTo(cutoffKey) > 0)

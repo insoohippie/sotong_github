@@ -12,12 +12,12 @@ class SignupViewModel extends ChangeNotifier {
 
   SignupViewModel(this._repo);
 
-  // ───────────────────────────────── 스텝 & 상태 ─────────────────────────────────
   SignupStep currentStep = SignupStep.email;
 
-  // 입력 컨트롤러
-  final emailController = TextEditingController();
+  /// 기존 UI 호환을 위해 이름은 유지
+  final emailController = TextEditingController(); // 실제로는 아이디 입력
   final passwordController = TextEditingController();
+  final passwordConfirmController = TextEditingController(); // ✅ 추가
   final nameController = TextEditingController();
   final birthdayController = TextEditingController();
 
@@ -28,53 +28,28 @@ class SignupViewModel extends ChangeNotifier {
   final ImagePicker _picker = ImagePicker();
   DateTime? selectedBirthday;
 
-  String? emailError; // 형식/중복 에러 통합 표시
+  String? emailError; // 실제로는 아이디 에러
   bool isLoading = false;
   bool isEmailChecked = false;
   bool isPasswordVisible = false;
+  bool isPasswordConfirmVisible = false; // ✅ 추가
 
-  // ───────────────────────────────── 이메일 검증 ─────────────────────────────────
-  /// 세분화된 이메일 유효성 검사 (현실적인 제약)
-  /// - 전체 ≤ 254, 로컬 ≤ 64
-  /// - 연속 점/양끝 점 금지
-  /// - 도메인: label.label 구조, 각 라벨 앞뒤 하이픈 금지
-  /// - TLD: 2–24자 알파벳
-  String? validateEmail(String raw) {
-    final email = raw.trim();
+  // ---------------- 아이디 검증 ----------------
+  String? validateId(String raw) {
+    final id = raw.trim();
 
-    if (email.isEmpty) return '이메일을 입력해주세요.';
-    if (email.length > 254) return '이메일이 너무 깁니다.';
-
-    // '@' 정확히 1개
-    final atCount = '@'.allMatches(email).length;
-    if (atCount != 1) return '이메일 형식이 올바르지 않습니다.';
-
-    final parts = email.split('@');
-    final local = parts[0];
-    final domain = parts[1].toLowerCase();
-
-    if (local.isEmpty || domain.isEmpty) return '이메일 형식이 올바르지 않습니다.';
-    if (local.length > 64) return '로컬 파트가 너무 깁니다.';
-
-    // 로컬 파트: 앞/뒤 점 금지, 연속 점 금지, 허용 문자셋
-    final localOk = RegExp(
-      r"^(?!\.)(?!.*\.\.)[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+(?<!\.)$",
-    ).hasMatch(local);
-    if (!localOk) return '로컬 파트 형식이 올바르지 않습니다.';
-
-    // 도메인: label.label..., 각 라벨은 앞뒤 하이픈 금지, 전체 길이 ≤ 253
-    final domainOk = RegExp(
-      r'^(?=.{1,253}$)([A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,24}$',
-    ).hasMatch(domain);
-    if (!domainOk) return '도메인 형식이 올바르지 않습니다.';
-
-    return null; // 유효
+    if (id.isEmpty) return '아이디를 입력해주세요.';
+    if (id.length < 4 || id.length > 20) return '아이디는 4~20자여야 해요.';
+    if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(id)) {
+      return '아이디는 영문, 숫자, 점(.), 밑줄(_)만 사용할 수 있어요.';
+    }
+    return null;
   }
 
-  bool get isEmailFormatValid => validateEmail(emailController.text) == null;
-  String? get emailFormatError => validateEmail(emailController.text);
+  bool get isEmailFormatValid => validateId(emailController.text) == null;
+  String? get emailFormatError => validateId(emailController.text);
 
-  // ─────────────────────────────── 스텝 이동 ───────────────────────────────
+  // ---------------- 단계 이동 ----------------
   void previousStep() {
     if (currentStep == SignupStep.password) {
       currentStep = SignupStep.email;
@@ -89,17 +64,18 @@ class SignupViewModel extends ChangeNotifier {
       await checkEmailDuplication();
       if (isEmailChecked) currentStep = SignupStep.password;
     } else if (currentStep == SignupStep.password) {
-      currentStep = SignupStep.userInfo;
+      if (isPasswordStepValid) {
+        currentStep = SignupStep.userInfo;
+      }
     }
     notifyListeners();
   }
 
-  // ───────────────────────────── 이메일 중복 확인 ─────────────────────────────
+  // ---------------- 아이디 중복 확인 ----------------
   Future<void> checkEmailDuplication() async {
-    final email = emailController.text.trim();
+    final id = emailController.text.trim();
 
-    // 형식 우선 검증
-    final fmtErr = validateEmail(email);
+    final fmtErr = validateId(id);
     if (fmtErr != null) {
       emailError = fmtErr;
       isEmailChecked = false;
@@ -107,10 +83,9 @@ class SignupViewModel extends ChangeNotifier {
       return;
     }
 
-    // 중복 체크
-    final exists = await _repo.isEmailAlreadyExists(email);
+    final exists = await _repo.isIdAlreadyExists(id);
     if (exists) {
-      emailError = '이미 가입된 이메일입니다';
+      emailError = '이미 사용 중인 아이디입니다';
       isEmailChecked = false;
     } else {
       emailError = null;
@@ -119,15 +94,15 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ───────────────────────────── 비밀번호 유효성 ─────────────────────────────
+  // ---------------- 비밀번호 검증 ----------------
   bool get isPasswordValid {
     final password = passwordController.text;
     final hasMinLength = password.length >= 8;
     final hasUppercase = RegExp(r'[A-Z]').hasMatch(password);
     final hasNumber = RegExp(r'\d').hasMatch(password);
-    final hasSpecialChar = RegExp(
-      r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''',
-    ).hasMatch(password);
+    final hasSpecialChar =
+    RegExp(r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''').hasMatch(password);
+
     return hasMinLength && hasUppercase && hasSpecialChar && hasNumber;
   }
 
@@ -144,11 +119,26 @@ class SignupViewModel extends ChangeNotifier {
     if (!RegExp(r'\d').hasMatch(password)) {
       errors.add('숫자를 하나 이상 포함해야 해요.');
     }
-    if (!RegExp(r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''').hasMatch(password)) {
+    if (!RegExp(r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''')
+        .hasMatch(password)) {
       errors.add('특수문자를 하나 이상 포함해야 해요.');
     }
 
     return errors;
+  }
+
+  bool get isPasswordConfirmValid =>
+      passwordConfirmController.text.isNotEmpty &&
+          passwordConfirmController.text == passwordController.text;
+
+  bool get isPasswordStepValid => isPasswordValid && isPasswordConfirmValid;
+
+  String? get passwordConfirmError {
+    if (passwordConfirmController.text.isEmpty) return null;
+    if (passwordConfirmController.text != passwordController.text) {
+      return '비밀번호가 일치하지 않습니다.';
+    }
+    return null;
   }
 
   void togglePasswordVisibility() {
@@ -156,11 +146,17 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ───────────────────────────── 리셋/유효성/제출 ─────────────────────────────
+  void togglePasswordConfirmVisibility() {
+    isPasswordConfirmVisible = !isPasswordConfirmVisible;
+    notifyListeners();
+  }
+
+  // ---------------- reset / submit ----------------
   void reset() {
     currentStep = SignupStep.email;
     emailController.clear();
     passwordController.clear();
+    passwordConfirmController.clear();
     nameController.clear();
     gender = '';
     birthdayController.text = '';
@@ -169,6 +165,7 @@ class SignupViewModel extends ChangeNotifier {
     emailError = null;
     isLoading = false;
     isPasswordVisible = false;
+    isPasswordConfirmVisible = false;
     profileImage = null;
     selectedBirthday = null;
     notifyListeners();
@@ -179,7 +176,7 @@ class SignupViewModel extends ChangeNotifier {
       case SignupStep.email:
         return isEmailFormatValid;
       case SignupStep.password:
-        return isPasswordValid;
+        return isPasswordStepValid;
       case SignupStep.userInfo:
         return nameController.text.isNotEmpty &&
             birthdayController.text.isNotEmpty &&
@@ -197,7 +194,7 @@ class SignupViewModel extends ChangeNotifier {
 
     try {
       signUpInfo = SignUpInfo(
-        email: emailController.text.trim(),
+        id: emailController.text.trim(),
         password: passwordController.text.trim(),
         name: nameController.text.trim(),
         birthday: birthdayController.text.trim(),
@@ -207,7 +204,6 @@ class SignupViewModel extends ChangeNotifier {
       await _repo.signUp(signUpInfo!);
       return true;
     } catch (e) {
-      // ignore: avoid_print
       print('회원가입 실패: $e');
       return false;
     } finally {
@@ -216,7 +212,7 @@ class SignupViewModel extends ChangeNotifier {
     }
   }
 
-  // ───────────────────────────── 날짜/성별/이미지 ─────────────────────────────
+  // ---------------- 기타 ----------------
   Future<void> pickBirthday(BuildContext context) async {
     final pickedDate = await showDatePicker(
       context: context,
@@ -252,11 +248,11 @@ class SignupViewModel extends ChangeNotifier {
     }
   }
 
-  // ───────────────────────────── 메모리 정리 ─────────────────────────────
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
+    passwordConfirmController.dispose();
     nameController.dispose();
     birthdayController.dispose();
     super.dispose();

@@ -1,63 +1,62 @@
-import 'day_spending.dart';
+// lib/model/record/monthly_record.dart
 
-class MonthlySpending {
+import 'day_record.dart';
+
+class MonthlyRecord {
   final String monthKey; // 'yyyy-MM'
-  final Map<String, DaySpending> days; // key: 'yyyy-MM-dd'
+  final Map<String, DayRecord> days; // key: 'yyyy-MM-dd'
 
-  MonthlySpending({
+  const MonthlyRecord({
     required this.monthKey,
     required this.days,
   });
 
-  factory MonthlySpending.empty(String monthKey) {
-    return MonthlySpending(monthKey: monthKey, days: {});
+  factory MonthlyRecord.empty(String monthKey) {
+    return MonthlyRecord(monthKey: monthKey, days: {});
   }
 
-  /// Firestore 문서 -> MonthlySpending
-  factory MonthlySpending.fromFirestore(
+  factory MonthlyRecord.fromFirestore(
       String monthKey,
       Map<String, dynamic> data,
       ) {
     final raw = data['days'];
 
-    // 🔥 여기: as Map<String, dynamic> 대신 안전하게 변환
     final Map<String, dynamic> rawDays =
     raw is Map ? Map<String, dynamic>.from(raw as Map) : <String, dynamic>{};
 
-    final days = <String, DaySpending>{};
+    final days = <String, DayRecord>{};
     rawDays.forEach((dateKey, value) {
       if (value is Map) {
-        days[dateKey] = DaySpending.fromFirestore(
+        days[dateKey] = DayRecord.fromFirestore(
           dateKey,
           Map<String, dynamic>.from(value as Map),
         );
       }
     });
 
-    return MonthlySpending(
+    return MonthlyRecord(
       monthKey: monthKey,
       days: days,
     );
   }
 
-  /// Hive(JSON) -> MonthlySpending
-  factory MonthlySpending.fromJson(Map<String, dynamic> json) {
+  factory MonthlyRecord.fromJson(Map<String, dynamic> json) {
     final monthKey = json['month'] as String;
 
     final raw = json['days'];
     final Map<String, dynamic> rawDays =
     raw is Map ? Map<String, dynamic>.from(raw as Map) : <String, dynamic>{};
 
-    final days = <String, DaySpending>{};
+    final days = <String, DayRecord>{};
     rawDays.forEach((dateKey, value) {
       if (value is Map) {
-        days[dateKey] = DaySpending.fromJson(
+        days[dateKey] = DayRecord.fromJson(
           Map<String, dynamic>.from(value as Map),
         );
       }
     });
 
-    return MonthlySpending(
+    return MonthlyRecord(
       monthKey: monthKey,
       days: days,
     );
@@ -75,10 +74,10 @@ class MonthlySpending {
     };
   }
 
-  MonthlySpending copyWith({
-    Map<String, DaySpending>? days,
+  MonthlyRecord copyWith({
+    Map<String, DayRecord>? days,
   }) {
-    return MonthlySpending(
+    return MonthlyRecord(
       monthKey: monthKey,
       days: days ?? this.days,
     );

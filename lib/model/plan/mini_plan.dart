@@ -23,9 +23,9 @@ class MiniPlan {
     this.monthlyIncomeRef,
     this.monthlyConsumeRef,
     this.dailyConsumeRef,
-    this.sumMonthlyIncome = 0,
-    this.sumMonthlyConsume = 0,
-    this.sumDailyConsume = 0,
+    this.monthlyIncomeAmount = 0,
+    this.monthlyConsumeAmount = 0,
+    this.dailyConsumeAmount = 0,
     this.monthlyNetIncome = 0,
     this.monthlyNetConsume = 0,
     this.dailyNetConsume = 0,
@@ -43,9 +43,9 @@ class MiniPlan {
   final MonthlyIncome? monthlyIncomeRef;
   final MonthlyConsume? monthlyConsumeRef;
   final DailyConsume? dailyConsumeRef;
-  final int sumMonthlyIncome;
-  final int sumMonthlyConsume;
-  final int sumDailyConsume;
+  final int monthlyIncomeAmount;
+  final int monthlyConsumeAmount;
+  final int dailyConsumeAmount;
   final int monthlyNetIncome;
   final int monthlyNetConsume;
   final int dailyNetConsume;
@@ -115,29 +115,29 @@ class MiniPlan {
       monthlyIncomeRef: monthlyIncomeRef,
       monthlyConsumeRef: monthlyConsumeRef,
       dailyConsumeRef: dailyConsumeRef,
-      sumMonthlyIncome: sumMonthlyIncome,
-      sumMonthlyConsume: sumMonthlyConsume,
-      sumDailyConsume: sumDailyConsume,
+      monthlyIncomeAmount: monthlyIncomeAmount,
+      monthlyConsumeAmount: monthlyConsumeAmount,
+      dailyConsumeAmount: dailyConsumeAmount,
     ).recalculateNetAmounts();
     return MiniPlanSplit(left: left, right: right);
   }
 
   PlanMetrics toMetrics() {
-    final monthlyIncomeSum = sumMonthlyIncome != 0
-        ? sumMonthlyIncome
+    final monthlyIncomeSum = monthlyIncomeAmount != 0
+        ? monthlyIncomeAmount
         : _sumEntries(monthlyIncomeRef?.entries ?? const []);
-    final monthlyConsumeSum = sumMonthlyConsume != 0
-        ? sumMonthlyConsume
+    final monthlyConsumeSum = monthlyConsumeAmount != 0
+        ? monthlyConsumeAmount
         : _sumEntries(monthlyConsumeRef?.entries ?? const []);
-    final dailyConsumeSum = sumDailyConsume != 0
-        ? sumDailyConsume
+    final dailyConsumeSum = dailyConsumeAmount != 0
+        ? dailyConsumeAmount
         : _sumEntries(dailyConsumeRef?.entries ?? const []);
     return PlanMetrics.fromRange(
       startDate: startDate,
       endDate: endDate,
-      sumMonthlyIncome: monthlyIncomeSum,
-      sumMonthlyConsume: monthlyConsumeSum,
-      sumDailyConsume: dailyConsumeSum,
+      monthlyIncomeAmount: monthlyIncomeSum,
+      monthlyConsumeAmount: monthlyConsumeSum,
+      dailyConsumeAmount: dailyConsumeSum,
       monthlyNetIncome: monthlyNetIncome,
       monthlyNetConsume: monthlyNetConsume,
       dailyNetConsume: dailyNetConsume,
@@ -152,9 +152,9 @@ class MiniPlan {
     MonthlyIncome? monthlyIncomeRef,
     MonthlyConsume? monthlyConsumeRef,
     DailyConsume? dailyConsumeRef,
-    int? sumMonthlyIncome,
-    int? sumMonthlyConsume,
-    int? sumDailyConsume,
+    int? monthlyIncomeAmount,
+    int? monthlyConsumeAmount,
+    int? dailyConsumeAmount,
     String? monthlyIncomeId,
     String? monthlyConsumeId,
     String? dailyConsumeId,
@@ -175,9 +175,10 @@ class MiniPlan {
       monthlyIncomeRef: monthlyIncomeRef ?? this.monthlyIncomeRef,
       monthlyConsumeRef: monthlyConsumeRef ?? this.monthlyConsumeRef,
       dailyConsumeRef: dailyConsumeRef ?? this.dailyConsumeRef,
-      sumMonthlyIncome: sumMonthlyIncome ?? this.sumMonthlyIncome,
-      sumMonthlyConsume: sumMonthlyConsume ?? this.sumMonthlyConsume,
-      sumDailyConsume: sumDailyConsume ?? this.sumDailyConsume,
+      monthlyIncomeAmount: monthlyIncomeAmount ?? this.monthlyIncomeAmount,
+      monthlyConsumeAmount:
+          monthlyConsumeAmount ?? this.monthlyConsumeAmount,
+      dailyConsumeAmount: dailyConsumeAmount ?? this.dailyConsumeAmount,
       monthlyNetIncome: monthlyNetIncome ?? this.monthlyNetIncome,
       monthlyNetConsume: monthlyNetConsume ?? this.monthlyNetConsume,
       dailyNetConsume: dailyNetConsume ?? this.dailyNetConsume,
@@ -196,9 +197,9 @@ class MiniPlan {
       'monthlyIncomeId': monthlyIncomeId,
       'monthlyConsumeId': monthlyConsumeId,
       'dailyConsumeId': dailyConsumeId,
-      'sumMonthlyIncome': sumMonthlyIncome,
-      'sumMonthlyConsume': sumMonthlyConsume,
-      'sumDailyConsume': sumDailyConsume,
+      'monthlyIncomeAmount': monthlyIncomeAmount,
+      'monthlyConsumeAmount': monthlyConsumeAmount,
+      'dailyConsumeAmount': dailyConsumeAmount,
       'monthlyNetIncome': monthlyNetIncome,
       'monthlyNetConsume': monthlyNetConsume,
       'dailyNetConsume': dailyNetConsume,
@@ -217,9 +218,12 @@ class MiniPlan {
       monthlyIncomeId: map['monthlyIncomeId'] as String,
       monthlyConsumeId: map['monthlyConsumeId'] as String,
       dailyConsumeId: map['dailyConsumeId'] as String,
-      sumMonthlyIncome: map['sumMonthlyIncome'] as int? ?? 0,
-      sumMonthlyConsume: map['sumMonthlyConsume'] as int? ?? 0,
-      sumDailyConsume: map['sumDailyConsume'] as int? ?? 0,
+      monthlyIncomeAmount:
+          map['monthlyIncomeAmount'] as int? ?? map['monthlyIncomeAmount'] as int? ?? 0,
+      monthlyConsumeAmount:
+          map['monthlyConsumeAmount'] as int? ?? map['monthlyConsumeAmount'] as int? ?? 0,
+      dailyConsumeAmount:
+          map['dailyConsumeAmount'] as int? ?? map['dailyConsumeAmount'] as int? ?? 0,
       monthlyNetIncome: map['monthlyNetIncome'] as int? ?? 0,
       monthlyNetConsume: map['monthlyNetConsume'] as int? ?? 0,
       dailyNetConsume: map['dailyNetConsume'] as int? ?? 0,
@@ -237,10 +241,10 @@ class MiniPlan {
       );
     }
     final scaledIncome =
-    PlanMetrics.halfUp((sumMonthlyIncome * durationDays) / monthDays);
+    PlanMetrics.halfUp((monthlyIncomeAmount * durationDays) / monthDays);
     final scaledConsume =
-    PlanMetrics.halfUp((sumMonthlyConsume * durationDays) / monthDays);
-    final scaledDaily = sumDailyConsume * durationDays;
+    PlanMetrics.halfUp((monthlyConsumeAmount * durationDays) / monthDays);
+    final scaledDaily = dailyConsumeAmount * durationDays;
     return copyWith(
       monthlyNetIncome: scaledIncome,
       monthlyNetConsume: scaledConsume,

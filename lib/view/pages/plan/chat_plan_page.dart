@@ -186,13 +186,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
       final viewModel = Provider.of<ChatPlanViewModel>(context, listen: false);
       final currentStep = viewModel.currentStep;
 
-      // summary 단계는 특별 처리: 첫 번째 메시지 + summary 위젯 + 두 번째 메시지가 모두 완료되어야 함
+      // summary 단계는 특별 처리: 첫 번째 봇 메시지 + summary 위젯이 완료되어야 함
       if (currentStep == ChatStep.summary) {
         final sectionMessageCount = viewModel.getSectionMessageCount(
           ChatStep.summary,
         );
         if (sectionMessageCount != null) {
-          // summary 섹터는 2개 또는 3개: 첫 번째 봇 메시지 + summary 위젯 + (선택적) 두 번째 봇 메시지
+          // summary 섹터는 2개 고정: 첫 번째 봇 메시지 + summary 위젯
           final botMessages = viewModel.messages
               .where((m) => m.type == MessageType.bot)
               .toList();
@@ -201,10 +201,11 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           );
 
           if (sectionStartIndex != null) {
-            // 현재 섹터의 봇 메시지만 필터링
+            final summaryBotCount = sectionMessageCount - 1;
+            // 현재 섹터의 봇 메시지만 필터링 (summary 위젯 제외)
             final currentSectionBotMessages = botMessages
                 .skip(sectionStartIndex)
-                .take(sectionMessageCount - 1) // summary 위젯 제외
+                .take(summaryBotCount)
                 .toList();
 
             // summary 위젯 확인
@@ -214,7 +215,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
             // 섹터의 모든 봇 메시지가 완료되었는지 확인
             final allBotMessagesComplete =
-                currentSectionBotMessages.length == (sectionMessageCount - 1) &&
+                currentSectionBotMessages.length == summaryBotCount &&
                     currentSectionBotMessages.every(
                           (msg) =>
                           ChatMessageWidget.completedMessageIds.contains(msg.id),
@@ -230,25 +231,18 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       lastBotMessage.id,
                     );
 
-            // 첫 번째 메시지, summary 위젯, 마지막 봇 메시지가 모두 완료되었으면 모달 표시
-            // 특히 마지막 봇 메시지(최종 메시지)가 완료되어야만 모달 표시
-            // summary 섹터는 최소 2개(첫 번째 메시지 + 위젯) 또는 3개(첫 번째 메시지 + 위젯 + 두 번째 메시지)
-            // 봇 메시지가 2개 이상이어야 최종 메시지가 있다는 의미
-            final hasFinalMessage = currentSectionBotMessages.length >= 2;
-
             if (allBotMessagesComplete &&
                 isLastBotMessageComplete &&
                 hasSummaryWidget &&
-                hasFinalMessage &&
                 !_showBottomArea) {
               debugPrint(
-                '[onboardingAnimDoneCallback] summary 섹터 완료: 메시지 개수=${currentSectionBotMessages.length}, 모든 메시지 완료=$allBotMessagesComplete, 마지막 메시지 완료=$isLastBotMessageComplete, 최종 메시지 있음=$hasFinalMessage',
+                '[onboardingAnimDoneCallback] summary 섹터 완료: 메시지 개수=${currentSectionBotMessages.length}, 모든 메시지 완료=$allBotMessagesComplete, 마지막 메시지 완료=$isLastBotMessageComplete',
               );
               setState(() => _showBottomArea = true);
               _bottomSlideController.forward(from: 0);
             } else {
               debugPrint(
-                '[onboardingAnimDoneCallback] summary 섹터 미완료: 메시지 개수=${currentSectionBotMessages.length}, 모든 메시지 완료=$allBotMessagesComplete, 마지막 메시지 완료=$isLastBotMessageComplete, 최종 메시지 있음=$hasFinalMessage',
+                '[onboardingAnimDoneCallback] summary 섹터 미완료: 메시지 개수=${currentSectionBotMessages.length}, 모든 메시지 완료=$allBotMessagesComplete, 마지막 메시지 완료=$isLastBotMessageComplete',
               );
             }
           }
@@ -481,13 +475,13 @@ class _ChatPlanPageState extends State<ChatPlanPage>
             }
           }
 
-          // summary 단계는 특별 처리: 첫 번째 메시지 + summary 위젯 + 두 번째 메시지가 모두 완료되어야 함
+          // summary 단계는 특별 처리: 첫 번째 봇 메시지 + summary 위젯이 완료되어야 함
           if (viewModel.currentStep == ChatStep.summary) {
             final sectionMessageCount = viewModel.getSectionMessageCount(
               ChatStep.summary,
             );
             if (sectionMessageCount != null) {
-              // summary 섹터는 2개 또는 3개: 첫 번째 봇 메시지 + summary 위젯 + (선택적) 두 번째 봇 메시지
+              // summary 섹터는 2개 고정: 첫 번째 봇 메시지 + summary 위젯
               final botMessages = viewModel.messages
                   .where((m) => m.type == MessageType.bot)
                   .toList();
@@ -496,10 +490,11 @@ class _ChatPlanPageState extends State<ChatPlanPage>
               );
 
               if (sectionStartIndex != null) {
-                // 현재 섹터의 봇 메시지만 필터링
+                final summaryBotCount = sectionMessageCount - 1;
+                // 현재 섹터의 봇 메시지만 필터링 (summary 위젯 제외)
                 final currentSectionBotMessages = botMessages
                     .skip(sectionStartIndex)
-                    .take(sectionMessageCount - 1) // summary 위젯 제외
+                    .take(summaryBotCount)
                     .toList();
 
                 // summary 위젯 확인
@@ -510,7 +505,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                 // 섹터의 모든 봇 메시지가 완료되었는지 확인
                 final allBotMessagesComplete =
                     currentSectionBotMessages.length ==
-                        (sectionMessageCount - 1) &&
+                        summaryBotCount &&
                         currentSectionBotMessages.every(
                               (msg) => ChatMessageWidget.completedMessageIds.contains(
                             msg.id,
@@ -527,16 +522,10 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                           lastBotMessage.id,
                         );
 
-                // 첫 번째 메시지, summary 위젯, 마지막 봇 메시지가 모두 완료되었으면 animDone = true
-                // summary 섹터는 최소 2개(첫 번째 메시지 + 위젯) 또는 3개(첫 번째 메시지 + 위젯 + 두 번째 메시지)
-                // 봇 메시지가 2개 이상이어야 최종 메시지가 있다는 의미
-                final hasFinalMessage = currentSectionBotMessages.length >= 2;
-
                 animDone =
                     allBotMessagesComplete &&
                         isLastBotMessageComplete &&
-                        hasSummaryWidget &&
-                        hasFinalMessage;
+                        hasSummaryWidget;
 
                 if (animDone && !_showBottomArea) {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -650,7 +639,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                               initialPlan: viewModel.totalPlan,
                               initialRefData: viewModel.refData,
                               useLocalDraft: true,
-                              requireApplyDate: false,
+                              // requireApplyDate: false,
                             ),
                           ),
                         );
@@ -897,3 +886,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     );
   }
 }
+
+
+

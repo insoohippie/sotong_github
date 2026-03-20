@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../../component/theme/app_colors.dart';
 import '../../../../../component/theme/app_spacing.dart';
-import '../../../view_model/addIncome/add_income_view_model.dart';
+import '../../../../../view_model/record/record_add_income_view_model.dart';
 
 class LimitApplyPage extends StatefulWidget {
   const LimitApplyPage({super.key});
@@ -16,31 +17,27 @@ class _LimitApplyPageState extends State<LimitApplyPage> {
   void initState() {
     super.initState();
 
-    // 화면 들어오자마자 한도 반영 로직 실행
     Future.microtask(() {
-      final vm = context.read<AddIncomeViewModel>();
+      final vm = context.read<RecordAddIncomeViewModel>();
       vm.applyIncomeToLimit();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final vm = context.watch<AddIncomeViewModel>();
+    final vm = context.watch<RecordAddIncomeViewModel>();
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.screenPadding),
-          child: vm.isApplyingLimit
-              ? _buildLoading()
-              : _buildResult(context, vm),
+          child: vm.isApplyingLimit ? _buildLoading() : _buildResult(context, vm),
         ),
       ),
     );
   }
 
-  /// 로딩 화면 (한도 계산/반영 중)
   Widget _buildLoading() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -75,9 +72,7 @@ class _LimitApplyPageState extends State<LimitApplyPage> {
     );
   }
 
-  /// 완료 화면 (한도 반영 결과)
-  Widget _buildResult(BuildContext context, AddIncomeViewModel vm) {
-    // 에러가 있다면 에러 출력
+  Widget _buildResult(BuildContext context, RecordAddIncomeViewModel vm) {
     if (vm.applyLimitError != null) {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -116,8 +111,6 @@ class _LimitApplyPageState extends State<LimitApplyPage> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         const SizedBox(height: AppSpacing.sectionSpacing2),
-
-        // 지갑 아이콘
         Container(
           width: 80,
           height: 80,
@@ -131,10 +124,7 @@ class _LimitApplyPageState extends State<LimitApplyPage> {
             color: AppColors.primary,
           ),
         ),
-
         const SizedBox(height: AppSpacing.sectionSpacing2),
-
-        // 메인 메시지
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
@@ -147,17 +137,14 @@ class _LimitApplyPageState extends State<LimitApplyPage> {
             ),
             children: [
               TextSpan(text: '${vm.appliedAmountText}을 '),
-              TextSpan(
+              const TextSpan(
                 text: '소비한도에 반영했어요!',
                 style: TextStyle(color: AppColors.primary),
               ),
             ],
           ),
         ),
-
         const SizedBox(height: AppSpacing.sectionSpacing),
-
-        // 세부 메시지
         RichText(
           textAlign: TextAlign.center,
           text: TextSpan(
@@ -171,16 +158,16 @@ class _LimitApplyPageState extends State<LimitApplyPage> {
             children: [
               const TextSpan(text: '기존 플랜의 하루 소비한도가 '),
               TextSpan(
-                text: vm.oldDailyLimitText,
-                style: TextStyle(
+                text: vm.oldDailyLimitText ?? '-',
+                style: const TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const TextSpan(text: '에서 '),
               TextSpan(
-                text: vm.newDailyLimitText,
-                style: TextStyle(
+                text: vm.newDailyLimitText ?? '-',
+                style: const TextStyle(
                   color: AppColors.primary,
                   fontWeight: FontWeight.bold,
                 ),
@@ -189,17 +176,14 @@ class _LimitApplyPageState extends State<LimitApplyPage> {
             ],
           ),
         ),
-
         const Spacer(),
-
-        // 확인 버튼
         SizedBox(
           width: double.infinity,
           height: 56,
           child: ElevatedButton(
             onPressed: () {
               Navigator.of(context).pushNamedAndRemoveUntil(
-                '/home',
+                '/home_tab_navigator',
                     (route) => false,
               );
             },

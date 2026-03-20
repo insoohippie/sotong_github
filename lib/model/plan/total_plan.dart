@@ -7,7 +7,7 @@ import 'sub_plan.dart';
 /// Root aggregate object holding all sub-plans and summary results.
 @immutable
 class TotalPlan {
-  const TotalPlan({
+  const TotalPlan({ // 개념적 관련 정보 저장
     required this.planId,
     required this.currentAmount,
     required this.currentAsset,
@@ -37,7 +37,7 @@ class TotalPlan {
   final DateTime? creationDate;
   final bool? autoService;
   final Map<String, SubPlan> subPlans;
-  final TotalResult result;
+  final TotalResult result; // planMetrics 저장소
   //하경 - 모인 금액 계산용
   final int extraIncomeTotal;  // 플랜 중간 추가 수입 누적
   final int snapshotAmount;    // snapshotAt 시점까지 자동저축 누적
@@ -46,16 +46,17 @@ class TotalPlan {
   /// Factory for a blank plan used as a draft during onboarding.
   factory TotalPlan.empty() {
     final now = DateTime.now();
+    final normalizedNow = _normalizeDate(now);
     final metrics = PlanMetrics.fromRange(
-      startDate: now,
-      endDate: now.add(const Duration(days: 29)),
-      sumMonthlyIncome: 0,
-      sumMonthlyConsume: 0,
-      sumDailyConsume: 0,
+      startDate: normalizedNow,
+      endDate: normalizedNow.add(const Duration(days: 29)),
+      monthlyIncomeAmount: 0,
+      monthlyConsumeAmount: 0,
+      dailyConsumeAmount: 0,
     );
     final initialSubPlans = _bootstrapSubPlans(
       metrics: metrics,
-      planStart: now,
+      planStart: normalizedNow,
     );
     return TotalPlan(
       planId: '',
@@ -63,15 +64,15 @@ class TotalPlan {
       targetAmount: 0,
       currentAmount: 0,
       currentAsset: 0,
-      startDate: now,
+      startDate: normalizedNow,
       endDate: null,
       modEndDate: null,
-      creationDate: now,
+      creationDate: normalizedNow,
       autoService: false,
       subPlans: initialSubPlans,
       result: TotalResult(
-        totalMetrics: metrics,
-        subResult: SubPlanResult(
+        totalMetrics: metrics, // totalPlan 관련 metrics 관리
+        subResult: SubPlanResult( // subPlan관련 metrics 관리
           subMetrics:
           initialSubPlans.values.map((sub) => sub.monthlySummary()).toList(),
           subPlanList: initialSubPlans.values.toList(),
@@ -80,7 +81,7 @@ class TotalPlan {
       //하경 - 모인 금액 계산용
       extraIncomeTotal: 0,
       snapshotAmount: 0,
-      snapshotAt: now,
+      snapshotAt: normalizedNow,
     );
   }
 
@@ -168,9 +169,25 @@ class TotalPlan {
       subMetrics: monthlySummaries,
       subPlanList: updatedSubPlans.values.toList(),
     );
-    final totalMetrics = monthlySummaries.isEmpty
+    final totalMetricsBase = monthlySummaries.isEmpty
         ? _emptyMetrics()
         : PlanMetrics.merge(monthlySummaries);
+    PlanMetrics totalMetrics = totalMetricsBase;
+    final currentMini = _miniPlanForDate(DateTime.now());
+    if (currentMini != null) {
+      totalMetrics = totalMetrics.copyWith(
+        monthlyIncomeAmount: currentMini.monthlyIncomeAmount,
+        monthlyConsumeAmount: currentMini.monthlyConsumeAmount,
+        dailyConsumeAmount: currentMini.dailyConsumeAmount,
+      );
+    } else if (monthlySummaries.isNotEmpty) {
+      final latestSummary = monthlySummaries.last;
+      totalMetrics = totalMetrics.copyWith(
+        monthlyIncomeAmount: latestSummary.monthlyIncomeAmount,
+        monthlyConsumeAmount: latestSummary.monthlyConsumeAmount,
+        dailyConsumeAmount: latestSummary.dailyConsumeAmount,
+      );
+    }
     return copyWith(
       subPlans: updatedSubPlans,
       result: result.copyWith(
@@ -223,10 +240,73 @@ class TotalPlan {
     return PlanMetrics.fromRange(
       startDate: baseline,
       endDate: baseline.add(const Duration(days: 29)),
-      sumMonthlyIncome: 0,
-      sumMonthlyConsume: 0,
-      sumDailyConsume: 0,
+      monthlyIncomeAmount: 0,
+      monthlyConsumeAmount: 0,
+      dailyConsumeAmount: 0,
     );
+  }
+
+  MiniPlan? _miniPlanForDate(DateTime date) {
+    if (subPlans.isEmpty) return null;
+    final key = _formatYearMonth(date);
+    final direct = _miniCoveringDate(subPlans[key], date);
+    if (direct != null) return direct;
+
+    final targetMonth = DateTime(date.year, date.month, 1);
+    final entries = subPlans.entries.toList()
+      ..sort((a, b) => a.value.yearMonth.compareTo(b.value.yearMonth));
+    SubPlan? before;
+    SubPlan? after;
+    for (final entry in entries) {
+      final month = entry.value.yearMonth;
+      if (month.isAfter(targetMonth)) {
+        after ??= entry.value;
+        break;
+      }
+      before = entry.value;
+    }
+    final fallback =
+        _closestSubPlan(before, after, targetMonth) ?? entries.last.value;
+    return _miniClosestWithin(fallback, date);
+  }
+
+  MiniPlan? _miniCoveringDate(SubPlan? subPlan, DateTime date) {
+    if (subPlan == null) return null;
+    for (final mini in subPlan.orderedMinis()) {
+      final startsBefore = !date.isBefore(mini.startDate);
+      final endsAfter = !date.isAfter(mini.endDate);
+      if (startsBefore && endsAfter) {
+        return mini;
+      }
+    }
+    return null;
+  }
+
+  MiniPlan? _miniClosestWithin(SubPlan? subPlan, DateTime date) {
+    if (subPlan == null) return null;
+    final minis = subPlan.orderedMinis();
+    if (minis.isEmpty) return null;
+    final covering = _miniCoveringDate(subPlan, date);
+    if (covering != null) {
+      return covering;
+    }
+    if (date.isBefore(minis.first.startDate)) {
+      return minis.first;
+    }
+    return minis.last;
+  }
+
+  SubPlan? _closestSubPlan(
+    SubPlan? before,
+    SubPlan? after,
+    DateTime targetMonth,
+  ) {
+    if (before == null && after == null) return null;
+    if (before == null) return after;
+    if (after == null) return before;
+    final beforeDiff = targetMonth.difference(before.yearMonth).inDays;
+    final afterDiff = after.yearMonth.difference(targetMonth).inDays;
+    return beforeDiff <= afterDiff ? before : after;
   }
 
   static Map<String, SubPlan> _bootstrapSubPlans({
@@ -246,9 +326,9 @@ class TotalPlan {
       monthlyIncomeId: '${key}_income_bootstrap',
       monthlyConsumeId: '${key}_consume_bootstrap',
       dailyConsumeId: '${key}_daily_bootstrap',
-      sumMonthlyIncome: metrics.monthlyIncomeAmount,
-      sumMonthlyConsume: metrics.monthlyConsumeAmount,
-      sumDailyConsume: metrics.dailyConsumeAmount,
+      monthlyIncomeAmount: metrics.monthlyIncomeAmount,
+      monthlyConsumeAmount: metrics.monthlyConsumeAmount,
+      dailyConsumeAmount: metrics.dailyConsumeAmount,
     ).recalculateNetAmounts();
     final subPlan = SubPlan(
       yearMonth: monthStart,
@@ -268,15 +348,24 @@ class TotalPlan {
 
   static DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
-    if (value is DateTime) return value;
-    if (value is String) return DateTime.tryParse(value);
-    try {
-      // ignore: avoid_dynamic_calls
-      return (value as dynamic).toDate() as DateTime;
-    } catch (_) {
-      return null;
+    DateTime? parsed;
+    if (value is DateTime) {
+      parsed = value;
+    } else if (value is String) {
+      parsed = DateTime.tryParse(value);
+    } else {
+      try {
+        // ignore: avoid_dynamic_calls
+        parsed = (value as dynamic).toDate() as DateTime;
+      } catch (_) {
+        parsed = null;
+      }
     }
+    return parsed != null ? _normalizeDate(parsed) : null;
   }
+
+  static DateTime _normalizeDate(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
 
   static PlanMetrics _parseMetrics(dynamic map) {
     if (map is Map<String, dynamic>) {
@@ -285,12 +374,18 @@ class TotalPlan {
       final monthlyNetIncome = (map['monthlyNetIncome'] as num?)?.round() ?? 0;
       final monthlyNetConsume = (map['monthlyNetConsume'] as num?)?.round() ?? 0;
       final dailyNetConsume = (map['dailyNetConsume'] as num?)?.round() ?? 0;
+      final incomeAmount =
+          (map['monthlyIncomeAmount'] ?? map['sumMonthlyIncome']) as num? ?? 0;
+      final consumeAmount =
+          (map['monthlyConsumeAmount'] ?? map['sumMonthlyConsume']) as num? ?? 0;
+      final dailyAmount =
+          (map['dailyConsumeAmount'] ?? map['sumDailyConsume']) as num? ?? 0;
       return PlanMetrics.fromRange(
         startDate: start,
         endDate: end,
-        sumMonthlyIncome: (map['sumMonthlyIncome'] as num?)?.round() ?? 0,
-        sumMonthlyConsume: (map['sumMonthlyConsume'] as num?)?.round() ?? 0,
-        sumDailyConsume: (map['sumDailyConsume'] as num?)?.round() ?? 0,
+        monthlyIncomeAmount: incomeAmount.round(),
+        monthlyConsumeAmount: consumeAmount.round(),
+        dailyConsumeAmount: dailyAmount.round(),
         monthlyNetIncome: monthlyNetIncome,
         monthlyNetConsume: monthlyNetConsume,
         dailyNetConsume: dailyNetConsume,
@@ -305,9 +400,9 @@ class TotalPlan {
     return PlanMetrics.fromRange(
       startDate: now,
       endDate: now.add(const Duration(days: 29)),
-      sumMonthlyIncome: 0,
-      sumMonthlyConsume: 0,
-      sumDailyConsume: 0,
+      monthlyIncomeAmount: 0,
+      monthlyConsumeAmount: 0,
+      dailyConsumeAmount: 0,
     );
   }
 
@@ -373,9 +468,9 @@ class TotalPlan {
       'startDate': metrics.startDate.toIso8601String(),
       'endDate': metrics.endDate.toIso8601String(),
       'kDays': metrics.kDays,
-      'sumMonthlyIncome': metrics.monthlyIncomeAmount,
-      'sumMonthlyConsume': metrics.monthlyConsumeAmount,
-      'sumDailyConsume': metrics.dailyConsumeAmount,
+      'monthlyIncomeAmount': metrics.monthlyIncomeAmount,
+      'monthlyConsumeAmount': metrics.monthlyConsumeAmount,
+      'dailyConsumeAmount': metrics.dailyConsumeAmount,
       'monthlyNetIncome': metrics.monthlyNetIncome,
       'monthlyNetConsume': metrics.monthlyNetConsume,
       'dailyNetConsume': metrics.dailyNetConsume,

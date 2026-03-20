@@ -9,6 +9,7 @@ import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
 
+import '../../../repository/auth_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/services/saving_calculator.dart';
 import '../../../services/local_notification_service.dart';
@@ -244,8 +245,9 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
             ),
             CustomButton(
               text: '다음',
-              onPressed: () {
+              onPressed: () async {
                 HomeSavingChartWidget.resetGaugeAnimationForPlay();
+                await context.read<AuthRepository>().setHasPlan(true); // 추후 수정 필요
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/home_tab_navigator',

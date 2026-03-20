@@ -1,11 +1,11 @@
-// lib/model/record/spending_entry.dart
+// lib/model/record/record_entry.dart
 
-class SpendingEntry {
+class RecordEntry {
   final String id;
 
-  /// ✅ 신규: 불변 카테고리 키
-  /// - PlanCategory / SnapshotItem 의 categoryKey와 매칭
-  /// - 예전 데이터에는 없을 수 있음 => '' 허용 (fallback)
+  /// 불변 카테고리 키
+  /// - PlanCategory / SnapshotItem / RefCategoryItem 의 categoryKey와 매칭
+  /// - 예전 데이터에는 없을 수 있으므로 '' 허용
   final String categoryKey;
 
   /// 표시용 이름(legacy / UI용)
@@ -14,7 +14,7 @@ class SpendingEntry {
   final double amount;
   final String note;
 
-  SpendingEntry({
+  const RecordEntry({
     required this.id,
     required this.categoryKey,
     required this.category,
@@ -22,58 +22,36 @@ class SpendingEntry {
     required this.note,
   });
 
-  /// ✅ Firestore/Map 로딩 시 하위호환:
-  /// - categoryKey 없으면 '' (legacy)
-  /// - id 없으면 자동 생성(결정적 id)
-  factory SpendingEntry.fromMap(Map<String, dynamic> map) {
+  factory RecordEntry.fromMap(Map<String, dynamic> map) {
     final category = map['category'] ?? '';
-    final categoryKey = map['categoryKey'] ?? ''; // ✅ 신규
+    final categoryKey = map['categoryKey'] ?? '';
     final amount = (map['amount'] as num?)?.toDouble() ?? 0.0;
     final note = map['note'] ?? '';
 
     final rawId = map['id'] as String?;
     final fallbackId = _stableId(
-      categoryKey: categoryKey,
-      category: category,
+      categoryKey: categoryKey is String ? categoryKey : '',
+      category: category is String ? category : '',
       amount: amount,
-      note: note,
+      note: note is String ? note : '',
     );
 
-    return SpendingEntry(
+    return RecordEntry(
       id: (rawId == null || rawId.trim().isEmpty) ? fallbackId : rawId,
       categoryKey: (categoryKey is String) ? categoryKey : '',
-      category: category,
+      category: (category is String) ? category : '',
       amount: amount,
-      note: note,
+      note: (note is String) ? note : '',
     );
   }
 
-  factory SpendingEntry.fromJson(Map<String, dynamic> json) {
-    final category = json['category'] ?? '';
-    final categoryKey = json['categoryKey'] ?? '';
-    final amount = (json['amount'] as num?)?.toDouble() ?? 0.0;
-    final note = json['note'] ?? '';
-
-    final rawId = json['id'] as String?;
-    final fallbackId = _stableId(
-      categoryKey: categoryKey,
-      category: category,
-      amount: amount,
-      note: note,
-    );
-
-    return SpendingEntry(
-      id: (rawId == null || rawId.trim().isEmpty) ? fallbackId : rawId,
-      categoryKey: (categoryKey is String) ? categoryKey : '',
-      category: category,
-      amount: amount,
-      note: note,
-    );
+  factory RecordEntry.fromJson(Map<String, dynamic> json) {
+    return RecordEntry.fromMap(json);
   }
 
   Map<String, dynamic> toMap() => {
     'id': id,
-    'categoryKey': categoryKey, // ✅ 신규
+    'categoryKey': categoryKey,
     'category': category,
     'amount': amount,
     'note': note,
@@ -81,14 +59,14 @@ class SpendingEntry {
 
   Map<String, dynamic> toJson() => toMap();
 
-  SpendingEntry copyWith({
+  RecordEntry copyWith({
     String? id,
     String? categoryKey,
     String? category,
     double? amount,
     String? note,
   }) {
-    return SpendingEntry(
+    return RecordEntry(
       id: id ?? this.id,
       categoryKey: categoryKey ?? this.categoryKey,
       category: category ?? this.category,
@@ -103,7 +81,6 @@ class SpendingEntry {
     required double amount,
     required String note,
   }) {
-    // ✅ categoryKey를 우선 포함 (이름이 바뀌어도 id 안정)
     final key = '$categoryKey|$category|${amount.toStringAsFixed(2)}|$note';
 
     int hash = 0;

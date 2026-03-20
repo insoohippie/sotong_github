@@ -14,8 +14,7 @@ class RefCategoryRepository {
   final RefCategoryDataSource _ds;
   final AuthDataSource _auth;
 
-  // ✅ main()에서 이미 openBox('categories') 해둔 박스
-  final Box _cacheBox = Hive.box('categories');
+  final Box _cacheBox = Hive.box('ref_categories');
 
   /// TODO: 나중에 connectivity_plus로 실제 반영
   bool isOnline = true;

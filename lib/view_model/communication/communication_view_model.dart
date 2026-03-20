@@ -5,9 +5,9 @@ import 'package:intl/intl.dart';
 
 import 'package:sotong_local/services/spending_event_bus.dart';
 
-import '../../model/record/monthly_spending.dart';
-import '../../model/record/day_spending.dart';
-import '../../model/record/spending_entry.dart';
+import '../../model/record/monthly_record.dart';
+import '../../model/record/day_record.dart';
+import '../../model/record/record_entry.dart';
 
 import '../../repository/record_repository.dart';
 import '../../repository/plan_repository.dart';
@@ -23,7 +23,6 @@ class CommunicationViewModel extends ChangeNotifier {
       this._planRepository,
       SpendingEventBus eventBus,
       ) {
-    // 소비 저장/수정 이벤트 발생 시 현재 달 리로드
     _spendingSub = eventBus.stream.listen((_) {
       reloadForCurrentMonth();
     });
@@ -34,11 +33,11 @@ class CommunicationViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // records 단일 소스(현재 선택된 달): 캘린더/모달은 이걸 주로 씀
-  MonthlySpending? _monthly;
+  // records 단일 소스(현재 선택된 달)
+  MonthlyRecord? _monthly;
 
-  // 최근 7/30일 집계를 위해 여러 월을 캐시
-  final Map<String, MonthlySpending> _monthCache = {}; // key: 'yyyy-MM'
+  // 최근 7/30일 집계를 위한 월 캐시
+  final Map<String, MonthlyRecord> _monthCache = {}; // key: yyyy-MM
 
   // ========== Calendar State ==========
   int selectedYear = DateTime.now().year;
@@ -49,7 +48,6 @@ class CommunicationViewModel extends ChangeNotifier {
   String selectedAnalysisPeriod = '월간'; // '주간' | '월간'
 
   /// 일일 소비 한도(표시용)
-  /// - 플랜에서 로드해서 넣음
   double dailySpendingLimit = 0;
 
   // =====================================================
@@ -63,17 +61,17 @@ class CommunicationViewModel extends ChangeNotifier {
     selectedMonth = anchor.month;
 
     try {
-      // 1) 월 기록 로드 (offline-first)
-      final monthly = await _recordRepository.loadMonthlySpendingByDate(anchor);
+      // 1) 월 기록 로드
+      final monthly = await _recordRepository.loadMonthlyRecordByDate(anchor);
       _monthly = monthly;
 
-      // 캐시에 넣기 (최근 7/30일 집계용)
+      // 2) 캐시에 넣기
       _monthCache[_monthKey(anchor)] = monthly;
 
-      // 2)플랜에서 일일 소비 한도 로드
+      // 3) 플랜에서 일일 소비 한도 로드
       await _loadDailyLimitFromPlan();
 
-      // 3) 최근 30일 커버하도록 필요한 월들 프리로드
+      // 4) 최근 30일 커버하도록 필요한 월들 프리로드
       await _preloadMonthsForRecentPeriod(days: 30);
 
       _setError(null);
@@ -104,57 +102,47 @@ class CommunicationViewModel extends ChangeNotifier {
     loadMonth(DateTime(newYear, newMonth, 1));
   }
 
-  /// ✅ 플랜에서 daily limit 읽어서 세팅
   Future<void> _loadDailyLimitFromPlan() async {
     try {
-      // 너 프로젝트에서 "최신 플랜 1개" 가져오는 메서드로 맞춰주면 됨
       final plan = await _planRepository.getLatestPlanForCurrentUser();
       final metrics = plan?.result.totalMetrics;
-
-      // sumDailyConsume = 하루 소비 한도 (HomeViewModel에서 쓰던 값)
       final limit = (metrics?.dailyConsumeAmount ?? 0).toDouble();
       dailySpendingLimit = limit;
     } catch (_) {
-      // 플랜 로드 실패해도 기록 화면은 뜨게
       dailySpendingLimit = 0;
     }
   }
 
   // =====================================================
-  //  records 기반 헬퍼 (캘린더/모달용: selectedMonth 기준)
+  //  records 기반 헬퍼 (캘린더/모달용)
   // =====================================================
 
   DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 
   String _fmtKey(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
 
-  DaySpending? _daySpending(DateTime date) {
+  DayRecord? _dayRecord(DateTime date) {
     final key = _fmtKey(_dateOnly(date));
     return _monthly?.days[key];
   }
 
-  List<SpendingEntry> entriesForDay(int day) {
+  List<RecordEntry> entriesForDay(int day) {
     final date = DateTime(selectedYear, selectedMonth, day);
-    final ds = _daySpending(date);
-    return ds?.entries ?? [];
+    final ds = _dayRecord(date);
+    return ds?.spendingEntries ?? const [];
   }
 
   int spendingForDay(int day) {
     final date = DateTime(selectedYear, selectedMonth, day);
-    final ds = _daySpending(date);
+    final ds = _dayRecord(date);
     if (ds == null) return 0;
 
-    // ds.totalAmount가 있으면 그걸 우선 사용
-    final totalFromField = ds.totalAmount;
-    if (totalFromField != null) return totalFromField;
-
-    // fallback: entries 합
-    return ds.entries.fold<int>(0, (sum, e) => sum + e.amount.round());
+    return ds.totalSpendingAmount;
   }
 
   bool hasEmotionRecord(int day) {
     final date = DateTime(selectedYear, selectedMonth, day);
-    final emotion = _daySpending(date)?.emotion ?? '';
+    final emotion = _dayRecord(date)?.emotion ?? '';
     return emotion.trim().isNotEmpty;
   }
 
@@ -164,34 +152,31 @@ class CommunicationViewModel extends ChangeNotifier {
 
   bool hasDiaryRecord(int day) {
     final date = DateTime(selectedYear, selectedMonth, day);
-    final comment = _daySpending(date)?.comment ?? '';
+    final comment = _dayRecord(date)?.comment ?? '';
     return comment.trim().isNotEmpty;
   }
 
   bool hasRecord(int day) {
-    // 감정 or 금액 or 일지 중 하나라도 있으면 기록으로 판단
     return hasEmotionRecord(day) || hasAmountRecord(day) || hasDiaryRecord(day);
   }
 
-  // 달력 UI에서 쓰는 헬퍼들
   int spendingAmountForDay(int day) => spendingForDay(day);
 
-  /// 해당 날짜에 저장된 감정 라벨 (평온, 좋음, 슬픔 등) — 달력/상세에서 Lottie 경로 매핑용
   String emotionLabelForDay(int day) {
     final date = DateTime(selectedYear, selectedMonth, day);
-    return _daySpending(date)?.emotion ?? '';
+    return _dayRecord(date)?.emotion ?? '';
   }
 
   String emotionEmojiForDay(int day) {
     final date = DateTime(selectedYear, selectedMonth, day);
-    final emotion = _daySpending(date)?.emotion ?? '';
+    final emotion = _dayRecord(date)?.emotion ?? '';
     if (emotion.trim().isEmpty) return '';
     return getEmoji(emotion);
   }
 
   String diaryForDay(int day) {
     final date = DateTime(selectedYear, selectedMonth, day);
-    final comment = _daySpending(date)?.comment ?? '';
+    final comment = _dayRecord(date)?.comment ?? '';
     if (comment.trim().isEmpty) return '소비 일지가 아직 없어요.';
     return comment;
   }
@@ -243,7 +228,7 @@ class CommunicationViewModel extends ChangeNotifier {
   String emotionEmojiForAnalysis(String emotion) => getEmoji(emotion);
 
   // -----------------------------
-  // ✅ 최근 기간 집계 (핵심)
+  // ✅ 최근 기간 집계
   // -----------------------------
 
   String _monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
@@ -253,9 +238,7 @@ class CommunicationViewModel extends ChangeNotifier {
     if (_monthCache.containsKey(key)) return;
 
     final monthAnchor = DateTime(anyDay.year, anyDay.month, 1);
-    final monthly = await _recordRepository.loadMonthlySpendingByDate(
-      monthAnchor,
-    );
+    final monthly = await _recordRepository.loadMonthlyRecordByDate(monthAnchor);
     _monthCache[key] = monthly;
   }
 
@@ -272,12 +255,12 @@ class CommunicationViewModel extends ChangeNotifier {
     }
   }
 
-  List<DaySpending> _daysInRecentPeriod(String period) {
+  List<DayRecord> _daysInRecentPeriod(String period) {
     final today = _dateOnly(DateTime.now());
     final int days = (period == '주간') ? 7 : 30;
     final start = today.subtract(Duration(days: days - 1));
 
-    final List<DaySpending> out = [];
+    final List<DayRecord> out = [];
 
     for (final m in _monthCache.values) {
       for (final d in m.days.values) {
@@ -292,32 +275,23 @@ class CommunicationViewModel extends ChangeNotifier {
     return out;
   }
 
-  /// 감정별 기록 일수 (최근 7/30일)
   int emotionCount(String emotion, String period) {
     final days = _daysInRecentPeriod(period);
     return days.where((d) => d.emotion.trim() == emotion).length;
   }
 
-  /// 감정별 소비 총합 (최근 7/30일)
   int emotionTotalSpending(String emotion, String period) {
-    final days = _daysInRecentPeriod(
-      period,
-    ).where((d) => d.emotion.trim() == emotion);
+    final days = _daysInRecentPeriod(period).where((d) => d.emotion.trim() == emotion);
 
     return days.fold<int>(0, (sum, d) {
-      final total =
-          d.totalAmount ??
-              d.entries.fold<int>(0, (s, e) => s + e.amount.round());
-      return sum + total;
+      return sum + d.totalSpendingAmount;
     });
   }
 
-  /// "월간=최근30일 / 주간=최근7일" 총합
   int emotionSpendingAmount(String emotion, String period) {
     return emotionTotalSpending(emotion, period);
   }
 
-  /// return: [{emotion, emoji, count, total, avg}, ...] 최대 3개
   List<Map<String, dynamic>> emotionTop3Stats(String period) {
     final list = <Map<String, dynamic>>[];
 
@@ -337,7 +311,6 @@ class CommunicationViewModel extends ChangeNotifier {
       });
     }
 
-    // 1순위: 총 금액(total) 많은 순
     list.sort((a, b) => (b['total'] as int).compareTo(a['total'] as int));
 
     return list.take(3).toList();
@@ -348,17 +321,16 @@ class CommunicationViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// "최근 N일"로 계산
   void setAnalysisPeriod(String period) {
     selectedAnalysisPeriod = period;
     _preloadMonthsForRecentPeriod(days: period == '주간' ? 7 : 30);
-
     notifyListeners();
   }
 
   // =====================================================
-  //  인사이트 배너 (감정 중심 5종) — SlidingBanner용
+  //  인사이트 배너
   // =====================================================
+
   static final _bannerIcons = [
     Icons.mood,
     Icons.warning_amber_rounded,
@@ -366,6 +338,7 @@ class CommunicationViewModel extends ChangeNotifier {
     Icons.link,
     Icons.calendar_view_week,
   ];
+
   static const _bannerColors = [
     Color(0xFF0062FF),
     Color(0xFFD32F2F),
@@ -383,6 +356,7 @@ class CommunicationViewModel extends ChangeNotifier {
       _messageEmotionCategoryRelation(month),
       _messageWeekdayEmotionPattern(month),
     ];
+
     return List.generate(
       5,
           (i) => {
@@ -401,9 +375,11 @@ class CommunicationViewModel extends ChangeNotifier {
 
   ({String name, int count})? _topEmotionThisMonth() {
     if (_monthly == null) return null;
+
     final monthStart = DateTime(selectedYear, selectedMonth, 1);
     final monthEnd = DateTime(selectedYear, selectedMonth + 1, 1);
     final Map<String, int> counts = {};
+
     for (final d in _monthly!.days.values) {
       final date = _dateOnly(d.date);
       if (date.isBefore(monthStart) || !date.isBefore(monthEnd)) continue;
@@ -411,28 +387,25 @@ class CommunicationViewModel extends ChangeNotifier {
       if (emo.isEmpty) continue;
       counts[emo] = (counts[emo] ?? 0) + 1;
     }
+
     if (counts.isEmpty) return null;
     final entry = counts.entries.reduce((a, b) => a.value >= b.value ? a : b);
     return (name: entry.key, count: entry.value);
   }
 
   String _messageEmotionWhenOverBudget(int month) {
-    // TODO: 예산 초과한 날의 감정 집계
     return '일일 예산을 초과한 날에는 스트레스 감정이 가장 많았어요.';
   }
 
   String _messageEmotionWhenSaving(int month) {
-    // TODO: 절약한 날의 감정 집계
     return '지출을 아낀 날에는 동기부여 감정이 가장 많이 기록됐어요.';
   }
 
   String _messageEmotionCategoryRelation(int month) {
-    // TODO: 감정별 최다 카테고리
     return '스트레스가 기록된 날에는 치킨 카테고리 소비가 가장 많아요.';
   }
 
   String _messageWeekdayEmotionPattern(int month) {
-    // TODO: 요일별 감정·소비 패턴
     return '주말에는 기쁨 감정과 함께 외식 소비가 많아요.';
   }
 
@@ -443,7 +416,12 @@ class CommunicationViewModel extends ChangeNotifier {
 
   Map<String, dynamic> monthlyEmotionSummary({DateTime? anchor}) {
     if (_monthly == null) {
-      return {'happy': 0, 'normal': 0, 'gloomy': 0, 'message': '이번 달을 기록해보세요!'};
+      return {
+        'happy': 0,
+        'normal': 0,
+        'gloomy': 0,
+        'message': '이번 달을 기록해보세요!',
+      };
     }
 
     final now = anchor ?? DateTime(selectedYear, selectedMonth);

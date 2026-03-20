@@ -1,0 +1,158 @@
+// lib/model/record/day_record.dart
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'record_entry.dart';
+
+class DayRecord {
+  final DateTime date;
+
+  /// 소비 총액
+  final int totalSpendingAmount;
+
+  /// 수입 총액
+  final int totalIncomeAmount;
+
+  final String emotion;
+  final String comment;
+
+  /// 소비 기록
+  final List<RecordEntry> spendingEntries;
+
+  /// 수입 기록
+  final List<RecordEntry> incomeEntries;
+
+  const DayRecord({
+    required this.date,
+    required this.totalSpendingAmount,
+    required this.totalIncomeAmount,
+    required this.emotion,
+    required this.comment,
+    required this.spendingEntries,
+    required this.incomeEntries,
+  });
+
+  factory DayRecord.empty(DateTime date) {
+    return DayRecord(
+      date: date,
+      totalSpendingAmount: 0,
+      totalIncomeAmount: 0,
+      emotion: '',
+      comment: '',
+      spendingEntries: const [],
+      incomeEntries: const [],
+    );
+  }
+
+  factory DayRecord.fromFirestore(String dateKey, Map<String, dynamic> map) {
+    final date = (map['date'] is Timestamp)
+        ? (map['date'] as Timestamp).toDate()
+        : DateTime.tryParse(dateKey) ?? DateTime.now();
+
+    // 신규 구조
+    final rawSpendingEntries = (map['spendingEntries'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    final rawIncomeEntries = (map['incomeEntries'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    // 구버전 호환: 예전 entries는 소비로 간주
+    final rawLegacyEntries = (map['entries'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    final spendingEntries = rawSpendingEntries.isNotEmpty
+        ? rawSpendingEntries.map((e) => RecordEntry.fromMap(e)).toList()
+        : rawLegacyEntries.map((e) => RecordEntry.fromMap(e)).toList();
+
+    final incomeEntries =
+    rawIncomeEntries.map((e) => RecordEntry.fromMap(e)).toList();
+
+    return DayRecord(
+      date: date,
+      totalSpendingAmount:
+      (map['totalSpendingAmount'] as num?)?.toInt() ??
+          (map['totalAmount'] as num?)?.toInt() ??
+          0,
+      totalIncomeAmount: (map['totalIncomeAmount'] as num?)?.toInt() ?? 0,
+      emotion: map['emotion'] ?? '',
+      comment: map['comment'] ?? '',
+      spendingEntries: spendingEntries,
+      incomeEntries: incomeEntries,
+    );
+  }
+
+  factory DayRecord.fromJson(Map<String, dynamic> json) {
+    final rawSpendingEntries =
+    (json['spendingEntries'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    final rawIncomeEntries = (json['incomeEntries'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    final rawLegacyEntries = (json['entries'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    final spendingEntries = rawSpendingEntries.isNotEmpty
+        ? rawSpendingEntries.map((e) => RecordEntry.fromJson(e)).toList()
+        : rawLegacyEntries.map((e) => RecordEntry.fromJson(e)).toList();
+
+    final incomeEntries =
+    rawIncomeEntries.map((e) => RecordEntry.fromJson(e)).toList();
+
+    return DayRecord(
+      date: DateTime.parse(json['date'] as String),
+      totalSpendingAmount:
+      (json['totalSpendingAmount'] as num?)?.toInt() ??
+          (json['totalAmount'] as num?)?.toInt() ??
+          0,
+      totalIncomeAmount: (json['totalIncomeAmount'] as num?)?.toInt() ?? 0,
+      emotion: json['emotion'] ?? '',
+      comment: json['comment'] ?? '',
+      spendingEntries: spendingEntries,
+      incomeEntries: incomeEntries,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'date': date.toIso8601String(),
+    'totalSpendingAmount': totalSpendingAmount,
+    'totalIncomeAmount': totalIncomeAmount,
+    'emotion': emotion,
+    'comment': comment,
+    'spendingEntries': spendingEntries.map((e) => e.toJson()).toList(),
+    'incomeEntries': incomeEntries.map((e) => e.toJson()).toList(),
+  };
+
+  Map<String, dynamic> toMap() => toJson();
+
+  DayRecord copyWith({
+    DateTime? date,
+    int? totalSpendingAmount,
+    int? totalIncomeAmount,
+    String? emotion,
+    String? comment,
+    List<RecordEntry>? spendingEntries,
+    List<RecordEntry>? incomeEntries,
+  }) {
+    return DayRecord(
+      date: date ?? this.date,
+      totalSpendingAmount: totalSpendingAmount ?? this.totalSpendingAmount,
+      totalIncomeAmount: totalIncomeAmount ?? this.totalIncomeAmount,
+      emotion: emotion ?? this.emotion,
+      comment: comment ?? this.comment,
+      spendingEntries: spendingEntries ?? this.spendingEntries,
+      incomeEntries: incomeEntries ?? this.incomeEntries,
+    );
+  }
+}

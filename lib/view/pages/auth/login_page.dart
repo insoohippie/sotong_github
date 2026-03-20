@@ -7,6 +7,7 @@ import '../../../component/texts/multi_color_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
+import '../../../repository/auth_repository.dart';
 import '../../../view_model/auth/login_view_model.dart';
 import '../../../view_model/home/home_view_model.dart';
 
@@ -47,8 +48,8 @@ class EmailLoginPage extends StatelessWidget {
                     const SizedBox(height: AppSpacing.fieldSpacing),
                     CustomTextField(
                       controller: vm.emailController,
-                      hintText: '이메일 입력',
-                      keyboardType: TextInputType.emailAddress,
+                      hintText: '아이디 입력',
+                      keyboardType: TextInputType.text,
                     ),
                     const SizedBox(height: 20),
                     CustomTextField(
@@ -112,11 +113,20 @@ class EmailLoginPage extends StatelessWidget {
                 if (!context.mounted) return;
 
                 if (success) {
-                  // 로그인 직후 새 uid 기준으로 홈 데이터 강제 리로드
-                  await context.read<HomeViewModel>().refresh();
-                  Navigator.pushReplacementNamed(
-                    context,
-                    '/home_tab_navigator',
+                  final authRepo = context.read<AuthRepository>();
+                  final next = authRepo.nextRouteBySession;
+
+                  print('🧩 [EmailLoginPage] login success -> nextRoute=$next');
+
+                  if (next == '/home_tab_navigator') {
+                    await context.read<HomeViewModel>().refresh();
+                  }
+
+                  if (!context.mounted) return;
+
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    next,
+                        (route) => false,
                   );
                 }
               },

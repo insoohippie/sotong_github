@@ -33,7 +33,9 @@ class _HomePageState extends State<HomePage> {
   DateTime _selectedDate = DateTime.now(); // 오늘 날짜
 
   String _formatDate(DateTime date) {
-    return '${date.month}월 ${date.day}일';
+    const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+    final weekday = weekdays[date.weekday - 1];
+    return '${date.month}월 ${date.day}일 ($weekday)';
   }
 
   void _changeDate(int days) {
@@ -223,13 +225,13 @@ class _HomePageState extends State<HomePage> {
 
                             if (!hasRecord)
                               SmallRoundedButton(
-                                text: "소비 기록하러 가기",
+                                text: "수입/소비 기록하러 가기",
                                 onPressed: () {
                                   Navigator.of(
                                     context,
                                     rootNavigator: true,
                                   ).pushNamed(
-                                    '/record_spending',
+                                    '/record',
                                     arguments: _selectedDate,
                                   );
                                 },
@@ -241,7 +243,7 @@ class _HomePageState extends State<HomePage> {
                                     context,
                                     rootNavigator: true,
                                   ).pushNamed(
-                                    '/today_spending',
+                                    '/today_record',
                                     arguments: _selectedDate,
                                   );
                                 },

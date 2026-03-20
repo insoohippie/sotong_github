@@ -11,10 +11,16 @@ class RefData {
     Map<String, MonthlyConsume>? monthlyConsumes,
     Map<String, DailyConsume>? dailyConsumes,
     Map<String, DailyConsume>? dailyVariableConsumes,
-  })  : monthlyIncomeMap = Map<String, MonthlyIncome>.from(monthlyIncomes ?? const {}),
-        monthlyConsumeMap = Map<String, MonthlyConsume>.from(monthlyConsumes ?? const {}),
-        dailyConsumeMap = Map<String, DailyConsume>.from(dailyConsumes ?? const {}),
-        dailyVariableConsumeMap = Map<String, DailyConsume>.from(dailyVariableConsumes ?? const {}) {
+    DateTime? referenceDate,
+  })  : monthlyIncomeMap =
+  Map<String, MonthlyIncome>.from(monthlyIncomes ?? const {}),
+        monthlyConsumeMap =
+        Map<String, MonthlyConsume>.from(monthlyConsumes ?? const {}),
+        dailyConsumeMap =
+        Map<String, DailyConsume>.from(dailyConsumes ?? const {}),
+        dailyVariableConsumeMap =
+        Map<String, DailyConsume>.from(dailyVariableConsumes ?? const {}),
+        _referenceDate = _normalizeDay(referenceDate ?? DateTime.now()) {
     _refreshPrimaryIds();
   }
 
@@ -32,6 +38,17 @@ class RefData {
 
   /// Daily variable consume definitions keyed by document id.
   final Map<String, DailyConsume> dailyVariableConsumeMap;
+
+  DateTime _referenceDate;
+
+  DateTime get referenceDate => _referenceDate;
+
+  void setReferenceDate(DateTime date) {
+    final normalized = _normalizeDay(date);
+    if (_referenceDate.isAtSameMomentAs(normalized)) return;
+    _referenceDate = normalized;
+    _refreshPrimaryIds();
+  }
 
   String? _primaryMonthlyIncomeId;
   String? _primaryMonthlyConsumeId;
@@ -117,7 +134,7 @@ class RefData {
     return {
       'planId': planId,
       'monthlyIncomeMap': monthlyIncomeMap.map(
-        (key, income) => MapEntry(
+            (key, income) => MapEntry(
           key,
           {
             ...income.toMap(),
@@ -126,7 +143,7 @@ class RefData {
         ),
       ),
       'monthlyConsumeMap': monthlyConsumeMap.map(
-        (key, consume) => MapEntry(
+            (key, consume) => MapEntry(
           key,
           {
             ...consume.toMap(),
@@ -135,7 +152,7 @@ class RefData {
         ),
       ),
       'dailyConsumeMap': dailyConsumeMap.map(
-        (key, consume) => MapEntry(
+            (key, consume) => MapEntry(
           key,
           {
             ...consume.toMap(),
@@ -144,7 +161,7 @@ class RefData {
         ),
       ),
       'dailyVariableConsumeMap': dailyVariableConsumeMap.map(
-        (key, consume) => MapEntry(
+            (key, consume) => MapEntry(
           key,
           {
             ...consume.toMap(),
@@ -158,36 +175,36 @@ class RefData {
   static RefData fromMap(Map<String, dynamic> map) {
     final planId = map['planId'] as String? ?? '';
     final monthlyIncomesRaw =
-        (map['monthlyIncomeMap'] as Map<String, dynamic>? ?? {});
+    (map['monthlyIncomeMap'] as Map<String, dynamic>? ?? {});
     final monthlyConsumesRaw =
-        (map['monthlyConsumeMap'] as Map<String, dynamic>? ?? {});
+    (map['monthlyConsumeMap'] as Map<String, dynamic>? ?? {});
     final dailyConsumesRaw =
-        (map['dailyConsumeMap'] as Map<String, dynamic>? ?? {});
+    (map['dailyConsumeMap'] as Map<String, dynamic>? ?? {});
     final dailyVariableConsumesRaw =
-        (map['dailyVariableConsumeMap'] as Map<String, dynamic>? ?? {});
+    (map['dailyVariableConsumeMap'] as Map<String, dynamic>? ?? {});
 
     return RefData(
       planId: planId,
       monthlyIncomes: monthlyIncomesRaw.map(
-        (key, value) => MapEntry(
+            (key, value) => MapEntry(
           key,
           MonthlyIncome.fromMap(key, Map<String, dynamic>.from(value)),
         ),
       ),
       monthlyConsumes: monthlyConsumesRaw.map(
-        (key, value) => MapEntry(
+            (key, value) => MapEntry(
           key,
           MonthlyConsume.fromMap(key, Map<String, dynamic>.from(value)),
         ),
       ),
       dailyConsumes: dailyConsumesRaw.map(
-        (key, value) => MapEntry(
+            (key, value) => MapEntry(
           key,
           DailyConsume.fromMap(key, Map<String, dynamic>.from(value)),
         ),
       ),
       dailyVariableConsumes: dailyVariableConsumesRaw.map(
-        (key, value) => MapEntry(
+            (key, value) => MapEntry(
           key,
           DailyConsume.fromMap(key, Map<String, dynamic>.from(value)),
         ),
@@ -303,9 +320,15 @@ RefData(
   }
 
   void _refreshPrimaryIds() {
-    _primaryMonthlyIncomeId = _latestMonthlyIncomeId();
-    _primaryMonthlyConsumeId = _latestMonthlyConsumeId();
-    _primaryDailyConsumeId = _latestDailyConsumeId();
+    final targetMonth =
+    DateTime(_referenceDate.year, _referenceDate.month, 1);
+    _primaryMonthlyIncomeId =
+        _monthlyIncomeCovering(targetMonth) ?? _latestMonthlyIncomeId();
+    _primaryMonthlyConsumeId =
+        _monthlyConsumeCovering(targetMonth) ?? _latestMonthlyConsumeId();
+    _primaryDailyConsumeId =
+        _dailyIdCovering(_referenceDate, dailyConsumeMap) ??
+            _latestDailyConsumeId();
   }
 
   String? _latestMonthlyIncomeId() {
@@ -325,6 +348,15 @@ RefData(
     return latestId;
   }
 
+  String? _monthlyIncomeCovering(DateTime month) {
+    return _monthlyIdCovering(
+      month,
+      monthlyIncomeMap,
+          (MonthlyIncome income) => income.yearMonthList,
+          (MonthlyIncome income) => income.isActive,
+    );
+  }
+
   String? _latestMonthlyConsumeId() {
     DateTime? maxMonth;
     String? latestId;
@@ -342,6 +374,15 @@ RefData(
     return latestId;
   }
 
+  String? _monthlyConsumeCovering(DateTime month) {
+    return _monthlyIdCovering(
+      month,
+      monthlyConsumeMap,
+          (MonthlyConsume consume) => consume.yearMonthList,
+          (MonthlyConsume consume) => consume.isActive,
+    );
+  }
+
   String? _latestDailyConsumeId() {
     DateTime? maxEnd;
     String? latestId;
@@ -356,6 +397,58 @@ RefData(
     return latestId;
   }
 
+  String? _dailyIdCovering(
+      DateTime date,
+      Map<String, DailyConsume> source,
+      ) {
+    String? candidate;
+    DateTime? candidateEnd;
+    for (final entry in source.entries) {
+      final daily = entry.value;
+      if (!daily.isActive) continue;
+      if (date.isBefore(daily.startDate) || date.isAfter(daily.endDate)) {
+        continue;
+      }
+      final end = daily.endDate;
+      if (candidate == null ||
+          candidateEnd == null ||
+          end.isAfter(candidateEnd)) {
+        candidate = entry.key;
+        candidateEnd = end;
+      }
+    }
+    return candidate;
+  }
+
+  String? _monthlyIdCovering<T>(
+      DateTime month,
+      Map<String, T> source,
+      List<DateTime> Function(T item) monthsSelector,
+      bool Function(T item) activeSelector,
+      ) {
+    String? candidate;
+    DateTime? candidateEnd;
+    for (final entry in source.entries) {
+      final item = entry.value;
+      if (!activeSelector(item)) continue;
+      final months = monthsSelector(item);
+      final match = months.any(
+            (m) => m.year == month.year && m.month == month.month,
+      );
+      if (!match) continue;
+      final lastMonth = months.isEmpty
+          ? DateTime(month.year, month.month)
+          : months.reduce((a, b) => a.isAfter(b) ? a : b);
+      if (candidate == null ||
+          candidateEnd == null ||
+          lastMonth.isAfter(candidateEnd)) {
+        candidate = entry.key;
+        candidateEnd = lastMonth;
+      }
+    }
+    return candidate;
+  }
+
   List<DateTime> _monthRange(DateTime start, DateTime end) {
     final months = <DateTime>[];
     var cursor = DateTime(start.year, start.month, 1);
@@ -367,23 +460,25 @@ RefData(
     return months;
   }
 
-  DateTime _normalizeDay(DateTime value) =>
+  static DateTime _normalizeDay(DateTime value) =>
       DateTime(value.year, value.month, value.day);
 
   String _nextSequentialId(DateTime date, Iterable<String> existingIds) {
     final planPrefix = planId.isEmpty ? '' : '${planId}_';
-    final base = '${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}';
+    final base =
+        '${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}';
     var maxSeq = 0;
     for (final id in existingIds) {
-      final normalized = planPrefix.isEmpty ? id : id.replaceFirst(planPrefix, '');
-      if (!normalized.startsWith(base)) continue;
-      final parts = id.split('-');
+      final normalizedId =
+      planPrefix.isNotEmpty && id.startsWith(planPrefix) ? id.substring(planPrefix.length) : id;
+      if (!normalizedId.startsWith(base)) continue;
+      final parts = normalizedId.split('-');
       if (parts.length != 2) continue;
       final seq = int.tryParse(parts[1]) ?? 0;
       if (seq > maxSeq) maxSeq = seq;
     }
     final nextSeq = (maxSeq + 1).toString().padLeft(3, '0');
-    return '$planPrefix$base-$nextSeq';
+    return '$base-$nextSeq';
   }
 
   double _sumEntries(Iterable<Entry> entries) =>

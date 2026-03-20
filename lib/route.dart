@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:sotong_local/view/pages/auth/signup_page.dart';
 import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
+import 'package:sotong_local/view/pages/category/category_edit.dart';
 
 import 'package:sotong_local/view/pages/logo_splash_page.dart';
 
@@ -9,7 +10,9 @@ import 'package:sotong_local/view/pages/communication/communication_page.dart';
 
 import 'package:sotong_local/view/pages/home/home_page.dart';
 import 'package:sotong_local/view/pages/home/home_tab_navigator.dart';
-import 'package:sotong_local/view/pages/home/today_spending_page.dart';
+import 'package:sotong_local/view/pages/record/addIncome/limit_apply_page.dart';
+import 'package:sotong_local/view/pages/record/addIncome/period_apply_page.dart';
+import 'package:sotong_local/view/pages/record/today_record_page.dart';
 
 import 'package:sotong_local/view/pages/plan/chat_plan_page.dart';
 import 'package:sotong_local/view/pages/plan/plan_edit_page.dart';
@@ -18,16 +21,11 @@ import 'package:sotong_local/view/pages/plan/totalplan.dart';
 import 'package:sotong_local/view/pages/plan/celebration_plan_success.dart';
 
 import 'package:sotong_local/view/pages/record/record_diary_page.dart';
-import 'package:sotong_local/view/pages/record/record_spending_page.dart';
+import 'package:sotong_local/view/pages/record/record_page.dart';
 
-import 'package:sotong_local/view/pages/addIncome/add_income_page.dart';
-import 'package:sotong_local/view/pages/addIncome/apply_income_option_page.dart';
-import 'package:sotong_local/view/pages/addIncome/limit_apply_page.dart';
-import 'package:sotong_local/view/pages/addIncome/period_apply_page.dart';
+import 'package:sotong_local/view/pages/record/addIncome/apply_income_option_page.dart';
 
 import 'package:sotong_local/view/pages/report/report_page.dart';
-
-import 'package:sotong_local/view/pages/category/category_edit.dart';
 
 import 'package:sotong_local/view/pages/notification/notification_page.dart';
 
@@ -42,8 +40,6 @@ import 'package:sotong_local/view/pages/setting/edit_plan/edit_income_page.dart'
 import 'package:sotong_local/view/pages/setting/edit_plan/edit_saving_target_page.dart';
 
 import 'package:sotong_local/view/pages/setting/past_plan/past_plans_list_page.dart';
-
-import 'package:sotong_local/view/test_insoo/home/today_spending_test_page.dart';
 
 import 'view/pages/auth/login_page.dart';
 
@@ -66,19 +62,21 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/celebration_plan_success': (_) => const CelebrationPlanSuccessPage(),
   '/total_plan': (_) => const TotalPlanPage(),
 
+  // 카테고리 편집 페이지
+  '/category_edit': (_) => const CategoryEditPage(),
+
   // 메인 페이지(홈, 소통, 레포트)
   '/home_tab_navigator': (_) => const HomeTabNavigator(),
   '/home': (_) => const HomePage(),
   '/report': (_) => const ReportPage(),
   '/communication': (_) => const CommunicationPage(),
 
-  // 하루 소비 페이지(입력, 불러오기)
-  '/record_spending': (_) => const RecordSpendingPage(),
-  '/record_diary': (_) => const RecordDiaryPage(),
-  '/today_spending': (_) => const TodaySpendingPage(),
+  // 추가수입/소비 페이지(입력, 불러오기)
+  '/record': (_) => const RecordPage(),
+  '/today_record': (_) => const TodayRecordPage(),
 
-  // 추가 소득 페이지(입력, 기간or소비한도 적용)
-  '/add_income': (_) => const AddIncomePage(),
+  '/record_diary': (_) => const RecordDiaryPage(),
+
   '/apply_income_option': (_) => const ApplyIncomeOptionPage(),
   '/limit_apply': (_) => const LimitApplyPage(),
   '/period_apply': (_) => const PeriodApplyPage(),
@@ -99,8 +97,4 @@ final Map<String, WidgetBuilder> appRoutes = {
 
   // 알림 페이지
   '/notification': (_) => const NotificationPage(),
-
-  // 테스트용 페이지(인수)
-  '/category_edit': (_) => const CategoryEditPage(),
-  '/today_spending_test': (_) => const TodaySpendingTestPage(),
 };

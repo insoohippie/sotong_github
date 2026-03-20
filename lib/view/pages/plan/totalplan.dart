@@ -10,12 +10,12 @@ import '../../../component/buttons/custom_button.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../model/plan/total_plan.dart';
+import '../../../model/record/record_entry.dart';
 import '../../../view_model/communication/communication_view_model.dart';
 import '../communication/comm_widgets/date_detail_modal.dart';
 import '../../../model/plan/plan_metrics.dart';
 import '../../../model/plan/sub_plan.dart';
-import '../../../model/record/day_spending.dart';
-import '../../../model/record/spending_entry.dart';
+import '../../../model/record/day_record.dart';
 import '../../../model/setting/past_plan_snapshot.dart';
 import 'celebration_plan_success.dart';
 
@@ -63,7 +63,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   late final TotalPlan _plan;
   late final Map<String, int> _emotionCounts;
   late final Map<String, double> _categorySpending;
-  late final List<DaySpending> _recentDiaries;
+  late final List<DayRecord> _recentDiaries;
 
   // 달력 상태
   int _selectedYear = DateTime.now().year;
@@ -234,9 +234,9 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     final metrics = PlanMetrics.fromRange(
       startDate: now,
       endDate: now.add(const Duration(days: 29)),
-      sumMonthlyIncome: 3500000,
-      sumMonthlyConsume: 980000,
-      sumDailyConsume: 20000,
+      monthlyIncomeAmount: 3500000,
+      monthlyConsumeAmount: 980000,
+      dailyConsumeAmount: 20000,
     );
 
     _plan = TotalPlan(
@@ -271,20 +271,21 @@ class _TotalPlanPageState extends State<TotalPlanPage>
 
     // 최근 일지
     _recentDiaries = [
-      DaySpending(
+      DayRecord(
         date: now.subtract(const Duration(days: 1)),
-        totalAmount: 35000,
+        totalSpendingAmount: 35000,
+        totalIncomeAmount: 0,
         emotion: '좋음',
         comment: '오늘은 친구들과 맛있는 식사를 했다. 기분이 좋았다!',
-        entries: [
-          SpendingEntry(
+        spendingEntries: [
+          RecordEntry(
             id: '1',
-            categoryKey: '식비', // ✅ 추가
+            categoryKey: '식비',
             category: '식비',
             amount: 25000,
             note: '저녁 식사',
           ),
-          SpendingEntry(
+          RecordEntry(
             id: '2',
             categoryKey: '카페',
             category: '카페',
@@ -292,22 +293,24 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             note: '커피',
           ),
         ],
+        incomeEntries: const [],
       ),
 
-      DaySpending(
+      DayRecord(
         date: now.subtract(const Duration(days: 2)),
-        totalAmount: 28000,
+        totalSpendingAmount: 28000,
+        totalIncomeAmount: 0,
         emotion: '평온',
         comment: '평범하지만 만족스러운 하루였다.',
-        entries: [
-          SpendingEntry(
+        spendingEntries: [
+          RecordEntry(
             id: '3',
             categoryKey: '식비',
             category: '식비',
             amount: 15000,
             note: '점심',
           ),
-          SpendingEntry(
+          RecordEntry(
             id: '4',
             categoryKey: '교통비',
             category: '교통비',
@@ -315,15 +318,17 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             note: '지하철',
           ),
         ],
+        incomeEntries: const [],
       ),
 
-      DaySpending(
+      DayRecord(
         date: now.subtract(const Duration(days: 3)),
-        totalAmount: 45000,
+        totalSpendingAmount: 45000,
+        totalIncomeAmount: 0,
         emotion: '좋음',
         comment: '새로운 옷을 샀다. 스타일이 마음에 든다!',
-        entries: [
-          SpendingEntry(
+        spendingEntries: [
+          RecordEntry(
             id: '5',
             categoryKey: '쇼핑',
             category: '쇼핑',
@@ -331,22 +336,24 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             note: '옷 구매',
           ),
         ],
+        incomeEntries: const [],
       ),
 
-      DaySpending(
+      DayRecord(
         date: now.subtract(const Duration(days: 5)),
-        totalAmount: 32000,
+        totalSpendingAmount: 32000,
+        totalIncomeAmount: 0,
         emotion: '슬픔',
         comment: '오늘은 조금 우울했다. 하지만 내일은 더 나아질 거야.',
-        entries: [
-          SpendingEntry(
+        spendingEntries: [
+          RecordEntry(
             id: '6',
             categoryKey: '식비',
             category: '식비',
             amount: 20000,
             note: '저녁',
           ),
-          SpendingEntry(
+          RecordEntry(
             id: '7',
             categoryKey: '여가',
             category: '여가',
@@ -354,15 +361,17 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             note: '영화',
           ),
         ],
+        incomeEntries: const [],
       ),
 
-      DaySpending(
+      DayRecord(
         date: now.subtract(const Duration(days: 7)),
-        totalAmount: 25000,
+        totalSpendingAmount: 25000,
+        totalIncomeAmount: 0,
         emotion: '평온',
         comment: '집에서 푹 쉬는 하루였다.',
-        entries: [
-          SpendingEntry(
+        spendingEntries: [
+          RecordEntry(
             id: '8',
             categoryKey: '식비',
             category: '식비',
@@ -370,6 +379,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             note: '배달음식',
           ),
         ],
+        incomeEntries: const [],
       ),
     ];
   }
@@ -634,7 +644,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
         .map(
           (d) => {
         'date': d.date.toIso8601String(),
-        'totalAmount': d.totalAmount,
+        'totalAmount': d.totalSpendingAmount,
         'emotion': d.emotion,
         'comment': d.comment,
       },

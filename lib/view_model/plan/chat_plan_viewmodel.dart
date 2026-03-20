@@ -4,12 +4,15 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../model/plan/chat_message.dart';
+import '../../model/refData/daily_consume.dart';
 import '../../model/refData/entry.dart';
 import '../../model/commands/update_daily_command.dart';
 import '../../model/commands/update_monthly_command.dart';
 import '../../model/plan/plan_edit_result.dart';
 import '../../model/plan/total_plan.dart';
 import '../../model/plan/mini_plan.dart';
+import '../../model/refData/monthly_consume.dart';
+import '../../model/refData/monthly_income.dart';
 import '../../model/refData/ref_data.dart';
 import '../../model/plan/sub_plan.dart';
 import '../../model/saving_calculation_result.dart';
@@ -79,6 +82,8 @@ class ChatPlanViewModel extends ChangeNotifier {
   List<UpdateDailyCommand> get pendingDailyCommands => _pendingDailyCommands;
   final List<_PendingMonthlyInput> _pendingAutoMonthlyInputs = [];
   final List<_PendingDailyInput> _pendingAutoDailyInputs = [];
+  DateTime? _pendingPlanEditGoalDate;
+  DateTime? _pendingPlanEditApplyDate;
 
   // 계산 결과
   SavingCalculationResult? _calculationResult;
@@ -87,6 +92,8 @@ class ChatPlanViewModel extends ChangeNotifier {
   // 요약 추천 멘트 (요약 카드 내부에서 표시)
   String? _summaryRecommendation;
   String? get summaryRecommendation => _summaryRecommendation;
+  int _summaryRenderVersion = 0;
+  int get summaryRenderVersion => _summaryRenderVersion;
 
   // 현재 단계
   ChatStep _currentStep = ChatStep.onboarding1;
@@ -132,6 +139,7 @@ class ChatPlanViewModel extends ChangeNotifier {
   bool _hasFixedConsumeInput = false;
   bool _hasDailyInput = false;
   bool _hasSavedPlan = false;
+  DateTime? _lastPersistedGoal;
   bool _printedInitialPlanTree = false;
 
   double _previewDailyTotal = 0;
@@ -278,6 +286,54 @@ class ChatPlanViewModel extends ChangeNotifier {
   // --------------------------------------
   // 요약 추천 멘트 갱신 로직
   // --------------------------------------
+  String _buildSummaryRecommendationMessage({
+    required double months,
+    required double dailyNetSaving,
+  }) {
+    final curr = _totalPlan.currentAsset.toDouble();
+    final amt3m = curr + dailyNetSaving * 90;   // 대략 3개월
+    final amt6m = curr + dailyNetSaving * 180;  // 대략 6개월
+
+    String fmt(double v) => SavingPlanCalculator.formatAmount(v);
+
+    if (months <= 1.0) {
+      return '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월밖에 걸리지 않아요!\n'
+          '너무 짧으면 약간 늘려 잡는 걸 추천드려요 😊\n\n'
+          '• 3개월 목표: 약 ${fmt(amt3m)}원\n'
+          '• 6개월 목표: 약 ${fmt(amt6m)}원\n'
+          '참고만 해주세요!';
+    }
+
+    if (months >= 6.0) {
+      return '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월이 걸려요.\n'
+          '조금 길 수 있어서 목표를 나눠보는 걸 추천드려요 😊\n\n'
+          '• 3개월 목표: 약 ${fmt(amt3m)}원\n'
+          '• 6개월 목표: 약 ${fmt(amt6m)}원\n'
+          '참고만 해주세요!';
+    }
+
+    return '좋은 플랜이네요! 🎉\n'
+        '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월입니다.\n'
+        '충분히 현실적인 계획이에요 👍';
+  }
+
+  void _overwriteSummaryRecommendationFromPlanEdit({
+    required DateTime projectedGoal,
+    required DateTime applyDate,
+  }) {
+    final c = _calculationResult;
+    if (c == null || c.dailyNetSaving <= 0) return;
+
+    final base = DateTime(applyDate.year, applyDate.month, applyDate.day);
+    final diffSeconds = projectedGoal.difference(base).inSeconds.toDouble();
+    final months = diffSeconds <= 0 ? 0.0 : (diffSeconds / 86400.0) / 30.0;
+
+    _summaryRecommendation = _buildSummaryRecommendationMessage(
+      months: months,
+      dailyNetSaving: c.dailyNetSaving,
+    );
+  }
+
   void _updateSummaryRecommendation() {
     final c = _calculationResult;
     if (c == null || c.dailyNetSaving <= 0) {
@@ -286,35 +342,10 @@ class ChatPlanViewModel extends ChangeNotifier {
     }
 
     final months = c.daysToGoal / 30.0;
-    final curr = _totalPlan.currentAsset.toDouble();
-    final amt3m = curr + c.dailyNetSaving * 90;   // 대략 3개월
-    final amt6m = curr + c.dailyNetSaving * 180;  // 대략 6개월
-
-    String fmt(double v) => SavingPlanCalculator.formatAmount(v);
-
-    if (months <= 1.0) {
-      // 1개월 이하 → 조금 늘리는 걸 추천 (3개월 이상)
-      _summaryRecommendation =
-      '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월밖에 걸리지 않아요!\n'
-          '너무 짧으면 약간 늘려 잡는 걸 추천드려요 😊\n\n'
-          '• 3개월 목표: 약 ${fmt(amt3m)}원\n'
-          '• 6개월 목표: 약 ${fmt(amt6m)}원\n'
-          '참고만 해주세요!';
-    } else if (months >= 6.0) {
-      // 6개월 이상 → 조금 줄이는/쪼개는 걸 추천
-      _summaryRecommendation =
-      '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월이 걸려요.\n'
-          '조금 길 수 있어서 목표를 나눠보는 걸 추천드려요 😊\n\n'
-          '• 3개월 목표: 약 ${fmt(amt3m)}원\n'
-          '• 6개월 목표: 약 ${fmt(amt6m)}원\n'
-          '참고만 해주세요!';
-    } else {
-      // 그 외 → 좋은 플랜
-      _summaryRecommendation =
-      '좋은 플랜이네요! 🎉\n'
-          '현재 계획대로라면 목표까지 약 ${months.toStringAsFixed(1)}개월입니다.\n'
-          '충분히 현실적인 계획이에요 👍';
-    }
+    _summaryRecommendation = _buildSummaryRecommendationMessage(
+      months: months,
+      dailyNetSaving: c.dailyNetSaving,
+    );
   }
 
   // --------------------------------------
@@ -512,14 +543,23 @@ class ChatPlanViewModel extends ChangeNotifier {
       _pendingDailyCommands = List<UpdateDailyCommand>.from(
         result.dailyCommands.where((cmd) => cmd.entries.isNotEmpty),
       );
+      _pendingPlanEditGoalDate = result.projectedGoalDate;
+      _pendingPlanEditApplyDate = result.applyDate;
       debugPrint('[applyPlanEditResult] commands captured (hasSavedPlan=true)');
     } else {
       debugPrint('[applyPlanEditResult] skipping commands (_hasSavedPlan=false)');
       _pendingMonthlyCommands.clear();
       _pendingDailyCommands.clear();
+      _pendingPlanEditGoalDate = null;
+      _pendingPlanEditApplyDate = null;
     }
     _calculationVM.updatePlan(_totalPlan);
     calculate();
+    _overwriteSummaryRecommendationFromPlanEdit(
+      projectedGoal: result.projectedGoalDate,
+      applyDate: result.applyDate,
+    );
+    _summaryRenderVersion++;
     notifyListeners();
     print('--- Plan Tree After Edit ---\n${debugPlanTree()}');
   }
@@ -623,7 +663,7 @@ class ChatPlanViewModel extends ChangeNotifier {
           final planNameSection = ChatSection(
             step: ChatStep.planName,
             messages: [
-              '$_userName님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n\n$_userName플랜에 이름을 붙여주세요.\n예: 세계여행🌍 / 학자금 모으기🧑‍🎓',
+              '$_userName님은 어떤 목표로 돈을 모으고 싶으세요? 💭\n\n플랜에 이름을 붙여주세요.\n예: 세계여행🌍 / 학자금 모으기🧑‍🎓',
             ],
             delayBetweenMessages: 500,
           );
@@ -902,7 +942,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     _currentStep = ChatStep.summary;
     notifyListeners();
 
-    // summary 섹터: 첫 번째 메시지 + summary 위젯 + 두 번째 메시지(summaryRecommendation)
+    // summary 섹터: 첫 번째 메시지 + summary 위젯
     // 섹터 시작 시점의 봇 메시지 개수 저장
     final currentBotMessageCount = _messages
         .where((m) => m.type == MessageType.bot)
@@ -926,20 +966,8 @@ class ChatPlanViewModel extends ChangeNotifier {
     _isTyping = false;
     addMessage('', MessageType.summary);
 
-    // 세 번째 메시지: summaryRecommendation 텍스트
-    final recommendation = _summaryRecommendation ?? '';
-    if (recommendation.isNotEmpty) {
-      await Future.delayed(const Duration(milliseconds: 500));
-      await addBotMessageWithTyping(
-        recommendation,
-        delay: 500,
-        isLastMessage: true,
-        showTypingIndicator: false,
-      );
-    }
-
-    // summary 섹터 정보 저장 (첫 번째 메시지 1개 + summary 위젯 1개 + 두 번째 메시지 1개 = 총 3개)
-    _sectionMessageCounts[ChatStep.summary] = recommendation.isNotEmpty ? 3 : 2;
+    // summary 섹터 정보 저장 (첫 번째 메시지 1개 + summary 위젯 1개 = 총 2개)
+    _sectionMessageCounts[ChatStep.summary] = 2;
     notifyListeners();
   }
 
@@ -974,6 +1002,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     _messages.clear();
     _currentStep = ChatStep.onboarding1;
     _summaryRecommendation = null;
+    _summaryRenderVersion = 0;
     _calculationResult = null;
     notifyListeners();
 
@@ -1006,6 +1035,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     );
     try {
       await _preparePlanStructureForSave();
+      print('--- Plan Tree Ready To Save ---\n${debugPlanTree()}');
       if (_totalPlan.planId.isEmpty || !_hasSavedPlan) {
         final savedId = await _planRepo.saveCurrentUserPlan(_totalPlan);
         debugPrint('[savePlan] created new plan docId=$savedId');
@@ -1019,9 +1049,11 @@ class ChatPlanViewModel extends ChangeNotifier {
         await _planRepo.replacePlan(_totalPlan);
       }
       print('--- Plan Tree After Save ---\n${debugPlanTree()}');
+      _lastPersistedGoal = _totalPlan.modEndDate ?? _totalPlan.endDate;
       _planSavedBus?.notify();
       debugPrint('[savePlan] success: _hasSavedPlan $_hasSavedPlan -> true');
       _setHasSavedPlan(true);
+      _clearPlanEditOverrides();
       return true;
     } catch (e, stack) {
       debugPrint('[savePlan] failed: $e');
@@ -1049,32 +1081,46 @@ class ChatPlanViewModel extends ChangeNotifier {
     print('summaryRecommendation: $_summaryRecommendation');
   }
 
+  void _clearPlanEditOverrides() {
+    _pendingPlanEditGoalDate = null;
+    _pendingPlanEditApplyDate = null;
+  }
+
   Future<void> _preparePlanStructureForSave() async {
     debugPrint('[preparePlan] start');
-    final calc = calculate();
     final now = DateTime.now();
-    final rawStart =
-        _totalPlan.startDate ?? DateTime(now.year, now.month, now.day);
-    final start = DateTime(rawStart.year, rawStart.month, rawStart.day);
-    if (_totalPlan.startDate == null ||
-        !_isSameDay(_totalPlan.startDate!, start)) {
-      debugPrint(
-        '[preparePlan] normalizing startDate '
-            '${_totalPlan.startDate?.toIso8601String() ?? 'null'} -> ${start.toIso8601String()}',
-      );
+    final DateTime start = _totalPlan.startDate != null
+        ? DateTime(
+      _totalPlan.startDate!.year,
+      _totalPlan.startDate!.month,
+      _totalPlan.startDate!.day,
+    )
+        : DateTime(now.year, now.month, now.day);
+    if (_totalPlan.startDate == null) {
       _totalPlan = _totalPlan.copyWith(startDate: start);
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
       _calculationVM.updatePlan(_totalPlan);
     }
-    final computedGoal =
-        calc?.goalDateTime ?? start.add(const Duration(days: 120));
+    final bool hasPlanEditOverride =
+        _hasSavedPlan && _pendingPlanEditGoalDate != null;
+    late final DateTime computedGoal;
+    if (hasPlanEditOverride) {
+      computedGoal = _pendingPlanEditGoalDate!;
+      debugPrint(
+        '[preparePlan] using PlanEdit projected goal ${computedGoal.toIso8601String()} '
+            '(applyDate=${_pendingPlanEditApplyDate?.toIso8601String() ?? '-'})',
+      );
+    } else {
+      final calc = calculate();
+      computedGoal = calc?.goalDateTime ?? start.add(const Duration(days: 120));
+    }
     final exactPlanEnd = computedGoal;
+    final previousGoal = _lastPersistedGoal;
     final previousModEnd = _totalPlan.modEndDate;
     _totalPlan = _totalPlan.copyWith(modEndDate: computedGoal);
     final planEnd = _totalPlan.modEndDate ?? computedGoal;
-    final persistedEnd = _hasSavedPlan && _totalPlan.endDate != null
-        ? _totalPlan.endDate!
-        : planEnd;
+    final persistedEnd =
+    _hasSavedPlan && _totalPlan.endDate != null ? _totalPlan.endDate! : planEnd;
     debugPrint(
       '[preparePlan] startDate=$start goal=$computedGoal modEnd=${_totalPlan.modEndDate}',
     );
@@ -1178,6 +1224,8 @@ class ChatPlanViewModel extends ChangeNotifier {
       '[preparePlan] final monthly=${monthlyCommands.length}, daily=${dailyCommands.length}',
     );
 
+    bool trimmedAfterGoal = false;
+
     if (monthlyCommands.isEmpty && dailyCommands.isEmpty) {
       _totalPlan = _totalPlan.copyWith(
         startDate: start,
@@ -1185,8 +1233,19 @@ class ChatPlanViewModel extends ChangeNotifier {
         modEndDate: planEnd,
       );
       _totalPlan = _applyExactPlanEnd(_totalPlan, exactPlanEnd);
+      if (previousGoal != null && exactPlanEnd.isBefore(previousGoal)) {
+        trimmedAfterGoal = _trimPlanBeyond(exactPlanEnd);
+        _totalPlan = _applyExactPlanEnd(_totalPlan, exactPlanEnd);
+      }
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
       _calculationVM.updatePlan(_totalPlan);
+      if (trimmedAfterGoal) {
+        await _persistRefDataSnapshot(
+          incomes: _refData.monthlyIncomeMap,
+          consumes: _refData.monthlyConsumeMap,
+          dailyConsumes: _refData.dailyConsumeMap,
+        );
+      }
       debugPrint('[preparePlan] commands filtered out, nothing to mutate');
       return;
     }
@@ -1211,9 +1270,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     );
 
     _totalPlan = _applyExactPlanEnd(result.totalPlan, exactPlanEnd);
-    debugPrint(
-      '[applyPlanEditResult] updated totalPlan planId=${_totalPlan.planId}',
-    );
+    debugPrint('[applyPlanEditResult] updated totalPlan planId=${_totalPlan.planId}');
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
     _calculationVM.updatePlan(_totalPlan);
     _refData = RefData(
@@ -1222,7 +1279,17 @@ class ChatPlanViewModel extends ChangeNotifier {
       monthlyConsumes: result.monthlyConsumes,
       dailyConsumes: result.dailyConsumes,
     );
+    _refData.setReferenceDate(DateTime.now());
+    if (previousGoal != null && exactPlanEnd.isBefore(previousGoal)) {
+      trimmedAfterGoal = _trimPlanBeyond(exactPlanEnd);
+      _totalPlan = _applyExactPlanEnd(_totalPlan, exactPlanEnd);
+    }
     _refDataVM = RefDataViewModel(_refData);
+    await _persistRefDataSnapshot(
+      incomes: _refData.monthlyIncomeMap,
+      consumes: _refData.monthlyConsumeMap,
+      dailyConsumes: _refData.dailyConsumeMap,
+    );
     _pendingMonthlyCommands.clear();
     _pendingDailyCommands.clear();
     _pendingAutoMonthlyInputs.clear();
@@ -1273,12 +1340,10 @@ class ChatPlanViewModel extends ChangeNotifier {
       if (daily != null) {
         final normalizedStart = DateTime(start.year, start.month, start.day);
         final normalizedEnd = DateTime(end.year, end.month, end.day);
-        final newStart = daily.startDate.isAfter(normalizedStart)
-            ? normalizedStart
-            : daily.startDate;
-        final newEnd = daily.endDate.isBefore(normalizedEnd)
-            ? normalizedEnd
-            : daily.endDate;
+        final newStart =
+        daily.startDate.isAfter(normalizedStart) ? normalizedStart : daily.startDate;
+        final newEnd =
+        daily.endDate.isBefore(normalizedEnd) ? normalizedEnd : daily.endDate;
         if (newStart != daily.startDate || newEnd != daily.endDate) {
           final updated = daily.copyWith(startDate: newStart, endDate: newEnd);
           _refData.dailyConsumeMap[dailyId] = updated;
@@ -1287,6 +1352,26 @@ class ChatPlanViewModel extends ChangeNotifier {
       }
     }
 
+    if (tasks.isNotEmpty) {
+      await Future.wait(tasks);
+    }
+  }
+
+  Future<void> _persistRefDataSnapshot({
+    required Map<String, MonthlyIncome> incomes,
+    required Map<String, MonthlyConsume> consumes,
+    required Map<String, DailyConsume> dailyConsumes,
+  }) async {
+    final tasks = <Future<void>>[];
+    for (final income in incomes.values) {
+      tasks.add(_refDataRepo.saveMonthlyIncome(income));
+    }
+    for (final consume in consumes.values) {
+      tasks.add(_refDataRepo.saveMonthlyConsume(consume));
+    }
+    for (final daily in dailyConsumes.values) {
+      tasks.add(_refDataRepo.saveDailyConsume(daily));
+    }
     if (tasks.isNotEmpty) {
       await Future.wait(tasks);
     }
@@ -1316,9 +1401,8 @@ class ChatPlanViewModel extends ChangeNotifier {
           ? DateTime(start.year, start.month, start.day)
           : monthStart;
       final isFinalMonth = _isSameMonth(monthStart, end);
-      final normalizedEnd = isFinalMonth
-          ? DateTime(end.year, end.month, end.day)
-          : monthEnd;
+      final normalizedEnd =
+      isFinalMonth ? DateTime(end.year, end.month, end.day) : monthEnd;
       final actualEnd = normalizedEnd;
       final fractionalSeconds = isFinalMonth
           ? min(86399, max(0, end.difference(normalizedEnd).inSeconds))
@@ -1360,9 +1444,9 @@ class ChatPlanViewModel extends ChangeNotifier {
         monthlyIncomeRef: income,
         monthlyConsumeRef: consume,
         dailyConsumeRef: daily,
-        sumMonthlyIncome: incomeSum.round(),
-        sumMonthlyConsume: consumeSum.round(),
-        sumDailyConsume: dailySum.round(),
+        monthlyIncomeAmount: incomeSum.round(),
+        monthlyConsumeAmount: consumeSum.round(),
+        dailyConsumeAmount: dailySum.round(),
       ).recalculateNetAmounts();
       result[key] = SubPlan(
         yearMonth: monthStart,
@@ -1380,7 +1464,9 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   bool _containsMonth(List<DateTime> source, DateTime target) {
-    return source.any((m) => m.year == target.year && m.month == target.month);
+    return source.any(
+          (m) => m.year == target.year && m.month == target.month,
+    );
   }
 
   String _formatYearMonth(DateTime date) {
@@ -1417,14 +1503,15 @@ class ChatPlanViewModel extends ChangeNotifier {
     if (_hasSavedPlan == value) return;
     debugPrint('[ChatPlanViewModel] _hasSavedPlan: $_hasSavedPlan -> $value');
     _hasSavedPlan = value;
+    if (_hasSavedPlan && _lastPersistedGoal == null) {
+      _lastPersistedGoal = _totalPlan.modEndDate ?? _totalPlan.endDate;
+    }
   }
 
   TotalPlan _applyExactPlanEnd(TotalPlan plan, DateTime exactEnd) {
     final normalized = DateTime(exactEnd.year, exactEnd.month, exactEnd.day);
-    final fractionalSeconds = min(
-      86399,
-      max(0, exactEnd.difference(normalized).inSeconds),
-    );
+    final fractionalSeconds =
+    min(86399, max(0, exactEnd.difference(normalized).inSeconds));
     final key = _formatYearMonth(normalized);
     final subPlan = plan.subPlans[key];
     if (subPlan == null) {
@@ -1436,7 +1523,83 @@ class ChatPlanViewModel extends ChangeNotifier {
     }
     final updatedSubPlans = Map<String, SubPlan>.from(plan.subPlans)
       ..[key] = subPlan.copyWith(fractionalEndSeconds: fractionalSeconds);
-    return plan.copyWith(subPlans: updatedSubPlans, modEndDate: exactEnd);
+    return plan.copyWith(
+      subPlans: updatedSubPlans,
+      modEndDate: exactEnd,
+    );
+  }
+
+  bool _trimPlanBeyond(DateTime goal) {
+    final targetMonth = DateTime(goal.year, goal.month, 1);
+    final updatedSubPlans = Map<String, SubPlan>.from(_totalPlan.subPlans);
+    final keysToRemove = <String>[];
+    updatedSubPlans.forEach((key, subPlan) {
+      final month = DateTime(subPlan.yearMonth.year, subPlan.yearMonth.month, 1);
+      if (month.isAfter(targetMonth)) {
+        keysToRemove.add(key);
+      }
+    });
+    var planChanged = false;
+    for (final key in keysToRemove) {
+      updatedSubPlans.remove(key);
+      planChanged = true;
+    }
+    if (planChanged) {
+      _totalPlan = _totalPlan.copyWith(subPlans: updatedSubPlans).recalculateTotals();
+      _totalPlanVM = TotalPlanViewModel(_totalPlan);
+      _calculationVM.updatePlan(_totalPlan);
+    }
+    final refChanged = _trimRefDataAfter(goal);
+    if (refChanged) {
+      _refData.setReferenceDate(DateTime.now());
+      _refDataVM = RefDataViewModel(_refData);
+    }
+    return planChanged || refChanged;
+  }
+
+  bool _trimRefDataAfter(DateTime goal) {
+    final goalMonth = DateTime(goal.year, goal.month, 1);
+    var changed = false;
+
+    void trimMonthly<T extends Object>({
+      required Map<String, T> map,
+      required List<DateTime> Function(T item) monthsSelector,
+      required T Function(T item, List<DateTime> months) remover,
+    }) {
+      map.forEach((key, value) {
+        final months = monthsSelector(value);
+        final removal = months.where((m) => m.isAfter(goalMonth)).toList();
+        if (removal.isEmpty) return;
+        changed = true;
+        final updated = remover(value, removal);
+        map[key] = updated;
+      });
+    }
+
+    trimMonthly<MonthlyIncome>(
+      map: _refData.monthlyIncomeMap,
+      monthsSelector: (income) => income.yearMonthList,
+      remover: (income, months) => income.removeMonths(months),
+    );
+    trimMonthly<MonthlyConsume>(
+      map: _refData.monthlyConsumeMap,
+      monthsSelector: (consume) => consume.yearMonthList,
+      remover: (consume, months) => consume.removeMonths(months),
+    );
+
+    _refData.dailyConsumeMap.forEach((key, daily) {
+      if (!daily.isActive) return;
+      if (daily.startDate.isAfter(goal)) {
+        _refData.dailyConsumeMap[key] =
+            daily.softDelete(goal);
+        changed = true;
+      } else if (daily.endDate.isAfter(goal)) {
+        _refData.dailyConsumeMap[key] = daily.endAt(goal);
+        changed = true;
+      }
+    });
+
+    return changed;
   }
 
   Future<void> preparePlanStructureForSummary() async {
@@ -1463,18 +1626,18 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   DateTime _initialCalculate({required DateTime start}) {
-    final horizonEnd = start.add(const Duration(days: 3650)); // approx. 10년
+    final normalizedStart = DateTime(start.year, start.month, start.day);
+    final horizonEnd =
+    normalizedStart.add(const Duration(days: 1095)); // approx. 3년
     final tempPlan = _totalPlan.copyWith(
-      startDate: start,
+      startDate: normalizedStart,
       endDate: horizonEnd,
       modEndDate: horizonEnd,
-      subPlans: _buildInitialSubPlanSkeleton(start, horizonEnd),
+      subPlans: _buildInitialSubPlanSkeleton(normalizedStart, horizonEnd),
     );
     final tempCalc = SavingPlanCalculator(plan: tempPlan).calculate();
-    debugPrint(
-      '[initialCalculate] horizon ${horizonEnd.toIso8601String()} '
-          'goal=${tempCalc.goalDateTime?.toIso8601String() ?? '-'}',
-    );
+    debugPrint('[initialCalculate] horizon ${horizonEnd.toIso8601String()} '
+        'goal=${tempCalc.goalDateTime?.toIso8601String() ?? '-'}');
     debugPrint(
       PlanDebugPrinter.describe(
         plan: _applyExactPlanEnd(
@@ -1489,6 +1652,77 @@ class ChatPlanViewModel extends ChangeNotifier {
     );
     return tempCalc.goalDateTime ?? horizonEnd;
   }
+
+// TotalPlan _applyExactPlanEnd(TotalPlan plan, DateTime exactEnd) {
+//   final normalized = DateTime(exactEnd.year, exactEnd.month, exactEnd.day);
+//   final fractionalSeconds = min(
+//     86399,
+//     max(0, exactEnd.difference(normalized).inSeconds),
+//   );
+//   final key = _formatYearMonth(normalized);
+//   final subPlan = plan.subPlans[key];
+//   if (subPlan == null) {
+//     return plan.copyWith(modEndDate: exactEnd);
+//   }
+//   if (subPlan.fractionalEndSeconds == fractionalSeconds &&
+//       plan.modEndDate == exactEnd) {
+//     return plan;
+//   }
+//   final updatedSubPlans = Map<String, SubPlan>.from(plan.subPlans)
+//     ..[key] = subPlan.copyWith(fractionalEndSeconds: fractionalSeconds);
+//   return plan.copyWith(subPlans: updatedSubPlans, modEndDate: exactEnd);
+// }
+
+// Future<void> preparePlanStructureForSummary() async {
+//   await _preparePlanStructureForSave();
+// }
+//
+// void _rebuildSkeletonWithLatestGoal() {
+//   final start = _totalPlan.startDate ?? DateTime.now();
+//   final goal = _initialCalculate(start: start);
+//   final skeleton = _buildInitialSubPlanSkeleton(start, goal);
+//   var updated = _totalPlan
+//       .copyWith(
+//     startDate: start,
+//     endDate: goal,
+//     modEndDate: goal,
+//     subPlans: skeleton,
+//   )
+//       .recalculateTotals();
+//   updated = _applyExactPlanEnd(updated, goal);
+//   _totalPlan = updated;
+//   _totalPlanVM = TotalPlanViewModel(_totalPlan);
+//   _calculationVM.updatePlan(_totalPlan);
+//   calculate();
+// }
+//
+// DateTime _initialCalculate({required DateTime start}) {
+//   final horizonEnd = start.add(const Duration(days: 3650)); // approx. 10년
+//   final tempPlan = _totalPlan.copyWith(
+//     startDate: start,
+//     endDate: horizonEnd,
+//     modEndDate: horizonEnd,
+//     subPlans: _buildInitialSubPlanSkeleton(start, horizonEnd),
+//   );
+//   final tempCalc = SavingPlanCalculator(plan: tempPlan).calculate();
+//   debugPrint(
+//     '[initialCalculate] horizon ${horizonEnd.toIso8601String()} '
+//         'goal=${tempCalc.goalDateTime?.toIso8601String() ?? '-'}',
+//   );
+//   debugPrint(
+//     PlanDebugPrinter.describe(
+//       plan: _applyExactPlanEnd(
+//         tempPlan.copyWith(
+//           endDate: tempCalc.goalDateTime ?? horizonEnd,
+//           modEndDate: tempCalc.goalDateTime ?? horizonEnd,
+//         ),
+//         tempCalc.goalDateTime ?? horizonEnd,
+//       ),
+//       refData: _refData,
+//     ),
+//   );
+//   return tempCalc.goalDateTime ?? horizonEnd;
+// }
 }
 
 class _PendingMonthlyInput {

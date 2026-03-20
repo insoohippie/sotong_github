@@ -1,17 +1,22 @@
-// lib/view_model/record/today_spending_view_model.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../model/record/day_spending.dart';
-import '../../model/record/spending_entry.dart';
+import '../../model/record/day_record.dart';
+import '../../model/record/record_entry.dart';
 import '../../repository/record_repository.dart';
 import '../../repository/plan_repository.dart';
+import '../../services/spending_event_bus.dart';
 
 class TodaySpendingViewModel extends ChangeNotifier {
   final RecordRepository _recordRepo;
   final PlanRepository _planRepo;
+  final SpendingEventBus _spendingEventBus;
 
-  TodaySpendingViewModel(this._recordRepo, this._planRepo);
+  TodaySpendingViewModel(
+      this._recordRepo,
+      this._planRepo,
+      this._spendingEventBus,
+      );
 
   bool _isLoading = false;
   String? _error;
@@ -21,14 +26,14 @@ class TodaySpendingViewModel extends ChangeNotifier {
   DateTime? _date;
   DateTime? get date => _date;
 
-  DaySpending? _day;
-  DaySpending? get day => _day;
+  DayRecord? _day;
+  DayRecord? get day => _day;
 
-  List<SpendingEntry> get entries => _day?.entries ?? [];
+  List<RecordEntry> get entries => _day?.spendingEntries ?? const [];
 
   int get totalAmount {
     if (_day == null) return 0;
-    final sum = _day!.entries.fold<double>(0, (s, e) => s + e.amount).round();
+    final sum = _day!.spendingEntries.fold<double>(0, (s, e) => s + e.amount).round();
     return sum;
   }
 
@@ -40,7 +45,6 @@ class TodaySpendingViewModel extends ChangeNotifier {
   String get emotion => _day?.emotion ?? '';
   String get comment => _day?.comment ?? '';
 
-  /// ---- 로드 ----
   Future<void> load(DateTime date) async {
     if (_isLoading) return;
     _isLoading = true;
@@ -50,27 +54,12 @@ class TodaySpendingViewModel extends ChangeNotifier {
     try {
       _date = date;
 
-      // 1) 월 데이터 로드 (오프라인 퍼스트)
-      final month = await _recordRepo.loadMonthlySpendingByDate(date);
-
+      final month = await _recordRepo.loadMonthlyRecordByDate(date);
       final dateKey = DateFormat('yyyy-MM-dd').format(date);
       final loadedDay = month.days[dateKey];
 
-      // 2) 해당 날짜 데이터가 없으면 빈 day 생성
-      _day = loadedDay ??
-          DaySpending(
-            date: date,
-            totalAmount: 0,
-            emotion: '',
-            comment: '',
-            entries: const [],
-          );
-
-      // 3) 하루 한도 로드 (플랜에서)
-      // final savingState = await _planRepo.getSavingStateForCurrentUser();
+      _day = loadedDay ?? DayRecord.empty(date);
       _dailyLimit = await _readDailyLimitFallback();
-
-      // totalAmount 정리
       _recalcTotal();
     } catch (e) {
       _error = e.toString().replaceFirst('Exception: ', '');
@@ -91,28 +80,27 @@ class TodaySpendingViewModel extends ChangeNotifier {
     }
   }
 
-  /// ---- entries CRUD ----
   Future<void> addEntry({
-    required String categoryKey, // ✅ 추가
-    required String category,    // 표시용
+    required String categoryKey,
+    required String category,
     required double amount,
     required String note,
   }) async {
     if (_day == null) return;
 
-    final newEntry = SpendingEntry(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+    final newEntry = RecordEntry(
+      id: DateTime.now().microsecondsSinceEpoch.toString(),
       categoryKey: categoryKey,
       category: category,
       amount: amount,
       note: note,
     );
 
-    final newEntries = [..._day!.entries, newEntry];
+    final newEntries = [..._day!.spendingEntries, newEntry];
 
     _day = _day!.copyWith(
-      entries: newEntries,
-      totalAmount: newEntries.fold<double>(0, (s, e) => s + e.amount).round(),
+      spendingEntries: newEntries,
+      totalSpendingAmount: newEntries.fold<double>(0, (s, e) => s + e.amount).round(),
     );
     notifyListeners();
 
@@ -121,14 +109,14 @@ class TodaySpendingViewModel extends ChangeNotifier {
 
   Future<void> updateEntry({
     required String entryId,
-    required String categoryKey, // ✅ 추가
+    required String categoryKey,
     required String category,
     required double amount,
     required String note,
   }) async {
     if (_day == null) return;
 
-    final newEntries = _day!.entries.map((e) {
+    final newEntries = _day!.spendingEntries.map((e) {
       if (e.id != entryId) return e;
       return e.copyWith(
         categoryKey: categoryKey,
@@ -139,8 +127,8 @@ class TodaySpendingViewModel extends ChangeNotifier {
     }).toList();
 
     _day = _day!.copyWith(
-      entries: newEntries,
-      totalAmount: newEntries.fold<double>(0, (s, e) => s + e.amount).round(),
+      spendingEntries: newEntries,
+      totalSpendingAmount: newEntries.fold<double>(0, (s, e) => s + e.amount).round(),
     );
     notifyListeners();
 
@@ -150,11 +138,11 @@ class TodaySpendingViewModel extends ChangeNotifier {
   Future<void> deleteEntry(String entryId) async {
     if (_day == null) return;
 
-    final newEntries = _day!.entries.where((e) => e.id != entryId).toList();
+    final newEntries = _day!.spendingEntries.where((e) => e.id != entryId).toList();
 
     _day = _day!.copyWith(
-      entries: newEntries,
-      totalAmount: newEntries.fold<double>(0, (s, e) => s + e.amount).round(),
+      spendingEntries: newEntries,
+      totalSpendingAmount: newEntries.fold<double>(0, (s, e) => s + e.amount).round(),
     );
     notifyListeners();
 
@@ -167,7 +155,10 @@ class TodaySpendingViewModel extends ChangeNotifier {
   }) async {
     if (_day == null) return;
 
-    _day = _day!.copyWith(emotion: emotion, comment: comment);
+    _day = _day!.copyWith(
+      emotion: emotion,
+      comment: comment,
+    );
     notifyListeners();
 
     await _persist();
@@ -175,12 +166,21 @@ class TodaySpendingViewModel extends ChangeNotifier {
 
   void _recalcTotal() {
     if (_day == null) return;
-    final sum = _day!.entries.fold<double>(0, (s, e) => s + e.amount).round();
-    _day = _day!.copyWith(totalAmount: sum);
+    final sum = _day!.spendingEntries.fold<double>(0, (s, e) => s + e.amount).round();
+    _day = _day!.copyWith(totalSpendingAmount: sum);
   }
 
   Future<void> _persist() async {
     if (_day == null) return;
-    await _recordRepo.upsertDaySpending(_day!);
+
+    await _recordRepo.upsertSpendingForDate(
+      date: _day!.date,
+      spendingEntries: _day!.spendingEntries,
+      totalSpendingAmount: _day!.totalSpendingAmount,
+      emotion: _day!.emotion,
+      comment: _day!.comment,
+    );
+
+    _spendingEventBus.fire(SpendingUpdatedEvent(_day!.date));
   }
 }

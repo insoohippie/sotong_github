@@ -19,9 +19,9 @@ class TotalPlanViewModel {
     final nextMetrics = startDate != null
         ? _rebuildMetrics(
       startDate: startDate,
-      sumMonthlyIncome: metrics.monthlyIncomeAmount,
-      sumMonthlyConsume: metrics.monthlyConsumeAmount,
-      sumDailyConsume: metrics.dailyConsumeAmount,
+      monthlyIncomeAmount: metrics.monthlyIncomeAmount,
+      monthlyConsumeAmount: metrics.monthlyConsumeAmount,
+      dailyConsumeAmount: metrics.dailyConsumeAmount,
     )
         : metrics;
     plan = plan.copyWith(
@@ -42,9 +42,10 @@ class TotalPlanViewModel {
   }) {
     final metrics = plan.result.totalMetrics;
     final updatedMetrics = _rebuildMetrics(
-      sumMonthlyIncome: monthlyIncome != null ? monthlyIncome.round() : null,
-      sumMonthlyConsume: monthlyConsume != null ? monthlyConsume.round() : null,
-      sumDailyConsume: dailyConsume != null ? dailyConsume.round() : null,
+      monthlyIncomeAmount: monthlyIncome != null ? monthlyIncome.round() : null,
+      monthlyConsumeAmount:
+      monthlyConsume != null ? monthlyConsume.round() : null,
+      dailyConsumeAmount: dailyConsume != null ? dailyConsume.round() : null,
     );
     plan = plan.copyWith(
       result: plan.result.copyWith(totalMetrics: updatedMetrics),
@@ -52,9 +53,9 @@ class TotalPlanViewModel {
   }
 
   PlanMetrics _rebuildMetrics({
-    int? sumMonthlyIncome,
-    int? sumMonthlyConsume,
-    int? sumDailyConsume,
+    int? monthlyIncomeAmount,
+    int? monthlyConsumeAmount,
+    int? dailyConsumeAmount,
     DateTime? startDate,
   }) {
     final metrics = plan.result.totalMetrics;
@@ -64,9 +65,10 @@ class TotalPlanViewModel {
     return PlanMetrics.fromRange(
       startDate: baseStart,
       endDate: baseEnd,
-      sumMonthlyIncome: sumMonthlyIncome ?? metrics.monthlyIncomeAmount,
-      sumMonthlyConsume: sumMonthlyConsume ?? metrics.monthlyConsumeAmount,
-      sumDailyConsume: sumDailyConsume ?? metrics.dailyConsumeAmount,
+      monthlyIncomeAmount: monthlyIncomeAmount ?? metrics.monthlyIncomeAmount,
+      monthlyConsumeAmount:
+      monthlyConsumeAmount ?? metrics.monthlyConsumeAmount,
+      dailyConsumeAmount: dailyConsumeAmount ?? metrics.dailyConsumeAmount,
     );
   }
 }

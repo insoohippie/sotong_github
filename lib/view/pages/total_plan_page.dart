@@ -66,9 +66,9 @@ class _TotalPlanPageState extends State<TotalPlanPage>
       totalMetrics: PlanMetrics.fromRange(
         startDate: DateTime.now(),
         endDate: DateTime.now().add(const Duration(days: 29)),
-        sumMonthlyIncome: 3500000,
-        sumMonthlyConsume: 980000,
-        sumDailyConsume: 20000,
+        monthlyIncomeAmount: 3500000,
+        monthlyConsumeAmount: 980000,
+        dailyConsumeAmount: 20000,
       ),
       subResult: const SubPlanResult(subMetrics: [], subPlanList: []),
     ),
@@ -143,9 +143,9 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     final updatedMetrics = PlanMetrics.fromRange(
       startDate: metrics.startDate,
       endDate: metrics.endDate,
-      sumMonthlyIncome: nextMonthlyIncome,
-      sumMonthlyConsume: nextMonthlyConsume,
-      sumDailyConsume: nextDailyConsume,
+      monthlyIncomeAmount: nextMonthlyIncome,
+      monthlyConsumeAmount: nextMonthlyConsume,
+      dailyConsumeAmount: nextDailyConsume,
     );
     final updatedResult = _plan.result.copyWith(totalMetrics: updatedMetrics);
     _plan = _plan.copyWith(

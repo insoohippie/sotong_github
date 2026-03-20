@@ -3,7 +3,7 @@ import 'package:lottie/lottie.dart';
 
 import '../../../../component/buttons/custom_button.dart';
 import '../../../../component/theme/app_colors.dart';
-import '../../../../model/record/spending_entry.dart';
+import '../../../../model/record/record_entry.dart';
 import '../../../../view_model/communication/communication_view_model.dart';
 
 void showDateDetailModal({
@@ -235,7 +235,7 @@ class _EmotionRow extends StatelessWidget {
 class _SpendingList extends StatelessWidget {
   const _SpendingList({required this.entries, required this.total});
 
-  final List<SpendingEntry> entries;
+  final List<RecordEntry> entries;
   final int total;
 
   String _format(int v) => v.toString().replaceAllMapped(

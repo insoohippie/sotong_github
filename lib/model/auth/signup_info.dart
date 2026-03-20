@@ -1,6 +1,12 @@
 class SignUpInfo {
   String userID;
+
+  /// 사용자가 입력하는 실제 아이디
+  String id;
+
+  /// Firebase Auth 내부용 이메일
   String email;
+
   String password;
   String name;
   String gender;
@@ -10,7 +16,8 @@ class SignUpInfo {
 
   SignUpInfo({
     this.userID = '',
-    required this.email,
+    required this.id,
+    this.email = '',
     required this.password,
     this.name = '',
     this.gender = '',
@@ -21,12 +28,14 @@ class SignUpInfo {
 
   Map<String, dynamic> toMap() {
     return {
-      'id': email,
+      'id': id,
+      'email': email,
       'pw': password,
       'name': name,
       'gender': gender,
       'birthday': birthday,
       'profileImg': profileImg,
+      'planID': planID,
     };
   }
 }

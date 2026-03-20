@@ -43,7 +43,6 @@ Widget _buildNoSavingWarning(
               builder: (_) => PlanEditPage(
                 initialPlan: viewModel.totalPlan,
                 initialRefData: viewModel.refData,
-                requireApplyDate: false,
               ),
             ),
           );
@@ -71,6 +70,7 @@ Widget _buildSummaryChartWithRecommendation(
     BuildContext context,
     ChatPlanViewModel viewModel,
     ) {
+  final recommendation = viewModel.summaryRecommendation; // null 가능
   final canEdit = context.read<ChatPlanViewModel>().currentStep != ChatStep.autoService;
 
   return Column(
@@ -87,7 +87,6 @@ Widget _buildSummaryChartWithRecommendation(
               builder: (_) => PlanEditPage(
                 initialPlan: viewModel.totalPlan,
                 initialRefData: viewModel.refData,
-                requireApplyDate: false,
               ),
             ),
           );
@@ -96,6 +95,17 @@ Widget _buildSummaryChartWithRecommendation(
           }
         } : null,
       ),
+
+      const SizedBox(height: 16),
+
+      // 추천 멘트 (봇 말풍선 느낌, 채팅에 쌓이지 않음)
+      if (recommendation != null && recommendation.isNotEmpty)
+        _BotBubbleTyping(
+          key: ValueKey('${viewModel.summaryRenderVersion}:$recommendation'),
+          text: recommendation,
+          delay: const Duration(milliseconds: 500),   // ⏱️ 타이핑 시작 전 대기
+          charInterval: const Duration(milliseconds: 22), // ⌨️ 글자당 속도
+        ),
 
       const SizedBox(height: 8),
     ],
@@ -177,6 +187,7 @@ class _BotBubbleTyping extends StatefulWidget {
   final Duration charInterval; // 글자당 타이핑 속도
 
   const _BotBubbleTyping({
+    super.key,
     required this.text,
     this.delay = const Duration(milliseconds: 400),
     this.charInterval = const Duration(milliseconds: 25),
@@ -194,6 +205,18 @@ class _BotBubbleTypingState extends State<_BotBubbleTyping> with SingleTickerPro
   @override
   void initState() {
     super.initState();
+    _startSequence();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BotBubbleTyping oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text == widget.text) return;
+    _timer?.cancel();
+    setState(() {
+      _showTypingDots = true;
+      _visibleChars = 0;
+    });
     _startSequence();
   }
 

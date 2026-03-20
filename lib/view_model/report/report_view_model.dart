@@ -5,11 +5,11 @@ import 'package:flutter/material.dart' show Color, IconData, Icons;
 import 'package:intl/intl.dart';
 
 import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/services/spending_event_bus.dart'; // ✅ 이벤트버스 사용 시
+import 'package:sotong_local/services/spending_event_bus.dart';
 
 import '../../repository/record_repository.dart';
-import '../../model/record/monthly_spending.dart';
-import '../../model/record/day_spending.dart';
+import '../../model/record/monthly_record.dart';
+import '../../model/record/day_record.dart';
 import '../../model/refData/ref_data.dart';
 import '../../model/report/report_models.dart';
 import '../../repository/ref_data_repository.dart';
@@ -18,9 +18,8 @@ class ReportViewModel extends ChangeNotifier {
   ReportViewModel(
       this._recordRepo,
       this._refRepo, {
-        SpendingEventBus? eventBus, // ✅ optional
+        SpendingEventBus? eventBus,
       }) {
-    // ✅ 소비 입력/수정 이벤트 발생 시 즉시 갱신
     if (eventBus != null) {
       _spendingSub = eventBus.stream.listen((_) {
         _spendingDebounce?.cancel();
@@ -37,9 +36,6 @@ class ReportViewModel extends ChangeNotifier {
   StreamSubscription<SpendingUpdatedEvent>? _spendingSub;
   Timer? _spendingDebounce;
 
-  // ─────────────────────────────
-  // state
-  // ─────────────────────────────
   bool _isLoading = false;
   String? _error;
 
@@ -48,7 +44,6 @@ class ReportViewModel extends ChangeNotifier {
 
   final NumberFormat _nf = NumberFormat('#,###');
 
-  // 배너 인덱스
   int _insightIndex = 0;
   int get insightIndex => _insightIndex;
   void setInsightIndex(int i) {
@@ -56,7 +51,6 @@ class ReportViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ✅ 월별 소비 섹션 전용 "선택 월"
   int monthSectionYear = DateTime.now().year;
   int monthSectionMonth = DateTime.now().month;
 
@@ -75,7 +69,6 @@ class ReportViewModel extends ChangeNotifier {
     _rebuildAll();
   }
 
-  // 주간/월간 (차트 기준)
   ReportRangeType _rangeType = ReportRangeType.weekly;
   ReportRangeType get rangeType => _rangeType;
 
@@ -85,20 +78,14 @@ class ReportViewModel extends ChangeNotifier {
     _rebuildAll();
   }
 
-  // ─────────────────────────────
-  // data cache
-  // ─────────────────────────────
-  final Map<String, MonthlySpending> _monthCache = {}; // yyyy-MM -> monthly
+  final Map<String, MonthlyRecord> _monthCache = {};
   RefData? _refData;
 
-  // record에서 본 "마지막 카테고리 이름" 캐시 (표시용 fallback)
   final Map<String, String> _lastRecordNameByKey = {};
 
-  // 차트 모델
   ReportCategoryBudgetChart? _budgetChart;
   ReportCategoryBudgetChart? get budgetChart => _budgetChart;
 
-  // MonthCategorySection totals (임시: 기록 기반)
   int _incomeTotal = 0;
   int _savingTotal = 0;
   int _fixedExpenseTotal = 0;
@@ -109,9 +96,6 @@ class ReportViewModel extends ChangeNotifier {
   int get fixedExpenseTotal => _fixedExpenseTotal;
   int get variableExpenseTotal => _variableExpenseTotal;
 
-  // ─────────────────────────────
-  // init
-  // ─────────────────────────────
   bool _didInit = false;
 
   Future<void> loadInitial() async {
@@ -120,19 +104,14 @@ class ReportViewModel extends ChangeNotifier {
     await _rebuildAll();
   }
 
-  // ─────────────────────────────
-  // ✅ 차트 range: 현재 주/현재 월 고정
-  // ─────────────────────────────
   ReportRange get chartRange {
     final now = _dateOnly(DateTime.now());
 
     if (_rangeType == ReportRangeType.weekly) {
-      // 월요일 시작 고정
       final monday = now.subtract(Duration(days: (now.weekday + 6) % 7));
       final sunday = monday.add(const Duration(days: 6));
       return ReportRange(start: _dateOnly(monday), end: _dateOnly(sunday));
     } else {
-      // 현재 월 고정
       final start = DateTime(now.year, now.month, 1);
       final end = DateTime(now.year, now.month + 1, 0);
       return ReportRange(start: _dateOnly(start), end: _dateOnly(end));
@@ -141,7 +120,6 @@ class ReportViewModel extends ChangeNotifier {
 
   String get rangeLabel => (_rangeType == ReportRangeType.weekly) ? '주간' : '월간';
 
-  // 토글 아래 텍스트
   String get chartRangeText {
     final r = chartRange;
     if (_rangeType == ReportRangeType.monthly) {
@@ -173,11 +151,9 @@ class ReportViewModel extends ChangeNotifier {
     }
   }
 
-  // ✅ 배너 인사이트
   List<Map<String, dynamic>> get insights => _buildReportInsights();
 
   List<Map<String, dynamic>> _buildReportInsights() {
-    // 인사이트는 “최근 7일” 기준 고정
     final r7 = _recent7Range();
     final spent7 = _sumSpentInRange(r7);
     final budget7 = _sumPlannedInRange(r7);
@@ -228,10 +204,6 @@ class ReportViewModel extends ChangeNotifier {
     ];
   }
 
-  // ─────────────────────────────
-  // ✅ 플랜 외 소비 리스트 (카테고리명 + 금액)
-  //  - 차트에서 etc(기타) 눌렀을 때 팝업에 뿌릴 용도
-  // ─────────────────────────────
   List<({String name, int spent})> unplannedSpentListForChartRange({
     int maxItems = 8,
   }) {
@@ -245,7 +217,6 @@ class ReportViewModel extends ChangeNotifier {
   }) {
     const etcKey = 'etc';
 
-    // 1) plannedKeys (range와 overlap 있는 dailyConsume만)
     final plannedKeys = <String>{};
     final refData = _refData;
     if (refData != null) {
@@ -266,15 +237,13 @@ class ReportViewModel extends ChangeNotifier {
       }
     }
 
-    // 2) spentByKey (records)
     final spentByKey = <String, int>{};
     final days = _daysInRange(range);
     for (final d in days) {
-      for (final e in d.entries) {
+      for (final e in d.spendingEntries) {
         final k = e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
         spentByKey[k] = (spentByKey[k] ?? 0) + e.amount.round();
 
-        // ✅ record 기반 "마지막 이름" 캐시 업데이트(표시용)
         final keyTrim = e.categoryKey.trim();
         final nameTrim = e.category.trim();
         if (keyTrim.isNotEmpty && nameTrim.isNotEmpty) {
@@ -283,7 +252,6 @@ class ReportViewModel extends ChangeNotifier {
       }
     }
 
-    // 3) plannedKeys에 없는 key만 = 플랜 외 소비
     final unplanned = <String, int>{};
     spentByKey.forEach((k, v) {
       if (k == etcKey) return;
@@ -309,29 +277,21 @@ class ReportViewModel extends ChangeNotifier {
     return items.take(maxItems).toList();
   }
 
-  // ─────────────────────────────
-  // main rebuild
-  // ─────────────────────────────
   Future<void> _rebuildAll() async {
     _setLoading(true);
     _setError(null);
     notifyListeners();
 
     try {
-      // 1) RefData 로드
       _refData ??= await _refRepo.loadAll();
 
-      // 2) 차트 range에 필요한 월들 로드
       final r = chartRange;
       await _ensureMonthsLoadedForRange(r);
 
-      // 3) 월별 소비 섹션(선택 월) 로드
       await _ensureMonthLoaded(DateTime(monthSectionYear, monthSectionMonth, 1));
 
-      // 4) chart 빌드
       _budgetChart = _buildBudgetChart(range: r);
 
-      // 5) month totals 갱신(선택 월 기준)
       _recomputeMonthTotalsFromRecords();
 
       _setError(null);
@@ -343,14 +303,12 @@ class ReportViewModel extends ChangeNotifier {
     }
   }
 
-  /// ✅ 소비 입력 이벤트 후 강제 갱신(캐시 invalidate)
   Future<void> refreshAfterSpendingUpdated() async {
     _invalidateMonthsForRefresh();
     await _rebuildAll();
   }
 
   void _invalidateMonthsForRefresh() {
-    // 차트 범위 월들 + 선택 월
     final r = chartRange;
     final months = _monthsCovered(_dateOnly(r.start), _dateOnly(r.end));
     for (final m in months) {
@@ -359,9 +317,6 @@ class ReportViewModel extends ChangeNotifier {
     _monthCache.remove(_monthKey(DateTime(monthSectionYear, monthSectionMonth, 1)));
   }
 
-  // ─────────────────────────────
-  // chart build
-  // ─────────────────────────────
   ReportCategoryBudgetChart _buildBudgetChart({required ReportRange range}) {
     const etcKey = 'etc';
 
@@ -369,7 +324,6 @@ class ReportViewModel extends ChangeNotifier {
     final nameByKey = <String, String>{};
     final spentByKey = <String, int>{};
 
-    // 1) planned
     final refData = _refData;
     if (refData != null) {
       for (final dc in refData.dailyConsumeMap.values) {
@@ -391,16 +345,14 @@ class ReportViewModel extends ChangeNotifier {
       }
     }
 
-    // 2) spent (categoryKey 기준)
     final days = _daysInRange(range);
     for (final d in days) {
-      for (final e in d.entries) {
+      for (final e in d.spendingEntries) {
         final key = (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
         spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
       }
     }
 
-    // 3) planned에 없는 spent는 etc로 몰기
     nameByKey.putIfAbsent(etcKey, () => '기타');
 
     int etcSpent = spentByKey[etcKey] ?? 0;
@@ -412,7 +364,6 @@ class ReportViewModel extends ChangeNotifier {
     });
     spentByKey[etcKey] = etcSpent;
 
-    // 4) keys = plannedKeys (+etc if any)
     final keys = plannedByKey.keys.toSet();
     if ((spentByKey[etcKey] ?? 0) > 0) keys.add(etcKey);
 
@@ -423,14 +374,13 @@ class ReportViewModel extends ChangeNotifier {
       return ReportCategoryBudgetRow(
         categoryKey: k,
         name: name,
-        emoji: (k == etcKey) ? '🧩' : '💰', // 차트 헤더용 (원하면 전부 제거 가능)
+        emoji: (k == etcKey) ? '🧩' : '💰',
         planned: plannedByKey[k] ?? 0,
         spent: spentByKey[k] ?? 0,
         isTotal: false,
       );
     }).toList();
 
-    // 5) 정렬: spent 큰 순, 기타는 맨 뒤
     rows.sort((a, b) => b.spent.compareTo(a.spent));
     final etcIndex = rows.indexWhere((e) => e.categoryKey == etcKey);
     if (etcIndex >= 0) {
@@ -438,7 +388,6 @@ class ReportViewModel extends ChangeNotifier {
       rows.add(etc);
     }
 
-    // 6) 총소비 row
     final totalSpent = rows.fold<int>(0, (s, r) => s + r.spent);
     final totalPlanned = rows.fold<int>(0, (s, r) => s + r.planned);
     rows.add(
@@ -455,9 +404,6 @@ class ReportViewModel extends ChangeNotifier {
     return ReportCategoryBudgetChart(range: range, rows: List.unmodifiable(rows));
   }
 
-  // ─────────────────────────────
-  // totals for month section (임시: record기반)
-  // ─────────────────────────────
   void _recomputeMonthTotalsFromRecords() {
     final monthly = _monthCache[_monthKey(DateTime(monthSectionYear, monthSectionMonth, 1))];
     if (monthly == null) {
@@ -468,27 +414,29 @@ class ReportViewModel extends ChangeNotifier {
       return;
     }
 
-    int sum = 0;
+    int spendingSum = 0;
+    int incomeSum = 0;
+
     for (final d in monthly.days.values) {
-      for (final e in d.entries) {
-        sum += e.amount.round();
+      for (final e in d.spendingEntries) {
+        spendingSum += e.amount.round();
+      }
+      for (final e in d.incomeEntries) {
+        incomeSum += e.amount.round();
       }
     }
 
-    _variableExpenseTotal = sum;
+    _variableExpenseTotal = spendingSum;
     _fixedExpenseTotal = 0;
-    _incomeTotal = 0;
-    _savingTotal = 0;
+    _incomeTotal = incomeSum;
+    _savingTotal = incomeSum - spendingSum;
   }
 
-  // ─────────────────────────────
-  // range helpers
-  // ─────────────────────────────
-  List<DaySpending> _daysInRange(ReportRange r) {
+  List<DayRecord> _daysInRange(ReportRange r) {
     final start = _dateOnly(r.start);
     final end = _dateOnly(r.end);
 
-    final out = <DaySpending>[];
+    final out = <DayRecord>[];
     final months = _monthsCovered(start, end);
     for (final m in months) {
       final mm = _monthCache[_monthKey(m)];
@@ -498,8 +446,7 @@ class ReportViewModel extends ChangeNotifier {
         final day = _dateOnly(d.date);
         if (day.isBefore(start) || day.isAfter(end)) continue;
 
-        // record 기반 "마지막 이름" 캐시
-        for (final e in d.entries) {
+        for (final e in d.spendingEntries) {
           final key = e.categoryKey.trim();
           if (key.isEmpty) continue;
           final name = e.category.trim();
@@ -513,9 +460,6 @@ class ReportViewModel extends ChangeNotifier {
     return out;
   }
 
-  // ─────────────────────────────
-  // insight helpers
-  // ─────────────────────────────
   ReportRange _recent7Range() {
     final now = _dateOnly(DateTime.now());
     final start = now.subtract(const Duration(days: 6));
@@ -533,7 +477,7 @@ class ReportViewModel extends ChangeNotifier {
     final days = _daysInRange(r);
     int sum = 0;
     for (final d in days) {
-      for (final e in d.entries) {
+      for (final e in d.spendingEntries) {
         sum += e.amount.round();
       }
     }
@@ -568,7 +512,7 @@ class ReportViewModel extends ChangeNotifier {
     final spentByKey = <String, int>{};
 
     for (final d in days) {
-      for (final e in d.entries) {
+      for (final e in d.spendingEntries) {
         final key = e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
         spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
       }
@@ -602,9 +546,6 @@ class ReportViewModel extends ChangeNotifier {
     return null;
   }
 
-  // ─────────────────────────────
-  // overlap logic
-  // ─────────────────────────────
   int _overlapDays({
     required DateTime rangeStart,
     required DateTime rangeEnd,
@@ -623,9 +564,6 @@ class ReportViewModel extends ChangeNotifier {
     return end.difference(start).inDays + 1;
   }
 
-  // ─────────────────────────────
-  // cache load helpers
-  // ─────────────────────────────
   Future<void> _ensureMonthsLoadedForRange(ReportRange r) async {
     final months = _monthsCovered(_dateOnly(r.start), _dateOnly(r.end));
     for (final m in months) {
@@ -637,19 +575,18 @@ class ReportViewModel extends ChangeNotifier {
     final key = _monthKey(anchorMonthFirstDay);
     if (_monthCache.containsKey(key)) return;
 
-    final loaded = await _recordRepo.loadMonthlySpendingByDate(anchorMonthFirstDay);
+    final loaded = await _recordRepo.loadMonthlyRecordByDate(anchorMonthFirstDay);
     _monthCache[key] = loaded;
 
-    // prev/next preload 유지
     final prev = DateTime(anchorMonthFirstDay.year, anchorMonthFirstDay.month - 1, 1);
     final next = DateTime(anchorMonthFirstDay.year, anchorMonthFirstDay.month + 1, 1);
 
     if (!_monthCache.containsKey(_monthKey(prev))) {
-      final prevLoaded = await _recordRepo.loadMonthlySpendingByDate(prev);
+      final prevLoaded = await _recordRepo.loadMonthlyRecordByDate(prev);
       _monthCache[_monthKey(prev)] = prevLoaded;
     }
     if (!_monthCache.containsKey(_monthKey(next))) {
-      final nextLoaded = await _recordRepo.loadMonthlySpendingByDate(next);
+      final nextLoaded = await _recordRepo.loadMonthlyRecordByDate(next);
       _monthCache[_monthKey(next)] = nextLoaded;
     }
   }

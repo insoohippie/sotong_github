@@ -7,7 +7,7 @@ import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_area.dart';
 import '../../../component/inputs/selectable_emoji_selector.dart';
 import '../../../component/theme/app_spacing.dart';
-import '../../../view_model/record/record_view_model.dart';
+import '../../../view_model/record/record_spending_view_model.dart';
 
 class RecordDiaryPage extends StatefulWidget {
   const RecordDiaryPage({super.key});
@@ -24,12 +24,12 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RecordViewModel>().resetEmotion();
+      context.read<RecordSpendingViewModel>().resetEmotion();
     });
   }
 
   Future<void> _onSave(BuildContext context) async {
-    final vm = context.read<RecordViewModel>();
+    final vm = context.read<RecordSpendingViewModel>();
     final args = ModalRoute.of(context)?.settings.arguments;
     final selectedDate = (args is DateTime) ? args : DateTime.now();
 
@@ -64,7 +64,7 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<RecordViewModel>();
+    final viewModel = context.watch<RecordSpendingViewModel>();
 
     return Stack(
       children: [
