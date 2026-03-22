@@ -58,7 +58,7 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         child: Container(
-          color: Colors.white,
+          color: Theme.of(context).scaffoldBackgroundColor,
           child: Column(
             children: [
               // 헤더(닫기)
@@ -68,7 +68,10 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.close),
+                      icon: Icon(
+                        Icons.close,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
@@ -77,8 +80,10 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
 
               Expanded(
                 child: SingleChildScrollView(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 8,
+                  ),
                   child: Column(
                     children: [
                       _CountdownHeader(vm: vm),
@@ -105,14 +110,15 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
 
   // ✅ 스샷에 있는 “저축 목표 진행률” 카드
   Widget _buildProgressBarCard() {
+    final theme = Theme.of(context);
     final progressPercentText = '${_appliedProgressPercent.toString()}%';
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: theme.dividerColor),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -128,25 +134,29 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
+              Text(
                 '저축 목표 진행률',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               Builder(
                 builder: (context) {
-                  final yesterday =
-                  DateTime.now().subtract(const Duration(days: 1));
+                  final yesterday = DateTime.now().subtract(
+                    const Duration(days: 1),
+                  );
                   final dateText =
                       '${yesterday.year.toString().substring(2)}.'
                       '${yesterday.month.toString().padLeft(2, '0')}.'
                       '${yesterday.day.toString().padLeft(2, '0')}일자 기준';
                   return Text(
                     dateText,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF777777)),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   );
                 },
               ),
@@ -158,24 +168,31 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
           LayoutBuilder(
             builder: (context, constraints) {
               final barWidth = constraints.maxWidth;
-              final yellowPos = (_appliedYellowLinePercent / 100.0).clamp(0.0, 1.0);
+              final yellowPos = (_appliedYellowLinePercent / 100.0).clamp(
+                0.0,
+                1.0,
+              );
               final yellowX = barWidth * yellowPos;
 
               const tolerance = 0.01;
               final threshold = yellowPos - tolerance;
 
-              final inputProgress = (_appliedProgressPercent / 100.0).clamp(0.0, 1.0);
+              final inputProgress = (_appliedProgressPercent / 100.0).clamp(
+                0.0,
+                1.0,
+              );
               final isBlue = inputProgress > threshold;
 
-              final graphColor =
-              isBlue ? const Color(0xFF0062FF) : const Color(0xFFFF6B6B);
+              final graphColor = isBlue
+                  ? const Color(0xFF0062FF)
+                  : const Color(0xFFFF6B6B);
 
               return Stack(
                 children: [
                   Container(
                     height: 12,
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
+                      color: theme.colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(6),
                     ),
                   ),
@@ -230,24 +247,30 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
                     hintText: '기준선',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(color: theme.dividerColor),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(color: theme.dividerColor),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide:
-                      const BorderSide(color: Color(0xFFFFC107), width: 2),
+                      borderSide: const BorderSide(
+                        color: Color(0xFFFFC107),
+                        width: 2,
+                      ),
                     ),
-                    contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   onChanged: (v) {
                     final num = int.tryParse(v);
                     if (num != null) {
-                      setState(() => _inputYellowLinePercent = num.clamp(0, 100));
+                      setState(
+                            () => _inputYellowLinePercent = num.clamp(0, 100),
+                      );
                     }
                   },
                 ),
@@ -263,8 +286,10 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
                   }
                 },
                 child: Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFFFFC107),
                     borderRadius: BorderRadius.circular(6),
@@ -293,19 +318,23 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
                     hintText: '그래프',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(color: theme.dividerColor),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: Colors.grey[300]!),
+                      borderSide: BorderSide(color: theme.dividerColor),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(6),
-                      borderSide:
-                      const BorderSide(color: Color(0xFF0062FF), width: 2),
+                      borderSide: const BorderSide(
+                        color: Color(0xFF0062FF),
+                        width: 2,
+                      ),
                     ),
-                    contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   onChanged: (v) {
                     final num = int.tryParse(v);
@@ -326,8 +355,10 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
                   }
                 },
                 child: Container(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF0062FF),
                     borderRadius: BorderRadius.circular(6),
@@ -352,8 +383,11 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
             children: [
               Builder(
                 builder: (_) {
-                  final diff = (_appliedProgressPercent - _appliedYellowLinePercent).abs();
-                  final isAhead = _appliedProgressPercent >= _appliedYellowLinePercent;
+                  final diff =
+                  (_appliedProgressPercent - _appliedYellowLinePercent)
+                      .abs();
+                  final isAhead =
+                      _appliedProgressPercent >= _appliedYellowLinePercent;
 
                   final dotColor = isAhead
                       ? const Color(0xFF0062FF)
@@ -368,14 +402,23 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
                       Container(
                         width: 8,
                         height: 8,
-                        decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                        decoration: BoxDecoration(
+                          color: dotColor,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                       const SizedBox(width: 8),
-                      Text(text, style: const TextStyle(fontSize: 12, color: Color(0xFF777777))),
+                      Text(
+                        text,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
                     ],
                   );
                 },
-              )
+              ),
             ],
           ),
 
@@ -387,7 +430,6 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
     );
   }
 }
-
 
 class _CountdownHeader extends StatelessWidget {
   const _CountdownHeader({required this.vm});
@@ -412,17 +454,20 @@ class _CountdownHeader extends StatelessWidget {
           children: [
             Text(
               '$days일 ${two(hours)}:${two(minutes)}:${two(seconds)}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontFamily: 'RobotoMono',
                 fontSize: 30,
                 fontWeight: FontWeight.bold,
-                color: Colors.black,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 18),
             Text(
               '1초마다 ${vm.perSecondSaving}원이 증가해요',
-              style: const TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 14,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         );
@@ -432,7 +477,10 @@ class _CountdownHeader extends StatelessWidget {
 }
 
 class _GoalPaceContainer extends StatelessWidget {
-  const _GoalPaceContainer({required this.planPercent, required this.userPercent});
+  const _GoalPaceContainer({
+    required this.planPercent,
+    required this.userPercent,
+  });
   final int planPercent;
   final int userPercent;
 
@@ -472,12 +520,13 @@ class _GoalPaceContainer extends StatelessWidget {
       daysColor = const Color(0xFF4CAF50);
     }
 
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: theme.dividerColor),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -490,10 +539,17 @@ class _GoalPaceContainer extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              _YellowDot(),
-              SizedBox(width: 8),
-              Text('목표 페이스', style: TextStyle(fontSize: 12, color: Color(0xFF777777), fontWeight: FontWeight.w500)),
+            children: [
+              const _YellowDot(),
+              const SizedBox(width: 8),
+              Text(
+                '목표 페이스',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -504,21 +560,53 @@ class _GoalPaceContainer extends StatelessWidget {
                   children: [
                     const Text('💰', style: TextStyle(fontSize: 16)),
                     const SizedBox(height: 4),
-                    const Text('금액', style: TextStyle(fontSize: 11, color: Color(0xFF777777))),
+                    Text(
+                      '금액',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(amountText, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: amountColor)),
+                    Text(
+                      amountText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: amountColor,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              Container(width: 1, height: 50, color: Colors.grey[300]),
+              Container(width: 1, height: 50, color: theme.dividerColor),
               Expanded(
                 child: Column(
                   children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Color(0xFFFF5F5F)),
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: Color(0xFFFF5F5F),
+                    ),
                     const SizedBox(height: 4),
-                    const Text('일수', style: TextStyle(fontSize: 11, color: Color(0xFF777777))),
+                    Text(
+                      '일수',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    Text(daysText, textAlign: TextAlign.center, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: daysColor)),
+                    Text(
+                      daysText,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: daysColor,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -537,7 +625,10 @@ class _YellowDot extends StatelessWidget {
     return Container(
       width: 8,
       height: 8,
-      decoration: const BoxDecoration(color: Color(0xFFFFC107), shape: BoxShape.circle),
+      decoration: const BoxDecoration(
+        color: Color(0xFFFFC107),
+        shape: BoxShape.circle,
+      ),
     );
   }
 }

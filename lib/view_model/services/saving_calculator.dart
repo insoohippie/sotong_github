@@ -37,7 +37,7 @@ class SavingPlanCalculator {
   static String formatAmount(double amount) {
     return amount.toStringAsFixed(0).replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (match) => '${match[1]},',
+          (match) => '${match[1]},',
     );
   }
 }
@@ -46,8 +46,8 @@ class SavingPlanCalculator {
 class InitEndDateCalculator {
   InitEndDateCalculator({required TotalPlan plan})
       : _delegate = SavingPlanCalculator(
-          plan: _normalizePlanStart(plan),
-        );
+    plan: _normalizePlanStart(plan),
+  );
 
   final SavingPlanCalculator _delegate;
 
@@ -88,7 +88,7 @@ class UpdateEndDateCalculator {
         ? _normalizeDay(_plan.startDate!)
         : _today;
     final effectiveStart =
-        _today.isBefore(planStart) ? planStart : _today;
+    _today.isBefore(planStart) ? planStart : _today;
     final slices = <_PlanSlice>[
       ..._historicalSlices(_plan, effectiveStart),
     ];
@@ -120,9 +120,9 @@ class UpdateEndDateCalculator {
   }
 
   List<_PlanSlice> _historicalSlices(
-    TotalPlan plan,
-    DateTime cutoff,
-  ) {
+      TotalPlan plan,
+      DateTime cutoff,
+      ) {
     final slices = <_PlanSlice>[];
     for (final slice in _convertPlanToSlices(plan)) {
       if (slice.end.isBefore(cutoff)) {
@@ -193,8 +193,8 @@ SavingCalculationResult _runProjection({
 
   final timeline = _buildTimeline(slices, startDate);
   if (timeline.isEmpty) {
-    debugPrint('[$logTag] timeline empty '
-        'start=$startDate target=$requiredSaving');
+    // debugPrint('[$logTag] timeline empty '
+    //     'start=$startDate target=$requiredSaving');
     return SavingCalculationResult(
       monthlySaving: monthlySavingDisplay,
       dailySaving: dailySavingBeforeVariable,
@@ -221,8 +221,8 @@ SavingCalculationResult _runProjection({
   for (final slice in timeline) {
     final dailyNet = slice.dailyNet;
     if (dailyNet <= 0) {
-      debugPrint('[$logTag] non-positive dailyNet '
-          'date=${slice.date} dailyNet=$dailyNet');
+      // debugPrint('[$logTag] non-positive dailyNet '
+      //     'date=${slice.date} dailyNet=$dailyNet');
       nonPositiveDailyNet = true;
       continue;
     }
@@ -290,20 +290,20 @@ List<_PlanSlice> _convertPlanToSlices(TotalPlan plan) {
   return ordered
       .map(
         (mini) => _PlanSlice(
-          start: mini.startDate,
-          end: mini.endDate,
-          monthlyIncome: mini.monthlyIncomeAmount.toDouble(),
-          monthlyConsume: mini.monthlyConsumeAmount.toDouble(),
-          dailyLimit: mini.dailyConsumeAmount.toDouble(),
-        ),
-      )
+      start: mini.startDate,
+      end: mini.endDate,
+      monthlyIncome: mini.monthlyIncomeAmount.toDouble(),
+      monthlyConsume: mini.monthlyConsumeAmount.toDouble(),
+      dailyLimit: mini.dailyConsumeAmount.toDouble(),
+    ),
+  )
       .toList();
 }
 
 List<_PlanSlice> _extendSlicesTo(
-  List<_PlanSlice> slices,
-  DateTime desiredEnd,
-) {
+    List<_PlanSlice> slices,
+    DateTime desiredEnd,
+    ) {
   if (slices.isEmpty) return slices;
   final extended = List<_PlanSlice>.from(slices);
   var lastEnd = extended.last.end;
@@ -330,9 +330,9 @@ List<_PlanSlice> _extendSlicesTo(
 }
 
 List<_DailySlice> _buildTimeline(
-  List<_PlanSlice> slices,
-  DateTime startDate,
-) {
+    List<_PlanSlice> slices,
+    DateTime startDate,
+    ) {
   if (slices.isEmpty) return const [];
   final results = <_DailySlice>[];
   for (final slice in slices) {

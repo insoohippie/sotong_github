@@ -64,19 +64,19 @@ class PlanDebugPrinter {
   }
 
   static void _appendSubPlan(
-    StringBuffer buffer, {
-    required String key,
-    required SubPlan subPlan,
-    required RefData refData,
-    required String indent,
-    required bool isLast,
-  }) {
+      StringBuffer buffer, {
+        required String key,
+        required SubPlan subPlan,
+        required RefData refData,
+        required String indent,
+        required bool isLast,
+      }) {
     final branch = isLast ? '└─' : '├─';
     final childIndent = indent + (isLast ? '   ' : '│  ');
     final summaryMetrics = subPlan.monthlySummary();
     buffer.writeln(
       '$indent$branch SubPlan $key '
-      '(month=${_dateFmt.format(subPlan.yearMonth)}, head=${subPlan.headDocId})',
+          '(month=${_dateFmt.format(subPlan.yearMonth)}, head=${subPlan.headDocId})',
     );
     buffer.writeln(
       '$childIndent summary: minis=${subPlan.miniPlans.length} '
@@ -110,7 +110,7 @@ class PlanDebugPrinter {
 
       buffer.writeln(
         '$childIndent$miniBranch Mini ${mini.docId} '
-        '${_dateFmt.format(mini.startDate)}~${_dateFmt.format(mini.endDate)}',
+            '${_dateFmt.format(mini.startDate)}~${_dateFmt.format(mini.endDate)}',
       );
 
       final income = refData.monthlyIncomeById(mini.monthlyIncomeId);
@@ -119,20 +119,20 @@ class PlanDebugPrinter {
 
       buffer.writeln(
         '$nextIndent income=${income?.id ?? mini.monthlyIncomeId} '
-        'consume=${consume?.id ?? mini.monthlyConsumeId} '
-        'daily=${daily?.id ?? mini.dailyConsumeId}',
+            'consume=${consume?.id ?? mini.monthlyConsumeId} '
+            'daily=${daily?.id ?? mini.dailyConsumeId}',
       );
       buffer.writeln(
-        '$nextIndent cached: '
-        'monthlyIncome=${mini.monthlyIncomeAmount} '
-        'monthlyConsume=${mini.monthlyConsumeAmount} '
-        'dailyConsume=${mini.dailyConsumeAmount} '
+          '$nextIndent cached: '
+              'monthlyIncome=${mini.monthlyIncomeAmount} '
+              'monthlyConsume=${mini.monthlyConsumeAmount} '
+              'dailyConsume=${mini.dailyConsumeAmount} '
       );
       buffer.writeln(
         '$nextIndent    net: '
-        'monthlyNetIncome=${mini.monthlyNetIncome} '
-        'monthlyNetConsume=${mini.monthlyNetConsume} '
-        'dailyNetConsume=${mini.dailyNetConsume}',
+            'monthlyNetIncome=${mini.monthlyNetIncome} '
+            'monthlyNetConsume=${mini.monthlyNetConsume} '
+            'dailyNetConsume=${mini.dailyNetConsume}',
       );
     }
   }

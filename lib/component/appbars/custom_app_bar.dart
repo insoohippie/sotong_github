@@ -3,7 +3,6 @@ import 'package:sotong_local/component/texts/header_text.dart';
 
 import '../theme/app_spacing.dart';
 
-
 class CustomAppBar extends StatelessWidget {
   final String title;
   final VoidCallback? onBack;
@@ -19,12 +18,20 @@ class CustomAppBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onBack ?? () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back_ios, size: 30),
+          IconButton(
+            onPressed: onBack ?? () => Navigator.pop(context),
+            icon: Icon(
+              Icons.arrow_back_ios,
+              color: Theme.of(context).colorScheme.onSurface,
+              size: 24,
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           ),
-          const SizedBox(width: 12),
-          HeaderText(text: title),
+          if (title.isNotEmpty) ...[
+            const SizedBox(width: 12),
+            HeaderText(text: title),
+          ],
         ],
       ),
     );

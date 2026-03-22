@@ -197,7 +197,7 @@ class FlDonutBudgetChartState extends State<FlDonutBudgetChart>
                 value: animatedAreas[i],
                 radius: radius,
                 title: '',
-                badgePositionPercentageOffset: widget.badgeOutsideOffset,
+                badgePositionPercentageOffset: 1.15,
                 badgeWidget: _TextBadge(
                   labelTop: labels[i],
                   labelBottom: _manWon(_rawValues[i]),
@@ -252,7 +252,6 @@ class _TextBadge extends StatelessWidget {
       curve: Curves.easeOut,
       scale: scale,
       child: Container(
-        constraints: const BoxConstraints(minWidth: 88, minHeight: 52),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -267,30 +266,23 @@ class _TextBadge extends StatelessWidget {
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               labelTop,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w800,
                 color: Colors.black87,
               ),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 2),
             Text(
               labelBottom,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 color: Colors.black54,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),

@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:sotong_local/component/chart/semi_gauge_chart.dart';
+import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/view_model/home/home_view_model.dart';
 
 import 'home_saving_center_button.dart';
@@ -20,9 +23,17 @@ class HomeSavingChartWidget extends StatefulWidget {
   final int userPercent;
   final VoidCallback onOpenCountdown;
 
+  /// 플랜 완료 후 홈 진입 시 애니메이션을 다시 재생하도록 플래그 리셋
+  static void resetGaugeAnimationForPlay() {
+    _homeGaugeAnimationPlayed = false;
+  }
+
   @override
   State<HomeSavingChartWidget> createState() => _HomeSavingChartWidgetState();
 }
+
+/// 앱 세션 동안 홈 게이지 애니메이션 재생 여부 (플랜 완료 후 홈 진입 시 1회 재생)
+bool _homeGaugeAnimationPlayed = false;
 
 class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
     with TickerProviderStateMixin {
@@ -32,7 +43,8 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
   late final AnimationController _blueController;
   late final Animation<double> _greenAnim;
   late final Animation<double> _blueAnim;
-
+  Timer? _hapticTimer;
+  bool _isRunningFirstAnimation = false; // 이번에 재생 중인 게 첫 애니인지
 
   @override
   void initState() {
@@ -47,21 +59,32 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
       vsync: this,
     );
 
-    _greenAnim = CurvedAnimation(parent: _greenController, curve: Curves.easeOut);
+    _greenAnim = CurvedAnimation(
+      parent: _greenController,
+      curve: Curves.easeOut,
+    );
     _blueAnim = CurvedAnimation(parent: _blueController, curve: Curves.easeOut);
 
     _greenController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
+      if (status == AnimationStatus.completed &&
+          _isRunningFirstAnimation &&
+          mounted) {
         _blueController.forward();
+        _playGaugeSequentialHaptic(); // 파랑 구간 쫘라락
+      }
+    });
+    _blueController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _isRunningFirstAnimation = false;
       }
     });
 
     // 🔥 1차: 즉시 시작 (중요)
     _restartGaugeAnimation();
 
-    // 🔥 2차: 프레임 이후 보정
+    // 🔥 2차: 프레임 이후 보정 (이미 한 번 재생된 경우 스킵)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _restartGaugeAnimation();
+      if (mounted && !_homeGaugeAnimationPlayed) _restartGaugeAnimation();
     });
 
     _greenController.addListener(() {
@@ -84,10 +107,21 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
   }
 
   void _restartGaugeAnimation() {
+    // 로그인 후 최초 1회만 애니 재생, 이후엔 최종 상태만 표시
+    if (_homeGaugeAnimationPlayed) {
+      _greenController.value = 1.0;
+      _blueController.value = 1.0;
+      _isRunningFirstAnimation = false;
+      return;
+    }
+    _homeGaugeAnimationPlayed = true;
+    _isRunningFirstAnimation = true;
+
     _greenController
       ..stop()
       ..reset()
       ..forward();
+    _playGaugeSequentialHaptic(); // 초록 구간 쫘라락
 
     _blueController
       ..stop()
@@ -96,12 +130,38 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
 
   @override
   void dispose() {
+    _hapticTimer?.cancel();
     _greenController.dispose();
     _blueController.dispose();
     super.dispose();
   }
 
-  void _handleTapGauge(TapDownDetails details, double minP, double maxP, bool isUserLarger) {
+  /// 게이지 애니(1200ms)에 맞춰 쫘라락 햅틱 (8회, 150ms 간격)
+  void _playGaugeSequentialHaptic() {
+    _hapticTimer?.cancel();
+    HapticFeedback.selectionClick();
+    int count = 1;
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 150), (_) {
+      if (!mounted) {
+        _hapticTimer?.cancel();
+        return;
+      }
+      if (count >= 8) {
+        _hapticTimer?.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      HapticFeedback.selectionClick();
+      count++;
+    });
+  }
+
+  void _handleTapGauge(
+      TapDownDetails details,
+      double minP,
+      double maxP,
+      bool isUserLarger,
+      ) {
     const size = Size(300, 300);
     final center = Offset(size.width / 2, size.height / 2);
     final local = details.localPosition;
@@ -139,6 +199,11 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final gaugeBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : const Color(0xFFF1F1F1);
 
     final planProgress = (widget.planPercent / 100.0).clamp(0.0, 1.0);
     final userProgress = (widget.userPercent / 100.0).clamp(0.0, 1.0);
@@ -154,18 +219,21 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
               child: CustomPaint(
                 painter: SemiGaugePainter(
                   progress: 1.0,
-                  backgroundColor: const Color(0xFFF1F1F1),
-                  progressColorStart: const Color(0xFFF1F1F1),
-                  progressColorEnd: const Color(0xFFF1F1F1),
+                  backgroundColor: gaugeBg,
+                  progressColorStart: gaugeBg,
+                  progressColorEnd: gaugeBg,
                   strokeWidth: 22,
                   isFullCircle: true,
                 ),
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               '플랜 그래프와 사용자 그래프 수치가 같습니다',
-              style: TextStyle(fontSize: 14, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 14,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),
@@ -191,9 +259,9 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                   size: const Size(300, 300),
                   painter: SemiGaugePainter(
                     progress: 1.0,
-                    backgroundColor: const Color(0xFFF1F1F1),
-                    progressColorStart: const Color(0xFFF1F1F1),
-                    progressColorEnd: const Color(0xFFF1F1F1),
+                    backgroundColor: gaugeBg,
+                    progressColorStart: gaugeBg,
+                    progressColorEnd: gaugeBg,
                     strokeWidth: 22,
                     isFullCircle: true,
                   ),
@@ -241,8 +309,13 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
 
                 // 탭 영역 판별용 투명 레이어
                 GestureDetector(
-                  onTapDown: (d) => _handleTapGauge(d, minP, maxP, isUserLarger),
-                  child: Container(width: 300, height: 300, color: Colors.transparent),
+                  onTapDown: (d) =>
+                      _handleTapGauge(d, minP, maxP, isUserLarger),
+                  child: Container(
+                    width: 300,
+                    height: 300,
+                    color: Colors.transparent,
+                  ),
                 ),
 
                 // 중앙 버튼
@@ -260,10 +333,18 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
           // 범례
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              _LegendDot(color: Color(0xFF0062FF), text: '플랜 그래프', textColor: Color(0xFF0062FF)),
-              SizedBox(width: 20),
-              _LegendDot(color: Color(0xFF7DAFFF), text: '사용자 그래프', textColor: Color(0xFF7DAFFF)),
+            children: [
+              _LegendDot(
+                color: AppColors.primary,
+                text: '플랜 그래프',
+                textColor: AppColors.primary,
+              ),
+              const SizedBox(width: 20),
+              _LegendDot(
+                color: const Color(0xFF7DAFFF),
+                text: '사용자 그래프',
+                textColor: const Color(0xFF7DAFFF),
+              ),
             ],
           ),
         ],
@@ -288,7 +369,11 @@ class _LegendDot extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
         const SizedBox(width: 6),
         Text(text, style: TextStyle(fontSize: 12, color: textColor)),
       ],

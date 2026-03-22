@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_text_styles.dart';
 
-
 class ParagraphText extends StatelessWidget {
   final String text;
   final Color? color;
@@ -19,7 +18,7 @@ class ParagraphText extends StatelessWidget {
     return Text(
       text,
       style: AppTextStyles.paragraph.copyWith(
-        color: color,
+        color: color ?? Theme.of(context).colorScheme.onSurface,
         fontWeight: fontWeight,
       ),
     );

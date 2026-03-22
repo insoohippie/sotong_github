@@ -1,8 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:provider/provider.dart';
 
-enum LogoIntroStyle { slide, pop } // slide: 스르르, pop: 팡 하고 자리잡기
+import '../../../repository/auth_repository.dart';
+import '../../../view_model/home/home_view_model.dart';
+
+enum LogoIntroStyle { slide, pop }
 
 class LogoSplashPage extends StatefulWidget {
   const LogoSplashPage({
@@ -24,61 +27,63 @@ class _LogoSplashPageState extends State<LogoSplashPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
-  Animation<Offset>? _slide; // slide 전용
-  Animation<double>? _scale; // pop 전용
+  Animation<Offset>? _slide;
+  Animation<double>? _scale;
 
-  late Timer _timer;
+  Timer? _timer;
+  bool _navigated = false;
 
   Future<void> _goNext() async {
-    final user = FirebaseAuth.instance.currentUser;
+    if (_navigated) return;
+    _navigated = true;
 
-    // ✅ 로그인 유지 중이면 홈으로, 아니면 로그인으로
-    final nextRoute = (user != null) ? '/home_tab_navigator' : '/login';
+    final authRepo = context.read<AuthRepository>();
+    final next = authRepo.nextRouteBySession();
+
+    print('🧩 [LogoSplash] goNext: shouldAutoLogin=${authRepo.shouldAutoLogin}, '
+        'cachedUid=${authRepo.cachedUid}, '
+        'hasPlan=${authRepo.cachedHasPlan}');
+    print('🧩 [LogoSplash] nextRoute=${authRepo.nextRouteBySession}');
 
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      nextRoute,
-          (route) => false,
-    );
+
+    // 홈으로 갈 때만 refresh (선택)
+    if (next == '/home_tab_navigator') {
+      await context.read<HomeViewModel>().refresh();
+      if (!mounted) return;
+    }
+
+    Navigator.of(context).pushNamedAndRemoveUntil(next, (_) => false);
   }
 
   @override
   void initState() {
     super.initState();
 
-    // 공통 컨트롤러
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..forward();
 
-    // 공통: 페이드 인
-    _fade = CurvedAnimation(
-      parent: _ctrl,
-      curve: Curves.easeInOut,
-    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
 
-    // 스타일별 트윈 셋업
     if (widget.style == LogoIntroStyle.slide) {
-      // 살짝 아래에서 스르르 올라오기
       _slide = Tween<Offset>(
         begin: const Offset(0, 0.18),
         end: Offset.zero,
       ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
     } else {
-      // 살짝 작게 시작해서 팡 하고 자리 잡기
       _scale = Tween<double>(begin: 0.82, end: 1.0).animate(
         CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack),
       );
     }
 
-    // ✅ 지정 시간 뒤 자동 로그인 분기
     _timer = Timer(widget.delay, _goNext);
   }
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     _ctrl.dispose();
     super.dispose();
   }
@@ -86,7 +91,7 @@ class _LogoSplashPageState extends State<LogoSplashPage>
   @override
   Widget build(BuildContext context) {
     final logo = Image.asset(
-      'assets/images/bot_profile.png', // 로고 파일 경로
+      'assets/images/bot_profile.png',
       width: widget.size,
       height: widget.size,
     );

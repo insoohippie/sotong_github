@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:sotong_local/view/pages/plan/plan_edit_page.dart';
 
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/amount_guide_widget.dart';
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/chat_bottom_input_area.dart';
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/chat_message_widget.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/typing_indicator_widget.dart';
 import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
 
-import '../../../view_model/category/local_category_view_model.dart';
+import '../../../view_model/category/plan_category_view_model.dart';
 import '../../../view_model/plan/enums/chat_step.dart';
 import '../../../view_model/services/saving_calculator.dart';
 import '../../../model/plan/chat_message.dart';
 import '../../../model/refData/entry.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
-import '../../../view_model/category/category_view_model.dart';
+import '../../../view_model/category/category_edit_view_model.dart';
 
 class ChatPlanPage extends StatefulWidget {
   const ChatPlanPage({Key? key}) : super(key: key);
@@ -34,7 +34,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
   bool _showFixedCostModal = false;
   bool _showDailySpendingModal = false;
   bool _isFormatting = false;
-  bool _showBottomArea = true;
+  bool _showBottomArea = false; // true
   bool _suppressNextBottomShow = false;
 
   int _lastMessageCount = 0;
@@ -77,7 +77,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           ),
         );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final viewModel = Provider.of<ChatPlanViewModel>(context, listen: false);
       if (viewModel.messages.isEmpty) {
         viewModel.initializeChat();
@@ -122,6 +122,33 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     return NumberFormat('#,###').format(number);
   }
 
+  List<Entry> _normalizeEntries({
+    required List<Entry> items,
+    required String Function(String name) keyOf,
+    required Map<String, String> emojiMap,
+    required EntryType forcedType,
+  }) {
+    return items.asMap().entries.map((e) {
+      final i = e.key;
+      final it = e.value;
+
+      final name = it.category.trim();
+      final key = keyOf(name);
+      final emoji = (emojiMap[name]?.trim().isNotEmpty ?? false)
+          ? emojiMap[name]!.trim()
+          : '💰';
+
+      return it.copyWith(
+        idx: i,
+        order: i,
+        category: name,
+        categoryKey: key,
+        emoji: emoji,
+        type: forcedType,
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     bool shouldWaitForAnimation(ChatStep step) {
@@ -137,7 +164,7 @@ class _ChatPlanPageState extends State<ChatPlanPage>
         ChatStep.monthlyIncome,
         ChatStep.monthlyFixedCost,
         ChatStep.dailySpending,
-        ChatStep.summaryIntro,
+        ChatStep.noSaveMoney,
         ChatStep.summary,
         ChatStep.autoService,
         ChatStep.complete,
@@ -150,8 +177,153 @@ class _ChatPlanPageState extends State<ChatPlanPage>
         _suppressNextBottomShow = false;
         return;
       }
-      setState(() => _showBottomArea = true);
-      _bottomSlideController.forward(from: 0);
+      // 이미 모달이 표시되어 있으면 다시 표시하지 않음
+      if (_showBottomArea) {
+        return;
+      }
+
+      // 섹터 기반 로직: 섹터의 모든 메시지가 완료되어야만 모달 표시
+      final viewModel = Provider.of<ChatPlanViewModel>(context, listen: false);
+      final currentStep = viewModel.currentStep;
+
+      // summary 단계는 특별 처리: 첫 번째 봇 메시지 + summary 위젯이 완료되어야 함
+      if (currentStep == ChatStep.summary) {
+        final sectionMessageCount = viewModel.getSectionMessageCount(
+          ChatStep.summary,
+        );
+        if (sectionMessageCount != null) {
+          // summary 섹터는 2개 고정: 첫 번째 봇 메시지 + summary 위젯
+          final botMessages = viewModel.messages
+              .where((m) => m.type == MessageType.bot)
+              .toList();
+          final sectionStartIndex = viewModel.getSectionStartIndex(
+            ChatStep.summary,
+          );
+
+          if (sectionStartIndex != null) {
+            final summaryBotCount = sectionMessageCount - 1;
+            // 현재 섹터의 봇 메시지만 필터링 (summary 위젯 제외)
+            final currentSectionBotMessages = botMessages
+                .skip(sectionStartIndex)
+                .take(summaryBotCount)
+                .toList();
+
+            // summary 위젯 확인
+            final hasSummaryWidget = viewModel.messages.any(
+                  (m) => m.type == MessageType.summary,
+            );
+
+            // 섹터의 모든 봇 메시지가 완료되었는지 확인
+            final allBotMessagesComplete =
+                currentSectionBotMessages.length == summaryBotCount &&
+                    currentSectionBotMessages.every(
+                          (msg) =>
+                          ChatMessageWidget.completedMessageIds.contains(msg.id),
+                    );
+
+            // 마지막 봇 메시지가 완료되었는지 확인 (최종 메시지)
+            final lastBotMessage = currentSectionBotMessages.isNotEmpty
+                ? currentSectionBotMessages.last
+                : null;
+            final isLastBotMessageComplete =
+                lastBotMessage != null &&
+                    ChatMessageWidget.completedMessageIds.contains(
+                      lastBotMessage.id,
+                    );
+
+            if (allBotMessagesComplete &&
+                isLastBotMessageComplete &&
+                hasSummaryWidget &&
+                !_showBottomArea) {
+              debugPrint(
+                '[onboardingAnimDoneCallback] summary 섹터 완료: 메시지 개수=${currentSectionBotMessages.length}, 모든 메시지 완료=$allBotMessagesComplete, 마지막 메시지 완료=$isLastBotMessageComplete',
+              );
+              setState(() => _showBottomArea = true);
+              _bottomSlideController.forward(from: 0);
+            } else {
+              debugPrint(
+                '[onboardingAnimDoneCallback] summary 섹터 미완료: 메시지 개수=${currentSectionBotMessages.length}, 모든 메시지 완료=$allBotMessagesComplete, 마지막 메시지 완료=$isLastBotMessageComplete',
+              );
+            }
+          }
+        }
+        // 섹터 정보가 없으면 모달 표시하지 않음 (summary 섹터는 항상 섹터 정보가 있어야 함)
+        return;
+      }
+
+      final sectionMessageCount = viewModel.getSectionMessageCount(currentStep);
+
+      if (sectionMessageCount != null) {
+        // 섹터 정보가 있으면 섹터 기반 로직 적용
+        final botMessages = viewModel.messages
+            .where((m) => m.type == MessageType.bot)
+            .toList();
+
+        // 현재 섹터의 시작 인덱스 가져오기
+        final sectionStartIndex = viewModel.getSectionStartIndex(currentStep);
+
+        if (sectionStartIndex != null) {
+          // 현재 섹터의 메시지만 필터링 (섹터 시작 인덱스부터)
+          final currentSectionMessages = botMessages
+              .skip(sectionStartIndex)
+              .take(sectionMessageCount)
+              .toList();
+
+          // 섹터의 모든 메시지가 완료되었는지 확인
+          // 정확히 섹터의 메시지 개수만큼 있어야 하고, 마지막 메시지가 완료되어야 함
+          if (currentSectionMessages.length == sectionMessageCount) {
+            // 마지막 메시지가 완료되었는지 먼저 확인 (가장 중요)
+            final lastMessage = currentSectionMessages.last;
+            final isLastMessageComplete = ChatMessageWidget.completedMessageIds
+                .contains(lastMessage.id);
+
+            // 마지막 메시지가 완료되지 않았으면 모달 표시 안 함
+            if (!isLastMessageComplete) {
+              debugPrint(
+                '[onboardingAnimDoneCallback] 섹터: $currentStep, 마지막 메시지 미완료, 모달 표시 안 함',
+              );
+              return;
+            }
+
+            // 마지막 메시지가 완료되었으면, 나머지 메시지들도 모두 완료되었는지 확인
+            final allMessagesComplete = currentSectionMessages.every(
+                  (msg) => ChatMessageWidget.completedMessageIds.contains(msg.id),
+            );
+
+            debugPrint(
+              '[onboardingAnimDoneCallback] 섹터: $currentStep, 메시지 개수: ${currentSectionMessages.length}/$sectionMessageCount, 전체 완료: $allMessagesComplete, 마지막 완료: $isLastMessageComplete',
+            );
+
+            // 모든 메시지가 완료되었고, 특히 마지막 메시지가 완료되었을 때만 모달 표시
+            if (allMessagesComplete && isLastMessageComplete) {
+              setState(() => _showBottomArea = true);
+              _bottomSlideController.forward(from: 0);
+            }
+          } else {
+            debugPrint(
+              '[onboardingAnimDoneCallback] 섹터: $currentStep, 메시지 개수 부족: ${currentSectionMessages.length}/$sectionMessageCount, 모달 표시 안 함',
+            );
+          }
+        } else {
+          // 섹터 시작 인덱스가 없으면 기존 로직 사용
+          debugPrint(
+            '[onboardingAnimDoneCallback] 섹터: $currentStep, 섹터 시작 인덱스 없음, 기존 로직 사용',
+          );
+          if (!_showBottomArea) {
+            setState(() => _showBottomArea = true);
+            _bottomSlideController.forward(from: 0);
+          }
+        }
+      } else {
+        // 섹터 정보가 없으면 기존 로직 유지
+        debugPrint(
+          '[onboardingAnimDoneCallback] 섹터: $currentStep, 섹터 정보 없음, 기존 로직 사용',
+        );
+        if (!_showBottomArea) {
+          setState(() => _showBottomArea = true);
+          _bottomSlideController.forward(from: 0);
+        }
+      }
     }
 
     final mediaQuery = MediaQuery.of(context);
@@ -160,35 +332,211 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      body: Consumer3<ChatPlanViewModel, CategoryViewModel, LocalCategoryViewModel>(
+
+      body: Consumer3<ChatPlanViewModel, CategoryEditViewModel, PlanCategoryViewModel>(
         builder: (context, viewModel, categoryVM, localCategoryVM, child) {
           _maybeScrollToBottomOnNewMessage(
-              viewModel.messages, viewModel.isTyping);
+            viewModel.messages,
+            viewModel.isTyping,
+          );
 
           bool animDone = false;
+
           if (viewModel.messages.isNotEmpty &&
               shouldWaitForAnimation(viewModel.currentStep)) {
-            final lastBotMsg = viewModel.messages.lastWhere(
-                  (m) => m.type == MessageType.bot,
-              orElse: () => viewModel.messages.last,
-            );
-            animDone = lastBotMsg.type == MessageType.bot &&
-                ChatMessageWidget.completedMessageIds
-                    .contains(lastBotMsg.id);
+            // 섹터 기반 로직: 섹터의 모든 메시지가 완료되어야만 animDone = true
+            if (!viewModel.isTyping) {
+              final botMessages = viewModel.messages
+                  .where((m) => m.type == MessageType.bot)
+                  .toList();
+
+              if (botMessages.isNotEmpty) {
+                final currentStep = viewModel.currentStep;
+                final sectionMessageCount = viewModel.getSectionMessageCount(
+                  currentStep,
+                );
+
+                // 섹터의 메시지 개수가 정의되어 있으면 섹터 기반 로직 적용
+                if (sectionMessageCount != null) {
+                  // 현재 섹터의 시작 인덱스 가져오기
+                  final sectionStartIndex = viewModel.getSectionStartIndex(
+                    currentStep,
+                  );
+
+                  if (sectionStartIndex != null) {
+                    // 현재 섹터의 메시지만 필터링 (섹터 시작 인덱스부터)
+                    final currentSectionMessages = botMessages
+                        .skip(sectionStartIndex)
+                        .take(sectionMessageCount)
+                        .toList();
+
+                    // 섹터의 모든 메시지가 완료되어야만 animDone = true
+                    // 정확히 섹터의 메시지 개수만큼 있어야 하고, 마지막 메시지가 완료되어야 함
+                    if (currentSectionMessages.length == sectionMessageCount) {
+                      // 마지막 메시지가 완료되었는지 먼저 확인 (가장 중요)
+                      final lastMessage = currentSectionMessages.last;
+                      final isLastMessageComplete = ChatMessageWidget
+                          .completedMessageIds
+                          .contains(lastMessage.id);
+
+                      // 마지막 메시지가 완료되지 않았으면 animDone = false
+                      if (!isLastMessageComplete) {
+                        animDone = false;
+                        debugPrint(
+                          '[animDone] 섹터: $currentStep, 마지막 메시지 미완료, animDone = false',
+                        );
+                      } else {
+                        // 마지막 메시지가 완료되었으면, 나머지 메시지들도 모두 완료되었는지 확인
+                        final allMessagesComplete = currentSectionMessages
+                            .every(
+                              (msg) => ChatMessageWidget.completedMessageIds
+                              .contains(msg.id),
+                        );
+
+                        // 모든 메시지가 완료되었고, 특히 마지막 메시지가 완료되었을 때만 true
+                        animDone = allMessagesComplete && isLastMessageComplete;
+
+                        debugPrint(
+                          '[animDone] 섹터: $currentStep, 메시지 개수: ${currentSectionMessages.length}/$sectionMessageCount, 전체 완료: $allMessagesComplete, 마지막 완료: $isLastMessageComplete, 최종: $animDone',
+                        );
+                      }
+                    } else {
+                      // 섹터의 메시지 개수보다 적으면 무조건 false
+                      animDone = false;
+                      debugPrint(
+                        '[animDone] 섹터: $currentStep, 메시지 개수 부족: ${currentSectionMessages.length}/$sectionMessageCount, animDone = false',
+                      );
+                    }
+                  } else {
+                    // 섹터 시작 인덱스가 없으면 기존 로직 사용
+                    animDone = false;
+                  }
+                } else {
+                  // 섹터 정보가 없으면 기존 로직: 마지막 봇 메시지가 완료되었는지 확인
+                  final lastBotMsg = botMessages.last;
+                  final isLastBotComplete = ChatMessageWidget
+                      .completedMessageIds
+                      .contains(lastBotMsg.id);
+                  animDone =
+                      lastBotMsg.type == MessageType.bot && isLastBotComplete;
+                }
+              }
+            }
           }
 
-          final bool lastIsSummary = viewModel.messages.isNotEmpty &&
-              viewModel.messages.last.type == MessageType.summary;
-          if (viewModel.currentStep == ChatStep.summary && lastIsSummary) {
-            animDone = true;
+          // 타이핑 인디케이터 완전 비활성화 (코드에서 제거됨)
 
-            if (!_showBottomArea) {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) return;
-                setState(() => _showBottomArea = true);
-                _bottomSlideController.forward(from: 0);
-              });
+          // 마지막 메시지 타이핑이 완료된 후에만 ChatBottomInputArea 표시
+          // onboardingAnimDoneCallback에서 이미 처리하므로 여기서는 처리하지 않음
+          // (중복 표시 방지)
+          // summary 섹터는 별도 처리하므로 제외
+          if (shouldWaitForAnimation(viewModel.currentStep) &&
+              viewModel.currentStep != ChatStep.summary) {
+            // animDone이 false이고 이미 표시되어 있으면 숨김
+            // 단, 메시지가 완료되었으면 모달을 유지 (onboarding2, summaryIntro 등과 동일)
+            if (!animDone && _showBottomArea) {
+              // 섹터 정보가 있고 메시지가 완료되었는지 확인
+              final sectionMessageCount = viewModel.getSectionMessageCount(
+                viewModel.currentStep,
+              );
+              bool shouldHideModal = true;
+
+              if (sectionMessageCount != null) {
+                final botMessages = viewModel.messages
+                    .where((m) => m.type == MessageType.bot)
+                    .toList();
+                final sectionStartIndex = viewModel.getSectionStartIndex(
+                  viewModel.currentStep,
+                );
+                if (sectionStartIndex != null) {
+                  final currentSectionMessages = botMessages
+                      .skip(sectionStartIndex)
+                      .take(sectionMessageCount)
+                      .toList();
+                  if (currentSectionMessages.length == sectionMessageCount) {
+                    final lastMessage = currentSectionMessages.last;
+                    final isLastMessageComplete = ChatMessageWidget
+                        .completedMessageIds
+                        .contains(lastMessage.id);
+                    // 메시지가 완료되었으면 모달을 숨기지 않음 (onboarding2와 동일)
+                    if (isLastMessageComplete) {
+                      shouldHideModal = false;
+                    }
+                  }
+                }
+              }
+
+              if (shouldHideModal) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+                  setState(() => _showBottomArea = false);
+                });
+              }
             }
+          }
+
+          // summary 단계는 특별 처리: 첫 번째 봇 메시지 + summary 위젯이 완료되어야 함
+          if (viewModel.currentStep == ChatStep.summary) {
+            final sectionMessageCount = viewModel.getSectionMessageCount(
+              ChatStep.summary,
+            );
+            if (sectionMessageCount != null) {
+              // summary 섹터는 2개 고정: 첫 번째 봇 메시지 + summary 위젯
+              final botMessages = viewModel.messages
+                  .where((m) => m.type == MessageType.bot)
+                  .toList();
+              final sectionStartIndex = viewModel.getSectionStartIndex(
+                ChatStep.summary,
+              );
+
+              if (sectionStartIndex != null) {
+                final summaryBotCount = sectionMessageCount - 1;
+                // 현재 섹터의 봇 메시지만 필터링 (summary 위젯 제외)
+                final currentSectionBotMessages = botMessages
+                    .skip(sectionStartIndex)
+                    .take(summaryBotCount)
+                    .toList();
+
+                // summary 위젯 확인
+                final hasSummaryWidget = viewModel.messages.any(
+                      (m) => m.type == MessageType.summary,
+                );
+
+                // 섹터의 모든 봇 메시지가 완료되었는지 확인
+                final allBotMessagesComplete =
+                    currentSectionBotMessages.length ==
+                        summaryBotCount &&
+                        currentSectionBotMessages.every(
+                              (msg) => ChatMessageWidget.completedMessageIds.contains(
+                            msg.id,
+                          ),
+                        );
+
+                // 마지막 봇 메시지가 완료되었는지 확인
+                final lastBotMessage = currentSectionBotMessages.isNotEmpty
+                    ? currentSectionBotMessages.last
+                    : null;
+                final isLastBotMessageComplete =
+                    lastBotMessage != null &&
+                        ChatMessageWidget.completedMessageIds.contains(
+                          lastBotMessage.id,
+                        );
+
+                animDone =
+                    allBotMessagesComplete &&
+                        isLastBotMessageComplete &&
+                        hasSummaryWidget;
+
+                if (animDone && !_showBottomArea) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    setState(() => _showBottomArea = true);
+                    _bottomSlideController.forward(from: 0);
+                  });
+                }
+              }
+            }
+            // 섹터 정보가 없으면 animDone = false (summary 섹터는 항상 섹터 정보가 있어야 함)
           }
 
           final messages = viewModel.messages;
@@ -209,16 +557,11 @@ class _ChatPlanPageState extends State<ChatPlanPage>
           final step = viewModel.currentStep;
           final raw = _inputController.text;
 
-          final dailyCats = categoryVM.referenceCategories; // B = 참고 카테고리
-          final dailyEmojiMap = { for (final c in dailyCats) c.name : c.emoji };
-
           return Stack(
             children: [
               Column(
                 children: [
-                  Container(
-                    padding: EdgeInsets.only(top: statusBarHeight),
-                  ),
+                  Container(padding: EdgeInsets.only(top: statusBarHeight)),
                   Expanded(
                     child: ListView(
                       controller: _scrollController,
@@ -232,8 +575,9 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                         ...messages.asMap().entries.map((entry) {
                           final message = entry.value;
 
-                          final shouldWait =
-                          shouldWaitForAnimation(viewModel.currentStep);
+                          final shouldWait = shouldWaitForAnimation(
+                            viewModel.currentStep,
+                          );
 
                           final isLastBot =
                           (message.type == MessageType.bot &&
@@ -253,18 +597,16 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                           }
                         }).toList(),
 
-                        if (viewModel.isTyping)
-                          const TypingIndicatorWidget(),
-
+                        // 타이핑 인디케이터 완전 비활성화
+                        // if (shouldShowTypingIndicator)
+                        //   const TypingIndicatorWidget(),
                         if (raw.isNotEmpty &&
                             double.tryParse(_unformatNumber(raw)) != null &&
-                            (
-                                (step == ChatStep.targetAmount &&
-                                    double.parse(_unformatNumber(raw)) > 0) ||
-                                    (step == ChatStep.currentAsset)))
+                            ((step == ChatStep.targetAmount &&
+                                double.parse(_unformatNumber(raw)) > 0) ||
+                                (step == ChatStep.currentAsset)))
                           AmountGuideWidget(
-                            amount:
-                            double.parse(_unformatNumber(raw)),
+                            amount: double.parse(_unformatNumber(raw)),
                             type: step == ChatStep.targetAmount
                                 ? '목표금액'
                                 : '보유금액',
@@ -290,6 +632,27 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                           setState(() => _showFixedCostModal = true),
                       showDailySpendingModal: () =>
                           setState(() => _showDailySpendingModal = true),
+                      showPlanEditPage: () async {
+                        final editResult = await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => PlanEditPage(
+                              initialPlan: viewModel.totalPlan,
+                              initialRefData: viewModel.refData,
+                              useLocalDraft: true,
+                              // requireApplyDate: false,
+                            ),
+                          ),
+                        );
+                        if (editResult != null && mounted) {
+                          viewModel.applyPlanEditResult(editResult);
+                          final calc = viewModel.calculate();
+
+                          // 저축 가능 금액이 생겼으면 summary 섹션으로 이동
+                          if (calc != null && calc.dailyNetSaving > 0) {
+                            await viewModel.addSummarySection();
+                          }
+                        }
+                      },
                       inputController: _inputController,
                       isFormatting: _isFormatting,
                       onInputChanged: (value) {
@@ -342,28 +705,38 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                   title: '월 수입 입력하기',
                   placeholder: '수입 카테고리',
                   type: EntryType.fixed,
-                  customCategories: localCategoryVM.customIncomeCategories,
+                  customCategories: localCategoryVM.incomeCategories,
+
                   onCustomCategoryAdded: localCategoryVM.addCustomIncomeCategory,
                   onCustomCategoryRemoved: localCategoryVM.removeCustomIncomeCategory,
                   onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomIncomeCategoryWithEmoji,
+
                   categoryEmojis: localCategoryVM.incomeCategoryEmojis,
+
+                  onCategoryOrderChanged: (newOrder) {
+                    localCategoryVM.setIncomeOrder(newOrder);
+                  },
+
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
-
+                    final local = context.read<PlanCategoryViewModel>();
                     final now = DateTime.now();
-                    vm.updateRefData(
-                      fixedIncomes: items,
-                      applyDate:
-                      DateTime(now.year, now.month, now.day),
-                      modEndDate:
-                      DateTime(now.year, now.month, now.day),
+
+                    final normalized = _normalizeEntries(
+                      items: items,
+                      keyOf: local.keyOfIncome,
+                      emojiMap: local.incomeCategoryEmojis,
+                      forcedType: EntryType.fixed,
                     );
 
-                    final itemLines = items
-                        .map(
-                          (e) =>
-                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
-                    )
+                    vm.updateRefData(
+                      fixedIncomes: normalized,
+                      applyDate: DateTime(now.year, now.month, now.day),
+                      modEndDate: DateTime(now.year, now.month, now.day),
+                    );
+
+                    final itemLines = normalized
+                        .map((e) => '\n${e.emoji} ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -374,38 +747,29 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     await vm.waitForTypingToFinish();
 
                     _suppressNextBottomShow = true;
-
-                    await vm.addBotMessageWithTyping(
-                      '이제 소비를 입력해볼게요! ✏️\n'
-                          '소비는 두 단계로 나누어 입력할 거예요.\n\n',
-                    );
-
-                    await vm.addBotMessageWithTyping(
-                      '먼저 한 달에 한 번 나가는 고정소비부터 시작할게요.\n\n'
-                          '💡 소통 tip 💡\n고정소비는 생활에 꼭 필요한 금액으로,\n'
-                          '한 달에 한 번 정기적으로 지출되는 비용이에요.\n'
-                          '예: 주거비, 통신비, 구독료 등\n\n'
-                          '반면 식비나 교통비처럼 매일 쓰는 돈은\n'
-                          '다음 단계 ‘일 변동소비’에 입력해요!',
-                      awaitTyping: true,
-                    );
-                    vm.nextStep();
+                    await vm.addMonthlyFixedCostSection();
                   },
                 ),
 
                 // 2) 고정 소비
                 InputModalWidget(
                   isOpen: _showFixedCostModal,
-                  onClose: () =>
-                      setState(() => _showFixedCostModal = false),
+                  onClose: () => setState(() => _showFixedCostModal = false),
                   title: '고정 소비 입력하기',
                   placeholder: '고정 소비 항목',
                   type: EntryType.fixed,
-                  customCategories: localCategoryVM.customFixedExpenseCategories,
+
+                  customCategories: localCategoryVM.fixedExpenseCategories,
+
                   onCustomCategoryAdded: localCategoryVM.addCustomFixedExpenseCategory,
                   onCustomCategoryRemoved: localCategoryVM.removeCustomFixedExpenseCategory,
                   onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomFixedExpenseCategoryWithEmoji,
+
                   categoryEmojis: localCategoryVM.fixedExpenseCategoryEmojis,
+                  onCategoryOrderChanged: (newOrder) {
+                    localCategoryVM.setFixedOrder(newOrder);
+                  },
+
                   monthlyIncome: context
                       .read<ChatPlanViewModel>()
                       .totalPlan
@@ -413,22 +777,27 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       .totalMetrics
                       .monthlyIncomeAmount
                       .toDouble(),
+
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
+                    final local = context.read<PlanCategoryViewModel>();
                     final now = DateTime.now();
-                    vm.updateRefData(
-                      fixedConsumptions: items,
-                      applyDate:
-                      DateTime(now.year, now.month, now.day),
-                      modEndDate:
-                      DateTime(now.year, now.month, now.day),
+
+                    final normalized = _normalizeEntries(
+                      items: items,
+                      keyOf: local.keyOfFixed,
+                      emojiMap: local.fixedExpenseCategoryEmojis,
+                      forcedType: EntryType.fixed,
                     );
 
-                    final itemLines = items
-                        .map(
-                          (e) =>
-                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
-                    )
+                    vm.updateRefData(
+                      fixedConsumptions: normalized,
+                      applyDate: DateTime(now.year, now.month, now.day),
+                      modEndDate: DateTime(now.year, now.month, now.day),
+                    );
+
+                    final itemLines = normalized
+                        .map((e) => '\n${e.emoji} ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -436,68 +805,66 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                       '매달 빠져나가는 고정 소비는 총 ${SavingPlanCalculator.formatAmount(total)}원이에요.\n\n아래는 제가 입력한 내역이에요!$itemLines',
                       MessageType.user,
                     );
-                    await vm.addBotMessageWithTyping(
-                      '좋아요! 이제 하루 단위로 사용하는 일 변동소비를 입력해볼게요. 💳\n\n'
-                          '💡 소통 tip: 일 변동소비는 매일 반복되는 생활비예요.\n'
-                          '예: 식비, 교통비, 카페비, 여가비 등\n\n'
-                          '작은 지출이라도 꾸준히 관리하면 절약 효과가 커진답니다! ✨',
-                      awaitTyping: true,
-                    );
-                    vm.nextStep();
+
+                    await vm.addDailySpendingSection();
                   },
                 ),
 
                 // 3) 일 변동 소비
                 InputModalWidget(
                   isOpen: _showDailySpendingModal,
-                  onClose: () =>
-                      setState(() => _showDailySpendingModal = false),
+                  onClose: () => setState(() => _showDailySpendingModal = false),
                   title: '하루 사용 금액',
                   placeholder: '하루 소비 항목',
                   type: EntryType.daily,
-                  customCategories: dailyCats.map((c) => c.name).toList(),
-                  categoryEmojis: dailyEmojiMap,
-                  // 새 카테고리 추가(이름+이모지) -> reference로 저장
-                  onCustomCategoryAddedWithEmoji: (name, emoji) async {
-                    await categoryVM.addReferenceCategory(name: name, emoji: emoji);
+
+                  customCategories: localCategoryVM.dailyExpenseCategories,
+                  categoryEmojis: localCategoryVM.dailyExpenseCategoryEmojis,
+
+                  onCustomCategoryAddedWithEmoji: localCategoryVM.addCustomDailyExpenseCategoryWithEmoji,
+                  onCustomCategoryAdded: localCategoryVM.addCustomDailyExpenseCategory,
+                  onCustomCategoryRemoved: localCategoryVM.removeCustomDailyExpenseCategory,
+                  onCategoryOrderChanged: (newOrder) {
+                    localCategoryVM.setDailyOrder(newOrder);
                   },
-                  // InputModalWidget이 “텍스트만” 추가 콜백을 쓰면 이것도 필요
-                  onCustomCategoryAdded: (name) async {
-                    await categoryVM.addReferenceCategory(name: name, emoji: '💰');
-                  },
-                  // 삭제 -> archived 처리 (name -> id 찾아서)
-                  onCustomCategoryRemoved: (name) async {
-                    final target = dailyCats.where((c) => c.name == name).toList();
-                    if (target.isEmpty) return;
-                    await categoryVM.archiveCategory(target.first.id);
-                  },
+
                   monthlyIncome: (() {
-                    final vm =
-                    context.read<ChatPlanViewModel>();
+                    final vm = context.read<ChatPlanViewModel>();
                     final metrics = vm.totalPlan.result.totalMetrics;
-                    final double income =
-                    metrics.monthlyIncomeAmount.toDouble();
-                    final double fixed =
-                    metrics.monthlyConsumeAmount.toDouble();
+                    final double income = metrics.monthlyIncomeAmount.toDouble();
+                    final double fixed = metrics.monthlyConsumeAmount.toDouble();
+
                     final double leftover = income - fixed;
                     return leftover > 0 ? leftover : 0.0;
                   }()),
+
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
+                    final local = context.read<PlanCategoryViewModel>();
                     final now = DateTime.now();
-                    vm.updateRefData(
-                      dailyConsumptions: items,
-                      applyDate:
-                      DateTime(now.year, now.month, now.day),
-                      modEndDate:
-                      DateTime(now.year, now.month, now.day),
+
+                    final normalized = _normalizeEntries(
+                      items: items,
+                      keyOf: local.keyOfDaily,
+                      emojiMap: local.dailyExpenseCategoryEmojis,
+                      forcedType: EntryType.daily,
                     );
 
-                    final itemLines = items
-                        .map(
-                          (e) =>
-                      '\n📌 ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원',
-                    )
+                    vm.updateRefData(
+                      dailyConsumptions: normalized,
+                      applyDate: DateTime(now.year, now.month, now.day),
+                      modEndDate: DateTime(now.year, now.month, now.day),
+                    );
+
+                    final calc = vm.calculate();
+                    final hasNoSaving = calc == null || calc.dailyNetSaving <= 0;
+                    if (hasNoSaving) {
+                      await vm.addNoSaveMoneySection();
+                      return;
+                    }
+
+                    final itemLines = normalized
+                        .map((e) => '\n${e.emoji} ${e.category} : ${SavingPlanCalculator.formatAmount(e.amount)}원')
                         .join('');
 
                     await vm.waitForTypingToFinish();
@@ -507,11 +874,8 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                           '아래는 하루 소비 내역입니다.$itemLines',
                       MessageType.user,
                     );
-                    await vm.addBotMessageWithTyping(
-                      '이제 모든 입력이 끝났습니다.\n지금까지 입력해주신 내용을 바탕으로 저축 플랜을 계산해드릴게요!',
-                      awaitTyping: true,
-                    );
-                    vm.nextStep();
+
+                    await vm.addSummarySection();
                   },
                 ),
               ],
@@ -522,3 +886,6 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     );
   }
 }
+
+
+

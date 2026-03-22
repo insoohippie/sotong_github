@@ -10,9 +10,8 @@ import '../../../../../component/texts/caption_with_dot.dart';
 import '../../../../../component/texts/header_text.dart';
 import '../../../../../component/theme/app_spacing.dart';
 
-import 'footer_daily.dart';
-import 'footer_default.dart';
-import 'category_utils.dart';
+import 'footer/footer_daily.dart';
+import 'footer/footer_default.dart';
 import 'input_item_row.dart';
 
 class InputModalWidget extends StatefulWidget {
@@ -23,12 +22,15 @@ class InputModalWidget extends StatefulWidget {
   final bool isEdit; // true when editing existing data
   final String placeholder;
   final String hintText;
-  final List<String>? customCategories; // 사용자 입력 카테고리
-  final Function(String)? onCustomCategoryAdded; // 사용자 카테고리 추가 콜백
-  final Function(String)? onCustomCategoryRemoved; // 사용자 카테고리 삭제 콜백
-  final Function(String, String)?
-  onCustomCategoryAddedWithEmoji; // 카테고리와 이모지를 함께 전달하는 콜백
-  final Map<String, String>? categoryEmojis; // 카테고리별 이모지 정보
+
+  /// ✅ 여기로 "기본4개+커스텀" 합쳐진 리스트를 넣어주면 됨 (VM getter)
+  final List<String>? customCategories;
+
+  final Function(String)? onCustomCategoryAdded;
+  final Function(String)? onCustomCategoryRemoved;
+
+  final Function(String, String)? onCustomCategoryAddedWithEmoji;
+  final Map<String, String>? categoryEmojis;
 
   /// EntryType.daily | EntryType.fixed (수입/고정소비는 fixed 사용)
   final EntryType type;
@@ -36,6 +38,10 @@ class InputModalWidget extends StatefulWidget {
 
   /// 비교 기준(한도). 일일: (가용예산), 고정: (월수입합)
   final double? monthlyIncome;
+
+  /// ✅ 바텀시트에서 드래그로 바뀐 카테고리 순서를 바깥(VM)에 저장하기 위한 콜백
+  /// newOrder: "현재 바텀시트에서 보여주는 categories의 최종 순서"
+  final void Function(List<String> newOrder)? onCategoryOrderChanged;
 
   const InputModalWidget({
     Key? key,
@@ -54,6 +60,7 @@ class InputModalWidget extends StatefulWidget {
     this.onCustomCategoryRemoved,
     this.onCustomCategoryAddedWithEmoji,
     this.categoryEmojis,
+    this.onCategoryOrderChanged,
   }) : super(key: key);
 
   @override
@@ -64,11 +71,11 @@ class _InputModalWidgetState extends State<InputModalWidget>
     with SingleTickerProviderStateMixin {
   // ----- 애니메이션 컨트롤 -----
   late final AnimationController _ctrl;
-  late final Animation<Offset> _slide; // 아래서 위로/위에서 아래로
+  late final Animation<Offset> _slide;
   late final Animation<double> _scrimFade;
-  static const _kSlideMs = 500; // 닫힘이 확실히 보이도록 500ms
+  static const _kSlideMs = 500;
 
-  bool _logicalOpen = false; // 논리적 열림(내부 상태)
+  bool _logicalOpen = false;
 
   // ----- 데이터 -----
   List<Entry> items = [];
@@ -90,7 +97,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
     );
 
     _slide = Tween<Offset>(
-      begin: const Offset(0, 1), // 아래서 시작
+      begin: const Offset(0, 1),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
 
@@ -101,7 +108,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
     _logicalOpen = widget.isOpen;
     if (_logicalOpen) {
-      // 첫 프레임 이후 forward 해야 제대로 보임
       SchedulerBinding.instance.addPostFrameCallback((_) => _ctrl.forward());
     }
 
@@ -114,13 +120,11 @@ class _InputModalWidgetState extends State<InputModalWidget>
   void didUpdateWidget(covariant InputModalWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 외부 isOpen 변경 → 내부 애니로 동기화
     if (oldWidget.isOpen != widget.isOpen) {
       _logicalOpen = widget.isOpen;
       if (_logicalOpen) {
         _ctrl.forward();
       } else {
-        // 외부가 강제 닫기한 경우에도 부드럽게
         _ctrl.reverse().whenComplete(() {
           if (mounted) widget.onClose();
         });
@@ -172,11 +176,16 @@ class _InputModalWidgetState extends State<InputModalWidget>
       for (final item in items) {
         _initializeControllers(item.idx, item.category, item.amount);
       }
+
       while (items.length < minCount) {
+        final seedIdx = DateTime.now().millisecondsSinceEpoch + items.length;
         final seed = Entry(
-          idx: DateTime.now().millisecondsSinceEpoch + items.length,
+          idx: seedIdx,
+          order: items.length,
           amount: 0.0,
+          categoryKey: '',
           category: '',
+          emoji: '💰',
           type: widget.type,
         );
         items.add(seed);
@@ -184,13 +193,18 @@ class _InputModalWidgetState extends State<InputModalWidget>
       }
     } else {
       items = List.generate(minCount, (i) {
+        final idx = DateTime.now().millisecondsSinceEpoch + i;
         return Entry(
-          idx: DateTime.now().millisecondsSinceEpoch + i,
+          idx: idx,
+          order: i,
           amount: 0.0,
+          categoryKey: '',
           category: '',
+          emoji: '💰',
           type: widget.type,
         );
       });
+
       for (final item in items) {
         _initializeControllers(item.idx, item.category, item.amount);
       }
@@ -205,6 +219,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
   }
 
   String _unformatNumber(String value) => value.replaceAll(',', '');
+
   String _formatNumber(String value) {
     if (value.isEmpty) return '';
     final n = int.tryParse(_unformatNumber(value));
@@ -219,21 +234,49 @@ class _InputModalWidgetState extends State<InputModalWidget>
     final newIdx = DateTime.now().millisecondsSinceEpoch + items.length;
     setState(() {
       items.add(
-        Entry(idx: newIdx, amount: 0.0, category: '', type: widget.type),
+        Entry(
+          idx: newIdx,
+          order: items.length,
+          amount: 0.0,
+          categoryKey: '',
+          category: '',
+          emoji: '💰',
+          type: widget.type,
+        ),
       );
       _initializeControllers(newIdx, '', 0.0);
       if (error.isNotEmpty) error = '';
     });
   }
 
+  // 불변 Entry: copyWith로 교체
   void updateItem(int idx, String field, dynamic value) {
     final i = items.indexWhere((e) => e.idx == idx);
     if (i == -1) return;
+
+    final current = items[i];
+
     if (field == 'category') {
-      items[i].category = value as String;
+      final nextName = (value as String);
+      final nextTrim = nextName.trim();
+
+      final emojiMap = widget.categoryEmojis ?? const <String, String>{};
+      final pickedEmoji = emojiMap[nextTrim];
+
+      final nextEmoji = (pickedEmoji != null && pickedEmoji.trim().isNotEmpty)
+          ? pickedEmoji.trim()
+          : '💰';
+
+      items[i] = current.copyWith(
+        category: nextName,
+        emoji: nextEmoji,
+        categoryKey: current.categoryKey,
+      );
     } else if (field == 'amount') {
-      items[i].amount = (value as num).toDouble();
+      final nextAmount = (value as num).toDouble();
+      items[i] = current.copyWith(amount: nextAmount);
     }
+
     setState(() {
       if (error.isNotEmpty) error = '';
     });
@@ -242,6 +285,11 @@ class _InputModalWidgetState extends State<InputModalWidget>
   void removeItem(int idx) {
     setState(() {
       items.removeWhere((e) => e.idx == idx);
+
+      items = [
+        for (int k = 0; k < items.length; k++) items[k].copyWith(order: k),
+      ];
+
       _categoryControllers[idx]?.dispose();
       _amountControllers[idx]?.dispose();
       _categoryControllers.remove(idx);
@@ -250,13 +298,13 @@ class _InputModalWidgetState extends State<InputModalWidget>
     });
   }
 
-  Future<void> _closeWithAnimation() async {
+  Future<void> _closeAfterSubmit() async {
     if (_ctrl.status == AnimationStatus.dismissed ||
         _ctrl.status == AnimationStatus.reverse) {
       return;
     }
-    await _ctrl.reverse(); // ↓ 슬라이드 다운 + 스크림 페이드아웃
-    if (mounted) widget.onClose(); // 여기서 부모가 isOpen=false로 바꿔주세요.
+    await _ctrl.reverse();
+    if (mounted) widget.onClose();
   }
 
   Future<void> handleComplete() async {
@@ -264,13 +312,11 @@ class _InputModalWidgetState extends State<InputModalWidget>
         .where((e) => e.category.trim().isNotEmpty && e.amount > 0.0)
         .toList();
 
-    final hasEmptyCategory = items.any(
-      (e) => e.amount > 0.0 && e.category.trim().isEmpty,
-    );
+    final hasEmptyCategory =
+    items.any((e) => e.amount > 0.0 && e.category.trim().isEmpty);
 
-    final hasZeroAmountWithCategory = items.any(
-      (e) => e.amount == 0.0 && e.category.trim().isNotEmpty,
-    );
+    final hasZeroAmountWithCategory =
+    items.any((e) => e.amount == 0.0 && e.category.trim().isNotEmpty);
 
     if (hasEmptyCategory) {
       setState(() => error = '카테고리명을 정확히 입력해주세요.');
@@ -288,13 +334,26 @@ class _InputModalWidgetState extends State<InputModalWidget>
     }
 
     widget.onComplete(valid, getTotalAmount());
-    await _closeWithAnimation(); // 닫힘 애니 후 onClose 호출
+    debugPrint(valid.map((e) => '${e.category}=${e.emoji}').join(' | '));
+    await _closeAfterSubmit();
     setState(() => error = '');
   }
 
   Widget buildContent() {
     final kind = _resolveKind();
     final over = _isOverBudget();
+
+    final selectedNames = items
+        .map((e) => e.category.trim())
+        .where((name) => name.isNotEmpty)
+        .toSet();
+
+    // 힌트(프리셋과 무관, 그냥 kind 기준)
+    final String hint = (kind == ItemKind.daily)
+        ? '예: 12,000원'
+        : (kind == ItemKind.income)
+        ? '예: 1,000,000원'
+        : '예: 450,000원';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppSpacing.screenPadding),
@@ -310,24 +369,10 @@ class _InputModalWidgetState extends State<InputModalWidget>
               ),
               child: Text(
                 error,
-                style: TextStyle(color: Color(0xFFDC2626), fontSize: 14),
+                style: const TextStyle(color: Color(0xFFDC2626), fontSize: 14),
               ),
             ),
           ...items.map((item) {
-            late final List<CatPreset> presets;
-            late final String hint;
-
-            if (kind == ItemKind.daily) {
-              presets = dailyPresets;
-              hint = '예: 12,000원';
-            } else if (kind == ItemKind.income) {
-              presets = incomePresets;
-              hint = '예: 1,000,000원';
-            } else {
-              presets = fixedPresets;
-              hint = '예: 450,000원';
-            }
-
             return InputItemRow(
               kind: kind,
               item: item,
@@ -335,16 +380,18 @@ class _InputModalWidgetState extends State<InputModalWidget>
               amountController: _amountControllers[item.idx]!,
               onUpdate: updateItem,
               onRemove: removeItem,
-              presets: presets,
-              customCategories: widget.customCategories,
-              onCustomCategoryAdded: widget.onCustomCategoryAdded,
-              onCustomCategoryRemoved: widget.onCustomCategoryRemoved,
-              onCustomCategoryAddedWithEmoji:
-                  widget.onCustomCategoryAddedWithEmoji,
+
+              categories: widget.customCategories,
+              onCategoryAdded: widget.onCustomCategoryAdded,
+              onCategoryRemoved: widget.onCustomCategoryRemoved,
+              onCategoryAddedWithEmoji: widget.onCustomCategoryAddedWithEmoji,
               categoryEmojis: widget.categoryEmojis,
+              onCategoryOrderChanged: widget.onCategoryOrderChanged,
+
               amountHint: hint,
               showMonthlyHint: kind == ItemKind.daily,
               isOverBudget: over,
+              alreadySelectedNames: selectedNames,
             );
           }).toList(),
           SmallRoundedButton(
@@ -365,10 +412,10 @@ class _InputModalWidgetState extends State<InputModalWidget>
     final kind = _resolveKind();
     if (kind == ItemKind.income) {
       titleText = '월 수입을 입력해주세요';
-      captionText = '매달 반복적으로 들어오는 수입을 항목별로 입력해요.';
+      captionText = '매달 들어오는 수입을 항목별로 입력해요.';
     } else if (kind == ItemKind.fixed) {
       titleText = '고정 소비를 입력해주세요';
-      captionText = '매달 빠짐없이 자동으로 지출되는 비용만 입력해요.';
+      captionText = '매달 고정적으로 지출되는 비용만 입력해요.';
     }
 
     return Visibility(
@@ -385,7 +432,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
               children: [
                 HeaderText(text: titleText),
                 const SizedBox(height: 10),
-                // CaptionWithDot(text: captionText), // 분리해두셨다면 이렇게
                 CaptionWithDot(text: captionText),
               ],
             ),
@@ -420,20 +466,17 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
   @override
   Widget build(BuildContext context) {
-    // 부모는 항상 위젯을 트리에 유지하고 isOpen만 바꿔주면 됩니다.
     return IgnorePointer(
       ignoring: _ctrl.status == AnimationStatus.dismissed,
       child: Stack(
         children: [
-          // 스크림
           FadeTransition(
             opacity: _scrimFade,
-            child: GestureDetector(
-              onTap: _closeWithAnimation, // 탭으로 닫기(애니 후 onClose)
+            child: AbsorbPointer(
+              absorbing: true,
               child: Container(color: Colors.black54),
             ),
           ),
-          // 모달
           Positioned.fill(
             child: SlideTransition(
               position: _slide,

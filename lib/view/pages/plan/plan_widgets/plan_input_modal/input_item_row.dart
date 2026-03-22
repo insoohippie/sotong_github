@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/model/refData/entry.dart';
-
-import 'category_utils.dart'; // 여기 안에 새로운 openCategorySheet / CatPreset 있음
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/plan_category_pill.dart';
+import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/plan_category_sheet.dart';
 
 enum ItemKind { daily, income, fixed }
 
@@ -17,22 +17,26 @@ class InputItemRow extends StatelessWidget {
   final void Function(int idx, String field, dynamic value) onUpdate;
   final void Function(int idx) onRemove;
 
-  final List<CatPreset> presets;
-
   // ---- 카테고리 관련 ----
-  final List<String>? customCategories;                    // 사용자 커스텀 카테고리 이름 리스트
-  final Function(String)? onCustomCategoryAdded;           // 이름만 추가할 때
-  final Function(String)? onCustomCategoryRemoved;         // 이름 삭제
-  final Function(String, String)? onCustomCategoryAddedWithEmoji; // (이름, 이모지) 같이 추가
-  final Map<String, String>? categoryEmojis;               // {카테고리명: 이모지}
+  /// ✅ 여기엔 "기본4개+커스텀"이 합쳐진 리스트가 들어오면 됨 (VM에서 보장)
+  final List<String>? categories;
 
-  /// 👉 새로 추가: 정렬 결과 콜백 (선택)
+  final Function(String)? onCategoryAdded;
+  final Function(String)? onCategoryRemoved;
+
+  final Function(String name, String emoji)? onCategoryAddedWithEmoji;
+
+  /// ✅ category -> emoji (기본+커스텀 merge된 맵을 넘겨줘야 함)
+  final Map<String, String>? categoryEmojis;
+
+  final Set<String> alreadySelectedNames;
+
   final void Function(List<String> newOrder)? onCategoryOrderChanged;
 
   // ---- 금액/표시 관련 ----
-  final String? amountHint;        // 기본 힌트 텍스트
-  final bool showMonthlyHint;      // daily일 때 월환산 안내 표시 여부
-  final bool isOverBudget;         // 예산 초과 여부(행 강조용)
+  final String? amountHint;
+  final bool showMonthlyHint;
+  final bool isOverBudget;
 
   const InputItemRow({
     Key? key,
@@ -42,11 +46,11 @@ class InputItemRow extends StatelessWidget {
     required this.amountController,
     required this.onUpdate,
     required this.onRemove,
-    required this.presets,
-    this.customCategories,
-    this.onCustomCategoryAdded,
-    this.onCustomCategoryRemoved,
-    this.onCustomCategoryAddedWithEmoji,
+    required this.alreadySelectedNames,
+    this.categories,
+    this.onCategoryAdded,
+    this.onCategoryRemoved,
+    this.onCategoryAddedWithEmoji,
     this.categoryEmojis,
     this.onCategoryOrderChanged,
     this.amountHint,
@@ -55,7 +59,6 @@ class InputItemRow extends StatelessWidget {
   }) : super(key: key);
 
   // ---------- 카테고리별 기본 힌트 ----------
-
   Map<String, String> get _incomeHints => const {
     '급여': '2,500,000원',
     '부업·아르바이트': '300,000원',
@@ -74,8 +77,7 @@ class InputItemRow extends StatelessWidget {
     '쇼핑': '10,000원',
   };
 
-  // ---------- 숫자 포맷 유틸 ----------
-
+  // ---------- 숫자 포맷 ----------
   String _un(String v) => v.replaceAll(',', '');
   String _comma(String v) {
     if (v.isEmpty) return '';
@@ -168,9 +170,8 @@ class InputItemRow extends StatelessWidget {
           ),
 
           // 일일 → 월환산 안내문
-          if (isDaily && showMonthlyHint && value > 0.0)
+          if (isDaily && showMonthlyHint && value > 0.0) ...[
             const SizedBox(height: 6),
-          if (isDaily && showMonthlyHint && value > 0.0)
             Row(
               children: [
                 const Text(
@@ -200,68 +201,58 @@ class InputItemRow extends StatelessWidget {
                 ),
               ],
             ),
+          ],
         ],
       ),
     );
   }
 
-  /// 카테고리 Pill + 바텀시트 오픈 로직 분리
+  /// 카테고리 Pill + 바텀시트 오픈 로직 (프리셋 없음)
   Widget _buildCategoryPill(BuildContext context) {
-    // 1) 프리셋 이름 리스트
-    final presetNames = presets.map((p) => p.name).toList();
-
-    // 2) 커스텀 카테고리 (nullable 안전 처리)
-    final custom = customCategories ?? const <String>[];
-
-    // 3) 프리셋 + 커스텀 이름 통합 (중복 제거)
-    final allNames = <String>{
-      ...presetNames,
-      ...custom,
-    }.toList();
-
-    // 4) 이모지 맵 (없으면 빈 맵)
+    final allNames = (categories ?? const <String>[]).toList(growable: false);
     final emojiMap = categoryEmojis ?? const <String, String>{};
 
-    final bool hasInput =
-        categoryController.text.trim().isNotEmpty ||
-            (double.tryParse(_un(amountController.text)) ?? 0.0) > 0.0;
+    final selectedName = categoryController.text.trim();
+    final selectedEmoji =
+    selectedName.isEmpty ? '💰' : (emojiMap[selectedName] ?? '💰');
 
-    return CategoryPill(
+    final bool hasInput = selectedName.isNotEmpty ||
+        (double.tryParse(_un(amountController.text)) ?? 0.0) > 0.0;
+
+    return PlanCategoryPill(
       text: categoryController.text,
-      presets: presets, // Pill 왼쪽 아이콘용 (예전대로)
+      emoji: selectedEmoji,
       onTap: () {
-        openCategorySheet(
+        debugPrint('[CategorySheet] kind=$kind categories=${allNames.length} ${allNames.take(10).toList()}');
+        openPlanCategorySheet(
           context,
           categoryController,
               (val) => onUpdate(item.idx, 'category', val),
-
-          /// 새 구조로 변경된 파라미터들
           categories: allNames,
           categoryEmojis: emojiMap,
+          alreadySelectedNames: alreadySelectedNames,
+          currentSelectedName: selectedName,
 
-          // ✅ 새 카테고리 추가될 때: (이름, 이모지)
+          // ✅ 선택 시에도 emoji 저장
+          onSelectedWithEmoji: (name, emoji) {
+            onCategoryAddedWithEmoji?.call(name, emoji);
+          },
+
+          // ✅ 새 카테고리 추가 시에도 emoji 저장
           onCategoryAdded: (name, emoji) {
-            // ViewModel에서 (name, emoji)로 받고 싶으면 이 콜백을 연결해주면 됨
-            if (onCustomCategoryAddedWithEmoji != null) {
-              onCustomCategoryAddedWithEmoji!(name, emoji);
-            } else if (onCustomCategoryAdded != null) {
-              // 이모지 신경 안 쓰는 쪽(수입/고정 등)은 이름만 저장
-              onCustomCategoryAdded!(name);
+            if (onCategoryAddedWithEmoji != null) {
+              onCategoryAddedWithEmoji!(name, emoji);
+            } else {
+              onCategoryAdded?.call(name);
             }
           },
 
-          // ✅ 카테고리 삭제될 때
           onCategoryRemoved: (name) {
-            if (onCustomCategoryRemoved != null) {
-              onCustomCategoryRemoved!(name);
-            }
+            onCategoryRemoved?.call(name);
           },
 
-          // ✅ 순서 변경 후 최종 리스트 올라감
           onReorder: (newOrder) {
-            if (onCategoryOrderChanged != null) {
-              onCategoryOrderChanged!(newOrder);
-            }
+            onCategoryOrderChanged?.call(newOrder);
           },
         );
       },
@@ -271,7 +262,6 @@ class InputItemRow extends StatelessWidget {
       },
       height: 60,
       highlight: isOverBudget && hasInput,
-      customEmoji: emojiMap[categoryController.text.trim()],
     );
   }
 

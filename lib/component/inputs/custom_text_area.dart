@@ -57,7 +57,11 @@ class CustomTextArea extends StatelessWidget {
           isCollapsed: false,
           isDense: true,
           hintText: hintText,
-          hintStyle: AppTextStyles.paragraph.copyWith(color: Colors.grey),
+          hintStyle: AppTextStyles.paragraph.copyWith(
+            fontSize: 13,
+            color: Colors.grey,
+            fontFamily: 'Pretendard Variable',
+          ),
           border: InputBorder.none,
           suffixIcon: suffix,
         ),

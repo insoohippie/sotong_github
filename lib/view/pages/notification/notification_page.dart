@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
+import '../../../component/buttons/multi_option_toggle.dart';
 import '../../../component/theme/app_border_radius.dart';
 import '../../../model/notification/notification_item.dart';
 import '../../../view_model/notification/notification_view_model.dart';
-import 'notification_setting.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -12,14 +13,13 @@ class NotificationPage extends StatefulWidget {
   State<NotificationPage> createState() => _NotificationPageState();
 }
 
-class _NotificationPageState extends State<NotificationPage>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _NotificationPageState extends State<NotificationPage> {
+  static const List<String> _tabLabels = ['출석', '홈', '레포트', '소통'];
+  int _selectedIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
     // 테스트용 샘플 알림 생성
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<NotificationViewModel>().generateSampleNotifications();
@@ -27,106 +27,45 @@ class _NotificationPageState extends State<NotificationPage>
   }
 
   @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F9FA),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          '알림',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-            fontFamily: 'Pretendard Variable',
-          ),
-        ),
-        centerTitle: false,
-        actions: [
-          Consumer<NotificationViewModel>(
-            builder: (context, vm, child) {
-              if (vm.notifications.isNotEmpty) {
-                return TextButton(
-                  onPressed: () {
-                    vm.markAllAsRead();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('모든 알림을 읽음 처리했습니다.'),
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                  child: const Text(
-                    '모두 읽음',
-                    style: TextStyle(
-                      color: Color(0xFF2563EB),
-                      fontFamily: 'Pretendard Variable',
-                    ),
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.settings, color: Colors.black),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const NotificationSettingPage(),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: const BackOnlyAppBar(),
       body: SafeArea(
         child: Column(
           children: [
-            // 탭 바
-            Container(
-              color: const Color(0xFFF8F9FA),
-              child: TabBar(
-                controller: _tabController,
-                labelColor: const Color(0xFF2563EB),
-                unselectedLabelColor: Colors.grey,
-                indicatorColor: const Color(0xFF2563EB),
-                tabs: const [
-                  Tab(text: '출석'),
-                  Tab(text: '홈'),
-                  Tab(text: '레포트'),
-                  Tab(text: '소통'),
-                ],
+            // 4개 토글 (출석, 홈, 레포트, 소통)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: MultiOptionToggle(
+                labels: _tabLabels,
+                selected: _tabLabels[_selectedIndex],
+                onChanged: (label) {
+                  final index = _tabLabels.indexOf(label);
+                  if (index >= 0) setState(() => _selectedIndex = index);
+                },
+                width: MediaQuery.of(context).size.width - 48,
+                height: 40,
               ),
             ),
-            // 탭 뷰
+            // 선택된 탭 콘텐츠
             Expanded(
               child: Consumer<NotificationViewModel>(
                 builder: (context, vm, child) {
-                  return TabBarView(
-                    controller: _tabController,
+                  final categories = [
+                    NotificationCategory.attendance,
+                    NotificationCategory.home,
+                    NotificationCategory.report,
+                    NotificationCategory.communication,
+                  ];
+                  return IndexedStack(
+                    index: _selectedIndex,
                     children: [
-                      _buildNotificationList(
-                        NotificationCategory.attendance,
-                        vm,
-                      ),
-                      _buildNotificationList(NotificationCategory.home, vm),
-                      _buildNotificationList(NotificationCategory.report, vm),
-                      _buildNotificationList(
-                        NotificationCategory.communication,
-                        vm,
-                      ),
+                      _buildNotificationList(categories[0], vm),
+                      _buildNotificationList(categories[1], vm),
+                      _buildNotificationList(categories[2], vm),
+                      _buildNotificationList(categories[3], vm),
                     ],
                   );
                 },
@@ -139,9 +78,10 @@ class _NotificationPageState extends State<NotificationPage>
   }
 
   Widget _buildNotificationList(
-    NotificationCategory category,
-    NotificationViewModel vm,
-  ) {
+      NotificationCategory category,
+      NotificationViewModel vm,
+      ) {
+    final context = this.context;
     final categoryNotifications = vm.notifications
         .where((n) => n.category == category)
         .toList();
@@ -172,28 +112,28 @@ class _NotificationPageState extends State<NotificationPage>
       padding: const EdgeInsets.all(16),
       children: [
         // 오늘 알림 섹션 (항상 표시)
-        _buildSectionHeader('오늘 알림'),
+        _buildSectionHeader('오늘 알림', context),
         const SizedBox(height: 8),
-        _buildNotificationSection(todayNotifications, vm),
+        _buildNotificationSection(todayNotifications, vm, context),
 
         // 지난 알림 섹션 (항상 표시)
         const SizedBox(height: 24),
-        _buildSectionHeader('지난 알림'),
+        _buildSectionHeader('지난 알림', context),
         const SizedBox(height: 8),
-        _buildNotificationSection(pastNotifications, vm),
+        _buildNotificationSection(pastNotifications, vm, context),
       ],
     );
   }
 
-  Widget _buildSectionHeader(String title) {
+  Widget _buildSectionHeader(String title, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Text(
         title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Colors.black,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Theme.of(context).colorScheme.onSurface,
           fontFamily: 'Pretendard Variable',
         ),
       ),
@@ -201,55 +141,57 @@ class _NotificationPageState extends State<NotificationPage>
   }
 
   Widget _buildNotificationSection(
-    List<NotificationItem> notifications,
-    NotificationViewModel vm,
-  ) {
+      List<NotificationItem> notifications,
+      NotificationViewModel vm,
+      BuildContext context,
+      ) {
+    final theme = Theme.of(context);
     return Container(
       constraints: const BoxConstraints(minHeight: 80),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: AppBorderRadius.card,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: theme.dividerColor),
       ),
       child: notifications.isEmpty
           ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.notifications_none,
-                      size: 32,
-                      color: Colors.grey.withOpacity(0.5),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '알림이 없습니다',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
-                        fontFamily: 'Pretendard Variable',
-                      ),
-                    ),
-                  ],
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.notifications_none,
+                size: 32,
+                color: Colors.grey.withOpacity(0.5),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '알림이 없습니다',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.grey[600],
+                  fontFamily: 'Pretendard Variable',
                 ),
               ),
-            )
+            ],
+          ),
+        ),
+      )
           : Column(
-              children: notifications
-                  .map(
-                    (notification) => _buildNotificationItem(notification, vm),
-                  )
-                  .toList(),
-            ),
+        children: notifications
+            .map(
+              (notification) => _buildNotificationItem(notification, vm),
+        )
+            .toList(),
+      ),
     );
   }
 
   Widget _buildNotificationItem(
-    NotificationItem notification,
-    NotificationViewModel vm,
-  ) {
+      NotificationItem notification,
+      NotificationViewModel vm,
+      ) {
     return Dismissible(
       key: ValueKey(notification.id),
       direction: DismissDirection.endToStart,
@@ -304,6 +246,7 @@ class _NotificationPageState extends State<NotificationPage>
           title: Text(
             notification.title,
             style: TextStyle(
+              fontSize: 13,
               fontWeight: notification.isRead
                   ? FontWeight.normal
                   : FontWeight.w600,
@@ -318,17 +261,18 @@ class _NotificationPageState extends State<NotificationPage>
               Text(
                 notification.message,
                 style: const TextStyle(
+                  fontSize: 11,
                   color: Colors.black,
                   fontFamily: 'Pretendard Variable',
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 _formatTime(notification.createdAt),
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   color: Colors.grey[500],
                   fontFamily: 'Pretendard Variable',
                 ),

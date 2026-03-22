@@ -2,19 +2,20 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 
-import '../data_source/record_data_source.dart';
 import '../data_source/auth_data_source.dart';
-import '../model/record/day_spending.dart';
-import '../model/record/monthly_spending.dart';
+import '../data_source/record_data_source.dart';
+import '../model/record/day_record.dart';
+import '../model/record/monthly_record.dart';
+import '../model/record/record_entry.dart';
 
 class RecordRepository {
   final RecordDataSource _dataSource;
   final AuthDataSource _authDataSource;
 
+  /// ✅ 기존 캐시와의 호환을 위해 box 이름은 그대로 유지
   final Box _cacheBox = Hive.box('monthly_spending');
 
   RecordRepository(this._dataSource, this._authDataSource);
@@ -25,18 +26,16 @@ class RecordRepository {
   bool isOnline = true;
 
   // ============== 내부: 키/캐시/dirty 헬퍼 ==============
+
   String _monthKey(String monthKey) {
     final uid = _uid;
-    if (uid == null) {
-      return 'NO_UID:$monthKey';
-    }
+    if (uid == null) return 'NO_UID:$monthKey';
     return '$uid:$monthKey';
   }
 
-  /// dirty 플래그 key
   String _dirtyKey(String monthKey) => '${_monthKey(monthKey)}:dirty';
 
-  MonthlySpending? _loadFromCache(String monthKey) {
+  MonthlyRecord? _loadFromCache(String monthKey) {
     final uid = _uid;
     if (uid == null) return null;
 
@@ -48,15 +47,16 @@ class RecordRepository {
 
     try {
       final map = jsonDecode(rawStr) as Map<String, dynamic>;
-      return MonthlySpending.fromJson(map);
+      return MonthlyRecord.fromJson(map);
     } catch (_) {
       return null;
     }
   }
 
-  void _saveToCache(String monthKey, MonthlySpending month) {
+  void _saveToCache(String monthKey, MonthlyRecord month) {
     final uid = _uid;
     if (uid == null) return;
+
     final key = _monthKey(monthKey);
     _cacheBox.put(key, jsonEncode(month.toJson()));
   }
@@ -64,6 +64,7 @@ class RecordRepository {
   bool _isDirty(String monthKey) {
     final uid = _uid;
     if (uid == null) return false;
+
     final v = _cacheBox.get(_dirtyKey(monthKey));
     return v is bool ? v : false;
   }
@@ -71,75 +72,92 @@ class RecordRepository {
   void _setDirty(String monthKey, bool value) {
     final uid = _uid;
     if (uid == null) return;
+
     _cacheBox.put(_dirtyKey(monthKey), value);
   }
 
-  bool _isSame(MonthlySpending a, MonthlySpending b) {
+  bool _isSame(MonthlyRecord a, MonthlyRecord b) {
     return jsonEncode(a.toJson()) == jsonEncode(b.toJson());
+  }
+
+  // ============== 내부: Firestore safe wrappers ==============
+
+  Future<DocumentSnapshot<Map<String, dynamic>>?> _safeGetRemoteMonth(
+      String uid,
+      String monthKey,
+      ) async {
+    try {
+      return await _dataSource.getMonthlyDoc(uid, monthKey);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// ✅ 성공/실패를 리턴한다 (실패면 dirty 유지)
+  Future<bool> _safeSetRemote(
+      String uid,
+      String monthKey,
+      MonthlyRecord month,
+      ) async {
+    try {
+      final data = month.toJson()..['updatedAt'] = FieldValue.serverTimestamp();
+      await _dataSource.setMonthlyDoc(uid, monthKey, data, merge: false);
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   // ============== Public: 월 단위 로드/저장 ==============
 
-  // 날짜 → 'yyyy-MM' 문자열로 변환
   String _toMonthKey(DateTime date) => DateFormat('yyyy-MM').format(date);
 
-  /// 오프라인 퍼스트 월 로딩
-  ///
-  /// 1) 캐시가 있으면:
-  ///    - 오프라인 또는 uid 없음 → 캐시 그대로 사용
-  ///    - 온라인:
-  ///        - Firestore 문서 가져와서:
-  ///          - 서버 없음:
-  ///              - 캐시 dirty면 → 캐시를 서버에 업로드
-  ///              - 아니면 → 캐시 기준 그대로 사용(필요시 업로드)
-  ///          - 서버 있음:
-  ///              - 캐시 dirty:
-  ///                  - remote != cache → 로컬 우선(캐시 → 서버 덮어쓰기)
-  ///                  - remote == cache → dirty 해제
-  ///              - 캐시 not dirty:
-  ///                  - remote != cache → 서버 우선(remote → 캐시 덮어쓰기)
-  ///                  - remote == cache → 그대로
-  ///
-  /// 2) 캐시가 없으면:
-  ///    - 온라인:
-  ///        - 서버에 있으면 remote → 캐시
-  ///        - 없으면 MonthlySpending.empty() 생성해서 서버/캐시에 저장
-  ///    - 오프라인:
-  ///        - empty 생성해서 캐시만, dirty=true
-  Future<MonthlySpending> loadMonthlySpending(String monthKey) async {
+  Future<MonthlyRecord> loadMonthlyRecord(String monthKey) async {
     final uid = _uid;
 
+    // A. uid 없으면: 기본값만 반환
     if (uid == null) {
-      return MonthlySpending.empty(monthKey);
+      return MonthlyRecord.empty(monthKey);
     }
 
     final cache = _loadFromCache(monthKey);
     final dirty = _isDirty(monthKey);
 
+    // 1) 캐시가 있으면 캐시 우선
     if (cache != null) {
       if (!isOnline) return cache;
 
-      final snap = await _dataSource.getMonthlyDoc(uid, monthKey);
+      final snap = await _safeGetRemoteMonth(uid, monthKey);
+
+      // 서버 read 실패면 캐시 반환
+      if (snap == null) return cache;
+
+      // 서버 문서 없음
       if (!snap.exists) {
+        final ok = await _safeSetRemote(uid, monthKey, cache);
+
         if (dirty) {
-          await _safeSetRemote(uid, monthKey, cache);
-          _setDirty(monthKey, false);
-        } else {
-          await _safeSetRemote(uid, monthKey, cache);
+          if (ok) _setDirty(monthKey, false);
         }
+
         return cache;
       }
 
+      // 서버 문서 있음
       final data = snap.data() as Map<String, dynamic>;
-      final remote = MonthlySpending.fromFirestore(monthKey, data);
+      final remote = MonthlyRecord.fromFirestore(monthKey, data);
 
       if (dirty) {
+        // dirty=true => 로컬 우선
         if (!_isSame(cache, remote)) {
-          await _safeSetRemote(uid, monthKey, cache);
+          final ok = await _safeSetRemote(uid, monthKey, cache);
+          if (ok) _setDirty(monthKey, false);
+        } else {
+          _setDirty(monthKey, false);
         }
-        _setDirty(monthKey, false);
         return cache;
       } else {
+        // dirty=false => 서버 우선
         if (!_isSame(cache, remote)) {
           _saveToCache(monthKey, remote);
           _setDirty(monthKey, false);
@@ -149,92 +167,152 @@ class RecordRepository {
       }
     }
 
+    // 2) 캐시가 없으면
     if (isOnline) {
-      final snap = await _dataSource.getMonthlyDoc(uid, monthKey);
+      final snap = await _safeGetRemoteMonth(uid, monthKey);
+
+      // 서버 read 실패면: local empty + dirty=true
+      if (snap == null) {
+        final fallback = MonthlyRecord.empty(monthKey);
+        _saveToCache(monthKey, fallback);
+        _setDirty(monthKey, true);
+        return fallback;
+      }
+
       if (snap.exists) {
         final data = snap.data() as Map<String, dynamic>;
-        final remote = MonthlySpending.fromFirestore(monthKey, data);
+        final remote = MonthlyRecord.fromFirestore(monthKey, data);
         _saveToCache(monthKey, remote);
         _setDirty(monthKey, false);
         return remote;
       }
 
-      final initial = MonthlySpending.empty(monthKey);
+      // 서버에도 없으면 initial 생성
+      final initial = MonthlyRecord.empty(monthKey);
       _saveToCache(monthKey, initial);
       _setDirty(monthKey, false);
-      await _safeSetRemote(uid, monthKey, initial);
+
+      final ok = await _safeSetRemote(uid, monthKey, initial);
+      if (!ok) {
+        _setDirty(monthKey, true);
+      }
+
       return initial;
     }
 
     // 오프라인 + 캐시 없음
-    final offlineInitial = MonthlySpending.empty(monthKey);
+    final offlineInitial = MonthlyRecord.empty(monthKey);
     _saveToCache(monthKey, offlineInitial);
     _setDirty(monthKey, true);
     return offlineInitial;
   }
 
-  /// DateTime으로 월 요청하고 싶을 때
-  Future<MonthlySpending> loadMonthlySpendingByDate(DateTime date) {
-    return loadMonthlySpending(_toMonthKey(date));
+  Future<MonthlyRecord> loadMonthlyRecordByDate(DateTime date) {
+    return loadMonthlyRecord(_toMonthKey(date));
   }
 
-  /// 월 전체 저장 (타입 안전 버전)
-  ///
-  /// - 항상 Hive에 저장
-  /// - 기본적으로 dirty = true (이 기기에서 수정됨)
-  /// - 온라인이면 Firestore에도 업로드 후 dirty=false
-  Future<void> saveMonthlySpending(
-      MonthlySpending month, {
+  Future<void> saveMonthlyRecord(
+      MonthlyRecord month, {
         bool markDirty = true,
       }) async {
     final uid = _uid;
     if (uid == null) return;
 
     final monthKey = month.monthKey;
-    _saveToCache(monthKey, month);
 
+    _saveToCache(monthKey, month);
     if (markDirty) _setDirty(monthKey, true);
 
     if (isOnline) {
-      await _safeSetRemote(uid, monthKey, month);
-      _setDirty(monthKey, false);
+      final ok = await _safeSetRemote(uid, monthKey, month);
+      if (ok) {
+        _setDirty(monthKey, false);
+      } else {
+        _setDirty(monthKey, true);
+      }
     }
   }
 
-  /// DaySpending 한 날짜를 월 구조에 upsert
-  ///
-  /// - 월 단위로 loadMonthlySpending() 호출
-  /// - days[dateKey]만 교체
-  /// - saveMonthlySpending() 로 다시 저장
-  Future<void> upsertDaySpending(DaySpending day) async {
+  /// ✅ 하루 기록 전체 upsert
+  Future<void> upsertDayRecord(DayRecord day) async {
     final uid = _uid;
     if (uid == null) return;
 
     final monthKey = _toMonthKey(day.date);
     final dateKey = DateFormat('yyyy-MM-dd').format(day.date);
 
-    final monthly = await loadMonthlySpending(monthKey);
+    final monthly = await loadMonthlyRecord(monthKey);
 
-    final newDays = Map<String, DaySpending>.from(monthly.days);
+    final newDays = Map<String, DayRecord>.from(monthly.days);
     newDays[dateKey] = day;
 
     final updatedMonthly = monthly.copyWith(days: newDays);
 
-    await saveMonthlySpending(updatedMonthly);
+    await saveMonthlyRecord(updatedMonthly);
   }
 
-  // ============== 내부: Firestore 세이브 래퍼 ==============
+  /// ✅ 소비만 갱신
+  Future<void> upsertSpendingForDate({
+    required DateTime date,
+    required List<RecordEntry> spendingEntries,
+    required int totalSpendingAmount,
+    String? emotion,
+    String? comment,
+  }) async {
+    final uid = _uid;
+    if (uid == null) return;
 
-  Future<void> _safeSetRemote(String uid, String monthKey, MonthlySpending month) async {
-    try {
-      final data = month.toJson()..['updatedAt'] = FieldValue.serverTimestamp();
-      await _dataSource.setMonthlyDoc(uid, monthKey, data, merge: false);
-    } catch (_) {}
+    final monthKey = _toMonthKey(date);
+    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+
+    final monthly = await loadMonthlyRecord(monthKey);
+    final existingDay = monthly.days[dateKey] ?? DayRecord.empty(date);
+
+    final updatedDay = existingDay.copyWith(
+      date: date,
+      totalSpendingAmount: totalSpendingAmount,
+      spendingEntries: spendingEntries.cast(),
+      emotion: emotion ?? existingDay.emotion,
+      comment: comment ?? existingDay.comment,
+    );
+
+    final newDays = Map<String, DayRecord>.from(monthly.days);
+    newDays[dateKey] = updatedDay;
+
+    final updatedMonthly = monthly.copyWith(days: newDays);
+    await saveMonthlyRecord(updatedMonthly);
   }
 
-  // ============== 디버그/관리용 (원하면 사용) ==============
+  /// ✅ 수입만 갱신
+  Future<void> upsertIncomeForDate({
+    required DateTime date,
+    required List<RecordEntry> incomeEntries,
+    required int totalIncomeAmount,
+  }) async {
+    final uid = _uid;
+    if (uid == null) return;
 
-  /// 현재 유저의 월 캐시만 전부 삭제하고 싶을 때
+    final monthKey = _toMonthKey(date);
+    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+
+    final monthly = await loadMonthlyRecord(monthKey);
+    final existingDay = monthly.days[dateKey] ?? DayRecord.empty(date);
+
+    final updatedDay = existingDay.copyWith(
+      date: date,
+      totalIncomeAmount: totalIncomeAmount,
+      incomeEntries: incomeEntries.cast(),
+    );
+
+    final newDays = Map<String, DayRecord>.from(monthly.days);
+    newDays[dateKey] = updatedDay;
+
+    final updatedMonthly = monthly.copyWith(days: newDays);
+    await saveMonthlyRecord(updatedMonthly);
+  }
+
+  // ============== 디버그/관리용 ==============
+
   Future<void> resetAllCacheForCurrentUser() async {
     final uid = _uid;
     if (uid == null) return;
@@ -249,7 +327,6 @@ class RecordRepository {
       await _cacheBox.delete(k);
     }
   }
-
 
   Future<void> deleteAllMonthlyOnServer() async {
     final uid = _uid;
@@ -266,7 +343,6 @@ class RecordRepository {
       batch.delete(doc.reference);
       count++;
 
-      // 배치 500 제한 대비(안전)
       if (count == 450) {
         await batch.commit();
         batch = db.batch();
@@ -276,6 +352,4 @@ class RecordRepository {
 
     await batch.commit();
   }
-
-
 }

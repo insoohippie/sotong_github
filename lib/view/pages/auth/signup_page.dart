@@ -2,12 +2,12 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
 import 'package:provider/provider.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
 import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
 
-import '../../../component/appbars/custom_app_bar.dart';
 import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/inputs/dual_option_selector.dart';
 import '../../../component/inputs/wheel_date_picker.dart';
@@ -30,7 +30,7 @@ class _SignUpPageState extends State<SignUpPage> {
     super.initState();
     Future.microtask(() {
       final vm = context.read<SignupViewModel>();
-      vm.reset(); // 진입 시 스텝 초기화
+      vm.reset();
     });
   }
 
@@ -39,35 +39,33 @@ class _SignUpPageState extends State<SignUpPage> {
     final vm = context.watch<SignupViewModel>();
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      resizeToAvoidBottomInset: false,
-
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: true,
+      appBar: BackOnlyAppBar(
+        onBack: () {
+          if (vm.currentStep == SignupStep.email) {
+            Navigator.pop(context);
+          } else {
+            vm.previousStep();
+          }
+        },
+      ),
       body: SafeArea(
         child: Column(
           children: [
-            CustomAppBar(
-              title: '',
-              onBack: () {
-                if (vm.currentStep == SignupStep.email) {
-                  Navigator.pop(context);
-                } else {
-                  vm.previousStep();
-                }
-              },
-            ),
-
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.screenPadding,
-                ).copyWith(
-                  bottom: 120,
-                ),
+                ).copyWith(bottom: 120),
                 child: Column(
                   children: [
-                    if (vm.currentStep == SignupStep.email) _buildEmailField(vm),
-                    if (vm.currentStep == SignupStep.password) _buildPasswordField(vm),
-                    if (vm.currentStep == SignupStep.userInfo) _buildUserInfoField(context, vm),
+                    if (vm.currentStep == SignupStep.email)
+                      _buildIdField(vm),
+                    if (vm.currentStep == SignupStep.password)
+                      _buildPasswordField(vm),
+                    if (vm.currentStep == SignupStep.userInfo)
+                      _buildUserInfoField(context, vm),
                   ],
                 ),
               ),
@@ -75,7 +73,6 @@ class _SignUpPageState extends State<SignUpPage> {
           ],
         ),
       ),
-
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
@@ -104,15 +101,16 @@ class _SignUpPageState extends State<SignUpPage> {
     );
   }
 
-  Widget _buildEmailField(SignupViewModel vm) {
+  Widget _buildIdField(SignupViewModel vm) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        HeaderText(text: '이메일을 입력하세요'),
+        HeaderText(text: '아이디를 입력하세요'),
         SizedBox(height: AppSpacing.fieldSpacing),
         CustomTextField(
           controller: vm.emailController,
-          hintText: 'ex. sotong@google.com',
+          hintText: 'ex. sotong_123',
+          keyboardType: TextInputType.text,
           onChanged: (_) => vm.notifyListeners(),
         ),
         SizedBox(height: AppSpacing.itemSpacing),
@@ -124,7 +122,10 @@ class _SignUpPageState extends State<SignUpPage> {
         else if (vm.isEmailChecked)
           Align(
             alignment: Alignment.centerLeft,
-            child: Text('• 중복 확인 완료', style: AppTextStyles.infoText),
+            child: Text(
+              '• 사용 가능한 아이디입니다',
+              style: AppTextStyles.infoText,
+            ),
           ),
       ],
     );
@@ -136,6 +137,7 @@ class _SignUpPageState extends State<SignUpPage> {
       children: [
         HeaderText(text: '비밀번호를 설정해주세요'),
         SizedBox(height: AppSpacing.fieldSpacing),
+
         CustomTextField(
           controller: vm.passwordController,
           hintText: '8자리 이상 숫자, 특수문자, 대문자',
@@ -149,10 +151,44 @@ class _SignUpPageState extends State<SignUpPage> {
             onPressed: vm.togglePasswordVisibility,
           ),
         ),
+
         SizedBox(height: AppSpacing.itemSpacing),
+
         if (!vm.isPasswordValid && vm.passwordController.text.isNotEmpty)
           ...vm.passwordErrors.map(
-            (msg) => Text('• $msg', style: AppTextStyles.errorText),
+                (msg) => Text('• $msg', style: AppTextStyles.errorText),
+          ),
+
+        SizedBox(height: AppSpacing.fieldSpacing),
+
+        CustomTextField(
+          controller: vm.passwordConfirmController,
+          hintText: '비밀번호 다시 입력',
+          obscureText: !vm.isPasswordConfirmVisible,
+          onChanged: (_) => vm.notifyListeners(),
+          suffix: IconButton(
+            icon: Icon(
+              vm.isPasswordConfirmVisible
+                  ? Icons.visibility
+                  : Icons.visibility_off,
+              color: Colors.grey,
+            ),
+            onPressed: vm.togglePasswordConfirmVisibility,
+          ),
+        ),
+
+        SizedBox(height: AppSpacing.itemSpacing),
+
+        if (vm.passwordConfirmError != null)
+          Text(
+            '• ${vm.passwordConfirmError}',
+            style: AppTextStyles.errorText,
+          )
+        else if (vm.passwordConfirmController.text.isNotEmpty &&
+            vm.isPasswordConfirmValid)
+          Text(
+            '• 비밀번호가 일치합니다',
+            style: AppTextStyles.infoText,
           ),
       ],
     );
@@ -165,6 +201,7 @@ class _SignUpPageState extends State<SignUpPage> {
         HeaderText(text: '아래 정보만 입력하면'),
         HeaderText(text: '회원가입 완료!'),
         SizedBox(height: AppSpacing.sectionSpacing),
+
         ParagraphText(text: '이름'),
         SizedBox(height: AppSpacing.itemSpacing),
         CustomTextField(
@@ -172,7 +209,9 @@ class _SignUpPageState extends State<SignUpPage> {
           hintText: '이름 입력',
           onChanged: (_) => vm.notifyListeners(),
         ),
+
         SizedBox(height: AppSpacing.fieldSpacing),
+
         ParagraphText(text: '생년월일'),
         SizedBox(height: AppSpacing.itemSpacing),
         WheelDateSelector(
@@ -182,7 +221,9 @@ class _SignUpPageState extends State<SignUpPage> {
             vm.setBirthdayFromCupertino(value);
           },
         ),
+
         SizedBox(height: AppSpacing.fieldSpacing),
+
         ParagraphText(text: '성별'),
         SizedBox(height: AppSpacing.itemSpacing),
         DualOptionSelector(

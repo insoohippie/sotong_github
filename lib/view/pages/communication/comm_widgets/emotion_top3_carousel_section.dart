@@ -1,8 +1,8 @@
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 
-import 'package:sotong_local/component/theme/app_colors.dart';
 import '../../../../component/buttons/period_toggle.dart'; // TwoOptionToggle 사용
 import '../../../../view_model/communication/communication_view_model.dart';
 
@@ -11,10 +11,12 @@ class EmotionTop3CarouselSection extends StatefulWidget {
   final CommunicationViewModel vm;
 
   @override
-  State<EmotionTop3CarouselSection> createState() => _EmotionTop3CarouselSectionState();
+  State<EmotionTop3CarouselSection> createState() =>
+      _EmotionTop3CarouselSectionState();
 }
 
-class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection> {
+class _EmotionTop3CarouselSectionState
+    extends State<EmotionTop3CarouselSection> {
   final CarouselSliderController _carouselCtrl = CarouselSliderController();
 
   int _page = 0;
@@ -29,7 +31,8 @@ class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection>
   @override
   void didUpdateWidget(covariant EmotionTop3CarouselSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.vm.selectedAnalysisPeriod != widget.vm.selectedAnalysisPeriod) {
+    if (oldWidget.vm.selectedAnalysisPeriod !=
+        widget.vm.selectedAnalysisPeriod) {
       setState(() => _page = 0);
       _carouselCtrl.animateToPage(
         0,
@@ -75,13 +78,16 @@ class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection>
       ),
     ];
 
+    final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(
+              theme.brightness == Brightness.dark ? 0.2 : 0.05,
+            ),
             blurRadius: 10,
             offset: const Offset(0, 2),
           ),
@@ -96,17 +102,19 @@ class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   '감정별 소비',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
-                    color: Colors.black87,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
                 TwoOptionToggle(
                   labels: const ['주간', '월간'],
                   selected: period,
+                  width: 106,
+                  height: 30,
                   onChanged: (v) {
                     if (v == vm.selectedAnalysisPeriod) return;
                     vm.setAnalysisPeriod(v);
@@ -120,7 +128,10 @@ class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection>
 
           // ── 본문: 캐러셀 ───────────────────────
           if (top3.isEmpty)
-            _EmptyState(periodLabel: _periodLabel(period))
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _EmptyState(periodLabel: _periodLabel(period)),
+            )
           else
             Column(
               children: [
@@ -132,7 +143,9 @@ class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection>
                     enableInfiniteScroll: true,
                     autoPlay: true,
                     autoPlayInterval: const Duration(seconds: 5),
-                    autoPlayAnimationDuration: const Duration(milliseconds: 850),
+                    autoPlayAnimationDuration: const Duration(
+                      milliseconds: 850,
+                    ),
                     autoPlayCurve: Curves.easeInOutCubic,
                     onPageChanged: (index, reason) {
                       if (!mounted) return;
@@ -163,8 +176,10 @@ class _EmotionTop3CarouselSectionState extends State<EmotionTop3CarouselSection>
                     dotHeight: 7,
                     dotWidth: 7,
                     spacing: 8,
-                    dotColor: Colors.grey[300]!,
-                    activeDotColor: Colors.grey[800]!,
+                    dotColor: theme.colorScheme.onSurfaceVariant.withOpacity(
+                      0.4,
+                    ),
+                    activeDotColor: theme.colorScheme.primary,
                   ),
                   onDotClicked: (i) {
                     _carouselCtrl.animateToPage(
@@ -216,6 +231,31 @@ class _SlideSpec {
 
 /* ───────────────── Slide ───────────────── */
 
+/// VM emotionList(기쁨, 혼란 등) + record_diary(평온, 좋음 등) 모두 Lottie 경로로 매핑
+String _lottiePathForEmotionLabel(String emotion) {
+  switch (emotion) {
+    case '평온':
+    case '피곤':
+      return 'assets/animations/emotion_calm.json';
+    case '좋음':
+    case '기쁨':
+    case '플렉스':
+      return 'assets/animations/emotion_good.json';
+    case '슬픔':
+      return 'assets/animations/emotion_sad.json';
+    case '스트레스':
+    case '화남':
+      return 'assets/animations/emotion_stress.json';
+    case '동기부여':
+      return 'assets/animations/emotion_motivation.json';
+    case '아무 감정 없음':
+    case '혼란':
+      return 'assets/animations/emotion_none.json';
+    default:
+      return 'assets/animations/emotion_calm.json';
+  }
+}
+
 class _Top3Slide extends StatelessWidget {
   const _Top3Slide({
     super.key,
@@ -232,7 +272,12 @@ class _Top3Slide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ 오버플로우 방지: 3개 고정이지만 혹시 2개만 있으면 안전하게
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : Colors.grey.shade50;
+    final cardBorder = isDark ? theme.dividerColor : Colors.grey[200]!;
     final safeTop3 = top3.length >= 3 ? top3.sublist(0, 3) : top3;
 
     return Column(
@@ -242,10 +287,10 @@ class _Top3Slide extends StatelessWidget {
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,
-            color: Colors.black87,
+            color: theme.colorScheme.onSurface,
           ),
         ),
         const SizedBox(height: 12),
@@ -254,38 +299,49 @@ class _Top3Slide extends StatelessWidget {
             final d = safeTop3[i];
             return Expanded(
               child: Container(
-                margin: EdgeInsets.only(right: i == safeTop3.length - 1 ? 0 : 10),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                margin: EdgeInsets.only(
+                  right: i == safeTop3.length - 1 ? 0 : 10,
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.grey[50],
+                  color: cardBg,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey[200]!),
+                  border: Border.all(color: cardBorder),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // 순위
                     Text(
                       '${i + 1}',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w900,
-                        color: Colors.grey[700],
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: 6),
 
-                    // ✅ 이모지 크게
-                    Text(
-                      d.emoji,
-                      style: const TextStyle(
-                        fontSize: 26,
-                        height: 1.0,
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: Lottie.asset(
+                        _lottiePathForEmotionLabel(d.emotion),
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Text(
+                              d.emoji,
+                              style: const TextStyle(fontSize: 26, height: 1.0),
+                            ),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(height: 8),
 
-                    // ✅ 강조 값(오버플로우 방지)
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
@@ -293,16 +349,15 @@ class _Top3Slide extends StatelessWidget {
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w900,
-                          color: Colors.black87,
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                     ),
                     const SizedBox(height: 4),
 
-                    // 감정 라벨(오버플로우 방지)
                     Text(
                       subBuilder(d),
                       maxLines: 1,
@@ -310,7 +365,7 @@ class _Top3Slide extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w800,
-                        color: AppColors.subText,
+                        color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -332,19 +387,34 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : Colors.grey.shade50;
+    final cardBorder = isDark ? theme.dividerColor : Colors.grey[200]!;
+
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.grey[50],
+        color: cardBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: cardBorder),
       ),
       child: Row(
         children: [
-          const SizedBox(
-            width: 34,
-            height: 34,
-            child: Center(child: Text('🙂', style: TextStyle(fontSize: 18))),
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: Lottie.asset(
+              'assets/animations/emotion_good.json',
+              fit: BoxFit.contain,
+              errorBuilder: (context, error, stackTrace) {
+                return const Center(
+                  child: Text('🙂', style: TextStyle(fontSize: 24)),
+                );
+              },
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -353,7 +423,7 @@ class _EmptyState extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 height: 1.3,
-                color: AppColors.subText,
+                color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),

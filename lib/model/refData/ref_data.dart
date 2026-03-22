@@ -13,13 +13,13 @@ class RefData {
     Map<String, DailyConsume>? dailyVariableConsumes,
     DateTime? referenceDate,
   })  : monthlyIncomeMap =
-            Map<String, MonthlyIncome>.from(monthlyIncomes ?? const {}),
+  Map<String, MonthlyIncome>.from(monthlyIncomes ?? const {}),
         monthlyConsumeMap =
-            Map<String, MonthlyConsume>.from(monthlyConsumes ?? const {}),
+        Map<String, MonthlyConsume>.from(monthlyConsumes ?? const {}),
         dailyConsumeMap =
-            Map<String, DailyConsume>.from(dailyConsumes ?? const {}),
+        Map<String, DailyConsume>.from(dailyConsumes ?? const {}),
         dailyVariableConsumeMap =
-            Map<String, DailyConsume>.from(dailyVariableConsumes ?? const {}),
+        Map<String, DailyConsume>.from(dailyVariableConsumes ?? const {}),
         _referenceDate = _normalizeDay(referenceDate ?? DateTime.now()) {
     _refreshPrimaryIds();
   }
@@ -134,7 +134,7 @@ class RefData {
     return {
       'planId': planId,
       'monthlyIncomeMap': monthlyIncomeMap.map(
-        (key, income) => MapEntry(
+            (key, income) => MapEntry(
           key,
           {
             ...income.toMap(),
@@ -143,7 +143,7 @@ class RefData {
         ),
       ),
       'monthlyConsumeMap': monthlyConsumeMap.map(
-        (key, consume) => MapEntry(
+            (key, consume) => MapEntry(
           key,
           {
             ...consume.toMap(),
@@ -152,7 +152,7 @@ class RefData {
         ),
       ),
       'dailyConsumeMap': dailyConsumeMap.map(
-        (key, consume) => MapEntry(
+            (key, consume) => MapEntry(
           key,
           {
             ...consume.toMap(),
@@ -161,7 +161,7 @@ class RefData {
         ),
       ),
       'dailyVariableConsumeMap': dailyVariableConsumeMap.map(
-        (key, consume) => MapEntry(
+            (key, consume) => MapEntry(
           key,
           {
             ...consume.toMap(),
@@ -175,36 +175,36 @@ class RefData {
   static RefData fromMap(Map<String, dynamic> map) {
     final planId = map['planId'] as String? ?? '';
     final monthlyIncomesRaw =
-        (map['monthlyIncomeMap'] as Map<String, dynamic>? ?? {});
+    (map['monthlyIncomeMap'] as Map<String, dynamic>? ?? {});
     final monthlyConsumesRaw =
-        (map['monthlyConsumeMap'] as Map<String, dynamic>? ?? {});
+    (map['monthlyConsumeMap'] as Map<String, dynamic>? ?? {});
     final dailyConsumesRaw =
-        (map['dailyConsumeMap'] as Map<String, dynamic>? ?? {});
+    (map['dailyConsumeMap'] as Map<String, dynamic>? ?? {});
     final dailyVariableConsumesRaw =
-        (map['dailyVariableConsumeMap'] as Map<String, dynamic>? ?? {});
+    (map['dailyVariableConsumeMap'] as Map<String, dynamic>? ?? {});
 
     return RefData(
       planId: planId,
       monthlyIncomes: monthlyIncomesRaw.map(
-        (key, value) => MapEntry(
+            (key, value) => MapEntry(
           key,
           MonthlyIncome.fromMap(key, Map<String, dynamic>.from(value)),
         ),
       ),
       monthlyConsumes: monthlyConsumesRaw.map(
-        (key, value) => MapEntry(
+            (key, value) => MapEntry(
           key,
           MonthlyConsume.fromMap(key, Map<String, dynamic>.from(value)),
         ),
       ),
       dailyConsumes: dailyConsumesRaw.map(
-        (key, value) => MapEntry(
+            (key, value) => MapEntry(
           key,
           DailyConsume.fromMap(key, Map<String, dynamic>.from(value)),
         ),
       ),
       dailyVariableConsumes: dailyVariableConsumesRaw.map(
-        (key, value) => MapEntry(
+            (key, value) => MapEntry(
           key,
           DailyConsume.fromMap(key, Map<String, dynamic>.from(value)),
         ),
@@ -321,7 +321,7 @@ RefData(
 
   void _refreshPrimaryIds() {
     final targetMonth =
-        DateTime(_referenceDate.year, _referenceDate.month, 1);
+    DateTime(_referenceDate.year, _referenceDate.month, 1);
     _primaryMonthlyIncomeId =
         _monthlyIncomeCovering(targetMonth) ?? _latestMonthlyIncomeId();
     _primaryMonthlyConsumeId =
@@ -352,8 +352,8 @@ RefData(
     return _monthlyIdCovering(
       month,
       monthlyIncomeMap,
-      (MonthlyIncome income) => income.yearMonthList,
-      (MonthlyIncome income) => income.isActive,
+          (MonthlyIncome income) => income.yearMonthList,
+          (MonthlyIncome income) => income.isActive,
     );
   }
 
@@ -378,8 +378,8 @@ RefData(
     return _monthlyIdCovering(
       month,
       monthlyConsumeMap,
-      (MonthlyConsume consume) => consume.yearMonthList,
-      (MonthlyConsume consume) => consume.isActive,
+          (MonthlyConsume consume) => consume.yearMonthList,
+          (MonthlyConsume consume) => consume.isActive,
     );
   }
 
@@ -398,9 +398,9 @@ RefData(
   }
 
   String? _dailyIdCovering(
-    DateTime date,
-    Map<String, DailyConsume> source,
-  ) {
+      DateTime date,
+      Map<String, DailyConsume> source,
+      ) {
     String? candidate;
     DateTime? candidateEnd;
     for (final entry in source.entries) {
@@ -421,11 +421,11 @@ RefData(
   }
 
   String? _monthlyIdCovering<T>(
-    DateTime month,
-    Map<String, T> source,
-    List<DateTime> Function(T item) monthsSelector,
-    bool Function(T item) activeSelector,
-  ) {
+      DateTime month,
+      Map<String, T> source,
+      List<DateTime> Function(T item) monthsSelector,
+      bool Function(T item) activeSelector,
+      ) {
     String? candidate;
     DateTime? candidateEnd;
     for (final entry in source.entries) {
@@ -433,7 +433,7 @@ RefData(
       if (!activeSelector(item)) continue;
       final months = monthsSelector(item);
       final match = months.any(
-        (m) => m.year == month.year && m.month == month.month,
+            (m) => m.year == month.year && m.month == month.month,
       );
       if (!match) continue;
       final lastMonth = months.isEmpty
@@ -470,7 +470,7 @@ RefData(
     var maxSeq = 0;
     for (final id in existingIds) {
       final normalizedId =
-          planPrefix.isNotEmpty && id.startsWith(planPrefix) ? id.substring(planPrefix.length) : id;
+      planPrefix.isNotEmpty && id.startsWith(planPrefix) ? id.substring(planPrefix.length) : id;
       if (!normalizedId.startsWith(base)) continue;
       final parts = normalizedId.split('-');
       if (parts.length != 2) continue;

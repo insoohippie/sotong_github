@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_field.dart';
@@ -6,8 +7,13 @@ import '../../../component/texts/multi_color_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
+import '../../../repository/auth_repository.dart';
+import '../../../repository/plan_cache_repository.dart';
+import '../../../repository/plan_repository.dart';
 import '../../../view_model/auth/login_view_model.dart';
 import '../../../view_model/home/home_view_model.dart';
+import '../../../repository/ref_data_repository.dart';
+import '../../../services/plan_debug_printer.dart';
 
 class EmailLoginPage extends StatelessWidget {
   const EmailLoginPage({super.key});
@@ -17,7 +23,7 @@ class EmailLoginPage extends StatelessWidget {
     final vm = context.watch<LoginViewModel>();
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
@@ -35,7 +41,7 @@ class EmailLoginPage extends StatelessWidget {
                       parts: const [
                         TextPart('재미있게 ', Colors.black),
                         TextPart('소통', AppColors.primary),
-                        TextPart('하며\n',Colors.black),
+                        TextPart('하며\n', Colors.black),
                         TextPart('소', AppColors.primary),
                         TextPart('비 ', Colors.black),
                         TextPart('통', AppColors.primary),
@@ -46,8 +52,8 @@ class EmailLoginPage extends StatelessWidget {
                     const SizedBox(height: AppSpacing.fieldSpacing),
                     CustomTextField(
                       controller: vm.emailController,
-                      hintText: '이메일 입력',
-                      keyboardType: TextInputType.emailAddress,
+                      hintText: '아이디 입력',
+                      keyboardType: TextInputType.text,
                     ),
                     const SizedBox(height: 20),
                     CustomTextField(
@@ -55,7 +61,7 @@ class EmailLoginPage extends StatelessWidget {
                       hintText: '비밀번호 입력',
                       obscureText: true,
                     ),
-                                               const SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -71,6 +77,7 @@ class EmailLoginPage extends StatelessWidget {
                         // 회원가입 버튼 (오른쪽 정렬)
                         TextButton(
                           onPressed: () {
+                            HapticFeedback.selectionClick();
                             Navigator.pushNamed(context, '/signup');
                           },
                           style: TextButton.styleFrom(
@@ -99,23 +106,88 @@ class EmailLoginPage extends StatelessWidget {
             // 로그인 버튼 + 로딩 인디케이터
             vm.isLoading
                 ? const SizedBox(
-                    height: 48,
-                    child: Center(child: CircularProgressIndicator()),
-                  )
+              height: 48,
+              child: Center(child: CircularProgressIndicator()),
+            )
                 : CustomButton(
-                    text: '로그인',
-                    onPressed: () async {
-                      final success = await vm.login();
+              text: '로그인',
+              onPressed: () async {
+                final success = await vm.login();
 
-                      if (!context.mounted) return;
+                if (!context.mounted) return;
 
-                      if (success) {
-                        // 로그인 직후 새 uid 기준으로 홈 데이터 강제 리로드
-                        await context.read<HomeViewModel>().refresh();
-                        Navigator.pushReplacementNamed(context, '/home_tab_navigator');
+                if (success) {
+                  final authRepo = context.read<AuthRepository>();
+                  var next = authRepo.nextRouteBySession();
+                  if (next == '/plan_chat') {
+                    try {
+                      final planRepo = context.read<PlanRepository>();
+                      final existingPlan =
+                          await planRepo.getLatestPlanForCurrentUser();
+                      if (existingPlan != null) {
+                        final refDataRepo = context.read<RefDataRepository>();
+                        final refData = await refDataRepo.loadAll();
+                        refData.planId = existingPlan.planId;
+                        final tree = PlanDebugPrinter.describe(
+                          plan: existingPlan,
+                          refData: refData,
+                        );
+                        debugPrint('--- Plan Tree Loaded (Login) ---\n$tree');
+                        final cacheRepo = context.read<PlanCacheRepository>();
+                        final uid =
+                            authRepo.cachedUid ?? authRepo.currentUserId;
+                        if (uid != null) {
+                          await cacheRepo.saveSnapshot(
+                            uid: uid,
+                            snapshot: PlanCacheSnapshot(
+                              plan: existingPlan,
+                              refData: refData,
+                            ),
+                          );
+                          debugPrint('[EmailLoginPage] plan snapshot cached for uid=$uid');
+                        } else {
+                          debugPrint('[EmailLoginPage] skipping plan cache save: uid missing');
+                        }
+                        await authRepo.setHasPlan(true);
+                        next = authRepo.nextRouteBySession(skipHasPlanCheck: true);
                       }
-                    },
-                ),
+                    } catch (e) {
+                      debugPrint('[EmailLoginPage] failed to probe existing plan: $e');
+                    }
+                  }
+
+                  if (authRepo.cachedHasPlan) {
+                    final cacheRepo = context.read<PlanCacheRepository>();
+                    final uid =
+                        authRepo.cachedUid ?? authRepo.currentUserId;
+                    final snapshot =
+                        uid != null ? cacheRepo.loadSnapshot(uid) : null;
+                    if (snapshot != null) {
+                      final tree = PlanDebugPrinter.describe(
+                        plan: snapshot.plan,
+                        refData: snapshot.refData,
+                      );
+                      debugPrint('--- Plan Cache Snapshot (Login) ---\n$tree');
+                    } else {
+                      debugPrint('[EmailLoginPage] hasPlan=true but cache snapshot missing');
+                    }
+                  }
+
+                  print('🧩 [EmailLoginPage] login success -> nextRoute=$next');
+
+                  if (next == '/home_tab_navigator') {
+                    await context.read<HomeViewModel>().refresh();
+                  }
+
+                  if (!context.mounted) return;
+
+                  Navigator.of(context).pushNamedAndRemoveUntil(
+                    next,
+                        (route) => false,
+                  );
+                }
+              },
+            ),
             const SizedBox(height: 40),
           ],
         ),

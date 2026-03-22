@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
-import '../../../component/appbars/custom_app_bar_title_subtitle.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_area.dart';
 import '../../../component/inputs/selectable_emoji_selector.dart';
-import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_spacing.dart';
-import '../../../model/record/monthly_spending.dart';
-import '../../../model/record/spending_entry.dart';
-import '../../../view_model/home/home_view_model.dart';
-import '../../../view_model/record/record_view_model.dart';
+import '../../../view_model/record/record_spending_view_model.dart';
 
 class RecordDiaryPage extends StatefulWidget {
   const RecordDiaryPage({super.key});
@@ -29,14 +24,14 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RecordViewModel>().resetEmotion();
+      context.read<RecordSpendingViewModel>().resetEmotion();
     });
   }
 
   Future<void> _onSave(BuildContext context) async {
-    final vm = context.read<RecordViewModel>();
-    final selectedDate =
-    ModalRoute.of(context)!.settings.arguments as DateTime;
+    final vm = context.read<RecordSpendingViewModel>();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    final selectedDate = (args is DateTime) ? args : DateTime.now();
 
     setState(() => _isLoading = true);
 
@@ -61,32 +56,27 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('저장 중 오류가 발생했어요: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했어요: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<RecordViewModel>();
-
-    final selectedDate =
-    ModalRoute.of(context)!.settings.arguments as DateTime;
-    final dateText = DateFormat('yyyy년 M월 d일').format(selectedDate);
+    final viewModel = context.watch<RecordSpendingViewModel>();
 
     return Stack(
       children: [
         Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: BackOnlyAppBar(
+            title: '${viewModel.formattedTotal}원 소비',
+            centerTitle: true,
+          ),
           body: SafeArea(
             child: Column(
               children: [
-                CustomAppBarTitleSubtitle(
-                  title: '소비 일지 기록하기',
-                  subtitle: '$dateText · ${viewModel.formattedTotal}원 소비',
-                  onBack: () => Navigator.pop(context),
-                ),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(
@@ -96,31 +86,72 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: AppSpacing.sectionSpacing),
-                        ParagraphText(
-                          text: '오늘의 기분은 어떠셨나요?',
-                          fontWeight: FontWeight.bold,
+                        Text(
+                          '오늘의 기분은 어떠셨나요?',
+                          style: TextStyle(
+                            fontFamily: 'Pretendard Variable',
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Wrap(
                           spacing: 12,
                           runSpacing: 12,
                           children: [
-                            ...['기쁨', '혼란', '슬픔', '피곤', '화남', '플렉스'].map((emotion) {
+                            ...[
+                              '평온',
+                              '좋음',
+                              '슬픔',
+                              '스트레스',
+                              '동기부여',
+                              '아무 감정 없음',
+                            ].map((emotion) {
                               final selected =
                                   (viewModel.selectedEmotion ?? '') == emotion;
 
                               return SizedBox(
-                                width: (MediaQuery.of(context).size.width -
+                                width:
+                                (MediaQuery.of(context).size.width -
                                     AppSpacing.screenPadding * 2 -
                                     24) /
                                     3,
                                 child: SelectableEmojiSelector(
                                   label: emotion,
-                                  emojiWidget: Lottie.asset(
-                                    _lottiePathForEmotion(emotion),
-                                    width: 40,
-                                    height: 40,
-                                    fit: BoxFit.contain,
+                                  emojiWidget: Builder(
+                                    builder: (context) {
+                                      final path = _lottiePathForEmotion(
+                                        emotion,
+                                      );
+                                      try {
+                                        return Lottie.asset(
+                                          path,
+                                          key: ValueKey(path),
+                                          width: 40,
+                                          height: 40,
+                                          fit: BoxFit.contain,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                            debugPrint(
+                                              'Lottie load failed: $path — $error',
+                                            );
+                                            return const Icon(
+                                              Icons.sentiment_neutral,
+                                              size: 40,
+                                            );
+                                          },
+                                        );
+                                      } catch (e) {
+                                        debugPrint(
+                                          'Lottie exception: $path — $e',
+                                        );
+                                        return const Icon(
+                                          Icons.sentiment_neutral,
+                                          size: 40,
+                                        );
+                                      }
+                                    },
                                   ),
                                   selected: selected,
                                   onTap: () {
@@ -136,15 +167,19 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                           ],
                         ),
                         const SizedBox(height: AppSpacing.sectionSpacing),
-                        ParagraphText(
-                          text: '오늘의 소비에 대해 어떻게 생각하시나요?',
-                          fontWeight: FontWeight.bold,
+                        Text(
+                          '오늘의 소비에 대해 어떻게 생각하시나요?',
+                          style: TextStyle(
+                            fontFamily: 'Pretendard Variable',
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         CustomTextArea(
                           controller: viewModel.commentController,
-                          hintText:
-                          '오늘 소비한 것들에 대한 생각이나 느낌을 자유롭게 적어보세요...',
+                          hintText: '오늘 소비한 것들에 대한 생각이나 느낌을 자유롭게 적어보세요...',
                         ),
                         const SizedBox(height: AppSpacing.bottomSpacing),
                       ],
@@ -184,22 +219,23 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
     );
   }
 
+  /// 감정별 Lottie JSON — 영문 파일명 사용 시 에셋 로드 안정 (한글 파일명 이슈 회피)
   String _lottiePathForEmotion(String emotion) {
     switch (emotion) {
-      case '기쁨':
-        return 'assets/animations/Great.json';
-      case '혼란':
-        return 'assets/animations/UU.json';
+      case '평온':
+        return 'assets/animations/emotion_calm.json';
+      case '좋음':
+        return 'assets/animations/emotion_good.json';
       case '슬픔':
-        return 'assets/animations/Great.json';
-      case '피곤':
-        return 'assets/animations/UU.json';
-      case '화남':
-        return 'assets/animations/Great.json';
-      case '플렉스':
-        return 'assets/animations/UU.json';
+        return 'assets/animations/emotion_sad.json';
+      case '스트레스':
+        return 'assets/animations/emotion_stress.json';
+      case '동기부여':
+        return 'assets/animations/emotion_motivation.json';
+      case '아무 감정 없음':
+        return 'assets/animations/emotion_none.json';
       default:
-        return 'assets/lottie/default.json';
+        return 'assets/animations/emotion_calm.json';
     }
   }
 }

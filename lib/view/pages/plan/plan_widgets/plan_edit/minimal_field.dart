@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:sotong_local/component/texts/header_text.dart';
-import 'package:sotong_local/component/texts/section_title.dart';
 
 import '../../../../../component/inputs/custom_text_field.dart';
-import '../../../../../component/texts/subtext.dart';
 import '../../../../../component/theme/app_colors.dart';
-import '../../../../../component/theme/app_text_styles.dart';
 
 class MinimalField extends StatelessWidget {
   final String label;
@@ -18,6 +14,7 @@ class MinimalField extends StatelessWidget {
   final List<String>? dropdownOptions;
   final String? selectedValue;
   final ValueChanged<String?>? onDropdownChanged;
+  final bool showDivider;
 
   const MinimalField({
     Key? key,
@@ -29,6 +26,7 @@ class MinimalField extends StatelessWidget {
     this.dropdownOptions,
     this.selectedValue,
     this.onDropdownChanged,
+    this.showDivider = true,
   }) : super(key: key);
 
   String _unformat(String v) => v.replaceAll(',', '');
@@ -50,16 +48,22 @@ class MinimalField extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SubText(text: label, fontWeight: FontWeight.bold,color: AppColors.subText,),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'Pretendard Variable',
+              color: Colors.black,
+            ),
+          ),
           const SizedBox(height: 8),
 
           if (dropdownOptions != null)
             Container(
               height: 60,
               decoration: BoxDecoration(
-                color: selectedValue != null
-                    ? AppColors.lightBlue
-                    : AppColors.greyBackground,
+                color: AppColors.greyBackground,
                 borderRadius: BorderRadius.circular(12),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -75,7 +79,12 @@ class MinimalField extends StatelessWidget {
                       .map((p) => DropdownMenuItem(value: p, child: Text(p)))
                       .toList(),
                   onChanged: onDropdownChanged,
-                  style: AppTextStyles.paragraph,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontFamily: 'Pretendard Variable',
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black,
+                  ),
                   dropdownColor: Colors.white,
                 ),
               ),
@@ -84,6 +93,13 @@ class MinimalField extends StatelessWidget {
             CustomTextField(
               controller: controller!,
               hintText: hint ?? '',
+              backgroundColor: AppColors.greyBackground,
+              style: const TextStyle(
+                fontSize: 13,
+                fontFamily: 'Pretendard Variable',
+                fontWeight: FontWeight.w500,
+                color: Colors.black,
+              ),
               keyboardType: isNumber
                   ? TextInputType.number
                   : TextInputType.text,
@@ -112,8 +128,8 @@ class MinimalField extends StatelessWidget {
                 if (onChanged != null) onChanged!(controller!.text);
               },
             ),
-          SizedBox(height: 16),
-          Divider(height: 5, color:AppColors.greyBackground, )
+          const SizedBox(height: 16),
+          if (showDivider) Divider(height: 5, color: AppColors.greyBackground),
         ],
       ),
     );

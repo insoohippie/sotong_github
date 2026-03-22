@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import '../../../../../component/theme/app_colors.dart';
@@ -117,6 +118,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
     _typingTimer?.cancel();
     _typingTimer = Timer.periodic(const Duration(milliseconds: 30), (timer) {
       if (currentIndex < text.runes.length) {
+        HapticFeedback.selectionClick();
         setState(() {
           final runes = text.runes.toList();
           final partialRunes = runes.take(currentIndex + 1).toList();
@@ -149,7 +151,9 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       child: Row(
-        mainAxisAlignment: isBot ? MainAxisAlignment.start : MainAxisAlignment.end,
+        mainAxisAlignment: isBot
+            ? MainAxisAlignment.start
+            : MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isBot) ...[
@@ -175,6 +179,16 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
               child: Image.asset(
                 'assets/images/bot_profile.png',
                 fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: const Color(0xFFBFD8FF),
+                    child: const Icon(
+                      Icons.chat_bubble_outline,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  );
+                },
               ),
             ),
             const SizedBox(width: 8),
@@ -185,7 +199,10 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
                 maxWidth: MediaQuery.of(context).size.width * 0.75,
               ),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   color: isBot ? const Color(0xFFF4F4F4) : AppColors.primary,
                   borderRadius: BorderRadius.circular(16),
@@ -200,7 +217,9 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget>
                 child: Text(
                   _displayText,
                   style: TextStyle(
-                    color: isBot ? const Color(0xFF333333): AppColors.whiteText,
+                    color: isBot
+                        ? const Color(0xFF333333)
+                        : AppColors.whiteText,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     height: 1.4,

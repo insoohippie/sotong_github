@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/view_model/home/home_view_model.dart';
 import 'package:sotong_local/view_model/services/saving_calculator.dart';
 
@@ -28,7 +30,8 @@ class HomeSavingCenterButton extends StatelessWidget {
           transitionBuilder: (child, animation) {
             final isExiting = animation.status == AnimationStatus.reverse;
 
-            final slide = Tween<Offset>(
+            final slide =
+            Tween<Offset>(
               begin: isExiting ? Offset.zero : const Offset(0.1, 0),
               end: isExiting ? const Offset(-0.2, 0) : Offset.zero,
             ).animate(
@@ -66,9 +69,11 @@ class HomeSavingCenterButton extends StatelessWidget {
       textColor = Colors.white;
       border = const Color(0xFF0062FF);
     } else {
-      bg = Colors.white;
-      textColor = const Color(0xFF2962FF);
-      border = Colors.grey[300]!;
+      final theme = Theme.of(context);
+      final isDark = theme.brightness == Brightness.dark;
+      bg = isDark ? theme.colorScheme.surface : Colors.white;
+      textColor = AppColors.primary;
+      border = isDark ? theme.dividerColor : Colors.grey[300]!;
     }
 
     // 기본 상태: D-Day + 모인 금액 (클릭 시 상세 모달 오픈)
@@ -81,16 +86,32 @@ class HomeSavingCenterButton extends StatelessWidget {
 
       return InkWell(
         key: const ValueKey('center-default'),
-        onTap: onOpenCountdown,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onOpenCountdown();
+        },
         child: _circleShell(
           bg: bg,
           border: border,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(dDayText, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textColor)),
+              Text(
+                dDayText,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text('모인 금액', style: TextStyle(fontSize: 12, color: textColor.withOpacity(0.7))),
+              Text(
+                '모인 금액',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: textColor.withOpacity(0.7),
+                ),
+              ),
               const SizedBox(height: 4),
               _AnimatedAmount(textColor: textColor, amount: vm.liveSavedAmount),
             ],
@@ -104,10 +125,13 @@ class HomeSavingCenterButton extends StatelessWidget {
 
     final items = <Map<String, String>>[];
     if (isUser) {
-      final currentAmount = SavingPlanCalculator.formatAmount(vm.liveSavedAmount);
+      final currentAmount = SavingPlanCalculator.formatAmount(
+        vm.liveSavedAmount,
+      );
 
       String actualProgressText = '0%';
-      if (vm.latestPlan?.targetAmount != null && vm.latestPlan!.targetAmount! > 0) {
+      if (vm.latestPlan?.targetAmount != null &&
+          vm.latestPlan!.targetAmount! > 0) {
         final target = vm.latestPlan!.targetAmount!.toDouble();
         final p = (vm.liveSavedAmount / target * 100);
         actualProgressText = '${p.toStringAsFixed(1)}%';
@@ -115,7 +139,9 @@ class HomeSavingCenterButton extends StatelessWidget {
 
       String dailySavingText = '0원/일';
       if (vm.latestPlan?.startDate != null && vm.liveSavedAmount > 0) {
-        final days = DateTime.now().difference(vm.latestPlan!.startDate!).inDays;
+        final days = DateTime.now()
+            .difference(vm.latestPlan!.startDate!)
+            .inDays;
         if (days > 0) {
           final avg = vm.liveSavedAmount / days;
           dailySavingText = '${SavingPlanCalculator.formatAmount(avg)}원/일';
@@ -130,17 +156,21 @@ class HomeSavingCenterButton extends StatelessWidget {
     } else {
       String targetAmountText = '0원';
       if (vm.latestPlan?.targetAmount != null) {
-        targetAmountText = SavingPlanCalculator.formatAmount(vm.latestPlan!.targetAmount!.toDouble());
+        targetAmountText = SavingPlanCalculator.formatAmount(
+          vm.latestPlan!.targetAmount!.toDouble(),
+        );
       }
 
       String progressText = '0%';
-      if (vm.latestPlan?.targetAmount != null && vm.latestPlan!.targetAmount! > 0) {
+      if (vm.latestPlan?.targetAmount != null &&
+          vm.latestPlan!.targetAmount! > 0) {
         progressText = '55%'; // 기존 코드 유지(나중에 실제 계산으로 교체)
       }
 
       String dailySavingText = '0원/일';
       if (vm.calc != null && vm.calc!.dailySaving > 0) {
-        dailySavingText = '${SavingPlanCalculator.formatAmount(vm.calc!.dailySaving)}원/일';
+        dailySavingText =
+        '${SavingPlanCalculator.formatAmount(vm.calc!.dailySaving)}원/일';
       }
 
       items.addAll([
@@ -163,16 +193,26 @@ class HomeSavingCenterButton extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor), textAlign: TextAlign.center),
-                const SizedBox(height: 8),
-                ...items.map((e) => Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    '${e['label']}: ${e['value']}',
-                    style: TextStyle(fontSize: 10, color: textColor),
-                    textAlign: TextAlign.center,
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
                   ),
-                )),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                ...items.map(
+                      (e) => Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '${e['label']}: ${e['value']}',
+                      style: TextStyle(fontSize: 10, color: textColor),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -219,15 +259,21 @@ class _AnimatedAmount extends StatelessWidget {
       duration: const Duration(milliseconds: 300),
       transitionBuilder: (child, animation) {
         return SlideTransition(
-          position: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero)
-              .animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
           child: FadeTransition(opacity: animation, child: child),
         );
       },
       child: Text(
         formatted,
         key: ValueKey(formatted),
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor),
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: textColor,
+        ),
       ),
     );
   }

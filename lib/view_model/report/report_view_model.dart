@@ -1,337 +1,619 @@
 // lib/view_model/report/report_view_model.dart
-
 import 'dart:async';
-
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' show Color, IconData, Icons;
 import 'package:intl/intl.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
 
-import 'package:sotong_local/repository/record_repository.dart';
-import 'package:sotong_local/model/record/monthly_spending.dart';
-import 'package:sotong_local/model/record/day_spending.dart';
-import 'package:sotong_local/model/record/spending_entry.dart';
+import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/services/spending_event_bus.dart';
 
+import '../../repository/record_repository.dart';
+import '../../model/record/monthly_record.dart';
+import '../../model/record/day_record.dart';
+import '../../model/refData/ref_data.dart';
+import '../../model/report/report_models.dart';
+import '../../repository/ref_data_repository.dart';
+
 class ReportViewModel extends ChangeNotifier {
-  final RecordRepository _recordRepository;
-  late final StreamSubscription<SpendingUpdatedEvent> _spendingSub;
-
   ReportViewModel(
-      this._recordRepository,
-      SpendingEventBus eventBus,
-      ) {
-    _selectedBaseDate = DateTime(DateTime.now().year, DateTime.now().month, 1);
-
-    _spendingSub = eventBus.stream.listen((_) {
-      reloadForCurrentMonth();
-    });
-
-    _initInsights();
+      this._recordRepo,
+      this._refRepo, {
+        SpendingEventBus? eventBus,
+      }) {
+    if (eventBus != null) {
+      _spendingSub = eventBus.stream.listen((_) {
+        _spendingDebounce?.cancel();
+        _spendingDebounce = Timer(const Duration(milliseconds: 120), () async {
+          await refreshAfterSpendingUpdated();
+        });
+      });
+    }
   }
 
-  // ───────── 상태 ─────────
+  final RecordRepository _recordRepo;
+  final RefDataRepository _refRepo;
+
+  StreamSubscription<SpendingUpdatedEvent>? _spendingSub;
+  Timer? _spendingDebounce;
 
   bool _isLoading = false;
   String? _error;
 
-  late DateTime _selectedBaseDate;
-
-  String budgetPeriod = '월간';
-  String selectedCategory = '변동소비';
-  bool isCategoryDropdownOpen = false;
-
-  int currentInsightIndex = 0;
-
-  MonthlySpending? _monthly;
-
-  bool get hasData => _monthly != null;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  int get selectedMonth => _selectedBaseDate.month;
-  int get selectedYear => _selectedBaseDate.year;
+  final NumberFormat _nf = NumberFormat('#,###');
 
-  // ───────── 집계 데이터(상단 카드: 선택된 월 기준 유지) ─────────
-
-  Map<String, int> _monthlyCategorySpent = {};
-  Map<String, int> _weeklyCategorySpent = {}; // 혹시 향후 사용 대비 유지
-
-  int incomeTotal = 0;
-  int fixedExpenseTotal = 0;
-  int variableExpenseTotal = 0;
-  int savingTotal = 0;
-
-  late final List<Map<String, dynamic>> insights;
-
-  // ✅ 최근 7/30일 차트 집계를 위해 여러 월을 캐시
-  final Map<String, MonthlySpending> _monthCache = {}; // key: 'yyyy-MM'
-
-  // ✅ 아직 플랜 예산 연결 전: 하루소비한도 하드코딩(테스트용)
-  // TODO: 나중에 Plan에서 가져와서 세팅
-  int hardDailySpendingLimit = 20000;
-
-  // ───────── 차트 데이터 (여기만 "최근 7/30일" 기준) ─────────
-  // ✅ 마지막 축: '총소비' = 모든 카테고리 합 spent
-  // ✅ '총소비'의 budget = 하루소비한도 * (월간=30, 주간=7)
-  List<Map<String, dynamic>> get currentBudgetData {
-    final days = _daysInRecentPeriod(budgetPeriod);
-
-    // 1) spent 집계
-    final Map<String, int> spentByCategory = {};
-    int totalSpentAll = 0;
-
-    for (final d in days) {
-      for (final e in d.entries) {
-        final cat = e.category.trim();
-        if (cat.isEmpty) continue;
-
-        final amt = (e.amount as num).round(); // double -> int
-        if (amt == 0) continue;
-
-        spentByCategory[cat] = (spentByCategory[cat] ?? 0) + amt;
-        totalSpentAll += amt;
-      }
-    }
-
-    // 2) ✅ 임시 카테고리 예산(예산 연결 전 UI 테스트)
-    //    - 여기 없는 카테고리는 needsBudget=true로 뜨게 함
-    final Map<String, int> hardBudget = {
-      '식비': 180000,
-      '카페': 70000,
-      '쇼핑': 120000,
-      '여가': 90000,
-    };
-
-    // 3) 카테고리 리스트 구성
-    final List<Map<String, dynamic>> out = [];
-    final categories = spentByCategory.keys.toList()..sort();
-
-    for (final cat in categories) {
-      final spent = spentByCategory[cat] ?? 0;
-
-      final hasBudget = hardBudget.containsKey(cat);
-      final budget = hasBudget ? hardBudget[cat]! : 0;
-
-      out.add({
-        'category': cat,
-        'spent': spent,
-        'budget': budget,
-        'needsBudget': !hasBudget,
-      });
-    }
-
-    // 4) ✅ 마지막 축: 총소비 (budget = 하루소비한도 * 30/7)
-    final int periodDays = (budgetPeriod == '주간') ? 7 : 30;
-    final int totalBudget = hardDailySpendingLimit * periodDays;
-
-    out.add({
-      'category': '총소비',
-      'spent': totalSpentAll,
-      'budget': totalBudget,
-      'needsBudget': false,
-      'isTotal': true,
-    });
-
-    return out;
+  int _insightIndex = 0;
+  int get insightIndex => _insightIndex;
+  void setInsightIndex(int i) {
+    _insightIndex = i;
+    notifyListeners();
   }
 
-  double get maxYForCurrentBudget {
-    if (currentBudgetData.isEmpty) return 100000;
+  int monthSectionYear = DateTime.now().year;
+  int monthSectionMonth = DateTime.now().month;
 
-    double maxVal = 0;
-    for (final e in currentBudgetData) {
-      final spent = (e['spent'] as num?)?.toDouble() ?? 0.0;
-      final budget = (e['budget'] as num?)?.toDouble() ?? 0.0;
-      final highest = (spent > budget) ? spent : budget;
-      if (highest > maxVal) maxVal = highest;
+  void changeMonthSection(int delta) {
+    var y = monthSectionYear;
+    var m = monthSectionMonth + delta;
+    if (m < 1) {
+      m = 12;
+      y -= 1;
+    } else if (m > 12) {
+      m = 1;
+      y += 1;
     }
-
-    return (maxVal * 1.2).ceilToDouble().clamp(1.0, double.infinity);
+    monthSectionYear = y;
+    monthSectionMonth = m;
+    _rebuildAll();
   }
 
-  // ───────── 인사이트 ─────────
+  ReportRangeType _rangeType = ReportRangeType.weekly;
+  ReportRangeType get rangeType => _rangeType;
 
-  void _initInsights() {
-    final base = [
+  void setRangeType(ReportRangeType next) {
+    if (_rangeType == next) return;
+    _rangeType = next;
+    _rebuildAll();
+  }
+
+  final Map<String, MonthlyRecord> _monthCache = {};
+  RefData? _refData;
+
+  final Map<String, String> _lastRecordNameByKey = {};
+
+  ReportCategoryBudgetChart? _budgetChart;
+  ReportCategoryBudgetChart? get budgetChart => _budgetChart;
+
+  int _incomeTotal = 0;
+  int _savingTotal = 0;
+  int _fixedExpenseTotal = 0;
+  int _variableExpenseTotal = 0;
+
+  int get incomeTotal => _incomeTotal;
+  int get savingTotal => _savingTotal;
+  int get fixedExpenseTotal => _fixedExpenseTotal;
+  int get variableExpenseTotal => _variableExpenseTotal;
+
+  bool _didInit = false;
+
+  Future<void> loadInitial() async {
+    if (_didInit) return;
+    _didInit = true;
+    await _rebuildAll();
+  }
+
+  ReportRange get chartRange {
+    final now = _dateOnly(DateTime.now());
+
+    if (_rangeType == ReportRangeType.weekly) {
+      final monday = now.subtract(Duration(days: (now.weekday + 6) % 7));
+      final sunday = monday.add(const Duration(days: 6));
+      return ReportRange(start: _dateOnly(monday), end: _dateOnly(sunday));
+    } else {
+      final start = DateTime(now.year, now.month, 1);
+      final end = DateTime(now.year, now.month + 1, 0);
+      return ReportRange(start: _dateOnly(start), end: _dateOnly(end));
+    }
+  }
+
+  String get rangeLabel => (_rangeType == ReportRangeType.weekly) ? '주간' : '월간';
+
+  String get chartRangeText {
+    final r = chartRange;
+    if (_rangeType == ReportRangeType.monthly) {
+      return '${r.start.year}년 ${r.start.month}월';
+    }
+    final s = r.start;
+    final e = r.end;
+    return '${s.month}/${s.day}(${_dowKor(s.weekday)}) ~ ${e.month}/${e.day}(${_dowKor(e.weekday)})';
+  }
+
+  String _dowKor(int weekday) {
+    switch (weekday) {
+      case 1:
+        return '월';
+      case 2:
+        return '화';
+      case 3:
+        return '수';
+      case 4:
+        return '목';
+      case 5:
+        return '금';
+      case 6:
+        return '토';
+      case 7:
+        return '일';
+      default:
+        return '';
+    }
+  }
+
+  List<Map<String, dynamic>> get insights => _buildReportInsights();
+
+  List<Map<String, dynamic>> _buildReportInsights() {
+    final r7 = _recent7Range();
+    final spent7 = _sumSpentInRange(r7);
+    final budget7 = _sumPlannedInRange(r7);
+
+    final avgDaily7 = (spent7 / 7).round();
+    final topCat7 = _topCategoryNameInRange(r7);
+    final ratio7 = budget7 > 0 ? (spent7 / budget7 * 100).round() : 0;
+
+    final prev7 = _sumSpentInRange(_previous7Range());
+    final trend7 = prev7 > 0 ? ((spent7 - prev7) / prev7 * 100).round() : 0;
+
+    return [
       {
-        'title': '이번 달 변동 소비 총액을 확인해보세요',
-        'icon': Icons.flag_circle,
+        'title': spent7 > 0
+            ? '최근 7일 동안 총 ${_nf.format(spent7)}원을 소비했어요.'
+            : '최근 7일간 소비 기록이 없어요.',
+        'icon': Icons.account_balance_wallet,
         'color': AppColors.primary,
       },
       {
-        'title': '어떤 카테고리에 가장 많이 쓰고 있는지 살펴보세요',
-        'icon': Icons.pie_chart,
+        'title': spent7 > 0
+            ? '최근 7일 기준 하루 평균 소비는 ${_nf.format(avgDaily7)}원이에요.'
+            : '최근 7일 기록이 없어요.',
+        'icon': Icons.trending_up,
         'color': const Color(0xFF43A047),
       },
       {
-        'title': '이번 주 소비 패턴이 지난주와 비슷한가요?',
-        'icon': Icons.bar_chart,
+        'title': topCat7 != null
+            ? '최근 7일 동안 가장 많이 쓴 카테고리는 $topCat7예요.'
+            : '최근 7일간 소비 기록이 없어요.',
+        'icon': Icons.pie_chart,
         'color': AppColors.primary,
       },
       {
-        'title': '예산 대비 소비를 연결하면 더 자세한 인사이트를 볼 수 있어요',
-        'icon': Icons.access_time,
-        'color': const Color(0xFFD32F2F),
+        'title': budget7 > 0
+            ? '최근 7일은 설정한 예산의 ${ratio7}%를 사용했어요.'
+            : '예산을 설정하면 예산 대비 소비를 볼 수 있어요.',
+        'icon': Icons.savings,
+        'color': ratio7 > 100 ? const Color(0xFFD32F2F) : const Color(0xFF43A047),
+      },
+      {
+        'title': prev7 > 0
+            ? '직전 7일 대비 소비가 ${trend7 >= 0 ? trend7 : -trend7}% ${trend7 >= 0 ? '증가' : '감소'}했어요.'
+            : '소비 추세는 이전 기록이 쌓이면 보여줄게요.',
+        'icon': Icons.compare_arrows,
+        'color': AppColors.primary,
       },
     ];
-
-    insights = List.generate(10, (_) => base).expand((e) => e).toList();
   }
 
-  // ───────── 데이터 로딩 ─────────
-
-  Future<void> _loadForMonth(DateTime month) async {
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      // ✅ 상단 카드: 선택된 월 로드(유지)
-      _monthly = await _recordRepository.loadMonthlySpendingByDate(month);
-
-      // ✅ 캐시에도 저장
-      if (_monthly != null) {
-        _monthCache[_monthKey(month)] = _monthly!;
-      }
-
-      // ✅ 차트(최근 7/30일) 커버 월 프리로드
-      await _preloadMonthsForRecentPeriod(days: 30);
-
-      _recomputeAggregates();
-      _error = null;
-    } catch (_) {
-      _error = '데이터를 불러오는 중 오류가 발생했어요';
-    }
-
-    _isLoading = false;
-    notifyListeners();
+  List<({String name, int spent})> unplannedSpentListForChartRange({
+    int maxItems = 8,
+  }) {
+    final r = chartRange;
+    return _unplannedSpentList(range: r, maxItems: maxItems);
   }
 
-  Future<void> reloadForCurrentMonth() async {
-    await _loadForMonth(_selectedBaseDate);
-  }
+  List<({String name, int spent})> _unplannedSpentList({
+    required ReportRange range,
+    required int maxItems,
+  }) {
+    const etcKey = 'etc';
 
-  bool _didInitialLoad = false;
+    final plannedKeys = <String>{};
+    final refData = _refData;
+    if (refData != null) {
+      for (final dc in refData.dailyConsumeMap.values) {
+        final overlap = _overlapDays(
+          rangeStart: range.start,
+          rangeEnd: range.end,
+          docStart: _dateOnly(dc.startDate),
+          docEnd: _dateOnly(dc.endDate),
+        );
+        if (overlap <= 0) continue;
 
-  Future<void> loadInitial() async {
-    if (_didInitialLoad) return;
-    _didInitialLoad = true;
-
-    if (hasData) return;
-
-    await reloadForCurrentMonth();
-  }
-
-  void _recomputeAggregates() {
-    _monthlyCategorySpent.clear();
-    _weeklyCategorySpent.clear();
-
-    incomeTotal = 0;
-    fixedExpenseTotal = 0;
-    variableExpenseTotal = 0;
-    savingTotal = 0;
-
-    if (_monthly == null) return;
-
-    // ✅ 상단 카드(선택된 월) 계산 유지
-    for (final DaySpending day in _monthly!.days.values) {
-      for (final SpendingEntry e in day.entries) {
-        if (e.category.isEmpty || e.amount == 0) continue;
-
-        final amt = (e.amount as num).round();
-        _monthlyCategorySpent[e.category] =
-            (_monthlyCategorySpent[e.category] ?? 0) + amt;
-
-        // 기존대로 변동소비만 더함
-        variableExpenseTotal += amt;
-      }
-    }
-  }
-
-  // ───────── UI 액션 ─────────
-
-  void setBudgetPeriod(String period) {
-    if (budgetPeriod == period) return;
-    budgetPeriod = period;
-
-    // ✅ 주간/월간 바뀌면 필요한 월들 미리 로드
-    _preloadMonthsForRecentPeriod(days: period == '주간' ? 7 : 30);
-
-    notifyListeners();
-  }
-
-  void changeMonth(int delta) {
-    _selectedBaseDate =
-        DateTime(_selectedBaseDate.year, _selectedBaseDate.month + delta, 1);
-    _loadForMonth(_selectedBaseDate);
-  }
-
-  void toggleCategoryDropdown() {
-    isCategoryDropdownOpen = !isCategoryDropdownOpen;
-    notifyListeners();
-  }
-
-  void selectCategory(String category) {
-    selectedCategory = category;
-    isCategoryDropdownOpen = false;
-    notifyListeners();
-  }
-
-  void setInsightIndex(int index) {
-    currentInsightIndex = index;
-    notifyListeners();
-  }
-
-  // ================== Recent 7/30 helpers ==================
-
-  DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
-
-  String _monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
-
-  Future<void> _ensureMonthLoaded(DateTime anyDay) async {
-    final key = _monthKey(anyDay);
-    if (_monthCache.containsKey(key)) return;
-
-    final monthAnchor = DateTime(anyDay.year, anyDay.month, 1);
-    final monthly = await _recordRepository.loadMonthlySpendingByDate(monthAnchor);
-    _monthCache[key] = monthly;
-  }
-
-  Future<void> _preloadMonthsForRecentPeriod({required int days}) async {
-    final today = _dateOnly(DateTime.now());
-    final start = today.subtract(Duration(days: days - 1));
-
-    DateTime cursor = DateTime(start.year, start.month, 1);
-    final endMonth = DateTime(today.year, today.month, 1);
-
-    while (!cursor.isAfter(endMonth)) {
-      await _ensureMonthLoaded(cursor);
-      cursor = DateTime(cursor.year, cursor.month + 1, 1);
-    }
-  }
-
-  List<DaySpending> _daysInRecentPeriod(String period) {
-    final today = _dateOnly(DateTime.now());
-    final int days = (period == '주간') ? 7 : 30;
-    final start = today.subtract(Duration(days: days - 1));
-
-    final List<DaySpending> out = [];
-
-    for (final m in _monthCache.values) {
-      for (final d in m.days.values) {
-        final date = _dateOnly(d.date);
-        if (!date.isBefore(start) && !date.isAfter(today)) {
-          out.add(d);
+        for (final e in dc.entries) {
+          final k = e.categoryKey.trim();
+          if (k.isEmpty) continue;
+          plannedKeys.add(k);
         }
       }
     }
 
+    final spentByKey = <String, int>{};
+    final days = _daysInRange(range);
+    for (final d in days) {
+      for (final e in d.spendingEntries) {
+        final k = e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
+        spentByKey[k] = (spentByKey[k] ?? 0) + e.amount.round();
+
+        final keyTrim = e.categoryKey.trim();
+        final nameTrim = e.category.trim();
+        if (keyTrim.isNotEmpty && nameTrim.isNotEmpty) {
+          _lastRecordNameByKey[keyTrim] = nameTrim;
+        }
+      }
+    }
+
+    final unplanned = <String, int>{};
+    spentByKey.forEach((k, v) {
+      if (k == etcKey) return;
+      if (!plannedKeys.contains(k)) {
+        unplanned[k] = (unplanned[k] ?? 0) + v;
+      }
+    });
+
+    if (unplanned.isEmpty) return const [];
+
+    final items = unplanned.entries.map((e) {
+      final key = e.key;
+      final spent = e.value;
+
+      final name = (_lastRecordNameByKey[key]?.trim().isNotEmpty ?? false)
+          ? _lastRecordNameByKey[key]!.trim()
+          : key;
+
+      return (name: name, spent: spent);
+    }).toList();
+
+    items.sort((a, b) => b.spent.compareTo(a.spent));
+    return items.take(maxItems).toList();
+  }
+
+  Future<void> _rebuildAll() async {
+    _setLoading(true);
+    _setError(null);
+    notifyListeners();
+
+    try {
+      _refData ??= await _refRepo.loadAll();
+
+      final r = chartRange;
+      await _ensureMonthsLoadedForRange(r);
+
+      await _ensureMonthLoaded(DateTime(monthSectionYear, monthSectionMonth, 1));
+
+      _budgetChart = _buildBudgetChart(range: r);
+
+      _recomputeMonthTotalsFromRecords();
+
+      _setError(null);
+    } catch (e) {
+      _setError('리포트 로드 실패: $e');
+    } finally {
+      _setLoading(false);
+      notifyListeners();
+    }
+  }
+
+  Future<void> refreshAfterSpendingUpdated() async {
+    _invalidateMonthsForRefresh();
+    await _rebuildAll();
+  }
+
+  void _invalidateMonthsForRefresh() {
+    final r = chartRange;
+    final months = _monthsCovered(_dateOnly(r.start), _dateOnly(r.end));
+    for (final m in months) {
+      _monthCache.remove(_monthKey(DateTime(m.year, m.month, 1)));
+    }
+    _monthCache.remove(_monthKey(DateTime(monthSectionYear, monthSectionMonth, 1)));
+  }
+
+  ReportCategoryBudgetChart _buildBudgetChart({required ReportRange range}) {
+    const etcKey = 'etc';
+
+    final plannedByKey = <String, int>{};
+    final nameByKey = <String, String>{};
+    final spentByKey = <String, int>{};
+
+    final refData = _refData;
+    if (refData != null) {
+      for (final dc in refData.dailyConsumeMap.values) {
+        final overlap = _overlapDays(
+          rangeStart: range.start,
+          rangeEnd: range.end,
+          docStart: _dateOnly(dc.startDate),
+          docEnd: _dateOnly(dc.endDate),
+        );
+        if (overlap <= 0) continue;
+
+        for (final e in dc.entries) {
+          final key = (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
+          final add = (e.amount * overlap).round();
+          plannedByKey[key] = (plannedByKey[key] ?? 0) + add;
+
+          nameByKey[key] ??= (e.category.trim().isEmpty ? '기타' : e.category.trim());
+        }
+      }
+    }
+
+    final days = _daysInRange(range);
+    for (final d in days) {
+      for (final e in d.spendingEntries) {
+        final key = (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
+        spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
+      }
+    }
+
+    nameByKey.putIfAbsent(etcKey, () => '기타');
+
+    int etcSpent = spentByKey[etcKey] ?? 0;
+    spentByKey.forEach((k, v) {
+      if (k == etcKey) return;
+      if (!plannedByKey.containsKey(k)) {
+        etcSpent += v;
+      }
+    });
+    spentByKey[etcKey] = etcSpent;
+
+    final keys = plannedByKey.keys.toSet();
+    if ((spentByKey[etcKey] ?? 0) > 0) keys.add(etcKey);
+
+    final rows = keys.map((k) {
+      final name = nameByKey[k] ??
+          (k == etcKey ? '기타' : (_lastRecordNameByKey[k] ?? k));
+
+      return ReportCategoryBudgetRow(
+        categoryKey: k,
+        name: name,
+        emoji: (k == etcKey) ? '🧩' : '💰',
+        planned: plannedByKey[k] ?? 0,
+        spent: spentByKey[k] ?? 0,
+        isTotal: false,
+      );
+    }).toList();
+
+    rows.sort((a, b) => b.spent.compareTo(a.spent));
+    final etcIndex = rows.indexWhere((e) => e.categoryKey == etcKey);
+    if (etcIndex >= 0) {
+      final etc = rows.removeAt(etcIndex);
+      rows.add(etc);
+    }
+
+    final totalSpent = rows.fold<int>(0, (s, r) => s + r.spent);
+    final totalPlanned = rows.fold<int>(0, (s, r) => s + r.planned);
+    rows.add(
+      ReportCategoryBudgetRow(
+        categoryKey: '__total__',
+        name: '총소비',
+        emoji: '📌',
+        planned: totalPlanned,
+        spent: totalSpent,
+        isTotal: true,
+      ),
+    );
+
+    return ReportCategoryBudgetChart(range: range, rows: List.unmodifiable(rows));
+  }
+
+  void _recomputeMonthTotalsFromRecords() {
+    final monthly = _monthCache[_monthKey(DateTime(monthSectionYear, monthSectionMonth, 1))];
+    if (monthly == null) {
+      _incomeTotal = 0;
+      _savingTotal = 0;
+      _fixedExpenseTotal = 0;
+      _variableExpenseTotal = 0;
+      return;
+    }
+
+    int spendingSum = 0;
+    int incomeSum = 0;
+
+    for (final d in monthly.days.values) {
+      for (final e in d.spendingEntries) {
+        spendingSum += e.amount.round();
+      }
+      for (final e in d.incomeEntries) {
+        incomeSum += e.amount.round();
+      }
+    }
+
+    _variableExpenseTotal = spendingSum;
+    _fixedExpenseTotal = 0;
+    _incomeTotal = incomeSum;
+    _savingTotal = incomeSum - spendingSum;
+  }
+
+  List<DayRecord> _daysInRange(ReportRange r) {
+    final start = _dateOnly(r.start);
+    final end = _dateOnly(r.end);
+
+    final out = <DayRecord>[];
+    final months = _monthsCovered(start, end);
+    for (final m in months) {
+      final mm = _monthCache[_monthKey(m)];
+      if (mm == null) continue;
+
+      for (final d in mm.days.values) {
+        final day = _dateOnly(d.date);
+        if (day.isBefore(start) || day.isAfter(end)) continue;
+
+        for (final e in d.spendingEntries) {
+          final key = e.categoryKey.trim();
+          if (key.isEmpty) continue;
+          final name = e.category.trim();
+          if (name.isNotEmpty) _lastRecordNameByKey[key] = name;
+        }
+
+        out.add(d);
+      }
+    }
     out.sort((a, b) => a.date.compareTo(b.date));
     return out;
   }
 
+  ReportRange _recent7Range() {
+    final now = _dateOnly(DateTime.now());
+    final start = now.subtract(const Duration(days: 6));
+    return ReportRange(start: start, end: now);
+  }
+
+  ReportRange _previous7Range() {
+    final now = _dateOnly(DateTime.now());
+    final end = now.subtract(const Duration(days: 7));
+    final start = end.subtract(const Duration(days: 6));
+    return ReportRange(start: start, end: end);
+  }
+
+  int _sumSpentInRange(ReportRange r) {
+    final days = _daysInRange(r);
+    int sum = 0;
+    for (final d in days) {
+      for (final e in d.spendingEntries) {
+        sum += e.amount.round();
+      }
+    }
+    return sum;
+  }
+
+  int _sumPlannedInRange(ReportRange r) {
+    final refData = _refData;
+    if (refData == null) return 0;
+
+    int sum = 0;
+    for (final dc in refData.dailyConsumeMap.values) {
+      final overlap = _overlapDays(
+        rangeStart: r.start,
+        rangeEnd: r.end,
+        docStart: _dateOnly(dc.startDate),
+        docEnd: _dateOnly(dc.endDate),
+      );
+      if (overlap <= 0) continue;
+
+      for (final e in dc.entries) {
+        sum += (e.amount * overlap).round();
+      }
+    }
+    return sum;
+  }
+
+  String? _topCategoryNameInRange(ReportRange r) {
+    const etcKey = 'etc';
+
+    final days = _daysInRange(r);
+    final spentByKey = <String, int>{};
+
+    for (final d in days) {
+      for (final e in d.spendingEntries) {
+        final key = e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
+        spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
+      }
+    }
+    if (spentByKey.isEmpty) return null;
+
+    final top = spentByKey.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final topKey = top.key;
+
+    final planName = _planNameForKey(topKey);
+    if (planName != null && planName.trim().isNotEmpty) return planName.trim();
+
+    final recordName = _lastRecordNameByKey[topKey];
+    if (recordName != null && recordName.trim().isNotEmpty) return recordName.trim();
+
+    return topKey == etcKey ? '기타' : topKey;
+  }
+
+  String? _planNameForKey(String key) {
+    final refData = _refData;
+    if (refData == null) return null;
+
+    for (final dc in refData.dailyConsumeMap.values) {
+      for (final e in dc.entries) {
+        if (e.categoryKey.trim() == key.trim()) {
+          final name = e.category.trim();
+          if (name.isNotEmpty) return name;
+        }
+      }
+    }
+    return null;
+  }
+
+  int _overlapDays({
+    required DateTime rangeStart,
+    required DateTime rangeEnd,
+    required DateTime docStart,
+    required DateTime docEnd,
+  }) {
+    final rs = _dateOnly(rangeStart);
+    final re = _dateOnly(rangeEnd);
+    final ds = _dateOnly(docStart);
+    final de = _dateOnly(docEnd);
+
+    final start = rs.isAfter(ds) ? rs : ds;
+    final end = re.isBefore(de) ? re : de;
+    if (end.isBefore(start)) return 0;
+
+    return end.difference(start).inDays + 1;
+  }
+
+  Future<void> _ensureMonthsLoadedForRange(ReportRange r) async {
+    final months = _monthsCovered(_dateOnly(r.start), _dateOnly(r.end));
+    for (final m in months) {
+      await _ensureMonthLoaded(DateTime(m.year, m.month, 1));
+    }
+  }
+
+  Future<void> _ensureMonthLoaded(DateTime anchorMonthFirstDay) async {
+    final key = _monthKey(anchorMonthFirstDay);
+    if (_monthCache.containsKey(key)) return;
+
+    final loaded = await _recordRepo.loadMonthlyRecordByDate(anchorMonthFirstDay);
+    _monthCache[key] = loaded;
+
+    final prev = DateTime(anchorMonthFirstDay.year, anchorMonthFirstDay.month - 1, 1);
+    final next = DateTime(anchorMonthFirstDay.year, anchorMonthFirstDay.month + 1, 1);
+
+    if (!_monthCache.containsKey(_monthKey(prev))) {
+      final prevLoaded = await _recordRepo.loadMonthlyRecordByDate(prev);
+      _monthCache[_monthKey(prev)] = prevLoaded;
+    }
+    if (!_monthCache.containsKey(_monthKey(next))) {
+      final nextLoaded = await _recordRepo.loadMonthlyRecordByDate(next);
+      _monthCache[_monthKey(next)] = nextLoaded;
+    }
+  }
+
+  List<DateTime> _monthsCovered(DateTime start, DateTime end) {
+    final s = DateTime(start.year, start.month, 1);
+    final e = DateTime(end.year, end.month, 1);
+
+    final out = <DateTime>[];
+    var cursor = s;
+    while (!cursor.isAfter(e)) {
+      out.add(cursor);
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+    }
+    return out;
+  }
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+  String _monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
+
+  void _setLoading(bool v) => _isLoading = v;
+  void _setError(String? msg) => _error = msg;
+
   @override
   void dispose() {
-    _spendingSub.cancel();
+    _spendingDebounce?.cancel();
+    _spendingSub?.cancel();
     super.dispose();
   }
 }

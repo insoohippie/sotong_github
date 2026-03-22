@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../component/appbars/back_only_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
 
@@ -45,7 +46,7 @@ class _EditIncomePageState extends State<EditIncomePage> {
     final number = int.parse(numbers);
     return number.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
+          (Match m) => '${m[1]},',
     );
   }
 
@@ -53,15 +54,7 @@ class _EditIncomePageState extends State<EditIncomePage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          '플랜 수정',
-          style: TextStyle(fontFamily: 'Pretendard Variable'),
-        ),
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        iconTheme: IconThemeData(color: theme.textTheme.bodyLarge?.color),
-      ),
+      appBar: const BackOnlyAppBar(title: '플랜 수정'),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
@@ -121,9 +114,9 @@ class _EditIncomePageState extends State<EditIncomePage> {
                   child: ElevatedButton(
                     onPressed: _isValidInput
                         ? () {
-                            // 다음 페이지로 이동하는 로직
-                            Navigator.pushNamed(context, '/edit_fixed_cost');
-                          }
+                      // 다음 페이지로 이동하는 로직
+                      Navigator.pushNamed(context, '/edit_fixed_cost');
+                    }
                         : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isValidInput

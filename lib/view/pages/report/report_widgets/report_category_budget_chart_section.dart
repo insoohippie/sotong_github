@@ -1,15 +1,16 @@
-// (카테고리별 남은 예산 차트 + 기간 토글 + 팝업)
-
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:sotong_local/component/theme/app_colors.dart';
+import '../../../../component/buttons/period_toggle.dart';
 
 import '../../../../view_model/report/report_view_model.dart';
+import '../../../../model/report/report_models.dart';
 
 class ReportCategoryBudgetChartSection extends StatefulWidget {
   const ReportCategoryBudgetChartSection({super.key});
@@ -21,22 +22,54 @@ class ReportCategoryBudgetChartSection extends StatefulWidget {
 
 class _ReportCategoryBudgetChartSectionState
     extends State<ReportCategoryBudgetChartSection> {
-  String? _selectedChartCategory;
+  String? _selectedChartKey;
+  int? _selectedSlotIndex;
   bool _isCollapsing = false;
   bool _showSelectionLayout = false;
   bool _showPopup = false;
   Timer? _selectionTimer;
   Timer? _popupTimer;
+  Timer? _hapticTimer;
 
-  // ✅ popup width 측정용
+  int _categoryWindowStart = 0;
+  double _windowItemExtent = 56;
+  final ScrollController _windowScrollController = ScrollController();
+  double _dragAccumDx = 0;
+  bool _isWindowDragging = false;
+  DateTime? _lastDragEndAt;
+  int? _lastDragHapticIndex;
+
   final GlobalKey _popupKey = GlobalKey();
-  double _popupWidth = 220; // 초기값(대충), 실제 측정 후 갱신
+  double _popupWidth = 220;
+
+  static const String _etcKey = 'etc';
 
   @override
   void dispose() {
     _selectionTimer?.cancel();
     _popupTimer?.cancel();
+    _hapticTimer?.cancel();
+    _windowScrollController.dispose();
     super.dispose();
+  }
+
+  void _playSelectionSequentialHaptic() {
+    _hapticTimer?.cancel();
+    HapticFeedback.selectionClick();
+    int count = 1;
+    _hapticTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (!mounted) {
+        _hapticTimer?.cancel();
+        return;
+      }
+      if (count >= 6) {
+        _hapticTimer?.cancel();
+        _hapticTimer = null;
+        return;
+      }
+      HapticFeedback.selectionClick();
+      count++;
+    });
   }
 
   String _formatAmount(int amount) {
@@ -46,42 +79,42 @@ class _ReportCategoryBudgetChartSectionState
     );
   }
 
-  /// ✅ 선택된 막대 중심 기준으로 팝업 left 계산 (spaceBetween 근사)
   double _calcPopupLeft({
     required double chartWidth,
     required int index,
     required int count,
     required double popupWidth,
   }) {
-    // spaceBetween 근사: 첫 막대는 0, 마지막 막대는 chartWidth에 위치
     final double centerX =
     (count <= 1) ? chartWidth / 2 : (chartWidth * index / (count - 1));
-
     final double rawLeft = centerX - (popupWidth / 2);
     final double maxLeft = math.max(0.0, chartWidth - popupWidth);
-
     return rawLeft.clamp(0.0, maxLeft);
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ReportViewModel>();
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
-    final currentData = vm.currentBudgetData;
-    final chartData = [...currentData];
+    final chart = vm.budgetChart;
+    final rows = chart?.rows ?? const <ReportCategoryBudgetRow>[];
+    final categoryCount = rows.where((r) => !r.isTotal).length;
+    final maxWindowStart = _maxCategoryWindowStart(categoryCount);
 
-    final displayData = _reorderChartData(chartData);
-    final maxY = _getMaxY(displayData);
+    final slotData = _buildChartSlots(rows);
+    final maxY = _getMaxY(slotData);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withOpacity(isDark ? 0.2 : 0.12),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -90,6 +123,7 @@ class _ReportCategoryBudgetChartSectionState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 상단 row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -98,40 +132,60 @@ class _ReportCategoryBudgetChartSectionState
               _buildPeriodToggle(vm),
             ],
           ),
+          const SizedBox(height: 6),
+
+          // ✅ 토글 아래 현재 주/월 표시
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              vm.chartRangeText,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: theme.colorScheme.onSurface.withOpacity(0.65),
+              ),
+            ),
+          ),
+
           const SizedBox(height: 12),
+
           SizedBox(
             height: 320,
             child: Padding(
               padding: const EdgeInsets.only(top: 20, left: 16, right: 16),
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  Map<String, dynamic>? popupData;
+                  final estimatedStep = constraints.maxWidth / 5;
+                  if ((_windowItemExtent - estimatedStep).abs() > 0.5) {
+                    _windowItemExtent = estimatedStep;
+                  }
+                  _clampWindowOffsetOnly(maxWindowStart);
 
-                  if (_showPopup && _selectedChartCategory != null) {
-                    final match = displayData.firstWhere(
-                          (item) => item['category'] == _selectedChartCategory,
-                      orElse: () => <String, dynamic>{},
+                  ReportCategoryBudgetRow? popupRow;
+
+                  final selectedIndex = (_selectedSlotIndex != null &&
+                      _selectedSlotIndex! >= 0 &&
+                      _selectedSlotIndex! < slotData.length)
+                      ? _selectedSlotIndex!
+                      : -1;
+
+                  if (_showPopup && _selectedChartKey != null) {
+                    final match = slotData.where(
+                          (row) => row?.categoryKey == _selectedChartKey,
                     );
-                    if (match.isNotEmpty) popupData = match;
+                    if (match.isNotEmpty) {
+                      popupRow = match.first;
+                    }
                   }
 
-                  // ✅ 선택된 항목 인덱스
-                  final selectedIndex = (_selectedChartCategory == null)
-                      ? -1
-                      : displayData.indexWhere(
-                        (e) => e['category'] == _selectedChartCategory,
-                  );
-
-                  // popup left 계산 (팝업 width 반영 + clamp)
-                  final popupLeft = (popupData != null && selectedIndex >= 0)
+                  final popupLeft = (popupRow != null && selectedIndex >= 0)
                       ? (() {
                     final baseLeft = _calcPopupLeft(
                       chartWidth: constraints.maxWidth,
                       index: selectedIndex,
-                      count: displayData.length,
+                      count: slotData.length,
                       popupWidth: _popupWidth,
                     );
-
                     final shifted = baseLeft + 20;
 
                     final maxLeft = math.max(
@@ -142,111 +196,169 @@ class _ReportCategoryBudgetChartSectionState
                   })()
                       : 0.0;
 
+                  // ✅ 기타(etc) 눌렀을 때만 리스트 보여주기
+                  final isEtcSelected =
+                      popupRow != null && popupRow.categoryKey == _etcKey;
+
+                  final unplannedList = isEtcSelected
+                      ? vm.unplannedSpentListForChartRange(maxItems: 8)
+                      : const <({String name, int spent})>[];
+
                   return Stack(
                     clipBehavior: Clip.none,
                     children: [
                       Positioned.fill(
-                        child: BarChart(
-                          BarChartData(
-                            alignment: BarChartAlignment.spaceBetween,
-                            maxY: maxY,
-                            minY: 0,
-                            barTouchData: BarTouchData(
-                              enabled: true,
-                              touchTooltipData: BarTouchTooltipData(
-                                tooltipPadding: EdgeInsets.zero,
-                                tooltipMargin: 0,
-                                tooltipBorder: BorderSide.none,
-                                getTooltipColor: (_) => Colors.transparent,
-                                getTooltipItem: (a, b, c, d) => null,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onHorizontalDragStart: (_) {
+                            _dragAccumDx = 0;
+                            _isWindowDragging = false;
+                            _lastDragHapticIndex = _categoryWindowStart;
+                          },
+                          onHorizontalDragUpdate: (details) {
+                            if (maxWindowStart <= 0) return;
+                            final delta = details.primaryDelta ?? 0;
+                            if (delta == 0) return;
+                            _dragAccumDx += delta.abs();
+                            if (!_isWindowDragging && _dragAccumDx < 10) {
+                              return;
+                            }
+                            _isWindowDragging = true;
+                            _scrollByDragDelta(delta, maxWindowStart);
+                          },
+                          onHorizontalDragEnd: (_) {
+                            if (_isWindowDragging) {
+                              _lastDragEndAt = DateTime.now();
+                              _snapToNearestWindow(maxWindowStart);
+                            }
+                            _dragAccumDx = 0;
+                            _isWindowDragging = false;
+                            _lastDragHapticIndex = null;
+                          },
+                          onHorizontalDragCancel: () {
+                            if (_isWindowDragging) {
+                              _lastDragEndAt = DateTime.now();
+                              _snapToNearestWindow(maxWindowStart);
+                            }
+                            _dragAccumDx = 0;
+                            _isWindowDragging = false;
+                            _lastDragHapticIndex = null;
+                          },
+                          child: BarChart(
+                            BarChartData(
+                              alignment: BarChartAlignment.spaceBetween,
+                              maxY: maxY,
+                              minY: 0,
+                              barTouchData: BarTouchData(
+                                enabled: true,
+                                touchTooltipData: BarTouchTooltipData(
+                                  tooltipPadding: EdgeInsets.zero,
+                                  tooltipMargin: 0,
+                                  tooltipBorder: BorderSide.none,
+                                  getTooltipColor: (_) => Colors.transparent,
+                                  getTooltipItem: (a, b, c, d) => null,
+                                ),
+                                touchCallback: (event, response) {
+                                  if (event is! FlTapUpEvent) return;
+                                  final justDragged = _lastDragEndAt != null &&
+                                      DateTime.now()
+                                          .difference(_lastDragEndAt!)
+                                          .inMilliseconds <
+                                          120;
+                                  if (_isWindowDragging || justDragged) return;
+                                  if (response == null || response.spot == null) {
+                                    _resetSelectionState();
+                                    return;
+                                  }
+                                  final index =
+                                      response.spot!.touchedBarGroupIndex;
+                                  if (index < 0 || index >= slotData.length) {
+                                    _resetSelectionState();
+                                    return;
+                                  }
+                                  final row = slotData[index];
+                                  if (row == null) {
+                                    _resetSelectionState();
+                                    return;
+                                  }
+                                  _startSelectionTransition(
+                                    row.categoryKey,
+                                    index,
+                                  );
+                                },
                               ),
-                              touchCallback: (event, response) {
-                                if (event is! FlTapUpEvent) return;
-                                if (response == null || response.spot == null) {
-                                  _resetSelectionState();
-                                  return;
-                                }
-                                final index =
-                                    response.spot!.touchedBarGroupIndex;
-                                if (index < 0 || index >= displayData.length) {
-                                  _resetSelectionState();
-                                  return;
-                                }
-                                final category =
-                                displayData[index]['category'] as String?;
-                                if (category == null) {
-                                  _resetSelectionState();
-                                  return;
-                                }
-                                _startSelectionTransition(category);
-                              },
-                            ),
-                            titlesData: FlTitlesData(
-                              show: true,
-                              bottomTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 36,
-                                  getTitlesWidget: (value, meta) {
-                                    final idx = value.toInt();
-                                    if (idx >= 0 && idx < displayData.length) {
-                                      final category =
-                                      displayData[idx]['category']
-                                      as String?;
-                                      final isSelected =
-                                          _showSelectionLayout &&
-                                              category ==
-                                                  _selectedChartCategory;
-                                      return Padding(
-                                        padding: const EdgeInsets.only(top: 8),
-                                        child: Text(
-                                          category ?? '',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            fontWeight: isSelected
-                                                ? FontWeight.w700
-                                                : FontWeight.w500,
-                                            color: isSelected
-                                                ? Colors.black
-                                                : Colors.black87,
+                              titlesData: FlTitlesData(
+                                show: true,
+                                bottomTitles: AxisTitles(
+                                  sideTitles: SideTitles(
+                                    showTitles: true,
+                                    reservedSize: 36,
+                                    getTitlesWidget: (value, meta) {
+                                      final idx = value.toInt();
+                                      if (idx >= 0 && idx < slotData.length) {
+                                        final row = slotData[idx];
+                                        if (row == null) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        final isSelected =
+                                            _showSelectionLayout &&
+                                                idx == _selectedSlotIndex &&
+                                                row.categoryKey ==
+                                                    _selectedChartKey;
+                                        return Padding(
+                                          padding:
+                                          const EdgeInsets.only(top: 8),
+                                          child: Text(
+                                            row.name,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w500,
+                                              color:
+                                              theme.colorScheme.onSurface,
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    }
-                                    return const SizedBox.shrink();
-                                  },
+                                        );
+                                      }
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+                                ),
+                                leftTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                topTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
+                                ),
+                                rightTitles: AxisTitles(
+                                  sideTitles: SideTitles(showTitles: false),
                                 ),
                               ),
-                              leftTitles: AxisTitles(
-                                sideTitles: SideTitles(showTitles: false),
+                              gridData: FlGridData(
+                                show: true,
+                                drawVerticalLine: false,
+                                horizontalInterval: maxY == 0 ? 1 : maxY / 4,
+                                getDrawingHorizontalLine: (value) => FlLine(
+                                  color: theme.dividerColor,
+                                  strokeWidth: 1,
+                                ),
                               ),
-                              topTitles: AxisTitles(
-                                sideTitles: SideTitles(showTitles: false),
-                              ),
-                              rightTitles: AxisTitles(
-                                sideTitles: SideTitles(showTitles: false),
-                              ),
-                            ),
-                            gridData: FlGridData(
-                              show: true,
-                              drawVerticalLine: false,
-                              horizontalInterval: maxY == 0 ? 1 : maxY / 4,
-                              getDrawingHorizontalLine: (value) => FlLine(
-                                color: Colors.grey[200],
-                                strokeWidth: 1,
+                              borderData: FlBorderData(show: false),
+                              barGroups: _buildBarGroups(
+                                slotData,
+                                maxY,
+                                theme,
                               ),
                             ),
-                            borderData: FlBorderData(show: false),
-                            barGroups: _buildBarGroups(displayData, maxY),
+                            swapAnimationDuration:
+                            const Duration(milliseconds: 260),
+                            swapAnimationCurve: Curves.easeOutCubic,
                           ),
-                          swapAnimationDuration:
-                          const Duration(milliseconds: 260),
-                          swapAnimationCurve: Curves.easeOutCubic,
                         ),
                       ),
 
-                      // ✅ 팝업: needsBudget 반영
-                      if (popupData != null && selectedIndex >= 0)
+                      if (popupRow != null && selectedIndex >= 0)
                         Positioned(
                           top: 16,
                           left: popupLeft,
@@ -262,18 +374,18 @@ class _ReportCategoryBudgetChartSectionState
                               child: KeyedSubtree(
                                 key: _popupKey,
                                 child: _SelectedChartPopup(
-                                  category:
-                                  popupData['category'] as String? ?? '',
-                                  budget:
-                                  (popupData['budget'] as num?)?.toInt() ??
-                                      0,
-                                  spent:
-                                  (popupData['spent'] as num?)?.toInt() ??
-                                      0,
-                                  needsBudget:
-                                  popupData['needsBudget'] == true,
+                                  // ✅ 기타일 때는 제목 고정
+                                  title: isEtcSelected
+                                      ? '플랜 카테고리 외 참고 카테고리 소비'
+                                      : '${popupRow.emoji} ${popupRow.name}',
+                                  planned: popupRow.planned,
+                                  spent: popupRow.spent,
+                                  periodLabel: vm.rangeLabel,
                                   formatter: _formatAmount,
-                                  periodLabel: vm.budgetPeriod,
+
+                                  // ✅ 기타일 때만 리스트 사용
+                                  isEtcSelected: isEtcSelected,
+                                  unplannedList: unplannedList,
                                 ),
                               ),
                             ),
@@ -282,6 +394,32 @@ class _ReportCategoryBudgetChartSectionState
                     ],
                   );
                 },
+              ),
+            ),
+          ),
+
+          if (maxWindowStart > 0) ...[
+            const SizedBox(height: 10),
+            _buildCategoryDragIndicator(
+              theme: theme,
+              maxStart: maxWindowStart,
+            ),
+          ],
+
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: _windowItemExtent,
+              height: 1,
+              child: IgnorePointer(
+                child: ListView.builder(
+                  controller: _windowScrollController,
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemExtent: _windowItemExtent,
+                  itemCount: math.max(1, maxWindowStart + 1),
+                  itemBuilder: (_, __) => const SizedBox.shrink(),
+                ),
               ),
             ),
           ),
@@ -296,18 +434,21 @@ class _ReportCategoryBudgetChartSectionState
     _selectionTimer?.cancel();
     _popupTimer?.cancel();
     setState(() {
-      _selectedChartCategory = null;
+      _selectedChartKey = null;
+      _selectedSlotIndex = null;
       _isCollapsing = false;
       _showSelectionLayout = false;
       _showPopup = false;
     });
   }
 
-  void _startSelectionTransition(String category) {
+  void _startSelectionTransition(String key, int slotIndex) {
     _selectionTimer?.cancel();
     _popupTimer?.cancel();
+    _playSelectionSequentialHaptic();
     setState(() {
-      _selectedChartCategory = category;
+      _selectedChartKey = key;
+      _selectedSlotIndex = slotIndex;
       _isCollapsing = true;
       _showSelectionLayout = false;
       _showPopup = false;
@@ -325,36 +466,191 @@ class _ReportCategoryBudgetChartSectionState
     });
   }
 
-  List<Map<String, dynamic>> _reorderChartData(List<Map<String, dynamic>> data) {
-    if (_selectedChartCategory == null || !_showSelectionLayout) {
-      return List<Map<String, dynamic>>.from(data);
+  List<ReportCategoryBudgetRow?> _buildChartSlots(
+      List<ReportCategoryBudgetRow> rows,
+      ) {
+    final categories = rows.where((r) => !r.isTotal).toList(growable: false);
+
+    ReportCategoryBudgetRow? totalRow;
+    for (final row in rows) {
+      if (row.isTotal) {
+        totalRow = row;
+        break;
+      }
     }
-    final index = data.indexWhere(
-          (item) => item['category'] == _selectedChartCategory,
-    );
-    if (index <= 0) {
-      return List<Map<String, dynamic>>.from(data);
+
+    final maxStart = _maxCategoryWindowStart(categories.length);
+    if (_categoryWindowStart > maxStart) {
+      _categoryWindowStart = maxStart;
     }
-    final reordered = List<Map<String, dynamic>>.from(data);
-    final selected = reordered.removeAt(index);
-    reordered.insert(0, selected);
-    return reordered;
+
+    final visibleCategories = categories
+        .skip(_categoryWindowStart)
+        .take(4)
+        .toList(growable: false);
+
+    final slots = List<ReportCategoryBudgetRow?>.filled(5, null);
+    for (int i = 0; i < visibleCategories.length && i < 4; i++) {
+      slots[i] = visibleCategories[i];
+    }
+    slots[4] = totalRow;
+
+    return slots;
   }
 
-  double _getMaxY(List<Map<String, dynamic>> data) {
-    if (data.isEmpty) return 100000;
+  int _maxCategoryWindowStart(int categoryCount) {
+    return math.max(0, categoryCount - 4);
+  }
+
+  void _scrollByDragDelta(double deltaDx, int maxStart) {
+    if (!_windowScrollController.hasClients) return;
+
+    final maxOffset = _effectiveMaxOffset(maxStart);
+    final nextOffset =
+    (_windowScrollController.offset - deltaDx).clamp(0.0, maxOffset);
+    _windowScrollController.jumpTo(nextOffset);
+    _syncWindowStartFromOffset(nextOffset, maxStart);
+  }
+
+  void _snapToNearestWindow(int maxStart) {
+    if (!_windowScrollController.hasClients) return;
+    final currentOffset = _windowScrollController.offset;
+    final maxOffset = _effectiveMaxOffset(maxStart);
+    final step = (maxStart > 0) ? (maxOffset / maxStart) : _windowItemExtent;
+    final safeStep = step <= 0 ? _windowItemExtent : step;
+    final targetIndex = (currentOffset / safeStep).round().clamp(0, maxStart);
+    final targetOffset = (targetIndex * safeStep).clamp(0.0, maxOffset);
+
+    _windowScrollController.animateTo(
+      targetOffset,
+      duration: const Duration(milliseconds: 160),
+      curve: Curves.easeOutCubic,
+    );
+
+    setState(() {
+      _categoryWindowStart = targetIndex;
+      _selectedChartKey = null;
+      _selectedSlotIndex = null;
+      _isCollapsing = false;
+      _showSelectionLayout = false;
+      _showPopup = false;
+    });
+  }
+
+  void _syncWindowStartFromOffset(double offset, int maxStart) {
+    final maxOffset = _effectiveMaxOffset(maxStart);
+    final step = (maxStart > 0) ? (maxOffset / maxStart) : _windowItemExtent;
+    final safeStep = step <= 0 ? _windowItemExtent : step;
+
+    final next = (offset / safeStep).floor().clamp(0, maxStart);
+    if (next == _categoryWindowStart) return;
+
+    if (_isWindowDragging && _lastDragHapticIndex != next) {
+      HapticFeedback.selectionClick();
+      _lastDragHapticIndex = next;
+    }
+
+    setState(() {
+      _categoryWindowStart = next;
+      _selectedChartKey = null;
+      _selectedSlotIndex = null;
+      _isCollapsing = false;
+      _showSelectionLayout = false;
+      _showPopup = false;
+    });
+  }
+
+  void _clampWindowOffsetOnly(int maxStart) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_windowScrollController.hasClients) return;
+
+      final maxOffset = _effectiveMaxOffset(maxStart);
+      final currentOffset = _windowScrollController.offset;
+      final clamped = currentOffset.clamp(0.0, maxOffset);
+
+      if ((currentOffset - clamped).abs() > 0.5) {
+        _windowScrollController.jumpTo(clamped);
+      }
+    });
+  }
+
+  double _effectiveMaxOffset(int maxStart) {
+    if (_windowScrollController.hasClients) {
+      return _windowScrollController.position.maxScrollExtent;
+    }
+    return maxStart * _windowItemExtent;
+  }
+
+  Widget _buildCategoryDragIndicator({
+    required ThemeData theme,
+    required int maxStart,
+  }) {
+    final progress =
+    maxStart == 0 ? 0.0 : _categoryWindowStart.clamp(0, maxStart) / maxStart;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final railWidth = constraints.maxWidth * 0.1;
+          final thumbWidth = railWidth * 0.45;
+          final maxLeft = math.max(0.0, railWidth - thumbWidth);
+          final left = maxLeft * progress;
+
+          return SizedBox(
+            height: 12,
+            child: Center(
+              child: SizedBox(
+                width: railWidth,
+                child: Stack(
+                  children: [
+                    Align(
+                      alignment: Alignment.center,
+                      child: Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: theme.dividerColor.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    AnimatedPositioned(
+                      duration: const Duration(milliseconds: 120),
+                      curve: Curves.easeOutCubic,
+                      left: left,
+                      top: 2,
+                      child: Container(
+                        width: thumbWidth,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.onSurface.withOpacity(0.65),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  double _getMaxY(List<ReportCategoryBudgetRow?> data) {
+    final rows = data.whereType<ReportCategoryBudgetRow>().toList(growable: false);
+    if (rows.isEmpty) return 100000;
+
     double maxVal = 0;
-    for (final item in data) {
-      final needsBudget = item['needsBudget'] == true;
+    for (final r in rows) {
+      final planned = r.planned.toDouble();
+      final spent = r.spent.toDouble();
 
-      final budgetRaw = (item['budget'] as num?)?.toDouble() ?? 0.0;
-      final spentRaw = (item['spent'] as num?)?.toDouble() ?? 0.0;
+      // planned=0이면 표시용 planned=spent 보정
+      final effectivePlanned = planned <= 0 ? spent : planned;
 
-      // ✅ 예산 미설정이면 budget을 spent로 “표시용” 보정(빨강 초과 방지)
-      final budget = needsBudget ? spentRaw : budgetRaw;
-      final spent = spentRaw;
-
-      final highest = math.max(budget, spent);
+      final highest = math.max(effectivePlanned, spent);
       if (highest > maxVal) maxVal = highest;
     }
     final scaled = (maxVal * 1.2).ceil();
@@ -362,78 +658,97 @@ class _ReportCategoryBudgetChartSectionState
   }
 
   List<BarChartGroupData> _buildBarGroups(
-      List<Map<String, dynamic>> data,
+      List<ReportCategoryBudgetRow?> data,
       double maxY,
+      ThemeData theme,
       ) {
     return List.generate(data.length, (index) {
-      final item = data[index];
+      final r = data[index];
 
-      final needsBudget = item['needsBudget'] == true;
-      final budgetRaw = (item['budget'] as num?)?.toDouble() ?? 0.0;
-      final spentRaw = (item['spent'] as num?)?.toDouble() ?? 0.0;
+      if (r == null) {
+        return BarChartGroupData(
+          x: index,
+          barRods: [
+            BarChartRodData(
+              fromY: 0,
+              toY: 0,
+              width: 36,
+              color: Colors.transparent,
+              borderRadius: BorderRadius.zero,
+            ),
+          ],
+        );
+      }
 
-      // ✅ 예산 미설정이면 budget을 spent로 “표시용” 보정(빨강 초과 방지)
-      final budget = needsBudget ? spentRaw : budgetRaw;
+      final plannedRaw = r.planned.toDouble();
+      final spentRaw = r.spent.toDouble();
+
+      final needsBudget = plannedRaw <= 0;
+      final planned = needsBudget ? spentRaw : plannedRaw;
       final spent = spentRaw;
 
-      final isOverBudget = needsBudget ? false : (spent > budget);
+      final isOverBudget = needsBudget ? false : (spent > planned);
 
-      final isTotal = item['isTotal'] == true;
-      final category = item['category'] as String?;
-
-      final hasSelection = _selectedChartCategory != null;
-      final collapsePhase =
-          hasSelection && (_isCollapsing || !_showSelectionLayout);
+      final hasSelection = _selectedChartKey != null;
+      final collapsePhase = hasSelection && (_isCollapsing || !_showSelectionLayout);
       final layoutActive = hasSelection && _showSelectionLayout && !_isCollapsing;
-      final isSelected = layoutActive && category == _selectedChartCategory;
+      final isSelected = layoutActive &&
+          index == _selectedSlotIndex &&
+          r.categoryKey == _selectedChartKey;
 
-      final baseWidth = isTotal ? 48.0 : 36.0;
-      final rodWidth =
-      layoutActive ? (isSelected ? baseWidth + 12 : baseWidth - 8) : baseWidth;
+      final baseWidth = r.isTotal ? 48.0 : 36.0;
+      final rodWidth = layoutActive
+          ? (isSelected ? baseWidth + 12 : baseWidth - 8)
+          : baseWidth;
 
-      double scaledBudget;
+      double scaledPlanned;
       double scaledSpent;
 
       if (!hasSelection) {
-        scaledBudget = budget;
+        scaledPlanned = planned;
         scaledSpent = spent;
       } else if (collapsePhase) {
-        scaledBudget = 0;
+        scaledPlanned = 0;
         scaledSpent = 0;
       } else if (layoutActive) {
         if (isSelected) {
-          final baseMax = math.max(budget, spent);
+          final baseMax = math.max(planned, spent);
           final factor = baseMax > 0 ? maxY / baseMax : 0;
-          scaledBudget = budget * factor;
+          scaledPlanned = planned * factor;
           scaledSpent = spent * factor;
         } else {
-          scaledBudget = budget * 0.4;
+          scaledPlanned = planned * 0.4;
           scaledSpent = spent * 0.4;
         }
       } else {
-        scaledBudget = budget;
+        scaledPlanned = planned;
         scaledSpent = spent;
       }
 
       final effectiveSpent = scaledSpent.clamp(0.0, maxY);
-      final effectiveBudget = scaledBudget.clamp(0.0, maxY);
+      final effectivePlanned = scaledPlanned.clamp(0.0, maxY);
 
-      final lowerHeight = math.min(effectiveSpent, effectiveBudget);
-      final upperHeight = math.max(effectiveSpent, effectiveBudget);
+      final lowerHeight = math.min(effectiveSpent, effectivePlanned);
+      final upperHeight = math.max(effectiveSpent, effectivePlanned);
 
       const hoverRed = Color(0xFFFF5F5F);
       final radiusValue = isSelected ? 16.0 : 8.0;
       const epsilon = 0.0001;
+
+      final isDark = theme.brightness == Brightness.dark;
+      final greyBar = isDark
+          ? theme.colorScheme.onSurfaceVariant.withOpacity(0.3)
+          : Colors.grey[300]!;
 
       final List<BarChartRodStackItem> stackItems = [];
 
       if (lowerHeight > epsilon) {
         final Color lowerColor;
         if (needsBudget) {
-          lowerColor = Colors.grey[300]!;
+          lowerColor = greyBar;
         } else {
           lowerColor = isOverBudget
-              ? Colors.grey[300]!
+              ? greyBar
               : (isSelected
               ? AppColors.primary.withOpacity(0.92)
               : AppColors.primary);
@@ -443,8 +758,10 @@ class _ReportCategoryBudgetChartSectionState
 
       final upperSegHeight = (upperHeight - lowerHeight).clamp(0.0, maxY);
       if (upperSegHeight > epsilon) {
-        final upperColor = isOverBudget ? hoverRed : Colors.grey[300]!;
-        stackItems.add(BarChartRodStackItem(lowerHeight, upperHeight, upperColor));
+        final upperColor = isOverBudget ? hoverRed : greyBar;
+        stackItems.add(
+          BarChartRodStackItem(lowerHeight, upperHeight, upperColor),
+        );
       }
 
       if (stackItems.isEmpty) {
@@ -471,6 +788,13 @@ class _ReportCategoryBudgetChartSectionState
   }
 
   Widget _buildCategoryEditButton(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final btnBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : Colors.grey.shade100;
+    final btnBorder = isDark ? theme.dividerColor : Colors.grey.shade300;
+
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () {
@@ -480,20 +804,20 @@ class _ReportCategoryBudgetChartSectionState
         height: 34,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          color: btnBg,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.grey[300]!, width: 1),
+          border: Border.all(color: btnBorder, width: 1),
         ),
         child: Row(
-          children: const [
-            Icon(Icons.tune, size: 16, color: Colors.black87),
-            SizedBox(width: 6),
+          children: [
+            Icon(Icons.tune, size: 16, color: theme.colorScheme.onSurface),
+            const SizedBox(width: 6),
             Text(
               '카테고리 편집',
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Colors.black87,
+                color: theme.colorScheme.onSurface,
               ),
             ),
           ],
@@ -504,149 +828,147 @@ class _ReportCategoryBudgetChartSectionState
 
   Widget _buildPeriodToggle(ReportViewModel vm) {
     const periods = ['주간', '월간'];
-    final selectedIndex = periods.indexOf(vm.budgetPeriod);
+    final selected = (vm.rangeType == ReportRangeType.weekly) ? '주간' : '월간';
 
-    Alignment _alignmentForIndex(int index) {
-      switch (index) {
-        case 0:
-          return Alignment.centerLeft;
-        case 1:
-          return Alignment.centerRight;
-        default:
-          return Alignment.centerLeft;
-      }
-    }
+    return TwoOptionToggle(
+      labels: periods,
+      selected: selected,
+      width: 106,
+      height: 30,
+      onChanged: (period) {
+        final next =
+        (period == '주간') ? ReportRangeType.weekly : ReportRangeType.monthly;
 
-    return Container(
-      width: 120,
-      height: 34,
-      decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.grey[300]!, width: 1),
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          AnimatedAlign(
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeOutCubic,
-            alignment: _alignmentForIndex(selectedIndex),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
-              child: Container(
-                width: 52,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Row(
-            children: List.generate(periods.length, (index) {
-              final period = periods[index];
-              final isSelected = vm.budgetPeriod == period;
-              return Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () {
-                    if (vm.budgetPeriod != period) {
-                      _resetSelectionState();
-                      vm.setBudgetPeriod(period);
-                    }
-                  },
-                  child: Center(
-                    child: Text(
-                      period,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected ? Colors.black87 : Colors.grey[600],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
-      ),
+        if (vm.rangeType != next) {
+          _resetSelectionState();
+          vm.setRangeType(next);
+        }
+      },
     );
   }
 }
 
 class _SelectedChartPopup extends StatelessWidget {
   const _SelectedChartPopup({
-    required this.category,
-    required this.budget,
+    required this.title,
+    required this.planned,
     required this.spent,
-    required this.needsBudget,
-    required this.formatter,
     required this.periodLabel,
+    required this.formatter,
+    required this.isEtcSelected,
+    required this.unplannedList,
   });
 
-  final String category;
-  final int budget;
+  final String title;
+  final int planned;
   final int spent;
-  final bool needsBudget;
-  final String Function(int) formatter;
   final String periodLabel;
+  final String Function(int) formatter;
+
+  final bool isEtcSelected;
+  final List<({String name, int spent})> unplannedList;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final showList = isEtcSelected && unplannedList.isNotEmpty;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withOpacity(
+              theme.brightness == Brightness.dark ? 0.3 : 0.08,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            category,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: Colors.black87,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 260),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            needsBudget
-                ? '$periodLabel 총 예산: 설정 필요'
-                : '$periodLabel 총 예산: ₩${formatter(budget)}',
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 2),
-          _buildUsageText(),
-        ],
+            const SizedBox(height: 8),
+
+            if (showList) ...[
+              Text(
+                '$periodLabel 총 소비: ₩${formatter(spent)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface.withOpacity(0.82),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              ...unplannedList.map((it) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          it.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '₩${formatter(it.spent)}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ] else ...[
+              // 일반 카테고리: 기존 예산/초과/미달 표시
+              Text(
+                planned <= 0
+                    ? '$periodLabel 총 예산: 설정 필요'
+                    : '$periodLabel 총 예산: ₩${formatter(planned)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 2),
+              _buildUsageText(),
+            ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildUsageText() {
-    if (needsBudget) {
+    if (planned <= 0) {
       return const Text(
         '예산 설정 필요',
         style: TextStyle(
@@ -657,8 +979,8 @@ class _SelectedChartPopup extends StatelessWidget {
       );
     }
 
-    final isOverBudget = spent > budget;
-    final diff = spent - budget;
+    final isOverBudget = spent > planned;
+    final diff = spent - planned;
 
     if (isOverBudget) {
       return Text(
@@ -670,7 +992,7 @@ class _SelectedChartPopup extends StatelessWidget {
         ),
       );
     } else {
-      final remaining = budget - spent;
+      final remaining = planned - spent;
       return Text(
         '미달 사용액: ₩${formatter(remaining)}',
         style: const TextStyle(
@@ -686,10 +1008,7 @@ class _SelectedChartPopup extends StatelessWidget {
 typedef OnWidgetSizeChange = void Function(Size size);
 
 class _MeasureSize extends StatefulWidget {
-  const _MeasureSize({
-    required this.onChange,
-    required this.child,
-  });
+  const _MeasureSize({required this.onChange, required this.child});
 
   final OnWidgetSizeChange onChange;
   final Widget child;

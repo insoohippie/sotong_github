@@ -5,11 +5,11 @@ class SemiGaugePainter extends CustomPainter {
   final double progress; // 0.0 ~ 1.0 (외부 원)
   final Color backgroundColor;
   final Color progressColorStart;
-  final Color progressColorEnd;
+  final Color progressColorEnd; // (현재 단색 사용 중이지만 유지)
   final double strokeWidth;
   final double? targetLinePosition; // 기준선 위치 (0.0 ~ 1.0, null이면 표시 안 함)
   final bool isFullCircle; // true면 원형(360도), false면 반원(180도)
-  final double startProgress; // 시작 지점 (0.0 ~ 1.0, 기본값 0.0)
+  final double startProgress; // 시작 지점 (0.0 ~ 1.0, 기본값 0.0) - 홈 화면용
   final bool isDashed; // 점선으로 그리기 여부
   final double dashWidth; // 점선의 대시 길이
   final double dashGap; // 점선의 간격
@@ -32,10 +32,10 @@ class SemiGaugePainter extends CustomPainter {
     this.strokeWidth = 26,
     this.targetLinePosition,
     this.isFullCircle = false,
-    this.startProgress = 0.0, // 기본값 0.0 (처음부터 시작)
-    this.isDashed = false, // 기본값 false (실선)
-    this.dashWidth = 8.0, // 점선 대시 길이
-    this.dashGap = 4.0, // 점선 간격
+    this.startProgress = 0.0, // 기본값 0.0
+    this.isDashed = false,
+    this.dashWidth = 8.0,
+    this.dashGap = 4.0,
     this.innerProgress,
     this.innerBackgroundColor,
     this.innerProgressColorStart,
@@ -52,43 +52,52 @@ class SemiGaugePainter extends CustomPainter {
     final center = isFullCircle
         ? Offset(size.width / 2, size.height / 2)
         : Offset(size.width / 2, size.height);
-    final outerRadius = (isFullCircle ? size.width : size.width) / 2;
-    // 내부 원 반지름: 외부 원의 stroke 두께를 고려하여 계산
-    // 외부 원의 안쪽 가장자리에서 여유 공간을 두고 내부 원을 배치
+
+    final outerRadius = size.width / 2;
+
+    // 내부 원 반지름
     final innerRadius = (outerRadius - strokeWidth / 2) * innerRadiusRatio;
 
-    // 배경 그리기: 반원이면 180도, 원형이면 360도
+    // 최대 각도: 반원이면 180도, 원형이면 360도
     final maxAngle = isFullCircle ? 2 * math.pi : math.pi;
-    final startAngle = isFullCircle
-        ? -math.pi / 2
-        : math.pi; // 원형은 12시 방향부터, 반원은 왼쪽부터
 
-    // 외부 원 배경 (startProgress부터 끝까지만 그리기)
-    // 배경은 항상 전체를 그리지 않고, progress가 1.0이 아닐 때만 나머지 부분을 배경으로 그림
-    // 하지만 각 섹션별로 배경을 그리려면, 배경도 startProgress부터 시작해야 함
-    // 여기서는 배경을 전체로 그리되, 진행 게이지가 그려지면 덮어씌워지도록 함
+    // 시작 각도:
+    // - 원형: 12시(-π/2)에서 시작
+    // - 반원: 왼쪽(π)에서 시작
+    final startAngle = isFullCircle ? -math.pi / 2 : math.pi;
+
+    // =========================
+    // 외부 "배경"
+    // =========================
     final outerBackgroundPaint = Paint()
       ..color = backgroundColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round;
 
-    // 배경을 전체로 그리기 (진행 게이지가 없는 부분은 배경색으로 보임)
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: outerRadius),
-      startAngle,
-      maxAngle,
-      false,
-      outerBackgroundPaint,
-    );
+    // 원형 배경은 drawArc(2π)에서 seam이 날 수 있어 drawCircle로 처리
+    if (isFullCircle) {
+      canvas.drawCircle(center, outerRadius, outerBackgroundPaint);
+    } else {
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: outerRadius),
+        startAngle,
+        maxAngle,
+        false,
+        outerBackgroundPaint,
+      );
+    }
 
-    // 외부 원 진행 게이지 (단색으로)
-    if (progress > startProgress) {
-      // 시작 각도: startProgress만큼 회전
-      final actualStartAngle = startAngle + (maxAngle * startProgress);
-      // 스윕 각도: (progress - startProgress)만큼
-      final sweepAngle = maxAngle * (progress - startProgress);
+    // =========================
+    // 외부 진행 (핵심 수정)
+    // 99%와 100%를 "명확히" 분리:
+    // - progress == 1.0: drawCircle + return (절대 drawArc로 덮지 않음)
+    // - progress < 1.0: drawArc, 단 2π 근접을 피하기 위해 maxAngle - epsilon
+    // =========================
+    final clampedProgress = progress.clamp(0.0, 1.0);
+    final clampedStartProgress = startProgress.clamp(0.0, 1.0);
 
+    if (clampedProgress > clampedStartProgress) {
       final outerProgressPaint = Paint()
         ..color =
             progressColorStart // 단색 사용
@@ -96,58 +105,81 @@ class SemiGaugePainter extends CustomPainter {
         ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round;
 
-      if (isDashed) {
-        // 점선으로 그리기
-        _drawDashedArc(
-          canvas,
-          center,
-          outerRadius,
-          actualStartAngle,
-          sweepAngle,
-          outerProgressPaint,
-        );
+      // 실제 진행률 계산 (startProgress 이후의 진행률)
+      final actualProgress = clampedProgress - clampedStartProgress;
+
+      // ✅ 100%는 무조건 완전 원 (startProgress가 0이고 progress가 1.0일 때)
+      if (isFullCircle &&
+          clampedStartProgress == 0.0 &&
+          clampedProgress == 1.0) {
+        canvas.drawCircle(center, outerRadius, outerProgressPaint);
+        // 중요: 100%에서 drawArc가 실행되면 다시 "끊긴 호"가 덮여 보일 수 있으므로 즉시 종료
+        // (내부 원/기준선은 계속 그려야 하므로 return 대신 플래그로 분리)
       } else {
-        // 실선으로 그리기
-        canvas.drawArc(
-          Rect.fromCircle(center: center, radius: outerRadius),
-          actualStartAngle,
-          sweepAngle,
-          false,
-          outerProgressPaint,
-        );
+        // 99% 이하는 절대 2π(=maxAngle)를 그리지 않도록 안전장치
+        const double epsilon = 0.001; // 라디안
+        final double safeMax = isFullCircle ? (maxAngle - epsilon) : maxAngle;
+
+        // 시작 각도: startProgress만큼 회전
+        final actualStartAngle = startAngle + (maxAngle * clampedStartProgress);
+        // 스윕 각도: (progress - startProgress)만큼
+        final sweepAngle = (maxAngle * actualProgress).clamp(0.0, safeMax);
+
+        if (isDashed) {
+          _drawDashedArc(
+            canvas,
+            center,
+            outerRadius,
+            actualStartAngle,
+            sweepAngle,
+            outerProgressPaint,
+          );
+        } else {
+          canvas.drawArc(
+            Rect.fromCircle(center: center, radius: outerRadius),
+            actualStartAngle,
+            sweepAngle,
+            false,
+            outerProgressPaint,
+          );
+        }
       }
     }
 
-    // 내부 원 그리기 (innerValue가 있거나 24시간 시계 모드일 때만 표시)
+    // =========================
+    // 내부 원 (원형일 때만)
+    // =========================
     if (isFullCircle && (innerProgress != null || is24HourClock)) {
       final innerBgColor =
           innerBackgroundColor ?? backgroundColor.withOpacity(0.5);
       final innerFgColorStart =
           innerProgressColorStart ?? progressColorStart.withOpacity(0.7);
-      final innerFgColorEnd =
-          innerProgressColorEnd ?? progressColorEnd.withOpacity(0.7);
       final innerStroke = innerStrokeWidth ?? (strokeWidth * 0.7);
 
-      // 내부 원 배경 제거됨
-
-      // 24시간 시계 모드인 경우 현재 시간 표시 (애니메이션 값 사용)
-      if (is24HourClock && isFullCircle) {
-        // innerProgress가 null이 아니면 애니메이션 값 사용, null이면 현재 시간 사용
+      if (is24HourClock) {
         final currentTimeProgress =
-            innerProgress ??
+        (innerProgress ??
             (() {
               final now = DateTime.now();
               final currentHour = now.hour;
               final currentMinute = now.minute;
               return (currentHour + currentMinute / 60.0) / 24.0;
-            }());
-        final currentTimeSweepAngle = maxAngle * currentTimeProgress;
+            }()))
+            .clamp(0.0, 1.0);
 
         final innerProgressPaint = Paint()
           ..color = innerFgColorStart
           ..style = PaintingStyle.stroke
           ..strokeWidth = innerStroke
           ..strokeCap = StrokeCap.round;
+
+        // 내부도 2π 근접 seam 방지
+        const double epsilon = 0.001;
+        final safeMax = maxAngle - epsilon;
+        final currentTimeSweepAngle = (maxAngle * currentTimeProgress).clamp(
+          0.0,
+          safeMax,
+        );
 
         canvas.drawArc(
           Rect.fromCircle(center: center, radius: innerRadius),
@@ -157,47 +189,33 @@ class SemiGaugePainter extends CustomPainter {
           innerProgressPaint,
         );
 
-        // 알람 시간에 단추 모양으로 표시 (주황색 외곽 + 내부 원 색상의 작은 원)
+        // 알람 단추 표시
         if (alarmHours != null && alarmHours!.isNotEmpty) {
-          // 주황색 외곽 원
           final outerCirclePaint = Paint()
-            ..color =
-                const Color(0xFFFF8C42) // 주황색 원
+            ..color = const Color(0xFFFF8C42)
             ..style = PaintingStyle.fill;
 
-          // 내부 원 배경 색상의 작은 원
           final innerCirclePaint = Paint()
-            ..color =
-                innerBgColor // 내부 원 배경과 동일한 색상
+            ..color = innerBgColor
             ..style = PaintingStyle.fill;
 
           for (final alarmHour in alarmHours!) {
-            // 알람 시간을 각도로 변환 (12시 방향이 -π/2)
-            final alarmProgress = alarmHour / 24.0;
+            final alarmProgress = (alarmHour / 24.0).clamp(0.0, 1.0);
             final alarmAngle = startAngle + (maxAngle * alarmProgress);
 
-            // 원의 중심: 내부 원의 중앙 위치
-            final circleCenterRadius = innerRadius;
-            final circleCenterX =
-                center.dx + circleCenterRadius * math.cos(alarmAngle);
-            final circleCenterY =
-                center.dy + circleCenterRadius * math.sin(alarmAngle);
-            final circleCenter = Offset(circleCenterX, circleCenterY);
+            final circleCenter = Offset(
+              center.dx + innerRadius * math.cos(alarmAngle),
+              center.dy + innerRadius * math.sin(alarmAngle),
+            );
 
-            // 외곽 원의 반지름: 내부 원의 stroke 두께
             final outerCircleRadius = innerStroke / 2;
-
-            // 내부 작은 원의 반지름: 외곽 원의 80%
             final innerCircleRadius = outerCircleRadius * 0.8;
 
-            // 외곽 주황색 원 그리기
             canvas.drawCircle(
               circleCenter,
               outerCircleRadius,
               outerCirclePaint,
             );
-
-            // 내부 작은 원 그리기 (단추 느낌)
             canvas.drawCircle(
               circleCenter,
               innerCircleRadius,
@@ -206,102 +224,95 @@ class SemiGaugePainter extends CustomPainter {
           }
         }
       } else if (innerProgress != null && innerProgress! > 0) {
-        // 일반 모드: 내부 원 진행 게이지 (단색으로)
-        final innerSweepAngle = maxAngle * innerProgress!;
+        final p = innerProgress!.clamp(0.0, 1.0);
 
         final innerProgressPaint = Paint()
-          ..color =
-              innerFgColorStart // 단색 사용
+          ..color = innerFgColorStart
           ..style = PaintingStyle.stroke
           ..strokeWidth = innerStroke
           ..strokeCap = StrokeCap.round;
 
-        canvas.drawArc(
-          Rect.fromCircle(center: center, radius: innerRadius),
-          startAngle,
-          innerSweepAngle,
-          false,
-          innerProgressPaint,
-        );
+        if (p == 1.0) {
+          // 내부도 100%면 완전 원
+          canvas.drawCircle(center, innerRadius, innerProgressPaint);
+        } else {
+          const double epsilon = 0.001;
+          final safeMax = maxAngle - epsilon;
+          final innerSweepAngle = (maxAngle * p).clamp(0.0, safeMax);
+
+          canvas.drawArc(
+            Rect.fromCircle(center: center, radius: innerRadius),
+            startAngle,
+            innerSweepAngle,
+            false,
+            innerProgressPaint,
+          );
+        }
       }
-      // 내부 원만 배경으로 표시 (진행률이 없을 때는 배경만 표시됨)
     }
 
-    // 기준선 그리기 (중심에서 일정 거리로 뻗어나가는 선)
-    if (targetLinePosition != null &&
-        targetLinePosition! >= 0 &&
-        targetLinePosition! <= 1.0) {
-      // 기준선 각도 계산: 반원이면 왼쪽부터, 원형이면 12시 방향부터
-      final targetAngle = isFullCircle
-          ? (-math.pi / 2) + (2 * math.pi * targetLinePosition!.clamp(0.0, 1.0))
-          : math.pi + (math.pi * targetLinePosition!.clamp(0.0, 1.0));
+    // =========================
+    // 기준선
+    // =========================
+    if (targetLinePosition != null) {
+      final t = targetLinePosition!.clamp(0.0, 1.0);
 
-      // 외부 원 기준선
+      final targetAngle = isFullCircle
+          ? (-math.pi / 2) + (2 * math.pi * t)
+          : math.pi + (math.pi * t);
+
       final outerInnerRadius = outerRadius - (strokeWidth / 2) + 2;
       final outerOuterRadius = outerRadius + (strokeWidth / 2) - 2;
 
-      final outerLineStartX =
-          center.dx + outerInnerRadius * math.cos(targetAngle);
-      final outerLineStartY =
-          center.dy + outerInnerRadius * math.sin(targetAngle);
-      final outerLineStartPoint = Offset(outerLineStartX, outerLineStartY);
-
-      final outerLineEndX =
-          center.dx + outerOuterRadius * math.cos(targetAngle);
-      final outerLineEndY =
-          center.dy + outerOuterRadius * math.sin(targetAngle);
-      final outerLineEndPoint = Offset(outerLineEndX, outerLineEndY);
+      final outerLineStartPoint = Offset(
+        center.dx + outerInnerRadius * math.cos(targetAngle),
+        center.dy + outerInnerRadius * math.sin(targetAngle),
+      );
+      final outerLineEndPoint = Offset(
+        center.dx + outerOuterRadius * math.cos(targetAngle),
+        center.dy + outerOuterRadius * math.sin(targetAngle),
+      );
 
       final linePaint = Paint()
-        ..color =
-            const Color(0xFFFFC107) // 노란색
+        ..color = const Color(0xFFFFC107)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
         ..strokeCap = StrokeCap.round;
 
-      // 그림자 효과
       final shadowPaint = Paint()
         ..color = const Color(0xFFFFC107).withOpacity(0.5)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
 
-      // 외부 원 기준선 그림자
+      // 외부 그림자 + 라인
       canvas.drawLine(
         Offset(outerLineStartPoint.dx + 1, outerLineStartPoint.dy + 1),
         Offset(outerLineEndPoint.dx + 1, outerLineEndPoint.dy + 1),
         shadowPaint,
       );
-
-      // 외부 원 기준선
       canvas.drawLine(outerLineStartPoint, outerLineEndPoint, linePaint);
 
-      // 내부 원 기준선 (내부 원이 있을 때만)
+      // 내부 기준선 (innerProgress가 있을 때만)
       if (innerProgress != null) {
         final innerStroke = innerStrokeWidth ?? (strokeWidth * 0.7);
         final innerInnerRadius = innerRadius - (innerStroke / 2) + 2;
         final innerOuterRadius = innerRadius + (innerStroke / 2) - 2;
 
-        final innerLineStartX =
-            center.dx + innerInnerRadius * math.cos(targetAngle);
-        final innerLineStartY =
-            center.dy + innerInnerRadius * math.sin(targetAngle);
-        final innerLineStartPoint = Offset(innerLineStartX, innerLineStartY);
+        final innerLineStartPoint = Offset(
+          center.dx + innerInnerRadius * math.cos(targetAngle),
+          center.dy + innerInnerRadius * math.sin(targetAngle),
+        );
+        final innerLineEndPoint = Offset(
+          center.dx + innerOuterRadius * math.cos(targetAngle),
+          center.dy + innerOuterRadius * math.sin(targetAngle),
+        );
 
-        final innerLineEndX =
-            center.dx + innerOuterRadius * math.cos(targetAngle);
-        final innerLineEndY =
-            center.dy + innerOuterRadius * math.sin(targetAngle);
-        final innerLineEndPoint = Offset(innerLineEndX, innerLineEndY);
-
-        // 내부 원 기준선 그림자
         canvas.drawLine(
           Offset(innerLineStartPoint.dx + 1, innerLineStartPoint.dy + 1),
           Offset(innerLineEndPoint.dx + 1, innerLineEndPoint.dy + 1),
           shadowPaint,
         );
-
-        // 내부 원 기준선
         canvas.drawLine(innerLineStartPoint, innerLineEndPoint, linePaint);
       }
     }
@@ -309,47 +320,40 @@ class SemiGaugePainter extends CustomPainter {
 
   // 점선 호 그리기
   void _drawDashedArc(
-    Canvas canvas,
-    Offset center,
-    double radius,
-    double startAngle,
-    double sweepAngle,
-    Paint paint,
-  ) {
-    final path = Path();
-    path.addArc(
-      Rect.fromCircle(center: center, radius: radius),
-      startAngle,
-      sweepAngle,
-    );
+      Canvas canvas,
+      Offset center,
+      double radius,
+      double startAngle,
+      double sweepAngle,
+      Paint paint,
+      ) {
+    final path = Path()
+      ..addArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        sweepAngle,
+      );
 
-    final pathMetrics = path.computeMetrics();
-    for (final pathMetric in pathMetrics) {
+    for (final pathMetric in path.computeMetrics()) {
       final length = pathMetric.length;
       double distance = 0.0;
       bool draw = true;
 
       while (distance < length) {
-        final len = draw ? dashWidth : dashGap;
-        final next = (distance + len).clamp(0.0, length);
+        final segLen = draw ? dashWidth : dashGap;
+        final next = (distance + segLen).clamp(0.0, length);
 
         if (draw && next > distance) {
-          final tangentStart = pathMetric.getTangentForOffset(distance);
-          final tangentEnd = pathMetric.getTangentForOffset(next);
-
-          if (tangentStart != null && tangentEnd != null) {
-            // 점선 세그먼트를 그릴 때 strokeCap을 적용
+          final t0 = pathMetric.getTangentForOffset(distance);
+          final t1 = pathMetric.getTangentForOffset(next);
+          if (t0 != null && t1 != null) {
             final dashPaint = Paint()
               ..color = paint.color
               ..style = PaintingStyle.stroke
               ..strokeWidth = paint.strokeWidth
               ..strokeCap = StrokeCap.round;
 
-            canvas.drawLine(
-              tangentStart.position,
-              tangentEnd.position,
-              dashPaint,
-            );
+            canvas.drawLine(t0.position, t1.position, dashPaint);
           }
         }
 
@@ -360,6 +364,5 @@ class SemiGaugePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant SemiGaugePainter oldDelegate) => true;
 }
-

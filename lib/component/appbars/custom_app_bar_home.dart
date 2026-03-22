@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sotong_local/component/texts/header_text.dart';
 
 import '../theme/app_spacing.dart';
@@ -34,7 +35,10 @@ class CustomAppBarHome extends StatelessWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.notifications, size: 28),
-                    onPressed: onNotifications ?? () {},
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      (onNotifications ?? () {})();
+                    },
                   ),
                   if (unreadCount > 0)
                     Positioned(
@@ -66,7 +70,10 @@ class CustomAppBarHome extends StatelessWidget {
               ),
               IconButton(
                 icon: const Icon(Icons.settings, size: 28),
-                onPressed: onSettings ?? () {},
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  (onSettings ?? () {})();
+                },
               ),
             ],
           ),

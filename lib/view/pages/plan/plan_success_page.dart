@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_edit/plan_edit_back_button.dart';
-
-import '../../../component/appbars/custom_app_bar.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
+import 'package:sotong_local/view/pages/home/home_widgets/home_saving_chart_widget.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/containers/rounded_info_container.dart';
 import '../../../component/texts/multi_color_text.dart';
@@ -10,8 +9,11 @@ import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
 
+import '../../../repository/auth_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/services/saving_calculator.dart';
+import '../../../services/local_notification_service.dart';
+import '../../../services/notification_settings_storage.dart';
 
 class PlanSuccessPage extends StatefulWidget {
   const PlanSuccessPage({super.key});
@@ -39,6 +41,17 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
     vm.preparePlanStructureForSummary();
     final ok = await vm.savePlan();
 
+    if (ok) {
+      final storage = NotificationSettingsStorage.instance;
+      final applied = await storage.hasAppliedSignupDefaults();
+      if (!applied) {
+        final defaults = defaultSignupNotificationSettings;
+        await storage.save(defaults);
+        await storage.markSignupDefaultsApplied();
+        await LocalNotificationService.instance.updateSchedules(defaults);
+      }
+    }
+
     if (!mounted) return;
     setState(() {
       _savingDone = true;
@@ -55,11 +68,11 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
     if (isLoading) {
       return Scaffold(
         backgroundColor: Colors.white,
-        body: SafeArea(
+        appBar: const BackOnlyAppBar(),
+        body: const SafeArea(
           child: Column(
             children: [
-              CustomAppBar(title: '', onBack: () => Navigator.pop(context)),
-              const Expanded(
+              Expanded(
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -81,10 +94,10 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
     if (!_saveOk) {
       return Scaffold(
         backgroundColor: Colors.white,
+        appBar: const BackOnlyAppBar(),
         body: SafeArea(
           child: Column(
             children: [
-              PlanEditBackAppBar(),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -94,7 +107,11 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.error_outline, size: 56, color: Colors.red),
+                        const Icon(
+                          Icons.error_outline,
+                          size: 56,
+                          color: Colors.red,
+                        ),
                         const SizedBox(height: 12),
                         const Text(
                           '플랜 저장에 실패했어요.\n잠시 후 다시 시도해주세요.',
@@ -102,10 +119,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 20),
-                        CustomButton(
-                          text: '다시 시도',
-                          onPressed: _runSave,
-                        ),
+                        CustomButton(text: '다시 시도', onPressed: _runSave),
                         const SizedBox(height: 12),
                         TextButton(
                           onPressed: () {
@@ -173,10 +187,10 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      appBar: const BackOnlyAppBar(),
       body: SafeArea(
         child: Column(
           children: [
-            CustomAppBar(title: '', onBack: () => Navigator.pop(context)),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -231,7 +245,9 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
             ),
             CustomButton(
               text: '다음',
-              onPressed: () {
+              onPressed: () async {
+                HomeSavingChartWidget.resetGaugeAnimationForPlay();
+                await context.read<AuthRepository>().setHasPlan(true); // 추후 수정 필요
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/home_tab_navigator',

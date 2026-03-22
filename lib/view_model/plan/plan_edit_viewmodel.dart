@@ -121,8 +121,8 @@ class PlanEditViewModel extends ChangeNotifier {
         : parsedTarget;
     final preSaved = _preSavedAmountBefore(applyDate);
     final alreadySaved = (parsedCurrent <= 0
-            ? totalPlan.currentAsset.toDouble()
-            : parsedCurrent) +
+        ? totalPlan.currentAsset.toDouble()
+        : parsedCurrent) +
         preSaved;
     final remaining = baseTarget - alreadySaved;
     return remaining.isNegative ? 0 : remaining.round();
