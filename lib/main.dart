@@ -228,6 +228,10 @@ class MyApp extends StatelessWidget {
           create: (ctx) => SettingViewModel(
             ctx.read<AuthRepository>(),
             ctx.read<RecordRepository>(),
+            ctx.read<PlanRepository>(),
+            ctx.read<RefDataRepository>(),
+            ctx.read<PlanCacheRepository>(),
+            ctx.read<RefCategoryRepository>(),
           ),
         ),
         ChangeNotifierProvider<AlarmViewModel>(

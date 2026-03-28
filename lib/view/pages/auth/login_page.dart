@@ -14,6 +14,8 @@ import '../../../view_model/auth/login_view_model.dart';
 import '../../../view_model/home/home_view_model.dart';
 import '../../../repository/ref_data_repository.dart';
 import '../../../services/plan_debug_printer.dart';
+import '../../../repository/record_repository.dart';
+import '../../../repository/ref_category_repository.dart';
 
 class EmailLoginPage extends StatelessWidget {
   const EmailLoginPage({super.key});
@@ -125,6 +127,7 @@ class EmailLoginPage extends StatelessWidget {
                       final existingPlan =
                           await planRepo.getLatestPlanForCurrentUser();
                       if (existingPlan != null) {
+                        await _hydrateCachesIfNeeded(context);
                         final refDataRepo = context.read<RefDataRepository>();
                         final refData = await refDataRepo.loadAll();
                         refData.planId = existingPlan.planId;
@@ -193,5 +196,34 @@ class EmailLoginPage extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+Future<void> _hydrateCachesIfNeeded(BuildContext context) async {
+  final cacheRepo = context.read<PlanCacheRepository>();
+  final authRepo = context.read<AuthRepository>();
+  final uid = authRepo.cachedUid ?? authRepo.currentUserId;
+  if (uid == null) return;
+
+  final snapshot = cacheRepo.loadSnapshot(uid);
+  if (snapshot != null) return;
+
+  debugPrint('[EmailLoginPage] cache snapshot missing -> hydrate record/categories');
+  final recordRepo = context.read<RecordRepository>();
+  final refCatRepo = context.read<RefCategoryRepository>();
+  final prevLocalMode = recordRepo.localMode;
+  if (!recordRepo.hasAnyCacheForCurrentUser()) {
+    recordRepo.localMode = false;
+    try {
+      await recordRepo.hydrateAllFromRemote();
+    } finally {
+      recordRepo.localMode = prevLocalMode;
+    }
+  }
+  if (!refCatRepo.hasCachedDoc('recordSpending')) {
+    await refCatRepo.fetchRefCategories(docId: 'recordSpending');
+  }
+  if (!refCatRepo.hasCachedDoc('recordAddIncome')) {
+    await refCatRepo.fetchRefCategories(docId: 'recordAddIncome');
   }
 }

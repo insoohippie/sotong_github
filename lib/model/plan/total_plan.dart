@@ -9,8 +9,8 @@ import 'sub_plan.dart';
 class TotalPlan {
   const TotalPlan({ // 개념적 관련 정보 저장
     required this.planId,
-    required this.currentAmount,
-    required this.currentAsset,
+    required this.currentAmount, // 현재 플랜 저축액
+    required this.currentAsset, // 기존 보유 금액(플랜 무관)
     required this.subPlans,
     required this.result,
     this.planName,

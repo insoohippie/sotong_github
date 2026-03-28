@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../data_source/auth_data_source.dart';
@@ -93,6 +94,13 @@ class RefCategoryRepository {
     final normalized = _normalize(items);
     final map = {'items': normalized.map((e) => e.toMap()).toList()};
     _cacheBox.put(key, jsonEncode(map));
+  }
+
+  bool hasCachedDoc(String docId) {
+    final uid = _uid;
+    if (uid == null) return false;
+    final key = _cacheKey(uid, docId);
+    return _cacheBox.containsKey(key);
   }
 
   // =========================================================
@@ -272,6 +280,34 @@ class RefCategoryRepository {
     for (final k in keysToDelete) {
       await _cacheBox.delete(k);
       await _cacheBox.delete('$k:dirty');
+    }
+  }
+
+  Future<void> syncToRemote() async {
+    final uid = _uid;
+    if (uid == null) {
+      debugPrint('[RefCategoryRepository] syncToRemote aborted: missing uid');
+      return;
+    }
+    final prefix = '$uid:refcat:';
+    final docKeys = _cacheBox.keys
+        .whereType<String>()
+        .where((k) => k.startsWith(prefix) && !k.endsWith(':dirty'))
+        .toList(growable: false);
+    for (final key in docKeys) {
+      final docId = key.substring(prefix.length);
+      if (!_isDirty(uid, docId)) continue;
+      final cache = _loadCache(uid, docId);
+      if (cache == null) continue;
+      debugPrint('[RefCategoryRepository] syncing doc $docId...');
+      final ok = await _safeSetRemote(uid, docId, cache);
+      if (ok) {
+        _setDirty(uid, docId, false);
+      } else {
+        debugPrint(
+            '[RefCategoryRepository] failed to sync doc $docId, will retry later');
+        _setDirty(uid, docId, true);
+      }
     }
   }
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -198,6 +199,10 @@ class RecordSpendingViewModel extends ChangeNotifier {
       totalSpendingAmount: totalSpending,
       emotion: selectedEmotion ?? '',
       comment: commentController.text,
+    );
+    debugPrint(
+      '[RecordSpendingViewModel] saveAllForDate '
+      '(date=$date, localMode=${_recordRepo.localMode})',
     );
 
     _spendingEventBus.fire(SpendingUpdatedEvent(date));

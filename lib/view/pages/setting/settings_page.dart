@@ -133,6 +133,28 @@ class SettingsPage extends StatelessWidget {
                       onTap: () => Navigator.pushNamed(context, '/version'),
                     ),
                     _sectionDivider(isDark: isDark),
+                    _settingsRow(
+                      context,
+                      '플랜 업로드',
+                      isDark: isDark,
+                      onTap: () async {
+                        final vm = context.read<SettingViewModel>();
+                        try {
+                          await vm.uploadAllData();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('플랜과 데이터가 업로드되었습니다.')),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString())),
+                            );
+                          }
+                        }
+                      },
+                    ),
                     // 플랜 지우기 / 로그아웃
                     _settingsRow(
                       context,

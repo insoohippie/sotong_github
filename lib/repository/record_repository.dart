@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 
@@ -17,6 +18,8 @@ class RecordRepository {
 
   /// ✅ 기존 캐시와의 호환을 위해 box 이름은 그대로 유지
   final Box _cacheBox = Hive.box('monthly_spending');
+
+  bool localMode = true;
 
   RecordRepository(this._dataSource, this._authDataSource);
 
@@ -78,6 +81,44 @@ class RecordRepository {
 
   bool _isSame(MonthlyRecord a, MonthlyRecord b) {
     return jsonEncode(a.toJson()) == jsonEncode(b.toJson());
+  }
+
+  bool hasAnyCacheForCurrentUser() {
+    final uid = _uid;
+    if (uid == null) return false;
+    final prefix = '$uid:';
+    return _cacheBox.keys.whereType<String>().any(
+      (key) => key.startsWith(prefix) && !key.endsWith(':dirty'),
+    );
+  }
+
+  Future<void> hydrateAllFromRemote() async {
+    final uid = _uid;
+    if (uid == null) {
+      debugPrint('[RecordRepository] hydrate aborted: missing uid');
+      return;
+    }
+    if (!isOnline) {
+      debugPrint('[RecordRepository] hydrate aborted: offline');
+      return;
+    }
+    if (localMode) {
+      debugPrint('[RecordRepository] hydrate aborted: localMode=true');
+      return;
+    }
+    try {
+      final snaps = await _dataSource.listMonthlyDocs(uid);
+      for (final doc in snaps.docs) {
+        final monthKey = doc.id;
+        final data = doc.data();
+        final remote = MonthlyRecord.fromFirestore(monthKey, data);
+        _saveToCache(monthKey, remote);
+        _setDirty(monthKey, false);
+      }
+      debugPrint('[RecordRepository] hydrate complete: ${snaps.docs.length} months cached');
+    } catch (e) {
+      debugPrint('[RecordRepository] hydrate failed: $e');
+    }
   }
 
   // ============== 내부: Firestore safe wrappers ==============
@@ -148,8 +189,17 @@ class RecordRepository {
       final remote = MonthlyRecord.fromFirestore(monthKey, data);
 
       if (dirty) {
-        // dirty=true => 로컬 우선
+        if (localMode) {
+          debugPrint(
+            '[RecordRepository] dirty month=$monthKey but localMode=true; skip remote upload',
+          );
+          return cache;
+        }
+        // dirty=true => 로컬 우선 (온라인 + localMode=false일 때만 업로드)
         if (!_isSame(cache, remote)) {
+          debugPrint(
+            '[RecordRepository] syncing dirty month immediately month=$monthKey (localMode=$localMode)',
+          );
           final ok = await _safeSetRemote(uid, monthKey, cache);
           if (ok) _setDirty(monthKey, false);
         } else {
@@ -168,7 +218,7 @@ class RecordRepository {
     }
 
     // 2) 캐시가 없으면
-    if (isOnline) {
+    if (!localMode && isOnline) {
       final snap = await _safeGetRemoteMonth(uid, monthKey);
 
       // 서버 read 실패면: local empty + dirty=true
@@ -223,7 +273,7 @@ class RecordRepository {
     _saveToCache(monthKey, month);
     if (markDirty) _setDirty(monthKey, true);
 
-    if (isOnline) {
+    if (!localMode && isOnline) {
       final ok = await _safeSetRemote(uid, monthKey, month);
       if (ok) {
         _setDirty(monthKey, false);
@@ -351,5 +401,36 @@ class RecordRepository {
     }
 
     await batch.commit();
+  }
+
+  Future<void> syncDirtyMonths() async {
+    final uid = _uid;
+    if (uid == null) {
+      debugPrint('[RecordRepository] syncDirtyMonths aborted: missing uid');
+      return;
+    }
+    final prefix = '$uid:';
+    final dirtySuffix = ':dirty';
+    final dirtyKeys = _cacheBox.keys
+        .whereType<String>()
+        .where((k) => k.startsWith(prefix) && k.endsWith(dirtySuffix))
+        .toList(growable: false);
+    for (final dirtyKey in dirtyKeys) {
+      final monthKeyWithPrefix =
+          dirtyKey.substring(0, dirtyKey.length - dirtySuffix.length);
+      final monthKey = monthKeyWithPrefix.substring(prefix.length);
+      final cached = _loadFromCache(monthKey);
+      if (cached == null) continue;
+      debugPrint(
+          '[RecordRepository] syncing dirty month=$monthKey (localMode=$localMode)');
+      final ok = await _safeSetRemote(uid, monthKey, cached);
+      if (ok) {
+        _setDirty(monthKey, false);
+      } else {
+        debugPrint(
+            '[RecordRepository] failed to sync month $monthKey, will retry later');
+        _setDirty(monthKey, true);
+      }
+    }
   }
 }
