@@ -139,6 +139,13 @@ class SettingsPage extends StatelessWidget {
                       isDark: isDark,
                       onTap: () async {
                         final vm = context.read<SettingViewModel>();
+                        if (!vm.isOnline) {
+                          showOfflineUploadBlockedDialog(
+                            context,
+                            isDark: isDark,
+                          );
+                          return;
+                        }
                         try {
                           await vm.uploadAllData();
                           if (context.mounted) {
@@ -622,6 +629,59 @@ void showOfflineDeleteBlockedDialog(
                 text:
                 "플랜 삭제는 서버와 동기화가 필요해요.\n"
                     "인터넷에 연결한 후 다시 시도해주세요.",
+                color: textColor,
+              ),
+              const SizedBox(height: 28),
+              SizedBox(
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text("확인"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+void showOfflineUploadBlockedDialog(
+  BuildContext context, {
+  bool isDark = false,
+}) {
+  final bgColor = isDark ? AppColors.darkSurface : Colors.white;
+  final textColor = isDark ? AppColors.darkText : Colors.black87;
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (context) {
+      return Dialog(
+        backgroundColor: bgColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              HeaderText(
+                text: "인터넷 연결 필요",
+                fontWeight: FontWeight.w700,
+                color: textColor,
+              ),
+              const SizedBox(height: 12),
+              ParagraphText(
+                text:
+                    "플랜 업로드는 서버와 동기화가 필요해요.\n인터넷에 연결한 후 다시 시도해주세요.",
                 color: textColor,
               ),
               const SizedBox(height: 28),
