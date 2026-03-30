@@ -185,43 +185,31 @@ class CommunicationViewModel extends ChangeNotifier {
   //  감정 매핑/분석 (최근 7/30일 기준)
   // =====================================================
 
-  static const List<String> emotionList = ['기쁨', '혼란', '슬픔', '피곤', '화남', '플렉스'];
+  static const List<String> emotionList = [
+    '평온',
+    '좋음',
+    '슬픔',
+    '스트레스',
+    '동기부여',
+    '아무 감정 없음',
+  ];
 
   String getEmoji(String emotion) {
     switch (emotion) {
-      case '기쁨':
+      case '평온':
+        return '😌';
+      case '좋음':
         return '😊';
-      case '혼란':
-        return '😵‍💫';
       case '슬픔':
         return '😢';
-      case '피곤':
-        return '😴';
-      case '화남':
-        return '😠';
-      case '플렉스':
-        return '😎';
+      case '스트레스':
+        return '😣';
+      case '동기부여':
+        return '🔥';
+      case '아무 감정 없음':
+        return '🙂';
       default:
         return '🙂';
-    }
-  }
-
-  String emotionNameFromEmoji(String emoji) {
-    switch (emoji) {
-      case '😊':
-        return '기쁨';
-      case '😵‍💫':
-        return '혼란';
-      case '😢':
-        return '슬픔';
-      case '😴':
-        return '피곤';
-      case '😠':
-        return '화남';
-      case '😎':
-        return '플렉스';
-      default:
-        return '알 수 없음';
     }
   }
 
@@ -439,11 +427,11 @@ class CommunicationViewModel extends ChangeNotifier {
       final emo = d.emotion.trim();
       if (emo.isEmpty) continue;
 
-      if (emo == '기쁨' || emo == '행복' || emo == '플렉스') {
+      if (emo == '좋음' || emo == '동기부여') {
         happy++;
-      } else if (emo == '혼란' || emo == '피곤') {
+      } else if (emo == '평온' || emo == '아무 감정 없음') {
         normal++;
-      } else if (emo == '슬픔' || emo == '우울' || emo == '화남') {
+      } else if (emo == '슬픔' || emo == '스트레스') {
         gloomy++;
       }
     }

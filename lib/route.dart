@@ -10,8 +10,9 @@ import 'package:sotong_local/view/pages/communication/communication_page.dart';
 
 import 'package:sotong_local/view/pages/home/home_page.dart';
 import 'package:sotong_local/view/pages/home/home_tab_navigator.dart';
-import 'package:sotong_local/view/pages/record/addIncome/limit_apply_page.dart';
-import 'package:sotong_local/view/pages/record/addIncome/period_apply_page.dart';
+import 'package:sotong_local/view/pages/record/add_income/apply_income_option_page.dart';
+import 'package:sotong_local/view/pages/record/add_income/limit_apply_page.dart';
+import 'package:sotong_local/view/pages/record/add_income/period_apply_page.dart';
 import 'package:sotong_local/view/pages/record/today_record_page.dart';
 
 import 'package:sotong_local/view/pages/plan/chat_plan_page.dart';
@@ -22,9 +23,6 @@ import 'package:sotong_local/view/pages/plan/celebration_plan_success.dart';
 
 import 'package:sotong_local/view/pages/record/record_diary_page.dart';
 import 'package:sotong_local/view/pages/record/record_page.dart';
-
-import 'package:sotong_local/view/pages/record/addIncome/apply_income_option_page.dart';
-
 import 'package:sotong_local/view/pages/report/report_page.dart';
 
 import 'package:sotong_local/view/pages/notification/notification_page.dart';

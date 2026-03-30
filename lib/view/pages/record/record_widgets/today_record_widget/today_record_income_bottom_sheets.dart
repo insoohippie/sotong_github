@@ -7,8 +7,8 @@ import 'package:sotong_local/component/theme/app_colors.dart';
 import '../../../../../model/category/ref_category_item.dart';
 import '../../../../../model/record/record_entry.dart';
 import '../../../../../view_model/category/add_income_category_view_model.dart';
+import '../add_income_widget/add_income_input_entry.dart';
 import '../drag_grid.dart';
-import '../addIncome_widget/add_income_input_entry.dart';
 
 const List<String> recordIncomeEmojis = [
   '💰', '💵', '💸', '🏦', '💳', '📈', '📊', '🪙',
