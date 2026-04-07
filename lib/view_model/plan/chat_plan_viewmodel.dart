@@ -125,6 +125,7 @@ class ChatPlanViewModel extends ChangeNotifier {
   List<ChatMessage> get messages => _messages;
 
   bool _initialPlanResolved = false;
+  bool _needsInitialUpload = true;
 
   Future<void> _initializePlanState() async {
     if (_initialPlanResolved) return;
@@ -173,6 +174,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
     _refData = snapshot.refData;
     _refDataVM = RefDataViewModel(_refData);
+    _needsInitialUpload = snapshot.needsInitialUpload;
     _logPlanTree('Loaded From Cache');
   }
 
@@ -190,6 +192,7 @@ class ChatPlanViewModel extends ChangeNotifier {
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
       _refData = refData;
       _refDataVM = RefDataViewModel(_refData);
+      _needsInitialUpload = false;
       _setHasSavedPlan(true);
       _logPlanTree('Loaded From Server');
       return true;
@@ -1134,6 +1137,7 @@ class ChatPlanViewModel extends ChangeNotifier {
         await _planRepo.replacePlan(_totalPlan);
       }
       _logPlanTree('After Save');
+      _needsInitialUpload = false;
       _lastPersistedGoal = _totalPlan.modEndDate ?? _totalPlan.endDate;
       _planSavedBus?.notify();
       debugPrint('[savePlan] success: _hasSavedPlan $_hasSavedPlan -> true');
@@ -1619,6 +1623,7 @@ class ChatPlanViewModel extends ChangeNotifier {
       snapshot: PlanCacheSnapshot(
         plan: _totalPlan,
         refData: _refData,
+        needsInitialUpload: _needsInitialUpload,
       ),
     );
     debugPrint('[ChatPlanViewModel] cached snapshot for uid=$uid');

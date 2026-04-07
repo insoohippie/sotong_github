@@ -24,6 +24,7 @@ class TotalPlan {
     this.extraIncomeTotal = 0,
     this.snapshotAmount = 0,
     this.snapshotAt,
+    this.extraIncomeRecords = const [],
   });
 
   final String planId;
@@ -42,6 +43,7 @@ class TotalPlan {
   final int extraIncomeTotal;  // 플랜 중간 추가 수입 누적
   final int snapshotAmount;    // snapshotAt 시점까지 자동저축 누적
   final DateTime? snapshotAt;  // 스냅샷 기준 시각
+  final List<ExtraIncomeRecord> extraIncomeRecords;
 
   /// Factory for a blank plan used as a draft during onboarding.
   factory TotalPlan.empty() {
@@ -82,6 +84,7 @@ class TotalPlan {
       extraIncomeTotal: 0,
       snapshotAmount: 0,
       snapshotAt: normalizedNow,
+      extraIncomeRecords: const [],
     );
   }
 
@@ -118,6 +121,10 @@ class TotalPlan {
       snapshotAmount:
       (map['snapshotAmount'] as num?)?.round() ?? 0,
       snapshotAt: _parseDate(map['snapshotAt']),
+      extraIncomeRecords: (map['extraIncomeRecords'] as List<dynamic>? ?? const [])
+          .whereType<Map>()
+          .map((e) => ExtraIncomeRecord.fromMap(Map<String, dynamic>.from(e)))
+          .toList(growable: false),
     );
   }
 
@@ -141,6 +148,8 @@ class TotalPlan {
       'extraIncomeTotal': extraIncomeTotal,
       'snapshotAmount': snapshotAmount,
       'snapshotAt': snapshotAt?.toIso8601String(),
+      'extraIncomeRecords':
+          extraIncomeRecords.map((e) => e.toMap()).toList(growable: false),
     };
   }
 
@@ -214,6 +223,7 @@ class TotalPlan {
     int? extraIncomeTotal,
     int? snapshotAmount,
     DateTime? snapshotAt,
+    List<ExtraIncomeRecord>? extraIncomeRecords,
   }) {
     return TotalPlan(
       planId: planId ?? this.planId,
@@ -232,6 +242,7 @@ class TotalPlan {
       extraIncomeTotal: extraIncomeTotal ?? this.extraIncomeTotal,
       snapshotAmount: snapshotAmount ?? this.snapshotAmount,
       snapshotAt: snapshotAt ?? this.snapshotAt,
+      extraIncomeRecords: extraIncomeRecords ?? this.extraIncomeRecords,
     );
   }
 
@@ -523,6 +534,29 @@ class TotalResult {
     return TotalResult(
       totalMetrics: totalMetrics ?? this.totalMetrics,
       subResult: subResult ?? this.subResult,
+    );
+  }
+}
+
+@immutable
+class ExtraIncomeRecord {
+  const ExtraIncomeRecord({
+    required this.date,
+    required this.amount,
+  });
+
+  final DateTime date;
+  final int amount;
+
+  Map<String, dynamic> toMap() => {
+        'date': date.toIso8601String(),
+        'amount': amount,
+      };
+
+  factory ExtraIncomeRecord.fromMap(Map<String, dynamic> map) {
+    return ExtraIncomeRecord(
+      date: TotalPlan._parseDate(map['date']) ?? DateTime.now(),
+      amount: (map['amount'] as num?)?.round() ?? 0,
     );
   }
 }

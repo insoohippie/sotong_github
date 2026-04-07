@@ -162,6 +162,7 @@ class MyApp extends StatelessWidget {
             ctx.read<PlanSavedEventBus>(),
             ctx.read<RecordRepository>(),
             ctx.read<SpendingEventBus>(),
+            ctx.read<RefDataRepository>(),
           ),
         ),
         ChangeNotifierProvider<TodaySpendingViewModel>(

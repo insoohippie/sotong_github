@@ -39,10 +39,22 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _changeDate(int days) {
-    setState(() {
-      _selectedDate = _selectedDate.add(Duration(days: days));
-    });
-    context.read<HomeViewModel>().loadDailySpending(_selectedDate);
+    final vm = context.read<HomeViewModel>();
+    final planStart = vm.latestPlan?.startDate ?? vm.latestPlan?.creationDate;
+    if (planStart != null) {
+      final nextDate = _selectedDate.add(Duration(days: days));
+      if (nextDate.isBefore(DateTime(planStart.year, planStart.month, planStart.day))) {
+        return;
+      }
+      setState(() {
+        _selectedDate = nextDate;
+      });
+    } else {
+      setState(() {
+        _selectedDate = _selectedDate.add(Duration(days: days));
+      });
+    }
+    vm.loadDailySpending(_selectedDate);
   }
 
   /// D-Day 표시
@@ -166,12 +178,8 @@ class _HomePageState extends State<HomePage> {
 
                             HomeSavingChartWidget(
                               vm: vm,
-
-                              // userPercent: 실제 진행률(지금 HomePage에서 쓰던 currentRate 기반)
-                              userPercent: (currentRate * 100).round(),
-
-                              // planPercent: 일단 임시값(나중에 목표 페이스로 교체)
-                              planPercent: 60,
+                              userPercent: (vm.userPercent * 100).round(),
+                              planPercent: (vm.planPercent * 100).round(),
 
                               onOpenCountdown: () => _openSavingSheet(vm),
                             ),
@@ -288,10 +296,8 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openSavingSheet(HomeViewModel vm) {
-    final userPercent = (vm.progressRatio * 100).round();
-
-    // planPercent는 지금 당장은 임시값으로 시작(나중에 목표 페이스로 바꾸면 됨)
-    final planPercent = 60;
+    final userPercent = (vm.userPercent * 100).round();
+    final planPercent = (vm.planPercent * 100).round();
 
     showModalBottomSheet(
       context: context,

@@ -22,11 +22,13 @@ class PlanCacheSnapshot {
     required this.plan,
     required this.refData,
     this.recordCache = const PlanRecordCache(),
+    this.needsInitialUpload = false,
   });
 
   final TotalPlan plan;
   final RefData refData;
   final PlanRecordCache recordCache;
+  final bool needsInitialUpload;
 
   Map<String, dynamic> toMap() {
     return {
@@ -36,6 +38,7 @@ class PlanCacheSnapshot {
       },
       'refData': refData.toMap(),
       'recordCache': recordCache.toMap(),
+      'needsInitialUpload': needsInitialUpload,
     };
   }
 
@@ -54,6 +57,7 @@ class PlanCacheSnapshot {
       plan: plan,
       refData: refData,
       recordCache: recordCache,
+      needsInitialUpload: map['needsInitialUpload'] as bool? ?? false,
     );
   }
 }
