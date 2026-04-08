@@ -19,6 +19,7 @@ import '../../model/saving_calculation_result.dart';
 import '../../repository/auth_repository.dart';
 import '../../repository/plan_repository.dart';
 import '../../repository/ref_data_repository.dart';
+import '../../repository/plan_cache_repository.dart';
 import '../../services/plan_debug_printer.dart';
 import '../../services/plan_saved_event_bus.dart';
 import '../services/ref_data_viewmodel.dart';
@@ -48,11 +49,13 @@ class ChatPlanViewModel extends ChangeNotifier {
   final AuthRepository _authRepo;
   final PlanRepository _planRepo;
   final PlanSavedEventBus? _planSavedBus;
+  final PlanCacheRepository _planCacheRepo;
 
   ChatPlanViewModel(
       this._authRepo,
       this._planRepo,
-      this._refDataRepo, {
+      this._refDataRepo,
+      this._planCacheRepo, {
         PlanSavedEventBus? planSavedBus,
       })  : _planSavedBus = planSavedBus,
         _mutationRepository = PlanMutationRepository() {
@@ -60,6 +63,8 @@ class ChatPlanViewModel extends ChangeNotifier {
     _refDataVM = RefDataViewModel(_refData);
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
     _calculationVM = SavingPlanCalculator(plan: _totalPlan);
+    debugPrint('[ChatPlanViewModel] ctor: cachedHasPlan=${_authRepo.cachedHasPlan}');
+    unawaited(_initializePlanState());
   }
 
   String _userName = '회원';
@@ -118,6 +123,81 @@ class ChatPlanViewModel extends ChangeNotifier {
   // 메시지 목록
   List<ChatMessage> _messages = [];
   List<ChatMessage> get messages => _messages;
+
+  bool _initialPlanResolved = false;
+
+  Future<void> _initializePlanState() async {
+    if (_initialPlanResolved) return;
+    _initialPlanResolved = true;
+    debugPrint('[ChatPlanViewModel] initializing plan state');
+    var loaded = false;
+    if (_authRepo.cachedHasPlan) {
+      debugPrint('[ChatPlanViewModel] cachedHasPlan=true -> try cache');
+      loaded = await _restorePlanFromCache();
+      if (!loaded) {
+        debugPrint('[ChatPlanViewModel] cache miss -> fallback server load');
+        loaded = await _tryLoadPlanFromServer();
+      }
+    } else {
+      debugPrint('[ChatPlanViewModel] cachedHasPlan=false -> try server load');
+      loaded = await _tryLoadPlanFromServer();
+    }
+    if (!loaded) return;
+    _calculationVM.updatePlan(_totalPlan);
+    calculate();
+    notifyListeners();
+  }
+
+  Future<bool> _restorePlanFromCache() async {
+    final result = await initializeFromCacheIfAvailable();
+    debugPrint('[ChatPlanViewModel] restorePlanFromCache result=$result');
+    return result;
+  }
+
+  Future<bool> initializeFromCacheIfAvailable() async {
+    final uid = _authRepo.cachedUid ?? _authRepo.currentUserId;
+    if (uid == null) return false;
+    final snapshot = _planCacheRepo.loadSnapshot(uid);
+    if (snapshot == null) {
+      debugPrint('[ChatPlanViewModel] cache snapshot missing for uid=$uid');
+      return false;
+    }
+    debugPrint('[ChatPlanViewModel] cache snapshot found for uid=$uid, planId=${snapshot.plan.planId}');
+    _hydrateFromSnapshot(snapshot);
+    _setHasSavedPlan(true, syncCache: false);
+    return true;
+  }
+
+  void _hydrateFromSnapshot(PlanCacheSnapshot snapshot) {
+    _totalPlan = snapshot.plan;
+    _totalPlanVM = TotalPlanViewModel(_totalPlan);
+    _refData = snapshot.refData;
+    _refDataVM = RefDataViewModel(_refData);
+    _logPlanTree('Loaded From Cache');
+  }
+
+  Future<bool> _tryLoadPlanFromServer() async {
+    try {
+      final plan = await _planRepo.getLatestPlanForCurrentUser();
+      if (plan == null) {
+        debugPrint('[ChatPlanViewModel] server plan not found');
+        return false;
+      }
+      debugPrint('[ChatPlanViewModel] server plan loaded planId=${plan.planId}');
+      final refData = await _refDataRepo.loadAll();
+      refData.planId = plan.planId;
+      _totalPlan = plan;
+      _totalPlanVM = TotalPlanViewModel(_totalPlan);
+      _refData = refData;
+      _refDataVM = RefDataViewModel(_refData);
+      _setHasSavedPlan(true);
+      _logPlanTree('Loaded From Server');
+      return true;
+    } catch (e) {
+      debugPrint('[ChatPlanViewModel] failed to load plan from server: $e');
+      return false;
+    }
+  }
 
   // 타이핑 상태
   bool _isTyping = false;
@@ -561,12 +641,16 @@ class ChatPlanViewModel extends ChangeNotifier {
     );
     _summaryRenderVersion++;
     notifyListeners();
-    print('--- Plan Tree After Edit ---\n${debugPlanTree()}');
+    _logPlanTree('After Edit');
   }
 
   /// Returns a human readable tree view of the current plan/mini/sub linkage.
   String debugPlanTree() {
     return PlanDebugPrinter.describe(plan: _totalPlan, refData: _refData);
+  }
+
+  void _logPlanTree(String label) {
+    print('--- Plan Tree $label ---\n${debugPlanTree()}');
   }
 
   // --------------------------------------
@@ -1034,8 +1118,9 @@ class ChatPlanViewModel extends ChangeNotifier {
           '(_hasSavedPlan=$_hasSavedPlan)',
     );
     try {
+      await _cacheSnapshotIfPossible();
       await _preparePlanStructureForSave();
-      print('--- Plan Tree Ready To Save ---\n${debugPlanTree()}');
+      _logPlanTree('Ready To Save');
       if (_totalPlan.planId.isEmpty || !_hasSavedPlan) {
         final savedId = await _planRepo.saveCurrentUserPlan(_totalPlan);
         debugPrint('[savePlan] created new plan docId=$savedId');
@@ -1048,7 +1133,7 @@ class ChatPlanViewModel extends ChangeNotifier {
         debugPrint('[savePlan] replace existing planId=${_totalPlan.planId}');
         await _planRepo.replacePlan(_totalPlan);
       }
-      print('--- Plan Tree After Save ---\n${debugPlanTree()}');
+      _logPlanTree('After Save');
       _lastPersistedGoal = _totalPlan.modEndDate ?? _totalPlan.endDate;
       _planSavedBus?.notify();
       debugPrint('[savePlan] success: _hasSavedPlan $_hasSavedPlan -> true');
@@ -1499,13 +1584,44 @@ class ChatPlanViewModel extends ChangeNotifier {
     return '$key-$nextSeq';
   }
 
-  void _setHasSavedPlan(bool value) {
-    if (_hasSavedPlan == value) return;
+  void _setHasSavedPlan(bool value, {bool syncCache = true}) {
+    if (_hasSavedPlan == value && value) {
+      if (syncCache) {
+        unawaited(_cacheSnapshotIfPossible());
+      }
+      return;
+    }
     debugPrint('[ChatPlanViewModel] _hasSavedPlan: $_hasSavedPlan -> $value');
     _hasSavedPlan = value;
-    if (_hasSavedPlan && _lastPersistedGoal == null) {
-      _lastPersistedGoal = _totalPlan.modEndDate ?? _totalPlan.endDate;
+    final uid = _authRepo.cachedUid ?? _authRepo.currentUserId;
+    if (value) {
+      if (_lastPersistedGoal == null) {
+        _lastPersistedGoal = _totalPlan.modEndDate ?? _totalPlan.endDate;
+      }
+      if (syncCache && uid != null) {
+        unawaited(_authRepo.setHasPlan(true));
+        unawaited(_cacheSnapshotIfPossible(uidOverride: uid));
+      }
+    } else if (syncCache && uid != null) {
+      unawaited(_authRepo.setHasPlan(false));
+      unawaited(_planCacheRepo.clearSnapshot(uid));
     }
+  }
+
+  Future<void> _cacheSnapshotIfPossible({String? uidOverride}) async {
+    final uid = uidOverride ?? _authRepo.cachedUid ?? _authRepo.currentUserId;
+    if (uid == null) {
+      debugPrint('[ChatPlanViewModel] skip cache snapshot: missing uid');
+      return;
+    }
+    await _planCacheRepo.saveSnapshot(
+      uid: uid,
+      snapshot: PlanCacheSnapshot(
+        plan: _totalPlan,
+        refData: _refData,
+      ),
+    );
+    debugPrint('[ChatPlanViewModel] cached snapshot for uid=$uid');
   }
 
   TotalPlan _applyExactPlanEnd(TotalPlan plan, DateTime exactEnd) {

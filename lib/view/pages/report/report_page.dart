@@ -73,58 +73,63 @@ class _ReportPageContentState extends State<_ReportPageContent> {
                 children: [
                   const SizedBox(height: 12),
 
-                  // ✅ 배너(원래 쓰던 UI 유지)
-                  SlidingBanner(
-                    itemCount: insights.length,
-                    itemBuilder: (context, index) {
-                      final insight = insights[index];
-                      final Color color = insight['color'] as Color;
-                      final IconData icon = insight['icon'] as IconData;
-                      final String title = insight['title'] as String;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: color.withOpacity(0.25),
-                            width: 0.5,
+                  // ✅ 배너 영역 (SizedBox + Container 둘 다 적용)
+                  SizedBox(
+                    height: 60, // 🔥 전체 배너 높이
+                    child: SlidingBanner(
+                      height: 60,
+                      itemCount: insights.length,
+                      itemBuilder: (context, index) {
+                        final insight = insights[index];
+                        final Color color = insight['color'] as Color;
+                        final IconData icon = insight['icon'] as IconData;
+                        final String title = insight['title'] as String;
+
+                        return Container(
+                          height: 70,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(icon, color: color, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                title,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: color.withOpacity(0.25),
+                              width: 0.5,
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                    autoSlideDuration: const Duration(seconds: 3),
-                    onPageChanged: vm.setInsightIndex,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Icon(icon, color: color, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      autoSlideDuration: const Duration(seconds: 3),
+                      onPageChanged: vm.setInsightIndex,
+                    ),
                   ),
 
                   const SizedBox(height: 20),
                   const ReportCategoryBudgetChartSection(),
                   const SizedBox(height: 24),
 
-                  // ✅ MonthCategorySection은 2차니까 일단 유지
+                  // MonthCategorySection은 2차니까 일단 유지
                   const ReportMonthCategorySection(),
                   const SizedBox(height: 24),
                 ],

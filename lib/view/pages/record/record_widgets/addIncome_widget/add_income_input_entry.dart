@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sotong_local/view/pages/record/record_widgets/addIncome_widget/record_add_income_category_sheet.dart';
 
 import '../../../../../component/theme/app_colors.dart';
 import '../../../../../component/theme/app_spacing.dart';
@@ -118,7 +119,35 @@ class _AddIncomeInputEntryState extends State<AddIncomeInputEntry> {
     Future<void> handleCategoryTap() async {
       if (widget.onCategoryTapOverride != null) {
         widget.onCategoryTapOverride!.call();
+        return;
       }
+
+      final picked = await openRecordAddIncomeCategorySheet(
+        context,
+        refItems: refItems,
+        onAddRef: (name, emoji) => context
+            .read<AddIncomeCategoryViewModel>()
+            .addRef(name: name, emoji: emoji),
+        onRemoveRef: (key) => context
+            .read<AddIncomeCategoryViewModel>()
+            .removeRefByKey(key),
+        onReorderRef: (keys) => context
+            .read<AddIncomeCategoryViewModel>()
+            .reorderRefByKeys(keys),
+        selectedName: widget.entry['category'] as String?,
+        selectedKey: widget.entry['categoryKey'] as String?,
+      );
+
+      if (picked == null) return;
+
+      setState(() {
+        _categoryController.text = picked.name;
+        widget.entry['category'] = picked.name;
+        widget.entry['categoryKey'] = picked.key;
+        widget.entry['categorySource'] = picked.source;
+        widget.entry['categoryEmoji'] = picked.emoji;
+      });
+      widget.onChanged?.call();
     }
 
     final content = Column(

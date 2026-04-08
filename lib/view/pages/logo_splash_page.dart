@@ -38,7 +38,7 @@ class _LogoSplashPageState extends State<LogoSplashPage>
     _navigated = true;
 
     final authRepo = context.read<AuthRepository>();
-    final next = authRepo.nextRouteBySession;
+    final next = authRepo.nextRouteBySession();
 
     print('🧩 [LogoSplash] goNext: shouldAutoLogin=${authRepo.shouldAutoLogin}, '
         'cachedUid=${authRepo.cachedUid}, '

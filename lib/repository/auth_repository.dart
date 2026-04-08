@@ -230,9 +230,9 @@ class AuthRepository {
     _log('updatePasswordTo() success');
   }
 
-  String get nextRouteBySession {
+  String nextRouteBySession({bool skipHasPlanCheck = false}) {
     if (!shouldAutoLogin) return '/login';
-    if (!cachedHasPlan) return '/plan_chat';
+    if (!skipHasPlanCheck && !cachedHasPlan) return '/plan_chat';
     return '/home_tab_navigator';
   }
 }

@@ -23,10 +23,11 @@ import 'repository/plan_repository.dart';
 import 'repository/record_repository.dart';
 import 'repository/ref_data_repository.dart';
 import 'repository/ref_category_repository.dart';
+import 'repository/plan_cache_repository.dart';
 
 // EventBus
 import 'services/plan_saved_event_bus.dart';
-import 'services/spending_event_bus.dart';
+import 'services/record_event_bus.dart';
 
 // ViewModels
 import 'view_model/auth/login_view_model.dart';
@@ -59,11 +60,16 @@ Future<void> main() async {
   await Hive.openBox('monthly_spending');
   await Hive.openBox('past_plans');
   await Hive.openBox('settings');
+  await Hive.openBox('plan_cache');
 
   // 2) Firebase 초기화
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+  }
 
   runApp(const MyApp());
 }
@@ -80,8 +86,8 @@ class MyApp extends StatelessWidget {
           create: (_) => PlanSavedEventBus(),
           dispose: (_, bus) => bus.dispose(),
         ),
-        Provider<SpendingEventBus>(
-          create: (_) => SpendingEventBus(),
+        Provider<RecordEventBus>(
+          create: (_) => RecordEventBus(),
           dispose: (_, bus) => bus.dispose(),
         ),
 
@@ -129,6 +135,9 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthDataSource>(),
           ),
         ),
+        Provider<PlanCacheRepository>(
+          create: (_) => PlanCacheRepository(),
+        ),
 
         // 4) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
@@ -142,6 +151,7 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthRepository>(),
             ctx.read<PlanRepository>(),
             ctx.read<RefDataRepository>(),
+            ctx.read<PlanCacheRepository>(),
             planSavedBus: ctx.read<PlanSavedEventBus>(),
           ),
         ),
@@ -151,26 +161,26 @@ class MyApp extends StatelessWidget {
             ctx.read<PlanRepository>(),
             ctx.read<PlanSavedEventBus>(),
             ctx.read<RecordRepository>(),
-            ctx.read<SpendingEventBus>(),
+              ctx.read<RecordEventBus>()
           ),
         ),
         ChangeNotifierProvider<TodaySpendingViewModel>(
           create: (ctx) => TodaySpendingViewModel(
             ctx.read<RecordRepository>(),
             ctx.read<PlanRepository>(),
-            ctx.read<SpendingEventBus>(),
+              ctx.read<RecordEventBus>()
           ),
         ),
         ChangeNotifierProvider<TodayIncomeViewModel>(
           create: (ctx) => TodayIncomeViewModel(
             ctx.read<RecordRepository>(),
-            ctx.read<SpendingEventBus>(),
+              ctx.read<RecordEventBus>()
           ),
         ),
         ChangeNotifierProvider<RecordSpendingViewModel>(
           create: (ctx) => RecordSpendingViewModel(
             ctx.read<RecordRepository>(),
-            ctx.read<SpendingEventBus>(),
+              ctx.read<RecordEventBus>()
           ),
         ),
         ChangeNotifierProvider<RecordAddIncomeViewModel>(
@@ -182,14 +192,15 @@ class MyApp extends StatelessWidget {
           create: (context) => ReportViewModel(
             context.read<RecordRepository>(),
             context.read<RefDataRepository>(),
-            eventBus: context.read<SpendingEventBus>(),
+            context.read<PlanRepository>(),
+            eventBus: context.read<RecordEventBus>(),
           ),
         ),
         ChangeNotifierProvider<CommunicationViewModel>(
           create: (ctx) => CommunicationViewModel(
             ctx.read<RecordRepository>(),
             ctx.read<PlanRepository>(),
-            ctx.read<SpendingEventBus>(),
+              ctx.read<RecordEventBus>()
           ),
         ),
         ChangeNotifierProvider<PlanCategoryViewModel>(
@@ -218,6 +229,10 @@ class MyApp extends StatelessWidget {
           create: (ctx) => SettingViewModel(
             ctx.read<AuthRepository>(),
             ctx.read<RecordRepository>(),
+            ctx.read<PlanRepository>(),
+            ctx.read<RefDataRepository>(),
+            ctx.read<PlanCacheRepository>(),
+            ctx.read<RefCategoryRepository>(),
           ),
         ),
         ChangeNotifierProvider<AlarmViewModel>(

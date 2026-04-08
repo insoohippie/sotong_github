@@ -207,14 +207,23 @@ class InputItemRow extends StatelessWidget {
     );
   }
 
-  /// 카테고리 Pill + 바텀시트 오픈 로직 (프리셋 없음)
+  /// 카테고리 Pill + 바텀시트 오픈 로직
   Widget _buildCategoryPill(BuildContext context) {
     final allNames = (categories ?? const <String>[]).toList(growable: false);
     final emojiMap = categoryEmojis ?? const <String, String>{};
 
     final selectedName = categoryController.text.trim();
-    final selectedEmoji =
-    selectedName.isEmpty ? '💰' : (emojiMap[selectedName] ?? '💰');
+
+    // ✅ Entry에 저장된 emoji를 가장 우선 사용
+    final entryEmoji = item.emoji.trim();
+
+    final selectedEmoji = selectedName.isEmpty
+        ? (entryEmoji.isNotEmpty ? entryEmoji : '💰')
+        : (entryEmoji.isNotEmpty
+        ? entryEmoji
+        : (emojiMap[selectedName]?.trim().isNotEmpty ?? false)
+        ? emojiMap[selectedName]!.trim()
+        : '💰');
 
     final bool hasInput = selectedName.isNotEmpty ||
         (double.tryParse(_un(amountController.text)) ?? 0.0) > 0.0;
@@ -223,7 +232,10 @@ class InputItemRow extends StatelessWidget {
       text: categoryController.text,
       emoji: selectedEmoji,
       onTap: () {
-        debugPrint('[CategorySheet] kind=$kind categories=${allNames.length} ${allNames.take(10).toList()}');
+        debugPrint(
+          '[CategorySheet] kind=$kind categories=${allNames.length} ${allNames.take(10).toList()}',
+        );
+
         openPlanCategorySheet(
           context,
           categoryController,
@@ -233,12 +245,10 @@ class InputItemRow extends StatelessWidget {
           alreadySelectedNames: alreadySelectedNames,
           currentSelectedName: selectedName,
 
-          // ✅ 선택 시에도 emoji 저장
           onSelectedWithEmoji: (name, emoji) {
             onCategoryAddedWithEmoji?.call(name, emoji);
           },
 
-          // ✅ 새 카테고리 추가 시에도 emoji 저장
           onCategoryAdded: (name, emoji) {
             if (onCategoryAddedWithEmoji != null) {
               onCategoryAddedWithEmoji!(name, emoji);
@@ -247,20 +257,10 @@ class InputItemRow extends StatelessWidget {
             }
           },
 
-          onCategoryRemoved: (name) {
-            onCategoryRemoved?.call(name);
-          },
-
-          onReorder: (newOrder) {
-            onCategoryOrderChanged?.call(newOrder);
-          },
+          onCategoryRemoved: onCategoryRemoved,
         );
       },
-      onClear: () {
-        categoryController.clear();
-        onUpdate(item.idx, 'category', '');
-      },
-      height: 60,
+      onClear: () => onRemove(item.idx),
       highlight: isOverBudget && hasInput,
     );
   }

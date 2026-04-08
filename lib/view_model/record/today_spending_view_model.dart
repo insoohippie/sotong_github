@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -5,17 +6,17 @@ import '../../model/record/day_record.dart';
 import '../../model/record/record_entry.dart';
 import '../../repository/record_repository.dart';
 import '../../repository/plan_repository.dart';
-import '../../services/spending_event_bus.dart';
+import '../../services/record_event_bus.dart';
 
 class TodaySpendingViewModel extends ChangeNotifier {
   final RecordRepository _recordRepo;
   final PlanRepository _planRepo;
-  final SpendingEventBus _spendingEventBus;
+  final RecordEventBus _EventBus;
 
   TodaySpendingViewModel(
       this._recordRepo,
       this._planRepo,
-      this._spendingEventBus,
+      this._EventBus,
       );
 
   bool _isLoading = false;
@@ -104,7 +105,7 @@ class TodaySpendingViewModel extends ChangeNotifier {
     );
     notifyListeners();
 
-    await _persist();
+    await _persist('addEntry');
   }
 
   Future<void> updateEntry({
@@ -132,7 +133,7 @@ class TodaySpendingViewModel extends ChangeNotifier {
     );
     notifyListeners();
 
-    await _persist();
+    await _persist('updateEntry');
   }
 
   Future<void> deleteEntry(String entryId) async {
@@ -146,7 +147,7 @@ class TodaySpendingViewModel extends ChangeNotifier {
     );
     notifyListeners();
 
-    await _persist();
+    await _persist('deleteEntry');
   }
 
   Future<void> updateEmotionAndComment({
@@ -161,7 +162,7 @@ class TodaySpendingViewModel extends ChangeNotifier {
     );
     notifyListeners();
 
-    await _persist();
+    await _persist('updateEmotion');
   }
 
   void _recalcTotal() {
@@ -170,9 +171,10 @@ class TodaySpendingViewModel extends ChangeNotifier {
     _day = _day!.copyWith(totalSpendingAmount: sum);
   }
 
-  Future<void> _persist() async {
+  Future<void> _persist(String action) async {
     if (_day == null) return;
 
+    final localMode = _recordRepo.localMode;
     await _recordRepo.upsertSpendingForDate(
       date: _day!.date,
       spendingEntries: _day!.spendingEntries,
@@ -181,6 +183,10 @@ class TodaySpendingViewModel extends ChangeNotifier {
       comment: _day!.comment,
     );
 
-    _spendingEventBus.fire(SpendingUpdatedEvent(_day!.date));
+    debugPrint(
+      '[TodaySpendingViewModel] $action persisted '
+      '(date=${_day!.date}, localMode=$localMode)',
+    );
+    _EventBus.fire(RecordUpdatedEvent(_day!.date));
   }
 }

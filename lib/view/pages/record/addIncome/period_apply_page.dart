@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../../../component/theme/app_colors.dart';
 import '../../../../../component/theme/app_spacing.dart';
 import '../../../../../view_model/record/record_add_income_view_model.dart';
+import '../../../../record_flow_navigation.dart';
 
 class PeriodApplyPage extends StatefulWidget {
   const PeriodApplyPage({super.key});
@@ -210,9 +211,12 @@ class _PeriodApplyPageState extends State<PeriodApplyPage> {
       height: 56,
       child: ElevatedButton(
         onPressed: () {
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/home_tab_navigator',
-                (route) => false,
+          final raw = ModalRoute.of(context)?.settings.arguments;
+          final returnToPending =
+              raw is Map && raw['returnToPending'] == true;
+          finishRecordFlowToHomeOrPending(
+            context,
+            returnToPending: returnToPending,
           );
         },
         style: ElevatedButton.styleFrom(

@@ -7,6 +7,7 @@ import '../model/notification/notification_settings.dart';
 class _NotificationIds {
   static const int attendance = 1;
   static const int motivation = 2;
+  static const int absence = 5;
   static const int weeklyReport = 3;
   static const int emotionReport = 4;
 }
@@ -90,6 +91,16 @@ class LocalNotificationService {
       );
     }
 
+    if (settings.absenceEnabled) {
+      await _scheduleDaily(
+        id: _NotificationIds.absence,
+        hour: settings.absenceHour,
+        minute: settings.absenceMinute,
+        title: '결석 알림',
+        body: '플랜 기간 중 기록이 비어 있는 날이 있는지 확인해 볼까요?',
+      );
+    }
+
     if (settings.weeklyReportEnabled) {
       await _scheduleWeekly(
         id: _NotificationIds.weeklyReport,
@@ -143,7 +154,7 @@ class LocalNotificationService {
         android: AndroidNotificationDetails(
           'daily',
           '일간 알림',
-          channelDescription: '출석·동기부여 알림',
+          channelDescription: '출석·동기부여·결석 알림',
           importance: Importance.high,
           priority: Priority.high,
         ),

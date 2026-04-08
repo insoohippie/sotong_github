@@ -12,7 +12,7 @@ import '../../model/saving_calculation_result.dart';
 import '../../repository/auth_repository.dart';
 import '../../repository/plan_repository.dart';
 import '../../repository/record_repository.dart';
-import '../../services/spending_event_bus.dart';
+import '../../services/record_event_bus.dart';
 import '../services/saving_calculator.dart';
 import '../../services/plan_saved_event_bus.dart';
 
@@ -21,41 +21,40 @@ class HomeViewModel extends ChangeNotifier {
   final PlanRepository _planRepo;
   final PlanSavedEventBus _planSavedBus;
   final RecordRepository _recordRepo;
-  final SpendingEventBus _spendingBus;
+  final RecordEventBus _recordEventBus;
 
-  bool _handlingSpendingEvent = false;
+  bool _handlingRecordEvent = false;
 
   StreamSubscription<void>? _planSavedSub;
-  StreamSubscription<SpendingUpdatedEvent>? _spendingSub;
+  StreamSubscription<RecordUpdatedEvent>? _recordSub;
 
   HomeViewModel(
       this._authRepo,
       this._planRepo,
       this._planSavedBus,
       this._recordRepo,
-      this._spendingBus,
+      this._recordEventBus,
       ) {
     _planSavedSub = _planSavedBus.stream.listen((_) {
       refresh();
     });
 
-    _spendingSub = _spendingBus.stream.listen((event) async {
-      if (_isLoading || _handlingSpendingEvent) return;
-      _handlingSpendingEvent = true;
+    _recordSub = _recordEventBus.stream.listen((event) async {
+      if (_isLoading || _handlingRecordEvent) return;
+      _handlingRecordEvent = true;
       try {
         final savedDate = event.date;
         final monthKey = DateFormat('yyyy-MM').format(savedDate);
 
         _monthlyCache.remove(monthKey);
         await _ensureMonthlyLoaded(savedDate);
-        await loadDailySpending(savedDate, ensureMonthlyLoaded: false);
+        await loadDailySummary(savedDate, ensureMonthlyLoaded: false);
       } finally {
-        _handlingSpendingEvent = false;
+        _handlingRecordEvent = false;
       }
     });
   }
 
-  // ---------- 상태 ----------
   bool _isLoading = false;
   String? _error;
   bool get isLoading => _isLoading;
@@ -64,25 +63,20 @@ class HomeViewModel extends ChangeNotifier {
 
   bool _initialized = false;
 
-  // 프로필
   String _name = '회원';
   String get name => _name;
 
-  // 플랜 스냅샷
   TotalPlan? _latestPlan;
   SavingCalculationResult? _calc;
   TotalPlan? get latestPlan => _latestPlan;
   SavingCalculationResult? get calc => _calc;
 
-  // 이름 변경 진행 상태
   bool _isRenaming = false;
   bool get isRenaming => _isRenaming;
 
-  // ---------- 실시간(1초) 갱신 ----------
   final ValueNotifier<int> secondTick = ValueNotifier<int>(0);
   Timer? _ticker;
 
-  // 자동 저축 + 모인 금액 계산 기준 값들
   double _currentAsset = 0;
   double _snapshotAmount = 0;
   double _extraIncomeTotal = 0;
@@ -90,8 +84,6 @@ class HomeViewModel extends ChangeNotifier {
   DateTime _snapshotAt = DateTime.now();
   DateTime? _goalDate;
 
-  // ---------- 기록 캐시 (메모리) ----------
-  // key: 'yyyy-MM'
   final Map<String, MonthlyRecord> _monthlyCache = {};
   Map<String, MonthlyRecord> get monthlyCache => _monthlyCache;
 
@@ -101,7 +93,9 @@ class HomeViewModel extends ChangeNotifier {
   int _todaySpending = 0;
   int get todaySpending => _todaySpending;
 
-  // ---------- 월 로딩 (Repo 중심) ----------
+  int _todayIncome = 0;
+  int get todayIncome => _todayIncome;
+
   Future<void> _ensureMonthlyLoaded(DateTime date) async {
     final monthKey = DateFormat('yyyy-MM').format(date);
     if (_monthlyCache.containsKey(monthKey)) return;
@@ -114,18 +108,18 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
-  // ---------- 로드 ----------
   Future<void> load({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
     final currentUid = FirebaseAuth.instance.currentUser?.uid;
 
-    // uid 변경 감지 -> 메모리 캐시 리셋
     if (_loadedUid != currentUid) {
       _loadedUid = currentUid;
       _initialized = false;
       _monthlyCache.clear();
       _todaySpending = 0;
+      _todayIncome = 0;
+      _selectedDate = DateTime.now();
 
       _ticker?.cancel();
       try {
@@ -134,7 +128,7 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     if (_initialized && !forceRefresh) {
-      await loadDailySpending(DateTime.now());
+      await loadDailySummary(_selectedDate);
       return;
     }
 
@@ -143,13 +137,9 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1) 사용자 이름
       _name = await _authRepo.getUserName();
-
-      // 2) 최신 플랜
       _latestPlan = await _planRepo.getLatestPlanForCurrentUser();
 
-      // 3) 플랜 기반 계산 결과
       if (_latestPlan != null && _hasMetrics(_latestPlan!)) {
         _calc = SavingPlanCalculator(plan: _latestPlan!).calculate();
       } else {
@@ -167,12 +157,10 @@ class HomeViewModel extends ChangeNotifier {
         _snapshotAt = DateTime.now();
       }
 
-      // 4) 1초 타이머 시작
       _startTicker();
 
-      // 5) 이번 달 기록 로드 + 오늘 지출 갱신
-      await _ensureMonthlyLoaded(DateTime.now());
-      await loadDailySpending(DateTime.now(), ensureMonthlyLoaded: false);
+      await _ensureMonthlyLoaded(_selectedDate);
+      await loadDailySummary(_selectedDate, ensureMonthlyLoaded: false);
 
       _initialized = true;
     } catch (e) {
@@ -183,7 +171,6 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
-  // ---------- 플랜 이름 변경 ----------
   Future<bool> updatePlanName(String newName) async {
     final trimmed = newName.trim();
     if (trimmed.isEmpty) return false;
@@ -211,7 +198,6 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
-  // ---------- 타이머 ----------
   void _startTicker() {
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -219,8 +205,16 @@ class HomeViewModel extends ChangeNotifier {
     });
   }
 
-  // ---------- 날짜별 지출 ----------
-  Future<void> loadDailySpending(
+  Future<void> changeDate(int days) async {
+    final nextDate = _selectedDate.add(Duration(days: days));
+    await loadDailySummary(nextDate);
+  }
+
+  Future<void> setSelectedDate(DateTime date) async {
+    await loadDailySummary(date);
+  }
+
+  Future<void> loadDailySummary(
       DateTime date, {
         bool ensureMonthlyLoaded = true,
       }) async {
@@ -229,6 +223,7 @@ class HomeViewModel extends ChangeNotifier {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _todaySpending = 0;
+      _todayIncome = 0;
       notifyListeners();
       return;
     }
@@ -242,19 +237,25 @@ class HomeViewModel extends ChangeNotifier {
       final dateKey = DateFormat('yyyy-MM-dd').format(date);
 
       final monthly = _monthlyCache[monthKey];
-      debugPrint('[HOME] monthKey=$monthKey hasDays=${monthly?.days.length}');
-      debugPrint('[HOME] dateKey=$dateKey hasDay=${monthly?.days.containsKey(dateKey)}');
-
       final day = monthly?.days[dateKey];
+
       _todaySpending = day?.totalSpendingAmount ?? 0;
+      _todayIncome = day?.totalIncomeAmount ?? 0;
     } catch (_) {
       _todaySpending = 0;
+      _todayIncome = 0;
     }
 
     notifyListeners();
   }
 
-  // ---------- 저장 후 캐시 즉시 반영 + Repo 저장 ----------
+  Future<void> loadDailySpending(
+      DateTime date, {
+        bool ensureMonthlyLoaded = true,
+      }) async {
+    await loadDailySummary(date, ensureMonthlyLoaded: ensureMonthlyLoaded);
+  }
+
   Future<void> updateLocalDaySpending({
     required DateTime date,
     required int totalAmount,
@@ -265,11 +266,9 @@ class HomeViewModel extends ChangeNotifier {
     final monthKey = DateFormat('yyyy-MM').format(date);
     final dateKey = DateFormat('yyyy-MM-dd').format(date);
 
-    // 1) 월 데이터 확보
     final existingMonthly =
         _monthlyCache[monthKey] ?? await _recordRepo.loadMonthlyRecord(monthKey);
 
-    // 2) 기존 day가 있으면 income 유지
     final existingDay = existingMonthly.days[dateKey];
 
     final newDay = DayRecord(
@@ -282,25 +281,22 @@ class HomeViewModel extends ChangeNotifier {
       incomeEntries: existingDay?.incomeEntries ?? const [],
     );
 
-    // 3) 메모리 캐시 업데이트
     final newDays = Map<String, DayRecord>.from(existingMonthly.days);
     newDays[dateKey] = newDay;
 
     final updatedMonthly = existingMonthly.copyWith(days: newDays);
     _monthlyCache[monthKey] = updatedMonthly;
 
-    // 4) repo 저장
     await _recordRepo.saveMonthlyRecord(updatedMonthly);
 
-    // 5) 선택 날짜면 todaySpending 갱신
     if (DateFormat('yyyy-MM-dd').format(_selectedDate) == dateKey) {
       _todaySpending = totalAmount;
+      _todayIncome = existingDay?.totalIncomeAmount ?? 0;
     }
 
     notifyListeners();
   }
 
-  // ---------- 실시간 Getter ----------
   Duration? get liveRemaining {
     if (_goalDate == null) return null;
     return _goalDate!.difference(DateTime.now());
@@ -324,6 +320,14 @@ class HomeViewModel extends ChangeNotifier {
     final metrics = _latestPlan?.result.totalMetrics;
     if (metrics == null) return '—';
     return '${SavingPlanCalculator.formatAmount(metrics.dailyConsumeAmount.toDouble())}원';
+  }
+
+  String get todayIncomeText {
+    return '${SavingPlanCalculator.formatAmount(_todayIncome.toDouble())}원';
+  }
+
+  String get todaySpendingText {
+    return '${SavingPlanCalculator.formatAmount(_todaySpending.toDouble())}원';
   }
 
   String get perSecondSaving => _savingPerSecond.toStringAsFixed(2);
@@ -360,7 +364,7 @@ class HomeViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _spendingSub?.cancel();
+    _recordSub?.cancel();
     _ticker?.cancel();
     secondTick.dispose();
     _planSavedSub?.cancel();

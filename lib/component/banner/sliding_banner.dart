@@ -3,8 +3,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
-/// 앱바 아래 슬라이드 배너 — 아래→위로 넘어가는 형태.
-/// 각 뷰(Communication, Report 등)에서 itemCount + itemBuilder 로 내용만 채워 넣어 사용.
 class SlidingBanner extends StatefulWidget {
   const SlidingBanner({
     super.key,
@@ -15,19 +13,10 @@ class SlidingBanner extends StatefulWidget {
     this.onPageChanged,
   });
 
-  /// 슬라이드 개수 (1이면 한 장만 표시)
   final int itemCount;
-
-  /// 각 인덱스별로 보여줄 위젯 (각 뷰에서 자유롭게 구성)
   final Widget Function(BuildContext context, int index) itemBuilder;
-
-  /// 배너 높이
   final double height;
-
-  /// 주기마다 다음 슬라이드로 자동 이동 (null이면 자동 슬라이드 없음)
   final Duration? autoSlideDuration;
-
-  /// 페이지가 바뀔 때 호출 (현재 인덱스 전달)
   final void Function(int index)? onPageChanged;
 
   @override
@@ -35,13 +24,21 @@ class SlidingBanner extends StatefulWidget {
 }
 
 class _SlidingBannerState extends State<SlidingBanner> {
+  static const int _virtualStartPage = 100000;
+
   late PageController _pageController;
   Timer? _autoSlideTimer;
+  int _currentPage = _virtualStartPage;
+  bool _isUserInteracting = false;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController();
+
+    _pageController = PageController(
+      initialPage: widget.itemCount > 1 ? _virtualStartPage : 0,
+    );
+
     if (widget.autoSlideDuration != null && widget.itemCount > 1) {
       _startAutoSlide();
     }
@@ -49,27 +46,57 @@ class _SlidingBannerState extends State<SlidingBanner> {
 
   void _startAutoSlide() {
     _autoSlideTimer?.cancel();
-    if (widget.itemCount <= 1) return;
 
-    _autoSlideTimer = Timer.periodic(widget.autoSlideDuration!, (timer) {
-      if (!_pageController.hasClients || !mounted) return;
-      final next = (_currentPage + 1) % widget.itemCount;
-      _pageController.animateToPage(
-        next,
-        duration: const Duration(milliseconds: 800),
-        curve: Curves.easeInOut,
-      );
+    if (widget.itemCount <= 1 || widget.autoSlideDuration == null) return;
+
+    _autoSlideTimer = Timer.periodic(widget.autoSlideDuration!, (timer) async {
+      if (!mounted || !_pageController.hasClients) return;
+      if (_isUserInteracting) return;
+
+      final next = _currentPage + 1;
+
+      try {
+        await _pageController.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      } catch (_) {
+        // dispose 중 등 예외 무시
+      }
     });
   }
 
-  int _currentPage = 0;
+  void _stopAutoSlide() {
+    _autoSlideTimer?.cancel();
+  }
 
   @override
   void didUpdateWidget(covariant SlidingBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.autoSlideDuration != widget.autoSlideDuration ||
-        oldWidget.itemCount != widget.itemCount) {
-      _autoSlideTimer?.cancel();
+
+    final itemCountChanged = oldWidget.itemCount != widget.itemCount;
+    final durationChanged =
+        oldWidget.autoSlideDuration != widget.autoSlideDuration;
+
+    if (itemCountChanged) {
+      _stopAutoSlide();
+
+      _currentPage = widget.itemCount > 1 ? _virtualStartPage : 0;
+
+      _pageController.dispose();
+      _pageController = PageController(
+        initialPage: _currentPage,
+      );
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_pageController.hasClients) return;
+        _pageController.jumpToPage(_currentPage);
+      });
+    }
+
+    if (itemCountChanged || durationChanged) {
+      _stopAutoSlide();
       if (widget.autoSlideDuration != null && widget.itemCount > 1) {
         _startAutoSlide();
       }
@@ -78,7 +105,7 @@ class _SlidingBannerState extends State<SlidingBanner> {
 
   @override
   void dispose() {
-    _autoSlideTimer?.cancel();
+    _stopAutoSlide();
     _pageController.dispose();
     super.dispose();
   }
@@ -98,15 +125,33 @@ class _SlidingBannerState extends State<SlidingBanner> {
 
     return SizedBox(
       height: widget.height,
-      child: PageView.builder(
-        controller: _pageController,
-        scrollDirection: Axis.vertical,
-        onPageChanged: (index) {
-          _currentPage = index;
-          widget.onPageChanged?.call(index);
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollStartNotification) {
+            _isUserInteracting = true;
+            _stopAutoSlide();
+          } else if (notification is ScrollEndNotification) {
+            _isUserInteracting = false;
+            if (widget.autoSlideDuration != null && widget.itemCount > 1) {
+              _startAutoSlide();
+            }
+          }
+          return false;
         },
-        itemCount: widget.itemCount,
-        itemBuilder: (context, index) => widget.itemBuilder(context, index),
+        child: PageView.builder(
+          controller: _pageController,
+          scrollDirection: Axis.vertical,
+          physics: const BouncingScrollPhysics(),
+          onPageChanged: (index) {
+            _currentPage = index;
+            final logicalIndex = index % widget.itemCount;
+            widget.onPageChanged?.call(logicalIndex);
+          },
+          itemBuilder: (context, index) {
+            final logicalIndex = index % widget.itemCount;
+            return widget.itemBuilder(context, logicalIndex);
+          },
+        ),
       ),
     );
   }

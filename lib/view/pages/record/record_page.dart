@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/add_income_widget/add_income_input_entry.dart';
+import 'package:sotong_local/view/pages/record/record_widgets/addIncome_widget/add_income_input_entry.dart';
 import 'package:sotong_local/view/pages/record/record_widgets/spending_widget/spending_input_entry.dart';
 
 import '../../../component/appbars/back_only_app_bar.dart';
@@ -258,8 +258,10 @@ class _RecordPageState extends State<RecordPage> {
         children: [
           ...vm.spendingEntries.map((entry) {
             return SpendingInputEntry(
+              key: ObjectKey(entry),
               entry: entry,
               onDelete: () => vm.removeEntryByRef(entry),
+              enableDismissible: true,
             );
           }).toList(),
           const SizedBox(height: 12),
@@ -283,8 +285,10 @@ class _RecordPageState extends State<RecordPage> {
         children: [
           ...vm.incomeEntries.map((entry) {
             return AddIncomeInputEntry(
+              key: ObjectKey(entry),
               entry: entry,
               onDelete: () => vm.removeEntryByRef(entry),
+              enableDismissible: true,
             );
           }).toList(),
           const SizedBox(height: 12),

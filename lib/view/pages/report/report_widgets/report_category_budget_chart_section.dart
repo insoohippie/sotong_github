@@ -123,7 +123,6 @@ class _ReportCategoryBudgetChartSectionState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 상단 row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -134,7 +133,6 @@ class _ReportCategoryBudgetChartSectionState
           ),
           const SizedBox(height: 6),
 
-          // ✅ 토글 아래 현재 주/월 표시
           Align(
             alignment: Alignment.centerRight,
             child: Text(
@@ -180,29 +178,46 @@ class _ReportCategoryBudgetChartSectionState
 
                   final popupLeft = (popupRow != null && selectedIndex >= 0)
                       ? (() {
-                    final baseLeft = _calcPopupLeft(
-                      chartWidth: constraints.maxWidth,
-                      index: selectedIndex,
-                      count: slotData.length,
-                      popupWidth: _popupWidth,
-                    );
-                    final shifted = baseLeft + 20;
+                    const double barGap = 40;
+                    final bool placeRight = selectedIndex <= 2;
 
-                    final maxLeft = math.max(
-                      0.0,
-                      constraints.maxWidth - _popupWidth,
-                    );
-                    return shifted.clamp(0.0, maxLeft);
+                    final double chartWidth = constraints.maxWidth;
+                    final double groupCount = slotData.length.toDouble();
+
+                    // 현재 막대의 중심 x
+                    final double centerX = (groupCount <= 1)
+                        ? chartWidth / 2
+                        : (chartWidth * selectedIndex / (groupCount - 1));
+
+                    // 현재 막대 너비와 비슷하게 맞춤
+                    final double barWidth = popupRow!.isTotal ? 48.0 : 36.0;
+                    final double halfBarWidth = barWidth / 2;
+
+                    final double rawLeft = placeRight
+                    // 왼쪽 3개: 막대 오른쪽에 배치
+                        ? centerX + halfBarWidth + barGap
+                    // 나머지: 막대 왼쪽에 배치
+                        : centerX - halfBarWidth - barGap - _popupWidth;
+
+                    final double maxLeft = math.max(0.0, chartWidth - _popupWidth);
+                    return rawLeft.clamp(0.0, maxLeft);
                   })()
                       : 0.0;
 
-                  // ✅ 기타(etc) 눌렀을 때만 리스트 보여주기
                   final isEtcSelected =
                       popupRow != null && popupRow.categoryKey == _etcKey;
 
                   final unplannedList = isEtcSelected
                       ? vm.unplannedSpentListForChartRange(maxItems: 8)
                       : const <({String name, int spent})>[];
+
+                  final plannedDetailList =
+                  (!isEtcSelected && popupRow != null)
+                      ? vm.plannedSpentDetailListForChartRange(
+                    popupRow.categoryKey,
+                    maxItems: 8,
+                  )
+                      : const <({String date, int spent})>[];
 
                   return Stack(
                     clipBehavior: Clip.none,
@@ -360,7 +375,7 @@ class _ReportCategoryBudgetChartSectionState
 
                       if (popupRow != null && selectedIndex >= 0)
                         Positioned(
-                          top: 16,
+                          top: 0,
                           left: popupLeft,
                           child: AnimatedOpacity(
                             opacity: _showPopup ? 1 : 0,
@@ -374,18 +389,17 @@ class _ReportCategoryBudgetChartSectionState
                               child: KeyedSubtree(
                                 key: _popupKey,
                                 child: _SelectedChartPopup(
-                                  // ✅ 기타일 때는 제목 고정
                                   title: isEtcSelected
-                                      ? '플랜 카테고리 외 참고 카테고리 소비'
+                                      ? '플랜 외 소비'
                                       : '${popupRow.emoji} ${popupRow.name}',
                                   planned: popupRow.planned,
                                   spent: popupRow.spent,
                                   periodLabel: vm.rangeLabel,
                                   formatter: _formatAmount,
-
-                                  // ✅ 기타일 때만 리스트 사용
                                   isEtcSelected: isEtcSelected,
+                                  isTotalSelected: popupRow.isTotal,
                                   unplannedList: unplannedList,
+                                  // plannedDetailList: plannedDetailList,
                                 ),
                               ),
                             ),
@@ -427,8 +441,6 @@ class _ReportCategoryBudgetChartSectionState
       ),
     );
   }
-
-  // ───── helper들 ─────
 
   void _resetSelectionState() {
     _selectionTimer?.cancel();
@@ -646,10 +658,7 @@ class _ReportCategoryBudgetChartSectionState
     for (final r in rows) {
       final planned = r.planned.toDouble();
       final spent = r.spent.toDouble();
-
-      // planned=0이면 표시용 planned=spent 보정
       final effectivePlanned = planned <= 0 ? spent : planned;
-
       final highest = math.max(effectivePlanned, spent);
       if (highest > maxVal) maxVal = highest;
     }
@@ -682,12 +691,14 @@ class _ReportCategoryBudgetChartSectionState
 
       final plannedRaw = r.planned.toDouble();
       final spentRaw = r.spent.toDouble();
+      final isEtc = r.categoryKey == _etcKey;
 
-      final needsBudget = plannedRaw <= 0;
-      final planned = needsBudget ? spentRaw : plannedRaw;
+      final needsBudget = !isEtc && plannedRaw <= 0;
+      final planned = isEtc ? spentRaw : (needsBudget ? spentRaw : plannedRaw);
       final spent = spentRaw;
 
-      final isOverBudget = needsBudget ? false : (spent > planned);
+      final isOverBudget =
+      isEtc ? false : (needsBudget ? false : (spent > planned));
 
       final hasSelection = _selectedChartKey != null;
       final collapsePhase = hasSelection && (_isCollapsing || !_showSelectionLayout);
@@ -704,25 +715,47 @@ class _ReportCategoryBudgetChartSectionState
       double scaledPlanned;
       double scaledSpent;
 
-      if (!hasSelection) {
-        scaledPlanned = planned;
-        scaledSpent = spent;
-      } else if (collapsePhase) {
-        scaledPlanned = 0;
-        scaledSpent = 0;
-      } else if (layoutActive) {
-        if (isSelected) {
-          final baseMax = math.max(planned, spent);
-          final factor = baseMax > 0 ? maxY / baseMax : 0;
-          scaledPlanned = planned * factor;
-          scaledSpent = spent * factor;
+      if (isEtc) {
+        if (!hasSelection) {
+          scaledPlanned = spent;
+          scaledSpent = spent;
+        } else if (collapsePhase) {
+          scaledPlanned = 0;
+          scaledSpent = 0;
+        } else if (layoutActive) {
+          if (isSelected) {
+            final factor = spent > 0 ? maxY / spent : 0;
+            scaledPlanned = spent * factor;
+            scaledSpent = spent * factor;
+          } else {
+            scaledPlanned = spent * 0.4;
+            scaledSpent = spent * 0.4;
+          }
         } else {
-          scaledPlanned = planned * 0.4;
-          scaledSpent = spent * 0.4;
+          scaledPlanned = spent;
+          scaledSpent = spent;
         }
       } else {
-        scaledPlanned = planned;
-        scaledSpent = spent;
+        if (!hasSelection) {
+          scaledPlanned = planned;
+          scaledSpent = spent;
+        } else if (collapsePhase) {
+          scaledPlanned = 0;
+          scaledSpent = 0;
+        } else if (layoutActive) {
+          if (isSelected) {
+            final baseMax = math.max(planned, spent);
+            final factor = baseMax > 0 ? maxY / baseMax : 0;
+            scaledPlanned = planned * factor;
+            scaledSpent = spent * factor;
+          } else {
+            scaledPlanned = planned * 0.4;
+            scaledSpent = spent * 0.4;
+          }
+        } else {
+          scaledPlanned = planned;
+          scaledSpent = spent;
+        }
       }
 
       final effectiveSpent = scaledSpent.clamp(0.0, maxY);
@@ -744,7 +777,11 @@ class _ReportCategoryBudgetChartSectionState
 
       if (lowerHeight > epsilon) {
         final Color lowerColor;
-        if (needsBudget) {
+        if (isEtc) {
+          lowerColor = isSelected
+              ? AppColors.primary.withOpacity(0.92)
+              : AppColors.primary;
+        } else if (needsBudget) {
           lowerColor = greyBar;
         } else {
           lowerColor = isOverBudget
@@ -757,7 +794,7 @@ class _ReportCategoryBudgetChartSectionState
       }
 
       final upperSegHeight = (upperHeight - lowerHeight).clamp(0.0, maxY);
-      if (upperSegHeight > epsilon) {
+      if (!isEtc && upperSegHeight > epsilon) {
         final upperColor = isOverBudget ? hoverRed : greyBar;
         stackItems.add(
           BarChartRodStackItem(lowerHeight, upperHeight, upperColor),
@@ -856,7 +893,9 @@ class _SelectedChartPopup extends StatelessWidget {
     required this.periodLabel,
     required this.formatter,
     required this.isEtcSelected,
+    required this.isTotalSelected,
     required this.unplannedList,
+    // required this.plannedDetailList,
   });
 
   final String title;
@@ -866,102 +905,184 @@ class _SelectedChartPopup extends StatelessWidget {
   final String Function(int) formatter;
 
   final bool isEtcSelected;
+  final bool isTotalSelected;
   final List<({String name, int spent})> unplannedList;
+  // final List<({String date, int spent})> plannedDetailList;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    final showList = isEtcSelected && unplannedList.isNotEmpty;
+    final showEtcList = isEtcSelected && unplannedList.isNotEmpty;
+    // final showPlannedList =
+    //     !isEtcSelected && !isTotalSelected && plannedDetailList.isNotEmpty;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(
-              theme.brightness == Brightness.dark ? 0.3 : 0.08,
-            ),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 260),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: theme.colorScheme.onSurface,
+    // 리스트는 최대 4줄까지만 보이고, 넘으면 내부 스크롤
+    const double rowHeight = 24;
+    // final double plannedListHeight =
+    //     math.min(plannedDetailList.length, 3) * rowHeight;
+    final double etcListHeight =
+        math.min(unplannedList.length, 3) * rowHeight;
+
+    return IntrinsicWidth(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(
+                theme.brightness == Brightness.dark ? 0.3 : 0.08,
               ),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
             ),
-            const SizedBox(height: 8),
-
-            if (showList) ...[
+          ],
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minWidth: 120,
+            maxWidth: 220,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Text(
-                '$periodLabel 총 소비: ₩${formatter(spent)}',
+                title,
                 style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: theme.colorScheme.onSurface.withOpacity(0.82),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 10),
 
-              ...unplannedList.map((it) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          it.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        '₩${formatter(it.spent)}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: theme.colorScheme.onSurface,
-                        ),
-                      ),
-                    ],
+              if (showEtcList) ...[
+                Text(
+                  '총 소비 금액: ₩${formatter(spent)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface.withOpacity(0.82),
                   ),
-                );
-              }).toList(),
-            ] else ...[
-              // 일반 카테고리: 기존 예산/초과/미달 표시
-              Text(
-                planned <= 0
-                    ? '$periodLabel 총 예산: 설정 필요'
-                    : '$periodLabel 총 예산: ₩${formatter(planned)}',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: theme.colorScheme.onSurface,
                 ),
-              ),
-              const SizedBox(height: 2),
-              _buildUsageText(),
+                const SizedBox(height: 8),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: theme.dividerColor.withOpacity(0.7),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: etcListHeight,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: unplannedList.map((it) {
+                        return SizedBox(
+                          height: rowHeight,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  it.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Text(
+                                '₩${formatter(it.spent)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: theme.colorScheme.onSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Text(
+                  planned <= 0
+                      ? '총 예산: 설정 필요'
+                      : '총 예산: ₩${formatter(planned)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface.withOpacity(0.82),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '총 소비 금액: ₩${formatter(spent)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.onSurface.withOpacity(0.82),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                _buildUsageText(),
+                // if (showPlannedList) ...[
+                //   const SizedBox(height: 8),
+                //   Divider(
+                //     height: 1,
+                //     thickness: 1,
+                //     color: theme.dividerColor.withOpacity(0.7),
+                //   ),
+                //   const SizedBox(height: 8),
+                //   SizedBox(
+                //     height: plannedListHeight,
+                //     child: SingleChildScrollView(
+                //       child: Column(
+                //         children: plannedDetailList.map((it) {
+                //           return SizedBox(
+                //             height: rowHeight,
+                //             child: Row(
+                //               children: [
+                //                 Expanded(
+                //                   child: Text(
+                //                     it.date,
+                //                     maxLines: 1,
+                //                     overflow: TextOverflow.ellipsis,
+                //                     style: TextStyle(
+                //                       fontSize: 12,
+                //                       fontWeight: FontWeight.w600,
+                //                       color: theme.colorScheme.onSurface,
+                //                     ),
+                //                   ),
+                //                 ),
+                //                 const SizedBox(width: 10),
+                //                 Text(
+                //                   '₩${formatter(it.spent)}',
+                //                   style: TextStyle(
+                //                     fontSize: 12,
+                //                     fontWeight: FontWeight.w800,
+                //                     color: theme.colorScheme.onSurface,
+                //                   ),
+                //                 ),
+                //               ],
+                //             ),
+                //           );
+                //         }).toList(),
+                //       ),
+                //     ),
+                //   ),
+                // ],
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -987,7 +1108,7 @@ class _SelectedChartPopup extends StatelessWidget {
         '초과 사용액: ₩${formatter(diff.abs())}',
         style: const TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: Color(0xFFFF5F5F),
         ),
       );
@@ -997,7 +1118,7 @@ class _SelectedChartPopup extends StatelessWidget {
         '미달 사용액: ₩${formatter(remaining)}',
         style: const TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: Color(0xFF0062FF),
         ),
       );

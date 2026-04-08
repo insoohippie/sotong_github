@@ -1,9 +1,11 @@
+// lib/view_model/communication/communication_view_model.dart
+
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color, Icons;
 import 'package:intl/intl.dart';
 
-import 'package:sotong_local/services/spending_event_bus.dart';
+import 'package:sotong_local/services/record_event_bus.dart';
 
 import '../../model/record/monthly_record.dart';
 import '../../model/record/day_record.dart';
@@ -16,14 +18,14 @@ class CommunicationViewModel extends ChangeNotifier {
   final RecordRepository _recordRepository;
   final PlanRepository _planRepository;
 
-  late final StreamSubscription<SpendingUpdatedEvent> _spendingSub;
+  late final StreamSubscription<RecordUpdatedEvent> _eventSub;
 
   CommunicationViewModel(
       this._recordRepository,
       this._planRepository,
-      SpendingEventBus eventBus,
+      RecordEventBus eventBus,
       ) {
-    _spendingSub = eventBus.stream.listen((_) {
+    _eventSub = eventBus.stream.listen((_) {
       reloadForCurrentMonth();
     });
   }
@@ -33,26 +35,17 @@ class CommunicationViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // records 단일 소스(현재 선택된 달)
   MonthlyRecord? _monthly;
+  final Map<String, MonthlyRecord> _monthCache = {};
 
-  // 최근 7/30일 집계를 위한 월 캐시
-  final Map<String, MonthlyRecord> _monthCache = {}; // key: yyyy-MM
-
-  // ========== Calendar State ==========
   int selectedYear = DateTime.now().year;
   int selectedMonth = DateTime.now().month;
 
-  // ========== Emotion Analysis State ==========
   String selectedEmotionForAnalysis = '기쁨';
-  String selectedAnalysisPeriod = '월간'; // '주간' | '월간'
+  String selectedAnalysisPeriod = '월간';
 
-  /// 일일 소비 한도(표시용)
   double dailySpendingLimit = 0;
-
-  // =====================================================
-  //  Load
-  // =====================================================
+  DateTime? _planStartDate;
 
   Future<void> loadMonth(DateTime anchor) async {
     _setLoading(true);
@@ -61,18 +54,17 @@ class CommunicationViewModel extends ChangeNotifier {
     selectedMonth = anchor.month;
 
     try {
-      // 1) 월 기록 로드
       final monthly = await _recordRepository.loadMonthlyRecordByDate(anchor);
       _monthly = monthly;
-
-      // 2) 캐시에 넣기
       _monthCache[_monthKey(anchor)] = monthly;
 
-      // 3) 플랜에서 일일 소비 한도 로드
-      await _loadDailyLimitFromPlan();
+      await _loadPlanInfo();
 
-      // 4) 최근 30일 커버하도록 필요한 월들 프리로드
-      await _preloadMonthsForRecentPeriod(days: 30);
+      if (_planStartDate != null) {
+        await _preloadMonthsForPlanPeriod(_planStartDate!);
+      } else {
+        await _preloadMonthsForRecentPeriod(days: 30);
+      }
 
       _setError(null);
     } catch (e) {
@@ -102,20 +94,48 @@ class CommunicationViewModel extends ChangeNotifier {
     loadMonth(DateTime(newYear, newMonth, 1));
   }
 
-  Future<void> _loadDailyLimitFromPlan() async {
+  Future<void> _loadPlanInfo() async {
     try {
       final plan = await _planRepository.getLatestPlanForCurrentUser();
       final metrics = plan?.result.totalMetrics;
-      final limit = (metrics?.dailyConsumeAmount ?? 0).toDouble();
-      dailySpendingLimit = limit;
+      dailySpendingLimit = (metrics?.dailyConsumeAmount ?? 0).toDouble();
+      _planStartDate = _extractPlanStartDate(plan);
     } catch (_) {
       dailySpendingLimit = 0;
+      _planStartDate ??= null;
     }
   }
 
-  // =====================================================
-  //  records 기반 헬퍼 (캘린더/모달용)
-  // =====================================================
+  DateTime? _extractPlanStartDate(dynamic plan) {
+    if (plan == null) return null;
+
+    DateTime? parseCandidate(dynamic value) {
+      if (value == null) return null;
+      if (value is DateTime) return _dateOnly(value);
+      if (value is String) {
+        final parsed = DateTime.tryParse(value);
+        if (parsed != null) return _dateOnly(parsed);
+      }
+      return null;
+    }
+
+    try {
+      final direct = parseCandidate(plan.startDate);
+      if (direct != null) return direct;
+    } catch (_) {}
+
+    try {
+      final nested = parseCandidate(plan.result.startDate);
+      if (nested != null) return nested;
+    } catch (_) {}
+
+    try {
+      final nested2 = parseCandidate(plan.createdAt);
+      if (nested2 != null) return nested2;
+    } catch (_) {}
+
+    return null;
+  }
 
   DateTime _dateOnly(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
 
@@ -124,6 +144,15 @@ class CommunicationViewModel extends ChangeNotifier {
   DayRecord? _dayRecord(DateTime date) {
     final key = _fmtKey(_dateOnly(date));
     return _monthly?.days[key];
+  }
+
+  DayRecord? _findDayRecord(DateTime date) {
+    final monthKey = _monthKey(date);
+    final monthly = _monthCache[monthKey];
+    if (monthly == null) return null;
+
+    final dayKey = _fmtKey(_dateOnly(date));
+    return monthly.days[dayKey];
   }
 
   List<RecordEntry> entriesForDay(int day) {
@@ -136,7 +165,6 @@ class CommunicationViewModel extends ChangeNotifier {
     final date = DateTime(selectedYear, selectedMonth, day);
     final ds = _dayRecord(date);
     if (ds == null) return 0;
-
     return ds.totalSpendingAmount;
   }
 
@@ -181,10 +209,6 @@ class CommunicationViewModel extends ChangeNotifier {
     return comment;
   }
 
-  // =====================================================
-  //  감정 매핑/분석 (최근 7/30일 기준)
-  // =====================================================
-
   static const List<String> emotionList = [
     '평온',
     '좋음',
@@ -215,10 +239,6 @@ class CommunicationViewModel extends ChangeNotifier {
 
   String emotionEmojiForAnalysis(String emotion) => getEmoji(emotion);
 
-  // -----------------------------
-  // ✅ 최근 기간 집계
-  // -----------------------------
-
   String _monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
 
   Future<void> _ensureMonthLoaded(DateTime anyDay) async {
@@ -235,6 +255,18 @@ class CommunicationViewModel extends ChangeNotifier {
     final start = today.subtract(Duration(days: days - 1));
 
     DateTime cursor = DateTime(start.year, start.month, 1);
+    final endMonth = DateTime(today.year, today.month, 1);
+
+    while (!cursor.isAfter(endMonth)) {
+      await _ensureMonthLoaded(cursor);
+      cursor = DateTime(cursor.year, cursor.month + 1, 1);
+    }
+  }
+
+  Future<void> _preloadMonthsForPlanPeriod(DateTime planStart) async {
+    final today = _dateOnly(DateTime.now());
+
+    DateTime cursor = DateTime(planStart.year, planStart.month, 1);
     final endMonth = DateTime(today.year, today.month, 1);
 
     while (!cursor.isAfter(endMonth)) {
@@ -263,13 +295,33 @@ class CommunicationViewModel extends ChangeNotifier {
     return out;
   }
 
+  List<DayRecord> _daysInPlanFullPeriod() {
+    final today = _dateOnly(DateTime.now());
+    final start = _planStartDate ?? today;
+
+    final List<DayRecord> out = [];
+
+    for (final m in _monthCache.values) {
+      for (final d in m.days.values) {
+        final date = _dateOnly(d.date);
+        if (!date.isBefore(start) && !date.isAfter(today)) {
+          out.add(d);
+        }
+      }
+    }
+
+    out.sort((a, b) => a.date.compareTo(b.date));
+    return out;
+  }
+
   int emotionCount(String emotion, String period) {
     final days = _daysInRecentPeriod(period);
     return days.where((d) => d.emotion.trim() == emotion).length;
   }
 
   int emotionTotalSpending(String emotion, String period) {
-    final days = _daysInRecentPeriod(period).where((d) => d.emotion.trim() == emotion);
+    final days =
+    _daysInRecentPeriod(period).where((d) => d.emotion.trim() == emotion);
 
     return days.fold<int>(0, (sum, d) {
       return sum + d.totalSpendingAmount;
@@ -315,86 +367,89 @@ class CommunicationViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // =====================================================
-  //  인사이트 배너
-  // =====================================================
-
-  static final _bannerIcons = [
-    Icons.mood,
-    Icons.warning_amber_rounded,
-    Icons.volunteer_activism,
-    Icons.link,
-    Icons.calendar_view_week,
-  ];
-
-  static const _bannerColors = [
-    Color(0xFF0062FF),
-    Color(0xFFD32F2F),
-    Color(0xFF43A047),
-    Color(0xFF7B1FA2),
-    Color(0xFF00838F),
-  ];
-
   List<Map<String, dynamic>> get bannerInsights {
-    final month = selectedMonth;
-    final messages = [
-      _messageRepresentativeEmotion(month),
-      _messageEmotionWhenOverBudget(month),
-      _messageEmotionWhenSaving(month),
-      _messageEmotionCategoryRelation(month),
-      _messageWeekdayEmotionPattern(month),
-    ];
+    final days = _daysInPlanFullPeriod();
+    final emotionCategoryMap = <String, Map<String, int>>{};
 
-    return List.generate(
-      5,
-          (i) => {
-        'title': messages[i],
-        'icon': _bannerIcons[i],
-        'color': _bannerColors[i],
-      },
-    );
-  }
+    for (final d in days) {
+      final emotion = d.emotion.trim();
+      if (emotion.isEmpty) continue;
+      if (d.spendingEntries.isEmpty) continue;
 
-  String _messageRepresentativeEmotion(int month) {
-    final top = _topEmotionThisMonth();
-    if (top == null || top.count == 0) return '$month월에는 아직 감정 기록이 없어요.';
-    return '$month월에는 ${top.name} 감정이 가장 많이 기록됐어요.';
-  }
+      for (final e in d.spendingEntries) {
+        final category = e.category.trim().isNotEmpty ? e.category.trim() : '기타';
 
-  ({String name, int count})? _topEmotionThisMonth() {
-    if (_monthly == null) return null;
-
-    final monthStart = DateTime(selectedYear, selectedMonth, 1);
-    final monthEnd = DateTime(selectedYear, selectedMonth + 1, 1);
-    final Map<String, int> counts = {};
-
-    for (final d in _monthly!.days.values) {
-      final date = _dateOnly(d.date);
-      if (date.isBefore(monthStart) || !date.isBefore(monthEnd)) continue;
-      final emo = d.emotion.trim();
-      if (emo.isEmpty) continue;
-      counts[emo] = (counts[emo] ?? 0) + 1;
+        emotionCategoryMap[emotion] ??= {};
+        emotionCategoryMap[emotion]![category] =
+            (emotionCategoryMap[emotion]![category] ?? 0) + e.amount.round();
+      }
     }
 
-    if (counts.isEmpty) return null;
-    final entry = counts.entries.reduce((a, b) => a.value >= b.value ? a : b);
-    return (name: entry.key, count: entry.value);
+    final List<Map<String, dynamic>> result = [];
+
+    for (final emotion in emotionList) {
+      final categoryMap = emotionCategoryMap[emotion];
+      if (categoryMap == null || categoryMap.isEmpty) continue;
+
+      final top = categoryMap.entries.reduce(
+            (a, b) => a.value >= b.value ? a : b,
+      );
+
+      result.add({
+        'title':
+        '${_emotionToSentence(emotion)} ${top.key} 소비가 많아요 ${getEmoji(emotion)}',
+        'icon': Icons.mood,
+        'color': _emotionColor(emotion),
+      });
+    }
+
+    if (result.isEmpty) {
+      result.add({
+        'title': '소비 기록이 쌓이면 감정별 소비 패턴을 알려드릴게요.',
+        'icon': Icons.mood,
+        'color': const Color(0xFF0062FF),
+      });
+    }
+
+    return result;
   }
 
-  String _messageEmotionWhenOverBudget(int month) {
-    return '일일 예산을 초과한 날에는 스트레스 감정이 가장 많았어요.';
+  String _emotionToSentence(String emotion) {
+    switch (emotion) {
+      case '좋음':
+        return '기쁠 때는';
+      case '평온':
+        return '평온할 때는';
+      case '슬픔':
+        return '슬플 때는';
+      case '스트레스':
+        return '스트레스 받을 때는';
+      case '동기부여':
+        return '동기부여가 될 때는';
+      case '아무 감정 없음':
+        return '무덤덤할 때는';
+      default:
+        return '$emotion일 때는';
+    }
   }
 
-  String _messageEmotionWhenSaving(int month) {
-    return '지출을 아낀 날에는 동기부여 감정이 가장 많이 기록됐어요.';
-  }
-
-  String _messageEmotionCategoryRelation(int month) {
-    return '스트레스가 기록된 날에는 치킨 카테고리 소비가 가장 많아요.';
-  }
-
-  String _messageWeekdayEmotionPattern(int month) {
-    return '주말에는 기쁨 감정과 함께 외식 소비가 많아요.';
+  Color _emotionColor(String emotion) {
+    switch (emotion) {
+      case '좋음':
+        return const Color(0xFFFFC107);
+      case '평온':
+        return const Color(0xFF4CAF50);
+      case '슬픔':
+        return const Color(0xFF2196F3);
+      case '스트레스':
+        return const Color(0xFFF44336);
+      case '동기부여':
+        return const Color(0xFF9C27B0);
+      case '아무 감정 없음':
+        return const Color(0xFF9E9E9E);
+      default:
+        return const Color(0xFF0062FF);
+    }
   }
 
   String getMonthlyInsightMessage() {
@@ -453,10 +508,6 @@ class CommunicationViewModel extends ChangeNotifier {
     };
   }
 
-  // =====================================================
-  //  내부 유틸
-  // =====================================================
-
   void _setLoading(bool v) {
     _isLoading = v;
   }
@@ -467,7 +518,7 @@ class CommunicationViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _spendingSub.cancel();
+    _eventSub.cancel();
     super.dispose();
   }
 }

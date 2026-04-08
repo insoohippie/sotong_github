@@ -1,7 +1,9 @@
 // lib/repository/ref_data_repository.dart
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../data_source/auth_data_source.dart';
@@ -558,6 +560,75 @@ class RefDataRepository {
 
     for (final k in keysToDelete) {
       await _cacheBox.delete(k);
+    }
+  }
+
+  Future<void> syncToRemote() async {
+    final uid = _uid;
+    if (uid == null) {
+      debugPrint('[RefDataRepository] syncToRemote aborted: missing uid');
+      return;
+    }
+    final monthlyIncomes = _loadMonthlyIncomeCacheAll(uid);
+    final monthlyConsumes = _loadMonthlyConsumeCacheAll(uid);
+    final dailyConsumes = _loadDailyConsumeCacheAll(uid);
+
+    for (final entry in monthlyIncomes.entries) {
+      final dirtyKey = _dirtyKeyMonthlyIncome(uid, entry.key);
+      if (!_isDirtyKey(dirtyKey)) continue;
+      if (await _syncMonthlyIncome(uid, entry.value)) {
+        _setDirtyKey(dirtyKey, false);
+      }
+    }
+    for (final entry in monthlyConsumes.entries) {
+      final dirtyKey = _dirtyKeyMonthlyConsume(uid, entry.key);
+      if (!_isDirtyKey(dirtyKey)) continue;
+      if (await _syncMonthlyConsume(uid, entry.value)) {
+        _setDirtyKey(dirtyKey, false);
+      }
+    }
+    for (final entry in dailyConsumes.entries) {
+      final dirtyKey = _dirtyKeyDailyConsume(uid, entry.key);
+      if (!_isDirtyKey(dirtyKey)) continue;
+      if (await _syncDailyConsume(uid, entry.value)) {
+        _setDirtyKey(dirtyKey, false);
+      }
+    }
+    _saveIndexAll(
+      uid,
+      monthlyIncomeIds: monthlyIncomes.keys,
+      monthlyConsumeIds: monthlyConsumes.keys,
+      dailyConsumeIds: dailyConsumes.keys,
+    );
+  }
+
+  Future<bool> _syncMonthlyIncome(String uid, MonthlyIncome income) async {
+    try {
+      await _ds.upsertMonthlyIncome(uid, income.id, income.toMap());
+      return true;
+    } catch (e) {
+      debugPrint('[RefDataRepository] failed to sync monthly income ${income.id}: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _syncMonthlyConsume(String uid, MonthlyConsume consume) async {
+    try {
+      await _ds.upsertMonthlyConsume(uid, consume.id, consume.toMap());
+      return true;
+    } catch (e) {
+      debugPrint('[RefDataRepository] failed to sync monthly consume ${consume.id}: $e');
+      return false;
+    }
+  }
+
+  Future<bool> _syncDailyConsume(String uid, DailyConsume consume) async {
+    try {
+      await _ds.upsertDailyConsume(uid, consume.id, consume.toMap());
+      return true;
+    } catch (e) {
+      debugPrint('[RefDataRepository] failed to sync daily consume ${consume.id}: $e');
+      return false;
     }
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:sotong_local/pending_spending_intro_page.dart';
 
 import 'package:sotong_local/view/pages/auth/signup_page.dart';
 import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
@@ -10,9 +11,7 @@ import 'package:sotong_local/view/pages/communication/communication_page.dart';
 
 import 'package:sotong_local/view/pages/home/home_page.dart';
 import 'package:sotong_local/view/pages/home/home_tab_navigator.dart';
-import 'package:sotong_local/view/pages/record/add_income/apply_income_option_page.dart';
-import 'package:sotong_local/view/pages/record/add_income/limit_apply_page.dart';
-import 'package:sotong_local/view/pages/record/add_income/period_apply_page.dart';
+import 'package:sotong_local/view/pages/record/addIncome/period_apply_page.dart';
 import 'package:sotong_local/view/pages/record/today_record_page.dart';
 
 import 'package:sotong_local/view/pages/plan/chat_plan_page.dart';
@@ -75,9 +74,9 @@ final Map<String, WidgetBuilder> appRoutes = {
 
   '/record_diary': (_) => const RecordDiaryPage(),
 
-  '/apply_income_option': (_) => const ApplyIncomeOptionPage(),
-  '/limit_apply': (_) => const LimitApplyPage(),
   '/period_apply': (_) => const PeriodApplyPage(),
+
+  '/home_record_calendar': (_) => const PendingSpendingIntroPage(),
 
   // 설정 페이지
   '/setting': (_) => const SettingsPage(),
