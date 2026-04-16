@@ -39,11 +39,8 @@ Future<void> showTodayRecordEditDiaryBottomSheet({
         builder: (context, setModalState) {
           void safeSetModalState(VoidCallback fn) {
             if (isClosing) return;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (isClosing) return;
-              if (!context.mounted) return;
-              setModalState(fn);
-            });
+            if (!context.mounted) return;
+            setModalState(fn);
           }
 
           final screenWidth = MediaQuery.of(context).size.width;

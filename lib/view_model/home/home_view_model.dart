@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../model/plan/total_plan.dart';
-import '../../model/plan/mini_plan.dart';
-import '../../model/plan/sub_plan.dart';
+import '../../model/plan/mini_plan.dart'; //세은님 추가부분
+import '../../model/plan/sub_plan.dart'; //세은님 추가부분
 import '../../model/record/day_record.dart';
 import '../../model/record/monthly_record.dart';
 import '../../model/record/record_entry.dart';
@@ -14,9 +14,9 @@ import '../../model/saving_calculation_result.dart';
 import '../../repository/auth_repository.dart';
 import '../../repository/plan_repository.dart';
 import '../../repository/record_repository.dart';
-import '../../repository/ref_data_repository.dart';
-import '../../model/refData/ref_data.dart';
-import '../../services/spending_event_bus.dart';
+import '../../repository/ref_data_repository.dart'; //세은님 추가부분
+import '../../model/refData/ref_data.dart'; //세은님 추가부분
+import '../../services/record_event_bus.dart'; //하경 수정 부분 - spending_event_bus -> record_event_bus로 바뀜(수입, 지출 이벤트 전부 관리)
 import '../services/saving_calculator.dart';
 import '../../services/plan_saved_event_bus.dart';
 
@@ -25,38 +25,38 @@ class HomeViewModel extends ChangeNotifier {
   final PlanRepository _planRepo;
   final PlanSavedEventBus _planSavedBus;
   final RecordRepository _recordRepo;
-  final SpendingEventBus _spendingBus;
-  final RefDataRepository _refDataRepo;
+  final RecordEventBus _recordEventBus;
+  final RefDataRepository _refDataRepo; //세은님 추가부분
 
-  bool _handlingSpendingEvent = false;
+  bool _handlingRecordEvent = false;
 
   StreamSubscription<void>? _planSavedSub;
-  StreamSubscription<SpendingUpdatedEvent>? _spendingSub;
+  StreamSubscription<RecordUpdatedEvent>? _recordSub;
 
   HomeViewModel(
       this._authRepo,
       this._planRepo,
       this._planSavedBus,
       this._recordRepo,
-      this._spendingBus,
-      this._refDataRepo,
+      this._recordEventBus,
+      this._refDataRepo, //세은님 추가부분
       ) {
     _planSavedSub = _planSavedBus.stream.listen((_) {
       refresh();
     });
 
-    _spendingSub = _spendingBus.stream.listen((event) async {
-      if (_isLoading || _handlingSpendingEvent) return;
-      _handlingSpendingEvent = true;
+    _recordSub = _recordEventBus.stream.listen((event) async {
+      if (_isLoading || _handlingRecordEvent) return;
+      _handlingRecordEvent = true;
       try {
         final savedDate = event.date;
         final monthKey = DateFormat('yyyy-MM').format(savedDate);
 
         _monthlyCache.remove(monthKey);
         await _ensureMonthlyLoaded(savedDate);
-        await loadDailySpending(savedDate, ensureMonthlyLoaded: false);
+        await loadDailySummary(savedDate, ensureMonthlyLoaded: false); // 세은 추가 후 하경 수정 loadDailySpending -> loadDailySummary
       } finally {
-        _handlingSpendingEvent = false;
+        _handlingRecordEvent = false;
       }
     });
   }
@@ -77,7 +77,7 @@ class HomeViewModel extends ChangeNotifier {
   // 플랜 스냅샷
   TotalPlan? _latestPlan;
   SavingCalculationResult? _calc;
-  RefData? _refData;
+  RefData? _refData; //세은님 추가부분
   TotalPlan? get latestPlan => _latestPlan;
   SavingCalculationResult? get calc => _calc;
 
@@ -90,6 +90,7 @@ class HomeViewModel extends ChangeNotifier {
   Timer? _ticker;
 
   // 자동 저축 + 모인 금액 계산 기준 값들
+  // 세은님 수정 부분
   double _currentAsset = 0;
   double _savingPerSecond = 0;
   DateTime? _goalDate;
@@ -110,6 +111,47 @@ class HomeViewModel extends ChangeNotifier {
   int _todaySpending = 0;
   int get todaySpending => _todaySpending;
 
+  // 하경 추가 부분 (추가 수입)
+  int _todayIncome = 0;
+  int get todayIncome => _todayIncome;
+
+  // 하경 추가 부분
+  DateTime _normalizeDate(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
+
+  // 하경 추가 부분
+  DateTime? get _planStartDate {
+    final plan = _latestPlan;
+    if (plan == null) return null;
+    final raw = plan.startDate ?? plan.creationDate;
+    return raw == null ? null : _normalizeDate(raw);
+  }
+
+  // 하경 추가 부분
+  DateTime? get _planEndDate {
+    final plan = _latestPlan;
+    if (plan == null) return null;
+    final raw = plan.modEndDate ?? plan.endDate;
+    return raw == null ? null : _normalizeDate(raw);
+  }
+
+  // 하경 추가 부분
+  DateTime _clampDateToAllowedRange(DateTime date) {
+    DateTime normalized = _normalizeDate(date);
+
+    final planStart = _planStartDate;
+    if (planStart != null && normalized.isBefore(planStart)) {
+      normalized = planStart;
+    }
+
+    final planEnd = _planEndDate;
+    if (planEnd != null && normalized.isAfter(planEnd)) {
+      normalized = planEnd;
+    }
+
+    return normalized;
+  }
+
   // ---------- 월 로딩 (Repo 중심) ----------
   Future<void> _ensureMonthlyLoaded(DateTime date) async {
     final monthKey = DateFormat('yyyy-MM').format(date);
@@ -118,7 +160,7 @@ class HomeViewModel extends ChangeNotifier {
     try {
       final monthly = await _recordRepo.loadMonthlyRecord(monthKey);
       _monthlyCache[monthKey] = monthly;
-      _updateDailyNetForMonth(monthKey);
+      _updateDailyNetForMonth(monthKey); // 세은님 추가 부분
     } catch (_) {
       _monthlyCache[monthKey] = MonthlyRecord.empty(monthKey);
     }
@@ -136,10 +178,17 @@ class HomeViewModel extends ChangeNotifier {
       _initialized = false;
       _monthlyCache.clear();
       _todaySpending = 0;
+
+      // 하경 추가
+      _todayIncome = 0;
+      _selectedDate = DateTime.now();
+
+      // 세은 추가
       _dailyNet.clear();
       _sumDailyNet = 0;
       _guideStart = _normalizeDay(DateTime.now());
       _guideLockUntil = null;
+
 
       _ticker?.cancel();
       try {
@@ -148,7 +197,7 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     if (_initialized && !forceRefresh) {
-      await loadDailySpending(DateTime.now());
+      await loadDailySummary(_selectedDate); // 세은 추가 후 하경 수정 loadDailySpending(DateTime.now()); -> loadDailySummary(_selectedDate);
       return;
     }
 
@@ -159,11 +208,9 @@ class HomeViewModel extends ChangeNotifier {
     try {
       // 1) 사용자 이름
       _name = await _authRepo.getUserName();
-
       // 2) 최신 플랜
       _latestPlan = await _planRepo.getLatestPlanForCurrentUser();
-      _refData = await _refDataRepo.loadAll();
-
+      _refData = await _refDataRepo.loadAll(); //세은님 추가 부분
       // 3) 플랜 기반 계산 결과
       if (_latestPlan != null && _hasMetrics(_latestPlan!)) {
         _calc = SavingPlanCalculator(plan: _latestPlan!).calculate();
@@ -174,19 +221,23 @@ class HomeViewModel extends ChangeNotifier {
       _savingPerSecond = _calc?.savingPerSecond ?? 0;
       _goalDate = _calc?.goalDateTime;
 
-      if (_currentAsset == 0 &&
-          _latestPlan != null) {
+      // 세은님 수정 부분 그대로 가져옴
+      if (_currentAsset == 0 && _latestPlan != null) {
         _currentAsset = (_latestPlan?.currentAmount ?? 0).toDouble();
       }
 
-      await _autoFillMissingDays();
+      _selectedDate = _clampDateToAllowedRange(_selectedDate);
+
+      await _autoFillMissingDays();  // 세은님 추가 부분
 
       // 4) 1초 타이머 시작
       _startTicker();
 
-      // 5) 이번 달 기록 로드 + 오늘 지출 갱신
-      await _ensureMonthlyLoaded(DateTime.now());
-      await loadDailySpending(DateTime.now(), ensureMonthlyLoaded: false);
+      // 5) 이번 달 기록 로드 + 오늘 지출 갱신 (주석 부분: 함수명 다름. 세은님 작업은 DateTime.now 사용)
+      // await _ensureMonthlyLoaded(DateTime.now());
+      // await loadDailySpending(DateTime.now(), ensureMonthlyLoaded: false);
+      await _ensureMonthlyLoaded(_selectedDate);
+      await loadDailySummary(_selectedDate, ensureMonthlyLoaded: false);
 
       _initialized = true;
     } catch (e) {
@@ -233,42 +284,75 @@ class HomeViewModel extends ChangeNotifier {
     });
   }
 
-  // ---------- 날짜별 지출 ----------
-  Future<void> loadDailySpending(
+  // 하경 추가(날짜 변경을 뷰모델에서 관리하게 하고 싶어서)
+  Future<void> changeDate(int days) async {
+    final nextDate = _selectedDate.add(Duration(days: days));
+    final clampedDate = _clampDateToAllowedRange(nextDate);
+
+    if (_normalizeDate(clampedDate) == _normalizeDate(_selectedDate)) {
+      return;
+    }
+
+    await loadDailySummary(clampedDate);
+  }
+
+  // 하경 추가(날짜 변경을 뷰모델에서 관리하게 하고 싶어서)
+  Future<void> setSelectedDate(DateTime date) async {
+    final clampedDate = _clampDateToAllowedRange(date);
+    await loadDailySummary(clampedDate);
+  }
+
+  // ---------- 날짜별 소비/수입 요약 ----------
+  Future<void> loadDailySummary(
       DateTime date, {
         bool ensureMonthlyLoaded = true,
       }) async {
-    _selectedDate = date;
+    _selectedDate = _clampDateToAllowedRange(date);
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       _todaySpending = 0;
+      _todayIncome = 0;  // 하경 추가
       notifyListeners();
       return;
     }
 
     try {
       if (ensureMonthlyLoaded) {
-        await _ensureMonthlyLoaded(date);
+        await _ensureMonthlyLoaded(_selectedDate);
       }
 
-      final monthKey = DateFormat('yyyy-MM').format(date);
-      final dateKey = DateFormat('yyyy-MM-dd').format(date);
+      final monthKey = DateFormat('yyyy-MM').format(_selectedDate);
+      final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
 
       final monthly = _monthlyCache[monthKey];
+      // 세은님 작업 디버깅 프린트문
       debugPrint('[HOME] monthKey=$monthKey hasDays=${monthly?.days.length}');
       debugPrint('[HOME] dateKey=$dateKey hasDay=${monthly?.days.containsKey(dateKey)}');
 
       final day = monthly?.days[dateKey];
+
       _todaySpending = day?.totalSpendingAmount ?? 0;
-      _updateDailyNetForDate(date, day);
+      _todayIncome = day?.totalIncomeAmount ?? 0; // 하경 추가 부분
+
+
+      _updateDailyNetForDate(_selectedDate, day); // 세은 추가 부분, 하경이 date 대신 _selectedDate
     } catch (_) {
       _todaySpending = 0;
+      _todayIncome = 0; // 하경 추가 부분
     }
 
-    _recomputeDailyNetSummary();
+    _recomputeDailyNetSummary();  // 세은 추가 부분
     notifyListeners();
   }
+
+  /// 세은 삭제 부분
+  // Future<void> loadDailySpending(
+  //     DateTime date, {
+  //       bool ensureMonthlyLoaded = true,
+  //     }) async {
+  //   await loadDailySummary(date, ensureMonthlyLoaded: ensureMonthlyLoaded);
+  // }
 
   // ---------- 저장 후 캐시 즉시 반영 + Repo 저장 ----------
   Future<void> updateLocalDaySpending({
@@ -284,7 +368,6 @@ class HomeViewModel extends ChangeNotifier {
     // 1) 월 데이터 확보
     final existingMonthly =
         _monthlyCache[monthKey] ?? await _recordRepo.loadMonthlyRecord(monthKey);
-
     // 2) 기존 day가 있으면 income 유지
     final existingDay = existingMonthly.days[dateKey];
 
@@ -296,7 +379,7 @@ class HomeViewModel extends ChangeNotifier {
       comment: comment,
       spendingEntries: entries,
       incomeEntries: existingDay?.incomeEntries ?? const [],
-      isAutoGenerated: false,
+      isAutoGenerated: false,  // 세은 추가 부분
     );
 
     // 3) 메모리 캐시 업데이트
@@ -312,10 +395,11 @@ class HomeViewModel extends ChangeNotifier {
     // 5) 선택 날짜면 todaySpending 갱신
     if (DateFormat('yyyy-MM-dd').format(_selectedDate) == dateKey) {
       _todaySpending = totalAmount;
+      _todayIncome = existingDay?.totalIncomeAmount ?? 0;  // 하경 추가 부분
     }
 
-    _updateDailyNetForDate(date, newDay);
-    _recomputeDailyNetSummary();
+    _updateDailyNetForDate(date, newDay);   // 세은 추가 부분
+    _recomputeDailyNetSummary();  // 세은 추가 부분
 
     notifyListeners();
   }
@@ -326,6 +410,7 @@ class HomeViewModel extends ChangeNotifier {
     return _goalDate!.difference(DateTime.now());
   }
 
+  // 세은님 수정 내용
   double get liveSavedAmount {
     return confirmedSaved + guideSum;
   }
@@ -342,9 +427,38 @@ class HomeViewModel extends ChangeNotifier {
     return '${SavingPlanCalculator.formatAmount(metrics.dailyConsumeAmount.toDouble())}원';
   }
 
+  // 하경 추가 내용
+  String get todayIncomeText {
+    return '${SavingPlanCalculator.formatAmount(_todayIncome.toDouble())}원';
+  }
+
+  // 하경 추가 내용
+  String get todaySpendingText {
+    return '${SavingPlanCalculator.formatAmount(_todaySpending.toDouble())}원';
+  }
+
+  // 하경 추가 내용
+  bool get isTodayRecorded {
+    final monthKey = DateFormat('yyyy-MM').format(_selectedDate);
+    final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
+
+    final day = _monthlyCache[monthKey]?.days[dateKey];
+    if (day == null) return false;
+    if (day.isAutoGenerated) return false;
+
+    final hasSpending =
+        day.totalSpendingAmount > 0 || day.spendingEntries.isNotEmpty;
+
+    return hasSpending;
+  }
+
+
   String get perSecondSaving => _savingPerSecond.toStringAsFixed(2);
   double get progressRatio => _calc?.savingRatio ?? 0.0;
+
+  // 세은 추가 내용
   double get confirmedSaved => _currentAsset + _sumDailyNet;
+  // 세은 추가 내용
   double get guideSum {
     if (_savingPerSecond == 0) return 0;
     _refreshGuideAnchors();
@@ -354,12 +468,14 @@ class HomeViewModel extends ChangeNotifier {
     return max(0, DateTime.now().difference(_guideStart).inSeconds) *
         _savingPerSecond;
   }
+  // 세은 추가 내용
   double get userPercent {
     final target = (_latestPlan?.targetAmount ?? 0).toDouble();
     if (target <= 0) return 0;
     final value = (confirmedSaved + guideSum) / target;
     return value.clamp(0.0, 1.0);
   }
+  // 세은 추가 내용
   double get planPercent {
     final plan = _latestPlan;
     if (plan == null) return 0;
@@ -384,6 +500,7 @@ class HomeViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // 기존 flushAutoSavingToSnapshot() 삭제 후  세은님이 추가하신 함수
   void registerExtraIncome(DateTime date, int amount) {
     if (amount <= 0) return;
     final plan = _latestPlan;
@@ -406,6 +523,7 @@ class HomeViewModel extends ChangeNotifier {
     _monthlyCache.clear();
   }
 
+  // 세은님 추가 내용
   Future<void> _autoFillMissingDays() async {
     if (_autoFillRunning) return;
     final plan = _latestPlan;
@@ -455,6 +573,7 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
+  // 세은님 추가 내용
   int? _dailyBudgetForDate(DateTime date) {
     final plan = _latestPlan;
     if (plan == null) return null;
@@ -467,6 +586,7 @@ class HomeViewModel extends ChangeNotifier {
     return subPlan.monthlySummary().dailyConsumeAmount;
   }
 
+  // 세은님 추가 내용
   List<RecordEntry>? _buildAutoSpendingEntries(DateTime date) {
     final plan = _latestPlan;
     final refData = _refData;
@@ -493,6 +613,7 @@ class HomeViewModel extends ChangeNotifier {
     });
   }
 
+  // 세은님 추가 내용
   List<RecordEntry> _buildFallbackEntries(DateTime date, int amount) {
     final normalized = _normalizeDay(date);
     final dateKey = DateFormat('yyyyMMdd').format(normalized);
@@ -507,6 +628,7 @@ class HomeViewModel extends ChangeNotifier {
     ];
   }
 
+  // 세은님 추가 내용
   MiniPlan? _miniForDate(SubPlan subPlan, DateTime date) {
     final normalized = _normalizeDay(date);
     for (final mini in subPlan.orderedMinis()) {
@@ -519,14 +641,18 @@ class HomeViewModel extends ChangeNotifier {
     return null;
   }
 
+  // 세은님 추가 내용
   DateTime _normalizeDay(DateTime value) =>
       DateTime(value.year, value.month, value.day);
 
+  // 세은님 추가 내용
   DateTime _nextDay(DateTime value) =>
       DateTime(value.year, value.month, value.day).add(const Duration(days: 1));
 
+  // 세은님 추가 내용
   String _toMonthKey(DateTime date) => DateFormat('yyyy-MM').format(date);
 
+  // 세은님 추가 내용
   void _updateDailyNetForMonth(String monthKey) {
     final monthly = _monthlyCache[monthKey];
     if (monthly == null) return;
@@ -538,6 +664,7 @@ class HomeViewModel extends ChangeNotifier {
     });
   }
 
+  // 세은님 추가 내용
   void _updateDailyNetForDate(DateTime date, DayRecord? record) {
     final normalized = _normalizeDay(date);
     final key = DateFormat('yyyy-MM-dd').format(normalized);
@@ -562,6 +689,7 @@ class HomeViewModel extends ChangeNotifier {
     );
   }
 
+  // 세은님 추가 내용
   void _recomputeDailyNetSummary() {
     double sum = 0;
     final today = _normalizeDay(DateTime.now());
@@ -585,6 +713,7 @@ class HomeViewModel extends ChangeNotifier {
     }
   }
 
+  // 세은님 추가 내용
   void _refreshGuideAnchors() {
     final todayStart = _normalizeDay(DateTime.now());
     if (!_guideStart.isAtSameMomentAs(todayStart)) {
@@ -598,7 +727,7 @@ class HomeViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
-    _spendingSub?.cancel();
+    _recordSub?.cancel();
     _ticker?.cancel();
     secondTick.dispose();
     _planSavedSub?.cancel();
@@ -606,6 +735,7 @@ class HomeViewModel extends ChangeNotifier {
   }
 }
 
+// 세은님 추가 내용
 class _DailyNet {
   _DailyNet({
     required this.date,

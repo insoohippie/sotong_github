@@ -137,6 +137,9 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
+    final targetDate = DateTime(vm.selectedYear, vm.selectedMonth, day);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -149,9 +152,17 @@ class _Header extends StatelessWidget {
           ),
         ),
         IconButton(
-          onPressed: () {
+          onPressed: () async {
             Navigator.of(context).pop();
-            // TODO: 수정 페이지로 이동
+
+            await Future.delayed(Duration.zero);
+            if (!context.mounted) return;
+
+            Navigator.pushNamed(
+              context,
+              '/today_record',
+              arguments: targetDate,
+            );
           },
           icon: const Icon(Icons.edit, size: 22, color: AppColors.primary),
           padding: EdgeInsets.zero,
@@ -463,9 +474,19 @@ class _EmptyDateContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return CustomButton(
       text: '소비 등록하기',
-      onPressed: () {
+      onPressed: () async {
+        final targetDate = DateTime(vm.selectedYear, vm.selectedMonth, day);
+
         Navigator.pop(context);
-        // TODO: 소비 입력 페이지로 이동
+
+        await Future.delayed(Duration.zero);
+        if (!context.mounted) return;
+
+        Navigator.pushNamed(
+          context,
+          '/record',
+          arguments: targetDate,
+        );
       },
       height: 60,
     );

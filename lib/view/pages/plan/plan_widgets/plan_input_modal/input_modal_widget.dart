@@ -161,6 +161,9 @@ class _InputModalWidgetState extends State<InputModalWidget>
   bool _isOverBudget() {
     final kind = _resolveKind();
     final double limit = widget.monthlyIncome ?? 0.0;
+
+    final total = getTotalAmount();
+
     if (limit <= 0.0) return false;
     if (kind == ItemKind.income) return false;
     if (kind == ItemKind.daily) return (getTotalAmount() * 30.0) > limit;
@@ -282,6 +285,23 @@ class _InputModalWidgetState extends State<InputModalWidget>
     });
   }
 
+  void updateItemCategoryWithEmoji(int idx, String category, String emoji) {
+    final i = items.indexWhere((e) => e.idx == idx);
+    if (i == -1) return;
+
+    final current = items[i];
+
+    items[i] = current.copyWith(
+      category: category,
+      emoji: emoji.trim().isNotEmpty ? emoji.trim() : '💰',
+      categoryKey: current.categoryKey,
+    );
+
+    setState(() {
+      if (error.isNotEmpty) error = '';
+    });
+  }
+
   void removeItem(int idx) {
     setState(() {
       items.removeWhere((e) => e.idx == idx);
@@ -392,6 +412,10 @@ class _InputModalWidgetState extends State<InputModalWidget>
               showMonthlyHint: kind == ItemKind.daily,
               isOverBudget: over,
               alreadySelectedNames: selectedNames,
+
+              onCategorySelectedWithEmoji: (idx, name, emoji) {
+                updateItemCategoryWithEmoji(idx, name, emoji);
+              },
             );
           }).toList(),
           SmallRoundedButton(
@@ -445,6 +469,16 @@ class _InputModalWidgetState extends State<InputModalWidget>
     final kind = _resolveKind();
     final over = _isOverBudget();
     final double limit = widget.monthlyIncome ?? 0.0;
+
+    debugPrint(
+    '[FOOTER_BUILD] '
+    'title=${widget.title}, '
+    'kind=$kind, '
+    'limit=$limit, '
+    'total=${getTotalAmount()}, '
+    'over=$over',
+    );
+
 
     if (kind == ItemKind.daily) {
       return FooterDaily(

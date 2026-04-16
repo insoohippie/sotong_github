@@ -119,6 +119,7 @@ class EmailLoginPage extends StatelessWidget {
                 if (!context.mounted) return;
 
                 if (success) {
+                  // 세은님 수정 부분
                   final hydrated = await _hydrateCachesIfNeeded(context);
                   if (!hydrated) return;
                   final authRepo = context.read<AuthRepository>();
@@ -127,7 +128,7 @@ class EmailLoginPage extends StatelessWidget {
                     try {
                       final planRepo = context.read<PlanRepository>();
                       final existingPlan =
-                          await planRepo.getLatestPlanForCurrentUser();
+                      await planRepo.getLatestPlanForCurrentUser();
                       if (existingPlan != null) {
                         final refDataRepo = context.read<RefDataRepository>();
                         final refData = await refDataRepo.loadAll();
@@ -146,7 +147,7 @@ class EmailLoginPage extends StatelessWidget {
                             snapshot: PlanCacheSnapshot(
                               plan: existingPlan,
                               refData: refData,
-                              needsInitialUpload: false,
+                              needsInitialUpload: false, // 세은님 추가 부분
                             ),
                           );
                           debugPrint('[EmailLoginPage] plan snapshot cached for uid=$uid');
@@ -166,7 +167,7 @@ class EmailLoginPage extends StatelessWidget {
                     final uid =
                         authRepo.cachedUid ?? authRepo.currentUserId;
                     final snapshot =
-                        uid != null ? cacheRepo.loadSnapshot(uid) : null;
+                    uid != null ? cacheRepo.loadSnapshot(uid) : null;
                     if (snapshot != null) {
                       final tree = PlanDebugPrinter.describe(
                         plan: snapshot.plan,
@@ -204,20 +205,22 @@ class EmailLoginPage extends StatelessWidget {
 Future<bool> _hydrateCachesIfNeeded(BuildContext context) async {
   final cacheRepo = context.read<PlanCacheRepository>();
   final authRepo = context.read<AuthRepository>();
-  final recordRepo = context.read<RecordRepository>();
-  final refCatRepo = context.read<RefCategoryRepository>();
-  final planRepo = context.read<PlanRepository>();
+  final recordRepo = context.read<RecordRepository>(); // 세은님 추가 부분
+  final refCatRepo = context.read<RefCategoryRepository>(); // 세은님 추가 부분
+  final planRepo = context.read<PlanRepository>(); // 세은님 추가 부분
   final uid = authRepo.cachedUid ?? authRepo.currentUserId;
   if (uid == null) return true;
 
   final snapshot = cacheRepo.loadSnapshot(uid);
-  final needsPlanUpload = snapshot?.needsInitialUpload ?? false;
-  final needRecordHydration = !recordRepo.hasAnyCacheForCurrentUser();
-  final needSpendingCats = !refCatRepo.hasCachedDoc('recordSpending');
-  final needIncomeCats = !refCatRepo.hasCachedDoc('recordAddIncome');
+  final needsPlanUpload = snapshot?.needsInitialUpload ?? false; // 세은님 추가 부분
+  final needRecordHydration = !recordRepo.hasAnyCacheForCurrentUser(); // 세은님 추가 부분
+  final needSpendingCats = !refCatRepo.hasCachedDoc('recordSpending'); // 세은님 추가 부분
+  final needIncomeCats = !refCatRepo.hasCachedDoc('recordAddIncome'); // 세은님 추가 부분
 
+  // 세은님 추가 부분
   final requiresOnline =
       needsPlanUpload || needRecordHydration || needSpendingCats || needIncomeCats;
+  // 세은님 추가 부분
   if (requiresOnline && (!recordRepo.isOnline || !refCatRepo.isOnline)) {
     showDialog(
       context: context,
@@ -225,7 +228,7 @@ Future<bool> _hydrateCachesIfNeeded(BuildContext context) async {
       builder: (ctx) {
         return AlertDialog(
           title: const Text('인터넷 연결 필요'),
-          content: const Text('저장된 데이터를 불러오거나 업로드하려면 인터넷 연결이 필요합니다. 연결 후 다시 로그인해주세요.'),
+          content: const Text('저장된 데이터를 불러오거나 업로드하려면 인터넷 연결이 필요합니다. 연결 후 다시 로그인해주세요.'),  // 세은님 수정 부분
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
@@ -238,6 +241,7 @@ Future<bool> _hydrateCachesIfNeeded(BuildContext context) async {
     return false;
   }
 
+  // 세은님 추가 부분
   if (needsPlanUpload && snapshot != null) {
     try {
       var planToSave = snapshot.plan;

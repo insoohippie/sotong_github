@@ -149,7 +149,7 @@ class TotalPlan {
       'snapshotAmount': snapshotAmount,
       'snapshotAt': snapshotAt?.toIso8601String(),
       'extraIncomeRecords':
-          extraIncomeRecords.map((e) => e.toMap()).toList(growable: false),
+      extraIncomeRecords.map((e) => e.toMap()).toList(growable: false),
     };
   }
 
@@ -308,10 +308,10 @@ class TotalPlan {
   }
 
   SubPlan? _closestSubPlan(
-    SubPlan? before,
-    SubPlan? after,
-    DateTime targetMonth,
-  ) {
+      SubPlan? before,
+      SubPlan? after,
+      DateTime targetMonth,
+      ) {
     if (before == null && after == null) return null;
     if (before == null) return after;
     if (after == null) return before;
@@ -404,7 +404,7 @@ class TotalPlan {
         dailyNetSaving: (map['dailyNetSaving'] as num?)?.round(),
         monthlyNetSaving: (map['monthlyNetSaving'] as num?)?.round(),
         perSecondSaving:
-            (map['perSecondSaving'] as num?)?.toDouble() ?? 0.0,
+        (map['perSecondSaving'] as num?)?.toDouble() ?? 0.0,
       );
     }
     final now = DateTime.now();
@@ -422,9 +422,9 @@ class TotalPlan {
       return data.map((key, value) {
         final subPlanMap = Map<String, dynamic>.from(value as Map);
         final miniPlansData =
-            Map<String, dynamic>.from(subPlanMap['miniPlans'] as Map? ?? {});
+        Map<String, dynamic>.from(subPlanMap['miniPlans'] as Map? ?? {});
         final miniPlans = miniPlansData.map(
-          (docId, miniMap) => MapEntry(
+              (docId, miniMap) => MapEntry(
             docId,
             MiniPlan.fromMap(Map<String, dynamic>.from(miniMap as Map)),
           ),
@@ -455,9 +455,9 @@ class TotalPlan {
   }
 
   static SubPlanResult _parseSubResult(
-    dynamic data,
-    Map<String, SubPlan> subPlans,
-  ) {
+      dynamic data,
+      Map<String, SubPlan> subPlans,
+      ) {
     if (data is Map<String, dynamic>) {
       final subMetricRaw = data['subMetrics'] ?? data['metrics'];
       final metricsList = (subMetricRaw as List<dynamic>? ?? [])
@@ -492,15 +492,15 @@ class TotalPlan {
   }
 
   static Map<String, dynamic> _serializeSubPlans(
-    Map<String, SubPlan> subPlans,
-  ) {
+      Map<String, SubPlan> subPlans,
+      ) {
     final result = <String, dynamic>{};
     subPlans.forEach((key, subPlan) {
       result[key] = {
         'yearMonth': subPlan.yearMonth.toIso8601String(),
         'headDocId': subPlan.headDocId,
         'miniPlans':
-            subPlan.miniPlans.map((docId, mini) => MapEntry(docId, mini.toMap())),
+        subPlan.miniPlans.map((docId, mini) => MapEntry(docId, mini.toMap())),
         'fractionalEndSeconds': subPlan.fractionalEndSeconds,
       };
     });
@@ -510,7 +510,7 @@ class TotalPlan {
   static Map<String, dynamic> _serializeSubResult(SubPlanResult result) {
     return {
       'subMetrics':
-          result.subMetrics.map(_serializeMetrics).toList(growable: false),
+      result.subMetrics.map(_serializeMetrics).toList(growable: false),
       'subPlanDocIds': result.subPlanList.map((sub) => sub.headDocId).toList(),
     };
   }
@@ -549,9 +549,9 @@ class ExtraIncomeRecord {
   final int amount;
 
   Map<String, dynamic> toMap() => {
-        'date': date.toIso8601String(),
-        'amount': amount,
-      };
+    'date': date.toIso8601String(),
+    'amount': amount,
+  };
 
   factory ExtraIncomeRecord.fromMap(Map<String, dynamic> map) {
     return ExtraIncomeRecord(

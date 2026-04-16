@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import 'package:sotong_local/view/pages/auth/signup_page.dart';
 import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
+import 'package:sotong_local/view/pages/auth/unsuccess_plan_quit.dart';
 import 'package:sotong_local/view/pages/category/category_edit.dart';
+import 'package:sotong_local/view/pages/home/pending_spending_page.dart';
 
 import 'package:sotong_local/view/pages/logo_splash_page.dart';
 
@@ -10,7 +12,6 @@ import 'package:sotong_local/view/pages/communication/communication_page.dart';
 
 import 'package:sotong_local/view/pages/home/home_page.dart';
 import 'package:sotong_local/view/pages/home/home_tab_navigator.dart';
-import 'package:sotong_local/view/pages/record/addIncome/limit_apply_page.dart';
 import 'package:sotong_local/view/pages/record/addIncome/period_apply_page.dart';
 import 'package:sotong_local/view/pages/record/today_record_page.dart';
 
@@ -22,9 +23,6 @@ import 'package:sotong_local/view/pages/plan/celebration_plan_success.dart';
 
 import 'package:sotong_local/view/pages/record/record_diary_page.dart';
 import 'package:sotong_local/view/pages/record/record_page.dart';
-
-import 'package:sotong_local/view/pages/record/addIncome/apply_income_option_page.dart';
-
 import 'package:sotong_local/view/pages/report/report_page.dart';
 
 import 'package:sotong_local/view/pages/notification/notification_page.dart';
@@ -53,6 +51,7 @@ final Map<String, WidgetBuilder> appRoutes = {
   // 회원가입
   '/signup': (_) => const SignUpPage(),
   '/signup_success': (_) => const SignupSuccessPage(),
+  '/unsuccess_plan_quit': (_) => const UnsuccessPlanQuitPage(),
 
   // 플랜 생성, 수정, 생성 완료 페이지
   '/plan_chat': (_) => const ChatPlanPage(),
@@ -77,9 +76,9 @@ final Map<String, WidgetBuilder> appRoutes = {
 
   '/record_diary': (_) => const RecordDiaryPage(),
 
-  '/apply_income_option': (_) => const ApplyIncomeOptionPage(),
-  '/limit_apply': (_) => const LimitApplyPage(),
   '/period_apply': (_) => const PeriodApplyPage(),
+
+  '/pending_spending': (_) => const PendingSpendingPage(),
 
   // 설정 페이지
   '/setting': (_) => const SettingsPage(),

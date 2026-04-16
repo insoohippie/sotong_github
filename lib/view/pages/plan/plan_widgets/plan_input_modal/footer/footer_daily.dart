@@ -71,18 +71,16 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
     final target = vm.totalPlan.targetAmount?.toDouble();
     final current = vm.totalPlan.currentAsset.toDouble();
 
-    // 예상 도달 안내문
+// 예상 도달 안내문
     String? helperLine;
 
-    // 월 수입 - 월 고정소비 < 0인 경우 경고 표시
+// 월 수입 - 월 고정소비 < 0인 경우 경고 표시
     final hasNegativeMonthlyIncome = widget.monthlyIncome < 0;
 
     if (over) {
       helperLine =
       '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome)}원을 초과했어요.';
     } else if (target != null && target > 0) {
-      // 목표 금액이 있으면 소요 기간 계산 우선 (summary와 동일한 계산 방식 사용)
-      // summary에서는 daysToGoal / 30.0을 사용하므로 동일하게 계산
       final calc = vm.calculate();
       if (calc != null && calc.daysToGoal > 0) {
         final months = calc.daysToGoal / 30.0;
@@ -92,17 +90,13 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
         if (remaining <= 0) {
           helperLine = '🎉 이미 목표를 달성했어요!';
         } else if (hasNegativeMonthlyIncome) {
-          // 월 수입 - 월 고정소비 < 0일 때만 경고 표시
           helperLine = '⚠️ 현재 금액으로는 저축이 어려워요. 일일 소비를 조정해볼까요?';
         } else {
           helperLine = '목표 금액을 입력하면 예상 소요 기간을 계산해드려요.';
         }
       }
     } else if (hasNegativeMonthlyIncome) {
-      // 목표 금액이 없고, 월 수입 - 월 고정소비 < 0일 때만 경고 표시
-      helperLine = '⚠️ 현재 금액으로는 저축이 어려워요. 일일 소비를 조정해볼까요?';
-    } else {
-      helperLine = '목표 금액을 입력하면 예상 소요 기간을 계산해드려요.';
+      helperLine = '⚠️ 현재 금액으로는 저축이 어려워요.';
     }
 
     final bool showTargetWarning =

@@ -26,7 +26,7 @@ Future<RecordEntry?> showTodayRecordAddSpendingBottomSheet({
     buttonText: '추가',
   );
 
-  await Future.delayed(Duration.zero);
+  await Future.delayed(const Duration(milliseconds: 50));
   _disposeTempEntry(tempEntry);
   return result;
 }
@@ -50,7 +50,7 @@ Future<RecordEntry?> showTodayRecordEditSpendingBottomSheet({
     buttonText: '수정',
   );
 
-  await Future.delayed(Duration.zero);
+  await Future.delayed(const Duration(milliseconds: 50));
   _disposeTempEntry(tempEntry);
   return result;
 }
@@ -290,11 +290,8 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
         builder: (context, setModalState) {
           void safeSetModalState(VoidCallback fn) {
             if (isClosing) return;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (isClosing) return;
-              if (!context.mounted) return;
-              setModalState(fn);
-            });
+            if (!context.mounted) return;
+            setModalState(fn);
           }
 
           final vm = context.watch<SpendingCategoryViewModel>();

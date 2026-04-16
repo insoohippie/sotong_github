@@ -48,7 +48,7 @@ class PlanCacheSnapshot {
     planPayload.remove('planId');
     final plan = TotalPlan.fromMap(planId, planPayload);
     final refData =
-        RefData.fromMap(Map<String, dynamic>.from(map['refData'] as Map));
+    RefData.fromMap(Map<String, dynamic>.from(map['refData'] as Map));
     final recordRaw = map['recordCache'];
     final recordCache = recordRaw is Map
         ? PlanRecordCache.fromMap(Map<String, dynamic>.from(recordRaw))

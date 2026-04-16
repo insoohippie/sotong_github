@@ -4,15 +4,15 @@ import 'package:intl/intl.dart';
 
 import '../../model/record/record_entry.dart';
 import '../../repository/record_repository.dart';
-import '../../services/spending_event_bus.dart';
+import '../../services/record_event_bus.dart';
 
 class RecordSpendingViewModel extends ChangeNotifier {
   final RecordRepository _recordRepo;
-  final SpendingEventBus _spendingEventBus;
+  final RecordEventBus _recordEventBus;
 
   RecordSpendingViewModel(
       this._recordRepo,
-      this._spendingEventBus,
+      this._recordEventBus,
       ) {
     addEntry();
   }
@@ -58,7 +58,6 @@ class RecordSpendingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 소비 / 카테고리 / 금액 / 노트 전부 초기화
   void resetSpending() {
     for (final entry in spendingEntries) {
       final amountCtrl = entry['amountController'] as TextEditingController?;
@@ -96,7 +95,6 @@ class RecordSpendingViewModel extends ChangeNotifier {
 
   String get formattedTotal => NumberFormat('#,###').format(totalSpending);
 
-  /// 금액이 있는 항목 중 카테고리 미선택 항목이 하나라도 있으면 true
   bool get hasInvalidCategorySelection {
     for (final entry in spendingEntries) {
       final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
@@ -109,7 +107,6 @@ class RecordSpendingViewModel extends ChangeNotifier {
     return false;
   }
 
-  /// 소비 입력 페이지에서 "다음 단계" 활성화 조건
   bool get canProceedToNextStep {
     final hasAmount = spendingEntries.any(
           (e) => ((e['amount'] as num?)?.toDouble() ?? 0) > 0,
@@ -125,20 +122,17 @@ class RecordSpendingViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 감정 + 코멘트 초기화
   void resetEmotion() {
     selectedEmotion = null;
     commentController.clear();
     notifyListeners();
   }
 
-  /// 새 날짜 시작 시 초기화
   void resetAllForNewDate() {
     resetSpending();
     resetEmotion();
   }
 
-  /// 디버그/확인용
   List<Map<String, dynamic>> _buildEntriesJson() {
     final List<Map<String, dynamic>> entriesJson = [];
 
@@ -200,12 +194,13 @@ class RecordSpendingViewModel extends ChangeNotifier {
       emotion: selectedEmotion ?? '',
       comment: commentController.text,
     );
+
     debugPrint(
       '[RecordSpendingViewModel] saveAllForDate '
-      '(date=$date, localMode=${_recordRepo.localMode})',
+          '(date=$date, localMode=${_recordRepo.localMode})',
     );
 
-    _spendingEventBus.fire(SpendingUpdatedEvent(date));
+    _recordEventBus.fire(RecordUpdatedEvent(date));
   }
 
   @override

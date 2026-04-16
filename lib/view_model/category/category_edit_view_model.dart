@@ -461,9 +461,6 @@ class CategoryEditViewModel extends ChangeNotifier {
     _markDirty();
   }
 
-  // ===========================================================
-  // Save (너 코드 그대로 + 저장 성공 시 base 갱신)
-  // ===========================================================
   Future<bool> saveDraftForSelectedDate() async {
     if (_isSaving) return false;
     _isSaving = true;
@@ -480,15 +477,16 @@ class CategoryEditViewModel extends ChangeNotifier {
       final ref = await _refRepo.loadAll();
       final applyDate = _normalizeDay(_selectedDate);
 
-      final activeDaily = _findDailyConsumeForDate(ref.dailyConsumeMap.values, applyDate);
+      final activeDaily =
+      _findDailyConsumeForDate(ref.dailyConsumeMap.values, applyDate);
       if (activeDaily == null) {
         _error = '선택 날짜의 dailyConsume을 찾지 못했습니다.';
         return false;
       }
 
-      final isSameDayOverwrite = _normalizeDay(activeDaily.startDate) == applyDate;
       final previousDailyId = activeDaily.id;
 
+      // 1) draftPlan -> Entry[] 변환
       final newEntries = <Entry>[];
       for (int i = 0; i < _draftPlan.length; i++) {
         final c = _draftPlan[i];
@@ -507,41 +505,20 @@ class CategoryEditViewModel extends ChangeNotifier {
         );
       }
 
-      if (isSameDayOverwrite) {
-        final overwritten = activeDaily.copyWith(
-          entries: List<Entry>.unmodifiable(newEntries),
-        );
-        await _refRepo.saveDailyConsume(overwritten);
-
-        final refToSave = List<RefCategoryItem>.from(_draftRef)
-          ..sort((a, b) => a.order.compareTo(b.order));
-        final normalizedRef = [
-          for (int i = 0; i < refToSave.length; i++) refToSave[i].copyWith(order: i),
-        ];
-        await _refCatRepo.saveRefCategories(
-          docId: _refDocId,
-          items: normalizedRef,
-          markDirty: true,
-        );
-        _draftRef = normalizedRef;
-
-        _normalizeOrdersPlanOnly();
-        _normalizeOrdersRefOnly();
-
-        // ✅ 저장 성공: base 갱신 + dirty 해제
-        _snapshotBase();
-        _clearDirty();
-        return true;
-      }
-
-      final modEndDate = _normalizeDay(plan.modEndDate ?? plan.endDate ?? applyDate);
+      // 2) 플랜 에딧과 같은 방향:
+      //    항상 command 기반으로 daily mutation 수행
+      final modEndDate =
+      _normalizeDay(plan.modEndDate ?? plan.endDate ?? applyDate);
       final safeModEnd = applyDate.isAfter(modEndDate) ? applyDate : modEndDate;
 
       final newDailyId = _nextDailyId(
         applyDate: applyDate,
         existingIds: ref.dailyConsumeMap.keys,
       );
-      final newMiniDocId = _nextMiniDocId(plan: plan, applyDate: applyDate);
+      final newMiniDocId = _nextMiniDocId(
+        plan: plan,
+        applyDate: applyDate,
+      );
 
       final cmd = UpdateDailyCommand(
         applyDate: applyDate,
@@ -563,7 +540,9 @@ class CategoryEditViewModel extends ChangeNotifier {
       final updatedPlan = mutation.totalPlan;
       final updatedDailyMap = mutation.dailyConsumes;
 
-      final toUpsertIds = <String>{newDailyId, previousDailyId};
+      // 3) mutation 결과 daily 문서 저장
+      // 현재 구조상 previous / new 두 문서만 저장해도 충분
+      final toUpsertIds = <String>{previousDailyId, newDailyId};
       for (final id in toUpsertIds) {
         final daily = updatedDailyMap[id];
         if (daily != null) {
@@ -571,13 +550,18 @@ class CategoryEditViewModel extends ChangeNotifier {
         }
       }
 
+      // 4) 플랜도 mutation 결과로 저장
       await _planRepo.replacePlan(updatedPlan);
 
+      // 5) 참고 카테고리는 기존대로 별도 저장
       final refToSave = List<RefCategoryItem>.from(_draftRef)
         ..sort((a, b) => a.order.compareTo(b.order));
+
       final normalizedRef = [
-        for (int i = 0; i < refToSave.length; i++) refToSave[i].copyWith(order: i),
+        for (int i = 0; i < refToSave.length; i++)
+          refToSave[i].copyWith(order: i),
       ];
+
       await _refCatRepo.saveRefCategories(
         docId: _refDocId,
         items: normalizedRef,
@@ -588,7 +572,7 @@ class CategoryEditViewModel extends ChangeNotifier {
       _normalizeOrdersPlanOnly();
       _normalizeOrdersRefOnly();
 
-      // ✅ 저장 성공: base 갱신 + dirty 해제
+      // 6) 저장 성공 후 base 갱신
       _snapshotBase();
       _clearDirty();
       return true;

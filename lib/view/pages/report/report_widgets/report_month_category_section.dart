@@ -117,7 +117,7 @@ class _ReportMonthCategorySectionState
             ),
           ),
           SizedBox(
-            height: 120,
+            height: 76,
             child: PageView.builder(
               controller: _pageController,
               itemCount: items.length,
@@ -128,14 +128,16 @@ class _ReportMonthCategorySectionState
                 });
               },
               itemBuilder: (context, index) {
+                final item = items[index];
+
                 return Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 18),
+                  padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
                   child: _MoneySlideCard(
-                    amount: selectedItem.value,
+                    amount: item.value,
                     monthKey: monthKey,
                     format: _formatAmount,
                     isLoading: vm.isLoading,
-                    tabIndex: _tabIndex,
+                    tabIndex: index,
                   ),
                 );
               },
@@ -195,11 +197,11 @@ class _MoneySlideCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
       ),
-      alignment: Alignment.centerRight,
+      alignment: Alignment.center,
       child: Opacity(
         opacity: isLoading ? 0.4 : 1.0,
         child: TweenAnimationBuilder<int>(
@@ -210,10 +212,10 @@ class _MoneySlideCard extends StatelessWidget {
           builder: (context, value, _) {
             return FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.centerRight,
+              alignment: Alignment.center,
               child: Text(
                 '${format(value)}원',
-                textAlign: TextAlign.right,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,

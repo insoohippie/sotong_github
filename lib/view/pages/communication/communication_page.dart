@@ -48,58 +48,62 @@ class _CommunicationPageState extends State<CommunicationPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 12),
-                  SlidingBanner(
-                    itemCount: vm.bannerInsights.length,
-                    itemBuilder: (context, index) {
-                      final insight = vm.bannerInsights[index];
-                      final color = insight['color'] as Color;
-                      final icon = insight['icon'] as IconData;
-                      final title = insight['title'] as String;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: color.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: color.withOpacity(0.25),
-                            width: 0.5,
+
+                  // ✅ 배너 높이 60 고정
+                  SizedBox(
+                    height: 60,
+                    child: SlidingBanner(
+                      itemCount: vm.bannerInsights.length,
+                      itemBuilder: (context, index) {
+                        final insight = vm.bannerInsights[index];
+                        final color = insight['color'] as Color;
+                        final icon = insight['icon'] as IconData;
+                        final title = insight['title'] as String;
+
+                        return Container(
+                          height: 60,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
                           ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(icon, color: color, size: 18),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                title,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: color.withOpacity(0.25),
+                              width: 0.5,
                             ),
-                          ],
-                        ),
-                      );
-                    },
-                    autoSlideDuration: const Duration(seconds: 3),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(icon, color: color, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      autoSlideDuration: const Duration(seconds: 3),
+                    ),
                   ),
+
                   const SizedBox(height: 20),
                   EmotionCalendarSection(vm: vm),
                   const SizedBox(height: 20),
-
-                  // EmotionAnalysisSection(vm: vm),
                   EmotionTop3CarouselSection(vm: vm),
-                  const SizedBox(height: 20),
-
                   const SizedBox(height: 20),
                 ],
               ),

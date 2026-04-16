@@ -1,27 +1,30 @@
-// lib/view_model/report/report_view_model.dart
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color, IconData, Icons;
 import 'package:intl/intl.dart';
 
 import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/services/spending_event_bus.dart';
+import 'package:sotong_local/services/record_event_bus.dart';
 
 import '../../repository/record_repository.dart';
+import '../../repository/ref_data_repository.dart';
+import '../../repository/plan_repository.dart';
+
 import '../../model/record/monthly_record.dart';
 import '../../model/record/day_record.dart';
 import '../../model/refData/ref_data.dart';
 import '../../model/report/report_models.dart';
-import '../../repository/ref_data_repository.dart';
+import '../../model/plan/total_plan.dart';
 
 class ReportViewModel extends ChangeNotifier {
   ReportViewModel(
       this._recordRepo,
-      this._refRepo, {
-        SpendingEventBus? eventBus,
+      this._refRepo,
+      this._planRepo, {
+        RecordEventBus? eventBus,
       }) {
     if (eventBus != null) {
-      _spendingSub = eventBus.stream.listen((_) {
+      _eventSub = eventBus.stream.listen((_) {
         _spendingDebounce?.cancel();
         _spendingDebounce = Timer(const Duration(milliseconds: 120), () async {
           await refreshAfterSpendingUpdated();
@@ -32,8 +35,9 @@ class ReportViewModel extends ChangeNotifier {
 
   final RecordRepository _recordRepo;
   final RefDataRepository _refRepo;
+  final PlanRepository _planRepo;
 
-  StreamSubscription<SpendingUpdatedEvent>? _spendingSub;
+  StreamSubscription<RecordUpdatedEvent>? _eventSub;
   Timer? _spendingDebounce;
 
   bool _isLoading = false;
@@ -80,6 +84,7 @@ class ReportViewModel extends ChangeNotifier {
 
   final Map<String, MonthlyRecord> _monthCache = {};
   RefData? _refData;
+  TotalPlan? _latestPlan;
 
   final Map<String, String> _lastRecordNameByKey = {};
 
@@ -153,55 +158,287 @@ class ReportViewModel extends ChangeNotifier {
 
   List<Map<String, dynamic>> get insights => _buildReportInsights();
 
+  // =====================================================
+  // 배너 인사이트 (레포트)
+  // =====================================================
+
   List<Map<String, dynamic>> _buildReportInsights() {
-    final r7 = _recent7Range();
-    final spent7 = _sumSpentInRange(r7);
-    final budget7 = _sumPlannedInRange(r7);
+    final fullRange = _planFullRangeFromLatestPlan();
+    final recent7 = _recent7Range();
 
-    final avgDaily7 = (spent7 / 7).round();
-    final topCat7 = _topCategoryNameInRange(r7);
-    final ratio7 = budget7 > 0 ? (spent7 / budget7 * 100).round() : 0;
+    final fullTop = _topCategoryStatsInRange(fullRange);
+    final recentTop = _topCategoryStatsInRange(recent7);
 
-    final prev7 = _sumSpentInRange(_previous7Range());
-    final trend7 = prev7 > 0 ? ((spent7 - prev7) / prev7 * 100).round() : 0;
+    final hasAnySpendingInFull = _hasAnySpendingInRange(fullRange);
+    final hasAnySpendingInRecent7 = _hasAnySpendingInRange(recent7);
+
+    final withinGoalRatio = _withinDailyGoalRatio(fullRange);
+    final missingRecordRatio = _missingRecordDayRatioInFullPeriod();
+    final noSpendRecordedRatio = _noSpendRecordedDayRatioInFullPeriod();
 
     return [
       {
-        'title': spent7 > 0
-            ? '최근 7일 동안 총 ${_nf.format(spent7)}원을 소비했어요.'
-            : '최근 7일간 소비 기록이 없어요.',
-        'icon': Icons.account_balance_wallet,
-        'color': AppColors.primary,
-      },
-      {
-        'title': spent7 > 0
-            ? '최근 7일 기준 하루 평균 소비는 ${_nf.format(avgDaily7)}원이에요.'
-            : '최근 7일 기록이 없어요.',
-        'icon': Icons.trending_up,
-        'color': const Color(0xFF43A047),
-      },
-      {
-        'title': topCat7 != null
-            ? '최근 7일 동안 가장 많이 쓴 카테고리는 $topCat7예요.'
-            : '최근 7일간 소비 기록이 없어요.',
+        'title': hasAnySpendingInFull && fullTop != null
+            ? '플랜 전체기간에서 평균 ${_nf.format(fullTop.avg)}원으로 ${fullTop.name}가 가장 많아요.'
+            : '소비를 기록하면 소비 패턴을 분석해드릴게요.',
         'icon': Icons.pie_chart,
         'color': AppColors.primary,
       },
       {
-        'title': budget7 > 0
-            ? '최근 7일은 설정한 예산의 ${ratio7}%를 사용했어요.'
-            : '예산을 설정하면 예산 대비 소비를 볼 수 있어요.',
-        'icon': Icons.savings,
-        'color': ratio7 > 100 ? const Color(0xFFD32F2F) : const Color(0xFF43A047),
+        'title': hasAnySpendingInRecent7 && recentTop != null
+            ? '최근 7일 동안 평균 ${_nf.format(recentTop.avg)}원으로 ${recentTop.name}가 가장 많아요.'
+            : '최근 소비 기록이 쌓이면 분석을 보여드릴게요.',
+        'icon': Icons.access_time,
+        'color': const Color(0xFF43A047),
       },
       {
-        'title': prev7 > 0
-            ? '직전 7일 대비 소비가 ${trend7 >= 0 ? trend7 : -trend7}% ${trend7 >= 0 ? '증가' : '감소'}했어요.'
-            : '소비 추세는 이전 기록이 쌓이면 보여줄게요.',
-        'icon': Icons.compare_arrows,
-        'color': AppColors.primary,
+        'title': _hasAnyDailyGoalConfigured(fullRange)
+            ? _dailyGoalBannerMessage(withinGoalRatio)
+            : '예산을 설정하면 소비 관리 상태를 볼 수 있어요.',
+        'icon': Icons.savings,
+        'color': _dailyGoalBannerColor(withinGoalRatio),
+      },
+      {
+        'title': _missingRecordBannerMessage(missingRecordRatio),
+        'icon': Icons.edit_note,
+        'color': const Color(0xFF607D8B),
+      },
+      {
+        'title': _noSpendRecordedBannerMessage(noSpendRecordedRatio),
+        'icon': Icons.remove_shopping_cart,
+        'color': const Color(0xFF8E24AA),
       },
     ];
+  }
+
+  ReportRange _planFullRangeFromLatestPlan() {
+    final now = _dateOnly(DateTime.now());
+    final planStart = _latestPlan?.startDate;
+
+    if (planStart == null) {
+      return ReportRange(start: now, end: now);
+    }
+
+    final start = _dateOnly(planStart);
+    return ReportRange(start: start, end: now);
+  }
+
+  int _daysCount(ReportRange r) {
+    final s = _dateOnly(r.start);
+    final e = _dateOnly(r.end);
+    return e.difference(s).inDays + 1;
+  }
+
+  DayRecord? _findDayRecord(DateTime date) {
+    final monthKey = _monthKey(DateTime(date.year, date.month, 1));
+    final monthly = _monthCache[monthKey];
+    if (monthly == null) return null;
+
+    final dateKey = DateFormat('yyyy-MM-dd').format(_dateOnly(date));
+    return monthly.days[dateKey];
+  }
+
+  bool _hasAnySpendingInRange(ReportRange r) {
+    return _sumSpentInRange(r) > 0;
+  }
+
+  ({String name, int total, int avg})? _topCategoryStatsInRange(ReportRange r) {
+    const etcKey = 'etc';
+    final days = _daysInRange(r);
+    if (days.isEmpty) return null;
+
+    final spentByKey = <String, int>{};
+    final activeDaysByKey = <String, int>{};
+
+    for (final d in days) {
+      final daySumByKey = <String, int>{};
+
+      for (final e in d.spendingEntries) {
+        final key = e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
+        daySumByKey[key] = (daySumByKey[key] ?? 0) + e.amount.round();
+      }
+
+      daySumByKey.forEach((key, amount) {
+        spentByKey[key] = (spentByKey[key] ?? 0) + amount;
+        if (amount > 0) {
+          activeDaysByKey[key] = (activeDaysByKey[key] ?? 0) + 1;
+        }
+      });
+    }
+
+    if (spentByKey.isEmpty) return null;
+
+    final top = spentByKey.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final topKey = top.key;
+    final total = top.value;
+    final activeDays = activeDaysByKey[topKey] ?? 1;
+    final avg = (total / activeDays).round();
+
+    final name = _planNameForKey(topKey) ??
+        _lastRecordNameByKey[topKey] ??
+        (topKey == etcKey ? '기타' : topKey);
+
+    return (name: name, total: total, avg: avg);
+  }
+
+  int _plannedDailyAmountOn(DateTime date) {
+    final refData = _refData;
+    if (refData == null) return 0;
+
+    final day = _dateOnly(date);
+    int total = 0;
+
+    for (final dc in refData.dailyConsumeMap.values) {
+      if (!dc.isActive) continue;
+
+      final start = _dateOnly(dc.startDate);
+      final end = _dateOnly(dc.endDate);
+
+      if (day.isBefore(start) || day.isAfter(end)) continue;
+
+      for (final e in dc.entries) {
+        total += e.amount.round();
+      }
+    }
+
+    return total;
+  }
+
+  int _withinDailyGoalRatio(ReportRange r) {
+    DateTime cursor = _dateOnly(r.start);
+    final end = _dateOnly(r.end);
+
+    int eligibleDays = 0;
+    int successDays = 0;
+
+    while (!cursor.isAfter(end)) {
+      final planned = _plannedDailyAmountOn(cursor);
+      if (planned > 0) {
+        eligibleDays++;
+        final spent = _spentOnDate(cursor);
+        if (spent <= planned) {
+          successDays++;
+        }
+      }
+      cursor = cursor.add(const Duration(days: 1));
+    }
+
+    if (eligibleDays == 0) return 0;
+    return ((successDays / eligibleDays) * 100).round();
+  }
+
+  bool _hasAnyDailyGoalConfigured(ReportRange r) {
+    DateTime cursor = _dateOnly(r.start);
+    final end = _dateOnly(r.end);
+
+    while (!cursor.isAfter(end)) {
+      if (_plannedDailyAmountOn(cursor) > 0) return true;
+      cursor = cursor.add(const Duration(days: 1));
+    }
+
+    return false;
+  }
+
+  String _dailyGoalBannerMessage(int ratio) {
+    if (ratio < 30) {
+      return '목표한 일일금액 안으로 소비한 날이 $ratio%예요. 흐름을 한 번 점검해보세요.';
+    }
+    if (ratio < 60) {
+      return '목표한 일일금액 안으로 소비한 날이 $ratio%예요. 조금씩 관리되고 있어요.';
+    }
+    if (ratio < 80) {
+      return '목표한 일일금액 안으로 소비한 날이 $ratio%예요. 잘 관리하고 있어요.';
+    }
+    return '목표한 일일금액 안으로 소비한 날이 $ratio%예요. 아주 잘 관리하고 있어요.';
+  }
+
+  Color _dailyGoalBannerColor(int ratio) {
+    if (ratio < 30) {
+      return const Color(0xFFD32F2F);
+    }
+    if (ratio < 60) {
+      return const Color(0xFFF57C00);
+    }
+    if (ratio < 80) {
+      return const Color(0xFF43A047);
+    }
+    return const Color(0xFF0062FF);
+  }
+
+  int _missingRecordDayRatioInFullPeriod() {
+    final fullRange = _planFullRangeFromLatestPlan();
+    final totalDays = _daysCount(fullRange);
+    if (totalDays <= 0) return 0;
+
+    int missingDays = 0;
+    DateTime cursor = _dateOnly(fullRange.start);
+    final end = _dateOnly(fullRange.end);
+
+    while (!cursor.isAfter(end)) {
+      final day = _findDayRecord(cursor);
+      if (day == null) {
+        missingDays++;
+      }
+      cursor = cursor.add(const Duration(days: 1));
+    }
+
+    return ((missingDays / totalDays) * 100).round();
+  }
+
+  int _noSpendRecordedDayRatioInFullPeriod() {
+    final fullRange = _planFullRangeFromLatestPlan();
+    final totalDays = _daysCount(fullRange);
+    if (totalDays <= 0) return 0;
+
+    int noSpendDays = 0;
+    DateTime cursor = _dateOnly(fullRange.start);
+    final end = _dateOnly(fullRange.end);
+
+    while (!cursor.isAfter(end)) {
+      final day = _findDayRecord(cursor);
+
+      if (day != null &&
+          day.spendingEntries.isEmpty &&
+          day.totalSpendingAmount == 0) {
+        noSpendDays++;
+      }
+
+      cursor = cursor.add(const Duration(days: 1));
+    }
+
+    return ((noSpendDays / totalDays) * 100).round();
+  }
+
+  String _missingRecordBannerMessage(int ratio) {
+    if (ratio == 0) {
+      return '플랜 전체기간 중 기록 없는 날은 0%예요. 기록 흐름이 잘 이어지고 있어요.';
+    }
+    if (ratio < 50) {
+      return '플랜 전체기간 중 기록 없는 날은 $ratio%예요. 빠진 날을 기록해보세요.';
+    }
+    return '플랜 전체기간 중 기록 없는 날은 $ratio%예요. 빈 날부터 가볍게 채워보세요.';
+  }
+
+  String _noSpendRecordedBannerMessage(int ratio) {
+    if (ratio == 0) {
+      return '플랜 전체기간 중 무지출로 기록한 날은 0%예요.';
+    }
+    if (ratio < 20) {
+      return '플랜 전체기간 중 무지출로 기록한 날은 $ratio%예요.';
+    }
+    if (ratio < 50) {
+      return '플랜 전체기간 중 무지출로 기록한 날은 $ratio%예요. 무지출 흐름도 보이고 있어요.';
+    }
+    return '플랜 전체기간 중 무지출로 기록한 날은 $ratio%예요. 무지출 기록이 잘 쌓이고 있어요.';
+  }
+
+  int _spentOnDate(DateTime date) {
+    final day = _findDayRecord(date);
+    if (day == null) return 0;
+    return day.spendingEntries.fold<int>(
+      0,
+          (sum, e) => sum + e.amount.round(),
+    );
   }
 
   List<({String name, int spent})> unplannedSpentListForChartRange({
@@ -209,6 +446,46 @@ class ReportViewModel extends ChangeNotifier {
   }) {
     final r = chartRange;
     return _unplannedSpentList(range: r, maxItems: maxItems);
+  }
+
+  List<({String date, int spent})> plannedSpentDetailListForChartRange(
+      String categoryKey, {
+        int maxItems = 8,
+      }) {
+    final r = chartRange;
+    final days = _daysInRange(r);
+
+    final out = <({String date, int spent})>[];
+
+    for (final d in days) {
+      int sum = 0;
+
+      for (final e in d.spendingEntries) {
+        if (e.categoryKey.trim() == categoryKey.trim()) {
+          sum += e.amount.round();
+        }
+      }
+
+      if (sum > 0) {
+        final weekdayKor = switch (d.date.weekday) {
+          1 => '월',
+          2 => '화',
+          3 => '수',
+          4 => '목',
+          5 => '금',
+          6 => '토',
+          7 => '일',
+          _ => '',
+        };
+
+        out.add((
+        date: '${d.date.month}/${d.date.day}($weekdayKor)',
+        spent: sum,
+        ));
+      }
+    }
+
+    return out.take(maxItems).toList();
   }
 
   List<({String name, int spent})> _unplannedSpentList({
@@ -283,7 +560,11 @@ class ReportViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      _refData ??= await _refRepo.loadAll();
+      _latestPlan = await _planRepo.getLatestPlanForCurrentUser();
+      _refData = await _refRepo.loadAll();
+
+      final fullRange = _planFullRangeFromLatestPlan();
+      await _ensureMonthsLoadedForRange(fullRange);
 
       final r = chartRange;
       await _ensureMonthsLoadedForRange(r);
@@ -314,6 +595,13 @@ class ReportViewModel extends ChangeNotifier {
     for (final m in months) {
       _monthCache.remove(_monthKey(DateTime(m.year, m.month, 1)));
     }
+
+    final full = _planFullRangeFromLatestPlan();
+    final fullMonths = _monthsCovered(_dateOnly(full.start), _dateOnly(full.end));
+    for (final m in fullMonths) {
+      _monthCache.remove(_monthKey(DateTime(m.year, m.month, 1)));
+    }
+
     _monthCache.remove(_monthKey(DateTime(monthSectionYear, monthSectionMonth, 1)));
   }
 
@@ -322,6 +610,7 @@ class ReportViewModel extends ChangeNotifier {
 
     final plannedByKey = <String, int>{};
     final nameByKey = <String, String>{};
+    final emojiByKey = <String, String>{};
     final spentByKey = <String, int>{};
 
     final refData = _refData;
@@ -336,11 +625,17 @@ class ReportViewModel extends ChangeNotifier {
         if (overlap <= 0) continue;
 
         for (final e in dc.entries) {
-          final key = (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
+          final key =
+          (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
           final add = (e.amount * overlap).round();
+
           plannedByKey[key] = (plannedByKey[key] ?? 0) + add;
 
-          nameByKey[key] ??= (e.category.trim().isEmpty ? '기타' : e.category.trim());
+          nameByKey[key] ??=
+          (e.category.trim().isEmpty ? '기타' : e.category.trim());
+
+          emojiByKey[key] ??=
+          (e.emoji.trim().isEmpty ? '💰' : e.emoji.trim());
         }
       }
     }
@@ -348,12 +643,14 @@ class ReportViewModel extends ChangeNotifier {
     final days = _daysInRange(range);
     for (final d in days) {
       for (final e in d.spendingEntries) {
-        final key = (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
+        final key =
+        (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
         spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
       }
     }
 
     nameByKey.putIfAbsent(etcKey, () => '기타');
+    emojiByKey.putIfAbsent(etcKey, () => '🧩');
 
     int etcSpent = spentByKey[etcKey] ?? 0;
     spentByKey.forEach((k, v) {
@@ -374,7 +671,7 @@ class ReportViewModel extends ChangeNotifier {
       return ReportCategoryBudgetRow(
         categoryKey: k,
         name: name,
-        emoji: (k == etcKey) ? '🧩' : '💰',
+        emoji: emojiByKey[k] ?? (k == etcKey ? '🧩' : '💰'),
         planned: plannedByKey[k] ?? 0,
         spent: spentByKey[k] ?? 0,
         isTotal: false,
@@ -390,6 +687,7 @@ class ReportViewModel extends ChangeNotifier {
 
     final totalSpent = rows.fold<int>(0, (s, r) => s + r.spent);
     final totalPlanned = rows.fold<int>(0, (s, r) => s + r.planned);
+
     rows.add(
       ReportCategoryBudgetRow(
         categoryKey: '__total__',
@@ -401,11 +699,15 @@ class ReportViewModel extends ChangeNotifier {
       ),
     );
 
-    return ReportCategoryBudgetChart(range: range, rows: List.unmodifiable(rows));
+    return ReportCategoryBudgetChart(
+      range: range,
+      rows: List.unmodifiable(rows),
+    );
   }
 
   void _recomputeMonthTotalsFromRecords() {
-    final monthly = _monthCache[_monthKey(DateTime(monthSectionYear, monthSectionMonth, 1))];
+    final monthly =
+    _monthCache[_monthKey(DateTime(monthSectionYear, monthSectionMonth, 1))];
     if (monthly == null) {
       _incomeTotal = 0;
       _savingTotal = 0;
@@ -526,7 +828,9 @@ class ReportViewModel extends ChangeNotifier {
     if (planName != null && planName.trim().isNotEmpty) return planName.trim();
 
     final recordName = _lastRecordNameByKey[topKey];
-    if (recordName != null && recordName.trim().isNotEmpty) return recordName.trim();
+    if (recordName != null && recordName.trim().isNotEmpty) {
+      return recordName.trim();
+    }
 
     return topKey == etcKey ? '기타' : topKey;
   }
@@ -613,7 +917,7 @@ class ReportViewModel extends ChangeNotifier {
   @override
   void dispose() {
     _spendingDebounce?.cancel();
-    _spendingSub?.cancel();
+    _eventSub?.cancel();
     super.dispose();
   }
 }

@@ -27,7 +27,7 @@ import 'repository/plan_cache_repository.dart';
 
 // EventBus
 import 'services/plan_saved_event_bus.dart';
-import 'services/spending_event_bus.dart';
+import 'services/record_event_bus.dart';
 
 // ViewModels
 import 'view_model/auth/login_view_model.dart';
@@ -86,8 +86,8 @@ class MyApp extends StatelessWidget {
           create: (_) => PlanSavedEventBus(),
           dispose: (_, bus) => bus.dispose(),
         ),
-        Provider<SpendingEventBus>(
-          create: (_) => SpendingEventBus(),
+        Provider<RecordEventBus>(
+          create: (_) => RecordEventBus(),
           dispose: (_, bus) => bus.dispose(),
         ),
 
@@ -161,27 +161,27 @@ class MyApp extends StatelessWidget {
             ctx.read<PlanRepository>(),
             ctx.read<PlanSavedEventBus>(),
             ctx.read<RecordRepository>(),
-            ctx.read<SpendingEventBus>(),
-            ctx.read<RefDataRepository>(),
+              ctx.read<RecordEventBus>(),
+            ctx.read<RefDataRepository>()  // 세은님 추가 부분
           ),
         ),
         ChangeNotifierProvider<TodaySpendingViewModel>(
           create: (ctx) => TodaySpendingViewModel(
             ctx.read<RecordRepository>(),
             ctx.read<PlanRepository>(),
-            ctx.read<SpendingEventBus>(),
+              ctx.read<RecordEventBus>()
           ),
         ),
         ChangeNotifierProvider<TodayIncomeViewModel>(
           create: (ctx) => TodayIncomeViewModel(
             ctx.read<RecordRepository>(),
-            ctx.read<SpendingEventBus>(),
+              ctx.read<RecordEventBus>()
           ),
         ),
         ChangeNotifierProvider<RecordSpendingViewModel>(
           create: (ctx) => RecordSpendingViewModel(
             ctx.read<RecordRepository>(),
-            ctx.read<SpendingEventBus>(),
+              ctx.read<RecordEventBus>()
           ),
         ),
         ChangeNotifierProvider<RecordAddIncomeViewModel>(
@@ -193,14 +193,15 @@ class MyApp extends StatelessWidget {
           create: (context) => ReportViewModel(
             context.read<RecordRepository>(),
             context.read<RefDataRepository>(),
-            eventBus: context.read<SpendingEventBus>(),
+            context.read<PlanRepository>(),
+            eventBus: context.read<RecordEventBus>(),
           ),
         ),
         ChangeNotifierProvider<CommunicationViewModel>(
           create: (ctx) => CommunicationViewModel(
             ctx.read<RecordRepository>(),
             ctx.read<PlanRepository>(),
-            ctx.read<SpendingEventBus>(),
+              ctx.read<RecordEventBus>()
           ),
         ),
         ChangeNotifierProvider<PlanCategoryViewModel>(

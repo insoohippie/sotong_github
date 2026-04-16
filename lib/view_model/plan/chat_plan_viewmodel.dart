@@ -81,6 +81,22 @@ class ChatPlanViewModel extends ChangeNotifier {
   RefData _refData = RefData(planId: '');
   RefData get refData => _refData;
 
+  // --------------------------------------
+// RefData 기반 실시간 합계 / 한도 / 예상 소요 기간 계산
+// --------------------------------------
+  double get liveMonthlyIncomeFromRef => _refData.primaryMonthlyIncomeSum;
+
+  double get liveMonthlyFixedConsumeFromRef => _refData.primaryMonthlyConsumeSum;
+
+  double get liveDailyConsumeFromRef => _refData.primaryDailyConsumeSum;
+
+  /// 월 잔여 예산 = 월 수입 - 월 고정소비
+  double get liveDailyBudgetLimitFromRef {
+    final leftover =
+        _refData.primaryMonthlyIncomeSum - _refData.primaryMonthlyConsumeSum;
+    return leftover > 0 ? leftover : 0.0;
+  }
+
   List<UpdateMonthlyCommand> _pendingMonthlyCommands = [];
   List<UpdateDailyCommand> _pendingDailyCommands = [];
   List<UpdateMonthlyCommand> get pendingMonthlyCommands => _pendingMonthlyCommands;
@@ -586,12 +602,18 @@ class ChatPlanViewModel extends ChangeNotifier {
     }
 
     updatePlanInfo(
-      fixedIncomeSum:
-      fixedIncomes != null ? refData.primaryMonthlyIncomeSum : null,
-      fixedConsumptionSum:
-      fixedConsumptions != null ? refData.primaryMonthlyConsumeSum : null,
-      dailyConsumptionSum:
-      dailyConsumptions != null ? refData.primaryDailyConsumeSum : null,
+      fixedIncomeSum: fixedIncomes != null ? refData.primaryMonthlyIncomeSum : null,
+      fixedConsumptionSum: fixedConsumptions != null ? refData.primaryMonthlyConsumeSum : null,
+      dailyConsumptionSum: dailyConsumptions != null ? refData.primaryDailyConsumeSum : null,
+    );
+    debugPrint(
+      '[UPDATE_REFDATA_AFTER] '
+          'refIncome=${refData.primaryMonthlyIncomeSum}, '
+          'refFixed=${refData.primaryMonthlyConsumeSum}, '
+          'refDaily=${refData.primaryDailyConsumeSum}, '
+          'metricIncome=${_totalPlan.result.totalMetrics.monthlyIncomeAmount}, '
+          'metricFixed=${_totalPlan.result.totalMetrics.monthlyConsumeAmount}, '
+          'metricDaily=${_totalPlan.result.totalMetrics.dailyConsumeAmount}',
     );
   }
 
@@ -1064,6 +1086,13 @@ class ChatPlanViewModel extends ChangeNotifier {
   SavingCalculationResult? calculate() {
     _calculationVM.updatePlan(_totalPlan);
     _calculationResult = _calculationVM.calculate(); // 위임
+    debugPrint(
+      '[CALCULATE] '
+          'metricIncome=${_totalPlan.result.totalMetrics.monthlyIncomeAmount}, '
+          'metricFixed=${_totalPlan.result.totalMetrics.monthlyConsumeAmount}, '
+          'metricDaily=${_totalPlan.result.totalMetrics.dailyConsumeAmount}, '
+          'dailyNetSaving=${_calculationResult?.dailyNetSaving}',
+    );
     // 요약 추천 멘트 갱신
     _updateSummaryRecommendation();
 

@@ -232,7 +232,7 @@ class AuthRepository {
 
   String nextRouteBySession({bool skipHasPlanCheck = false}) {
     if (!shouldAutoLogin) return '/login';
-    if (!skipHasPlanCheck && !cachedHasPlan) return '/plan_chat';
+    if (!skipHasPlanCheck && !cachedHasPlan) return '/unsuccess_plan_quit'; // 인수님 작업 페이지
     return '/home_tab_navigator';
   }
 }

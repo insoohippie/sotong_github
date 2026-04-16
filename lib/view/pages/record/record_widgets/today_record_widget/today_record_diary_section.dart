@@ -12,27 +12,25 @@ class TodayRecordDiarySection extends StatelessWidget {
     required this.onEdit,
   });
 
+  static const Map<String, String> _emotionLottieMap = {
+    '평온': 'assets/animations/emotion_calm.json',
+    '좋음': 'assets/animations/emotion_good.json',
+    '슬픔': 'assets/animations/emotion_sad.json',
+    '스트레스': 'assets/animations/emotion_stress.json',
+    '동기부여': 'assets/animations/emotion_motivation.json',
+    '아무 감정 없음': 'assets/animations/emotion_none.json',
+  };
+
   static String _emotionToLottie(String emotion) {
-    switch (emotion) {
-      case '기쁨':
-        return 'assets/animations/Great.json';
-      case '슬픔':
-        return 'assets/animations/Sad.json';
-      case '화남':
-        return 'assets/animations/Angry.json';
-      case '짜증':
-        return 'assets/animations/Annoyed.json';
-      case '평온':
-        return 'assets/animations/Calm.json';
-      case '스트레스':
-        return 'assets/animations/Stress.json';
-      default:
-        return 'assets/animations/Great.json';
-    }
+    return _emotionLottieMap[emotion] ??
+        'assets/animations/emotion_calm.json';
   }
 
   @override
   Widget build(BuildContext context) {
+    final emotion = vm.emotion.trim();
+    final lottiePath = _emotionToLottie(emotion);
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -76,13 +74,22 @@ class TodayRecordDiarySection extends StatelessWidget {
                     width: 80,
                     height: 80,
                     child: Lottie.asset(
-                      _emotionToLottie(vm.emotion),
+                      lottiePath,
                       fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        debugPrint('Lottie load failed: $lottiePath');
+                        debugPrint('emotion: $emotion');
+                        debugPrint('error: $error');
+                        return const Icon(
+                          Icons.sentiment_neutral,
+                          size: 60,
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    vm.emotion.isEmpty ? '😊 감정 미기록' : '😊 ${vm.emotion}',
+                    emotion.isEmpty ? '😊 감정 미기록' : '😊 $emotion',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,

@@ -43,10 +43,7 @@ class _RecordPageState extends State<RecordPage> {
     final args = ModalRoute.of(context)?.settings.arguments;
     _selectedDate = (args is DateTime) ? args : DateTime.now();
 
-    // ✅ 소비 카테고리 init
     context.read<SpendingCategoryViewModel>().initForDate(_selectedDate);
-
-    // ✅ 수입 카테고리 init 추가
     context.read<AddIncomeCategoryViewModel>().initForDate(_selectedDate);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -226,12 +223,16 @@ class _RecordPageState extends State<RecordPage> {
 
                 try {
                   await incomeVM.saveAllForDate(_selectedDate);
+
+                  // 세은님 추가 부분
                   final totalIncome = incomeVM.totalIncome;
                   if (totalIncome > 0 && mounted) {
-                    context
-                        .read<HomeViewModel>()
-                        .registerExtraIncome(_selectedDate, totalIncome);
+                    context.read<HomeViewModel>().registerExtraIncome(
+                      _selectedDate,
+                      totalIncome,
+                    );
                   }
+
                   incomeVM.resetApplyStates();
 
                   if (!mounted) return;
@@ -265,8 +266,10 @@ class _RecordPageState extends State<RecordPage> {
         children: [
           ...vm.spendingEntries.map((entry) {
             return SpendingInputEntry(
+              key: ObjectKey(entry),
               entry: entry,
               onDelete: () => vm.removeEntryByRef(entry),
+              enableDismissible: true,
             );
           }).toList(),
           const SizedBox(height: 12),
@@ -290,8 +293,10 @@ class _RecordPageState extends State<RecordPage> {
         children: [
           ...vm.incomeEntries.map((entry) {
             return AddIncomeInputEntry(
+              key: ObjectKey(entry),
               entry: entry,
               onDelete: () => vm.removeEntryByRef(entry),
+              enableDismissible: true,
             );
           }).toList(),
           const SizedBox(height: 12),
