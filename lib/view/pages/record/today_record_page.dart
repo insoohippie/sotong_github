@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:sotong_local/component/appbars/back_only_app_bar.dart';
 import 'package:sotong_local/component/buttons/period_toggle.dart';
+import 'package:sotong_local/model/record/record_entry.dart';
 import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_diary_bottom_sheet.dart';
 import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_diary_section.dart';
 import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_income_bottom_sheets.dart';
@@ -41,12 +42,11 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
 
     _argDate = date;
 
+    // ✅ 카테고리도 날짜 기준으로 init
+    context.read<SpendingCategoryViewModel>().initForDate(date);
+    context.read<AddIncomeCategoryViewModel>().initForDate(date);
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      context.read<SpendingCategoryViewModel>().initForDate(date);
-      context.read<AddIncomeCategoryViewModel>().initForDate(date);
-
       context.read<TodaySpendingViewModel>().load(date);
       context.read<TodayIncomeViewModel>().load(date);
     });
@@ -61,11 +61,32 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
     );
   }
 
-  Future<void> _waitForOverlaySettled() async {
-    await Future<void>.delayed(Duration.zero);
-    await WidgetsBinding.instance.endOfFrame;
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+  void _showLoading() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (_) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
   }
+
+  void _hideLoading() {
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+  }
+
+  Future<void> _runWithLoading(Future<void> Function() action) async {
+    _showLoading();
+    try {
+      await action();
+    } finally {
+      _hideLoading();
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -157,18 +178,17 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
                   );
 
                   if (edited == null) return;
-                  if (!mounted) return;
-
-                  await _waitForOverlaySettled();
 
                   try {
-                    await incomeVM.updateEntry(
-                      entryId: edited.id,
-                      categoryKey: edited.categoryKey,
-                      category: edited.category,
-                      amount: edited.amount,
-                      note: edited.note,
-                    );
+                    await _runWithLoading(() async {
+                      await incomeVM.updateEntry(
+                        entryId: edited.id,
+                        categoryKey: edited.categoryKey,
+                        category: edited.category,
+                        amount: edited.amount,
+                        note: edited.note,
+                      );
+                    });
                     _snack('수입 항목이 수정되었어요.');
                   } catch (e) {
                     _snack('수입 수정 중 오류가 발생했어요: $e');
@@ -176,7 +196,9 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
                 },
                 onDelete: (entry) async {
                   try {
-                    await incomeVM.deleteEntry(entry.id);
+                    await _runWithLoading(() async {
+                      await incomeVM.deleteEntry(entry.id);
+                    });
                     _snack('수입 항목이 삭제되었어요.');
                   } catch (e) {
                     _snack('수입 삭제 중 오류가 발생했어요: $e');
@@ -188,17 +210,16 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
                   );
 
                   if (created == null) return;
-                  if (!mounted) return;
-
-                  await _waitForOverlaySettled();
 
                   try {
-                    await incomeVM.addEntry(
-                      categoryKey: created.categoryKey,
-                      category: created.category,
-                      amount: created.amount,
-                      note: created.note,
-                    );
+                    await _runWithLoading(() async {
+                      await incomeVM.addEntry(
+                        categoryKey: created.categoryKey,
+                        category: created.category,
+                        amount: created.amount,
+                        note: created.note,
+                      );
+                    });
                     _snack('수입 항목이 추가되었어요.');
                   } catch (e) {
                     _snack('수입 저장 중 오류가 발생했어요: $e');
@@ -216,18 +237,17 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
                   );
 
                   if (edited == null) return;
-                  if (!mounted) return;
-
-                  await _waitForOverlaySettled();
 
                   try {
-                    await spendingVM.updateEntry(
-                      entryId: edited.id,
-                      categoryKey: edited.categoryKey,
-                      category: edited.category,
-                      amount: edited.amount,
-                      note: edited.note,
-                    );
+                    await _runWithLoading(() async {
+                      await spendingVM.updateEntry(
+                        entryId: edited.id,
+                        categoryKey: edited.categoryKey,
+                        category: edited.category,
+                        amount: edited.amount,
+                        note: edited.note,
+                      );
+                    });
                     _snack('소비 항목이 수정되었어요.');
                   } catch (e) {
                     _snack('소비 수정 중 오류가 발생했어요: $e');
@@ -235,7 +255,9 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
                 },
                 onDelete: (entry) async {
                   try {
-                    await spendingVM.deleteEntry(entry.id);
+                    await _runWithLoading(() async {
+                      await spendingVM.deleteEntry(entry.id);
+                    });
                     _snack('소비 항목이 삭제되었어요.');
                   } catch (e) {
                     _snack('소비 삭제 중 오류가 발생했어요: $e');
@@ -248,17 +270,16 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
                   );
 
                   if (created == null) return;
-                  if (!mounted) return;
-
-                  await _waitForOverlaySettled();
 
                   try {
-                    await spendingVM.addEntry(
-                      categoryKey: created.categoryKey,
-                      category: created.category,
-                      amount: created.amount,
-                      note: created.note,
-                    );
+                    await _runWithLoading(() async {
+                      await spendingVM.addEntry(
+                        categoryKey: created.categoryKey,
+                        category: created.category,
+                        amount: created.amount,
+                        note: created.note,
+                      );
+                    });
                     _snack('소비 항목이 추가되었어요.');
                   } catch (e) {
                     _snack('소비 저장 중 오류가 발생했어요: $e');

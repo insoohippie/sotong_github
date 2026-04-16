@@ -24,30 +24,6 @@ class TodayRecordIncomeSection extends StatelessWidget {
     );
   }
 
-  Future<bool> _confirmDelete(BuildContext context) async {
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('수입 항목 삭제'),
-        content: const Text('이 수입 항목을 삭제할까요?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              '삭제',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
-  }
-
   @override
   Widget build(BuildContext context) {
     final entries = vm.entries;
@@ -78,11 +54,8 @@ class TodayRecordIncomeSection extends StatelessWidget {
                     padding: const EdgeInsets.all(40),
                     child: Column(
                       children: [
-                        Icon(
-                          Icons.receipt_long,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
+                        Icon(Icons.receipt_long,
+                            size: 48, color: Colors.grey[400]),
                         const SizedBox(height: 16),
                         Text(
                           '등록된 수입이 없어요',
@@ -102,27 +75,10 @@ class TodayRecordIncomeSection extends StatelessWidget {
 
                       return Column(
                         children: [
-                          Dismissible(
-                            key: ValueKey('income_${e.id}'),
-                            direction: DismissDirection.endToStart,
-                            confirmDismiss: (_) => _confirmDelete(context),
-                            onDismissed: (_) => onDelete(e),
-                            background: Container(
-                              alignment: Alignment.centerRight,
-                              padding: const EdgeInsets.only(right: 20),
-                              decoration: BoxDecoration(
-                                color: Colors.redAccent,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.delete,
-                                color: Colors.white,
-                              ),
-                            ),
-                            child: _IncomeTile(
-                              entry: e,
-                              onEdit: () => onEdit(e),
-                            ),
+                          _IncomeTile(
+                            entry: e,
+                            onEdit: () => onEdit(e),
+                            onDelete: () => onDelete(e),
                           ),
                           if (index < entries.length - 1)
                             Container(
@@ -142,6 +98,7 @@ class TodayRecordIncomeSection extends StatelessWidget {
                     }).toList(),
                   ),
 
+                  // ✅ 리스트 아래 / 총액 위 + 버튼
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
                     child: Align(
@@ -220,10 +177,12 @@ class TodayRecordIncomeSection extends StatelessWidget {
 class _IncomeTile extends StatelessWidget {
   final RecordEntry entry;
   final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
   const _IncomeTile({
     required this.entry,
     required this.onEdit,
+    required this.onDelete,
   });
 
   String _formatAmount(int amount) {
@@ -237,12 +196,8 @@ class _IncomeTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final title = entry.note.isNotEmpty ? entry.note : entry.category;
 
-    return Container(
+    return Padding(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -305,6 +260,20 @@ class _IncomeTile extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: GestureDetector(
+              onTap: onDelete,
+              child: const Text(
+                '삭제',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           ),
         ],
       ),

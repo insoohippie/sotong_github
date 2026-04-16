@@ -4,13 +4,13 @@ import 'package:intl/intl.dart';
 import '../../model/record/day_record.dart';
 import '../../model/record/record_entry.dart';
 import '../../repository/record_repository.dart';
-import '../../services/record_event_bus.dart';
+import '../../services/spending_event_bus.dart';
 
 class TodayIncomeViewModel extends ChangeNotifier {
   final RecordRepository _recordRepo;
-  final RecordEventBus _recordEventBus;
+  final SpendingEventBus _spendingEventBus;
 
-  TodayIncomeViewModel(this._recordRepo, this._recordEventBus);
+  TodayIncomeViewModel(this._recordRepo, this._spendingEventBus);
 
   bool _isLoading = false;
   String? _error;
@@ -140,6 +140,6 @@ class TodayIncomeViewModel extends ChangeNotifier {
       totalIncomeAmount: _day!.totalIncomeAmount,
     );
 
-    _recordEventBus.fire(RecordUpdatedEvent(_day!.date));
+    _spendingEventBus.fire(SpendingUpdatedEvent(_day!.date));
   }
 }

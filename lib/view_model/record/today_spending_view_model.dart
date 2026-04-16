@@ -6,17 +6,17 @@ import '../../model/record/day_record.dart';
 import '../../model/record/record_entry.dart';
 import '../../repository/record_repository.dart';
 import '../../repository/plan_repository.dart';
-import '../../services/record_event_bus.dart';
+import '../../services/spending_event_bus.dart';
 
 class TodaySpendingViewModel extends ChangeNotifier {
   final RecordRepository _recordRepo;
   final PlanRepository _planRepo;
-  final RecordEventBus _EventBus;
+  final SpendingEventBus _spendingEventBus;
 
   TodaySpendingViewModel(
       this._recordRepo,
       this._planRepo,
-      this._EventBus,
+      this._spendingEventBus,
       );
 
   bool _isLoading = false;
@@ -187,6 +187,6 @@ class TodaySpendingViewModel extends ChangeNotifier {
       '[TodaySpendingViewModel] $action persisted '
       '(date=${_day!.date}, localMode=$localMode)',
     );
-    _EventBus.fire(RecordUpdatedEvent(_day!.date));
+    _spendingEventBus.fire(SpendingUpdatedEvent(_day!.date));
   }
 }

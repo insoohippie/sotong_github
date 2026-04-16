@@ -9,9 +9,6 @@ class NotificationSettings {
     this.motivationEnabled = false,
     this.motivationHour = 18,
     this.motivationMinute = 0,
-    this.absenceEnabled = false,
-    this.absenceHour = 10,
-    this.absenceMinute = 0,
     this.weeklyReportEnabled = false,
     this.emotionReportEnabled = false,
   });
@@ -22,10 +19,6 @@ class NotificationSettings {
   final bool motivationEnabled;
   final int motivationHour;
   final int motivationMinute;
-  /// 결석(미기록) 알림 — 매일 설정 시간에 플랜 기간 중 미기록 요약 안내
-  final bool absenceEnabled;
-  final int absenceHour;
-  final int absenceMinute;
   final bool weeklyReportEnabled;
   final bool emotionReportEnabled;
 
@@ -33,8 +26,6 @@ class NotificationSettings {
       TimeOfDay(hour: attendanceHour, minute: attendanceMinute);
   TimeOfDay get motivationTime =>
       TimeOfDay(hour: motivationHour, minute: motivationMinute);
-  TimeOfDay get absenceTime =>
-      TimeOfDay(hour: absenceHour, minute: absenceMinute);
 
   NotificationSettings copyWith({
     bool? attendanceEnabled,
@@ -43,9 +34,6 @@ class NotificationSettings {
     bool? motivationEnabled,
     int? motivationHour,
     int? motivationMinute,
-    bool? absenceEnabled,
-    int? absenceHour,
-    int? absenceMinute,
     bool? weeklyReportEnabled,
     bool? emotionReportEnabled,
   }) {
@@ -56,9 +44,6 @@ class NotificationSettings {
       motivationEnabled: motivationEnabled ?? this.motivationEnabled,
       motivationHour: motivationHour ?? this.motivationHour,
       motivationMinute: motivationMinute ?? this.motivationMinute,
-      absenceEnabled: absenceEnabled ?? this.absenceEnabled,
-      absenceHour: absenceHour ?? this.absenceHour,
-      absenceMinute: absenceMinute ?? this.absenceMinute,
       weeklyReportEnabled: weeklyReportEnabled ?? this.weeklyReportEnabled,
       emotionReportEnabled: emotionReportEnabled ?? this.emotionReportEnabled,
     );
@@ -71,9 +56,6 @@ class NotificationSettings {
     'motivationEnabled': motivationEnabled,
     'motivationHour': motivationHour,
     'motivationMinute': motivationMinute,
-    'absenceEnabled': absenceEnabled,
-    'absenceHour': absenceHour,
-    'absenceMinute': absenceMinute,
     'weeklyReportEnabled': weeklyReportEnabled,
     'emotionReportEnabled': emotionReportEnabled,
   };
@@ -86,9 +68,6 @@ class NotificationSettings {
       motivationEnabled: json['motivationEnabled'] as bool? ?? false,
       motivationHour: (json['motivationHour'] as num?)?.toInt() ?? 18,
       motivationMinute: (json['motivationMinute'] as num?)?.toInt() ?? 0,
-      absenceEnabled: json['absenceEnabled'] as bool? ?? false,
-      absenceHour: (json['absenceHour'] as num?)?.toInt() ?? 10,
-      absenceMinute: (json['absenceMinute'] as num?)?.toInt() ?? 0,
       weeklyReportEnabled: json['weeklyReportEnabled'] as bool? ?? false,
       emotionReportEnabled: json['emotionReportEnabled'] as bool? ?? false,
     );

@@ -5,8 +5,8 @@ const _boxName = 'notification_settings';
 const _key = 'settings';
 const _keyAppliedSignupDefaults = 'applied_signup_defaults';
 
-/// 회원가입+플랜 생성 시 기본 알림 설정 (일간 3 + 주간 2 ON)
-/// 출석: 22:00, 동기부여: 11:30, 결석: 10:00, 주간 2개: 일요일 20:00
+/// 회원가입+플랜 생성 시 기본 알림 설정 (4개 전부 ON)
+/// 출석: 22:00, 동기부여: 11:30, 주간 2개: 일요일 20:00
 NotificationSettings get defaultSignupNotificationSettings =>
     const NotificationSettings(
       attendanceEnabled: true,
@@ -15,9 +15,6 @@ NotificationSettings get defaultSignupNotificationSettings =>
       motivationEnabled: true,
       motivationHour: 11,
       motivationMinute: 30,
-      absenceEnabled: true,
-      absenceHour: 10,
-      absenceMinute: 0,
       weeklyReportEnabled: true,
       emotionReportEnabled: true,
     );

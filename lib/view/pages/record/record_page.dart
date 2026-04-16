@@ -16,6 +16,7 @@ import '../../../view_model/category/spending_category_view_model.dart';
 import '../../../view_model/category/add_income_category_view_model.dart';
 import '../../../view_model/record/record_add_income_view_model.dart';
 import '../../../view_model/record/record_spending_view_model.dart';
+import '../../../view_model/home/home_view_model.dart';
 
 class RecordPage extends StatefulWidget {
   const RecordPage({super.key});
@@ -225,6 +226,12 @@ class _RecordPageState extends State<RecordPage> {
 
                 try {
                   await incomeVM.saveAllForDate(_selectedDate);
+                  final totalIncome = incomeVM.totalIncome;
+                  if (totalIncome > 0 && mounted) {
+                    context
+                        .read<HomeViewModel>()
+                        .registerExtraIncome(_selectedDate, totalIncome);
+                  }
                   incomeVM.resetApplyStates();
 
                   if (!mounted) return;
@@ -258,10 +265,8 @@ class _RecordPageState extends State<RecordPage> {
         children: [
           ...vm.spendingEntries.map((entry) {
             return SpendingInputEntry(
-              key: ObjectKey(entry),
               entry: entry,
               onDelete: () => vm.removeEntryByRef(entry),
-              enableDismissible: true,
             );
           }).toList(),
           const SizedBox(height: 12),
@@ -285,10 +290,8 @@ class _RecordPageState extends State<RecordPage> {
         children: [
           ...vm.incomeEntries.map((entry) {
             return AddIncomeInputEntry(
-              key: ObjectKey(entry),
               entry: entry,
               onDelete: () => vm.removeEntryByRef(entry),
-              enableDismissible: true,
             );
           }).toList(),
           const SizedBox(height: 12),

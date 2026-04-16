@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../component/appbars/back_only_app_bar.dart';
+import '../../../component/buttons/multi_option_toggle.dart';
 import '../../../component/theme/app_border_radius.dart';
 import '../../../model/notification/notification_item.dart';
 import '../../../view_model/notification/notification_view_model.dart';
@@ -13,62 +14,16 @@ class NotificationPage extends StatefulWidget {
 }
 
 class _NotificationPageState extends State<NotificationPage> {
+  static const List<String> _tabLabels = ['출석', '홈', '레포트', '소통'];
+  int _selectedIndex = 0;
+
   @override
   void initState() {
     super.initState();
+    // 테스트용 샘플 알림 생성
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<NotificationViewModel>().generateSampleNotifications();
     });
-  }
-
-  static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-
-  /// 이번 주 월요일(00:00 기준 날짜만)
-  static DateTime _mondayOfWeek(DateTime any) {
-    final day = _dateOnly(any);
-    return day.subtract(Duration(days: day.weekday - 1));
-  }
-
-  /// 이번 주 일요일(날짜만)
-  static DateTime _sundayOfWeek(DateTime any) =>
-      _mondayOfWeek(any).add(const Duration(days: 6));
-
-  /// [createdAt] 기준으로 오늘 / 이번 주(월~일, 오늘 제외) / 그 이전
-  static Map<String, List<NotificationItem>> _partitionByTime(
-      List<NotificationItem> all,
-      ) {
-    final now = DateTime.now();
-    final today = _dateOnly(now);
-    final weekStart = _mondayOfWeek(now);
-    final weekEnd = _sundayOfWeek(now);
-
-    final todayList = <NotificationItem>[];
-    final thisWeekList = <NotificationItem>[];
-    final pastList = <NotificationItem>[];
-
-    for (final n in all) {
-      final d = _dateOnly(n.createdAt);
-      if (d == today) {
-        todayList.add(n);
-      } else if (!d.isBefore(weekStart) && !d.isAfter(weekEnd)) {
-        thisWeekList.add(n);
-      } else {
-        pastList.add(n);
-      }
-    }
-
-    int byTimeDesc(NotificationItem a, NotificationItem b) =>
-        b.createdAt.compareTo(a.createdAt);
-
-    todayList.sort(byTimeDesc);
-    thisWeekList.sort(byTimeDesc);
-    pastList.sort(byTimeDesc);
-
-    return {
-      'today': todayList,
-      'thisWeek': thisWeekList,
-      'past': pastList,
-    };
   }
 
   @override
@@ -78,28 +33,95 @@ class _NotificationPageState extends State<NotificationPage> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: const BackOnlyAppBar(),
       body: SafeArea(
-        child: Consumer<NotificationViewModel>(
-          builder: (context, vm, _) {
-            final buckets = _partitionByTime(vm.notifications);
-            return ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildSectionHeader('오늘 알림', context),
-                const SizedBox(height: 8),
-                _buildNotificationSection(buckets['today']!, vm, context),
-                const SizedBox(height: 24),
-                _buildSectionHeader('이번 주 알림', context),
-                const SizedBox(height: 8),
-                _buildNotificationSection(buckets['thisWeek']!, vm, context),
-                const SizedBox(height: 24),
-                _buildSectionHeader('지난 알림', context),
-                const SizedBox(height: 8),
-                _buildNotificationSection(buckets['past']!, vm, context),
-              ],
-            );
-          },
+        child: Column(
+          children: [
+            // 4개 토글 (출석, 홈, 레포트, 소통)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              child: MultiOptionToggle(
+                labels: _tabLabels,
+                selected: _tabLabels[_selectedIndex],
+                onChanged: (label) {
+                  final index = _tabLabels.indexOf(label);
+                  if (index >= 0) setState(() => _selectedIndex = index);
+                },
+                width: MediaQuery.of(context).size.width - 48,
+                height: 40,
+              ),
+            ),
+            // 선택된 탭 콘텐츠
+            Expanded(
+              child: Consumer<NotificationViewModel>(
+                builder: (context, vm, child) {
+                  final categories = [
+                    NotificationCategory.attendance,
+                    NotificationCategory.home,
+                    NotificationCategory.report,
+                    NotificationCategory.communication,
+                  ];
+                  return IndexedStack(
+                    index: _selectedIndex,
+                    children: [
+                      _buildNotificationList(categories[0], vm),
+                      _buildNotificationList(categories[1], vm),
+                      _buildNotificationList(categories[2], vm),
+                      _buildNotificationList(categories[3], vm),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildNotificationList(
+      NotificationCategory category,
+      NotificationViewModel vm,
+      ) {
+    final context = this.context;
+    final categoryNotifications = vm.notifications
+        .where((n) => n.category == category)
+        .toList();
+
+    // 오늘과 지난 알림으로 분류
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final todayNotifications = categoryNotifications.where((n) {
+      final notificationDate = DateTime(
+        n.createdAt.year,
+        n.createdAt.month,
+        n.createdAt.day,
+      );
+      return notificationDate.isAtSameMomentAs(today);
+    }).toList();
+
+    final pastNotifications = categoryNotifications.where((n) {
+      final notificationDate = DateTime(
+        n.createdAt.year,
+        n.createdAt.month,
+        n.createdAt.day,
+      );
+      return notificationDate.isBefore(today);
+    }).toList();
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // 오늘 알림 섹션 (항상 표시)
+        _buildSectionHeader('오늘 알림', context),
+        const SizedBox(height: 8),
+        _buildNotificationSection(todayNotifications, vm, context),
+
+        // 지난 알림 섹션 (항상 표시)
+        const SizedBox(height: 24),
+        _buildSectionHeader('지난 알림', context),
+        const SizedBox(height: 8),
+        _buildNotificationSection(pastNotifications, vm, context),
+      ],
     );
   }
 
@@ -141,7 +163,7 @@ class _NotificationPageState extends State<NotificationPage> {
               Icon(
                 Icons.notifications_none,
                 size: 32,
-                color: Colors.grey.withValues(alpha: 0.5),
+                color: Colors.grey.withOpacity(0.5),
               ),
               const SizedBox(height: 8),
               Text(
@@ -158,7 +180,9 @@ class _NotificationPageState extends State<NotificationPage> {
       )
           : Column(
         children: notifications
-            .map((n) => _buildNotificationItem(n, vm))
+            .map(
+              (notification) => _buildNotificationItem(notification, vm),
+        )
             .toList(),
       ),
     );
@@ -187,7 +211,9 @@ class _NotificationPageState extends State<NotificationPage> {
             content: Text('${notification.title} 알림을 삭제했습니다.'),
             action: SnackBarAction(
               label: '실행 취소',
-              onPressed: () {},
+              onPressed: () {
+                // 삭제된 알림을 다시 추가하는 로직은 복잡하므로 간단히 처리
+              },
             ),
           ),
         );
@@ -205,13 +231,15 @@ class _NotificationPageState extends State<NotificationPage> {
             height: 40,
             decoration: BoxDecoration(
               color: notification.isRead
-                  ? Colors.grey.withValues(alpha: 0.3)
-                  : const Color(0xFF2563EB).withValues(alpha: 0.1),
+                  ? Colors.grey.withOpacity(0.3)
+                  : const Color(0xFF2563EB).withOpacity(0.1),
               borderRadius: AppBorderRadius.button,
             ),
             child: Icon(
               _getIconForType(notification.type),
-              color: notification.isRead ? Colors.grey : const Color(0xFF2563EB),
+              color: notification.isRead
+                  ? Colors.grey
+                  : const Color(0xFF2563EB),
               size: 20,
             ),
           ),
@@ -219,8 +247,9 @@ class _NotificationPageState extends State<NotificationPage> {
             notification.title,
             style: TextStyle(
               fontSize: 13,
-              fontWeight:
-              notification.isRead ? FontWeight.normal : FontWeight.w600,
+              fontWeight: notification.isRead
+                  ? FontWeight.normal
+                  : FontWeight.w600,
               color: Colors.black,
               fontFamily: 'Pretendard Variable',
             ),

@@ -100,13 +100,11 @@ class TodayRecordSpendingSection extends StatelessWidget {
                           if (index < entries.length - 1)
                             Container(
                               margin: const EdgeInsets.symmetric(horizontal: 20),
-                              height: 2,
+                              height: 1,
                               decoration: BoxDecoration(
                                 border: Border(
                                   top: BorderSide(
-                                    color: isOverLimit
-                                        ? Colors.red.withOpacity(0.3)
-                                        : const Color(0xFF4A90E2).withOpacity(0.25),
+                                    color: Colors.red.withOpacity(0.3),
                                     width: 1,
                                   ),
                                 ),
@@ -292,7 +290,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
     required bool isOverLimit,
   }) {
     return Dismissible(
-      key: ValueKey('spending_${entry.id}'),
+      key: Key('entry_${entry.id}'),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
@@ -307,8 +305,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white, size: 24),
       ),
       onDismissed: (_) => onDelete(),
-      child: Container(
-        color: Colors.white,
+      child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,11 +350,8 @@ class TodayRecordSpendingSection extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: const Center(
-                          child: Icon(
-                            Icons.edit,
-                            color: Color(0xFF999999),
-                            size: 11,
-                          ),
+                          child: Icon(Icons.edit,
+                              color: Color(0xFF999999), size: 11),
                         ),
                       ),
                     ),

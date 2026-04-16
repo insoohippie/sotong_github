@@ -33,10 +33,6 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
   bool _motivationEnabled = false;
   TimeOfDay _motivationTime = const TimeOfDay(hour: 18, minute: 0);
 
-  // 결석(미기록) 알림 설정
-  bool _absenceEnabled = false;
-  TimeOfDay _absenceTime = const TimeOfDay(hour: 10, minute: 0);
-
   // 주간 리포트 알림 설정
   bool _weeklyReportEnabled = false;
   bool _emotionReportEnabled = false;
@@ -60,8 +56,6 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
         _attendanceTime = settings.attendanceTime;
         _motivationEnabled = settings.motivationEnabled;
         _motivationTime = settings.motivationTime;
-        _absenceEnabled = settings.absenceEnabled;
-        _absenceTime = settings.absenceTime;
         _weeklyReportEnabled = settings.weeklyReportEnabled;
         _emotionReportEnabled = settings.emotionReportEnabled;
         _isLoading = false;
@@ -77,9 +71,6 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
       motivationEnabled: _motivationEnabled,
       motivationHour: _motivationTime.hour,
       motivationMinute: _motivationTime.minute,
-      absenceEnabled: _absenceEnabled,
-      absenceHour: _absenceTime.hour,
-      absenceMinute: _absenceTime.minute,
       weeklyReportEnabled: _weeklyReportEnabled,
       emotionReportEnabled: _emotionReportEnabled,
     );
@@ -459,32 +450,6 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
               '이번 주 절약한 시간: 총 3시간 20분 ⏱',
               '식비 지출이 많았어요! 이번 주는 도시락 한번 도전해보는 건 어때요? 🍱',
               '목표까지 4시간 남았어요. 오늘도 소비 통제 파이팅 💪',
-            ],
-          ),
-          const SizedBox(height: 8),
-          _cardB(
-            index: 2,
-            icon: Icons.event_busy_outlined,
-            title: '결석 알림',
-            description:
-            '플랜 기간 중 직접 소비 기록이 없는 날을 알려드려요. (자동 반영만 있는 날 포함)',
-            purpose:
-            '매일 설정한 시간에 미기록 일수를 요약해 드리고, 기록·수정을 권장합니다.',
-            enabled: _absenceEnabled,
-            onToggle: (v) => setState(() {
-              _absenceEnabled = v;
-              _saveAndSchedule();
-            }),
-            isDaily: true,
-            selectedTime: _absenceTime,
-            onTimeChanged: (t) => setState(() {
-              _absenceTime = t;
-              _saveAndSchedule();
-            }),
-            examples: const [
-              '플랜 기간 중 기록이 비어 있는 날이 5일 있어요. 한 번 확인해 볼까요?',
-              '어제 소비 기록을 깜빡하신 것 같아요. 오늘 한 번만 적어볼까요?',
-              '자동으로 채워진 금액이 있어요. 실제와 다르면 수정해 주세요!',
             ],
           ),
         ] else ...[
