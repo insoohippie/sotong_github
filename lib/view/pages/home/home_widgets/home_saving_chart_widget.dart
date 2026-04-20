@@ -13,14 +13,14 @@ class HomeSavingChartWidget extends StatefulWidget {
   const HomeSavingChartWidget({
     super.key,
     required this.vm,
-    required this.planPercent, // 0~100
-    required this.userPercent, // 0~100
+    required this.planPercent, // 0~100, 소수 둘째 자리까지
+    required this.userPercent, // 0~100, 소수 둘째 자리까지
     required this.onOpenCountdown, // 중앙 버튼 기본 상태 클릭 시
   });
 
   final HomeViewModel vm;
-  final int planPercent;
-  final int userPercent;
+  final double planPercent;
+  final double userPercent;
   final VoidCallback onOpenCountdown;
 
   /// 플랜 완료 후 홈 진입 시 애니메이션을 다시 재생하도록 플래그 리셋
@@ -207,8 +207,12 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
 
     final planProgress = (widget.planPercent / 100.0).clamp(0.0, 1.0);
     final userProgress = (widget.userPercent / 100.0).clamp(0.0, 1.0);
+    final planColor = AppColors.primary;
+    final userColor = const Color(0xFF7DAFFF);
+    final isSamePercent =
+        (widget.planPercent - widget.userPercent).abs() < 0.005;
 
-    if (widget.planPercent == widget.userPercent) {
+    if (isSamePercent) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -216,20 +220,63 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
             SizedBox(
               width: 300,
               height: 300,
-              child: CustomPaint(
-                painter: SemiGaugePainter(
-                  progress: 1.0,
-                  backgroundColor: gaugeBg,
-                  progressColorStart: gaugeBg,
-                  progressColorEnd: gaugeBg,
-                  strokeWidth: 22,
-                  isFullCircle: true,
-                ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CustomPaint(
+                    size: const Size(300, 300),
+                    painter: SemiGaugePainter(
+                      progress: 1.0,
+                      backgroundColor: gaugeBg,
+                      progressColorStart: gaugeBg,
+                      progressColorEnd: gaugeBg,
+                      strokeWidth: 22,
+                      isFullCircle: true,
+                    ),
+                  ),
+                  CustomPaint(
+                    size: const Size(300, 300),
+                    painter: SemiGaugePainter(
+                      startProgress: 0.0,
+                      progress: _greenAnim.value * planProgress,
+                      backgroundColor: Colors.transparent,
+                      progressColorStart: planColor,
+                      progressColorEnd: planColor,
+                      strokeWidth: 22,
+                      isFullCircle: true,
+                      isDashed: false,
+                    ),
+                  ),
+                  HomeSavingCenterButton(
+                    vm: widget.vm,
+                    clickedSection: _clickedSection,
+                    onCloseSection: () =>
+                        setState(() => _clickedSection = null),
+                    onOpenCountdown: widget.onOpenCountdown,
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _LegendDot(
+                  color: planColor,
+                  text: '플랜 그래프',
+                  textColor: planColor,
+                ),
+                const SizedBox(width: 20),
+                _LegendDot(
+                  color: userColor,
+                  text: '사용자 그래프',
+                  textColor: userColor,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             Text(
-              '플랜 그래프와 사용자 그래프 수치가 같습니다',
+              '플랜과 사용자 그래프가 같은 ${widget.planPercent.toStringAsFixed(2)}%예요',
               style: TextStyle(
                 fontSize: 14,
                 color: theme.colorScheme.onSurfaceVariant,
@@ -240,9 +287,11 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
       );
     }
 
-    final minP = math.min(planProgress, userProgress);
-    final maxP = math.max(planProgress, userProgress);
+    final smallerProgress = math.min(planProgress, userProgress);
+    final largerProgress = math.max(planProgress, userProgress);
     final isUserLarger = userProgress > planProgress;
+    final smallerColor = isUserLarger ? planColor : userColor;
+    final largerColor = isUserLarger ? userColor : planColor;
 
     return Center(
       child: Column(
@@ -267,38 +316,30 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                   ),
                 ),
 
-                // 차트2: 기점~큰값 (실선) - 파란 애니메이션
+                // 큰 그래프: 0~큰값 전체를 먼저 그린다
                 CustomPaint(
                   size: const Size(300, 300),
                   painter: SemiGaugePainter(
-                    startProgress: minP,
-                    progress: minP + (_blueAnim.value * (maxP - minP)),
+                    startProgress: 0.0,
+                    progress: _blueAnim.value * largerProgress,
                     backgroundColor: Colors.transparent,
-                    progressColorStart: isUserLarger
-                        ? const Color(0xFF7DAFFF)
-                        : const Color(0xFF0062FF),
-                    progressColorEnd: isUserLarger
-                        ? const Color(0xFF7DAFFF)
-                        : const Color(0xFF0062FF),
+                    progressColorStart: largerColor,
+                    progressColorEnd: largerColor,
                     strokeWidth: 22,
                     isFullCircle: true,
                     isDashed: false,
                   ),
                 ),
 
-                // 차트1: 0~기점 (점선) - 초록(여기서는 첫 구간) 애니메이션
+                // 작은 그래프: 위에 덮어서 항상 더 위에 보이게 한다
                 CustomPaint(
                   size: const Size(300, 300),
                   painter: SemiGaugePainter(
                     startProgress: 0.0,
-                    progress: _greenAnim.value * minP,
+                    progress: _greenAnim.value * smallerProgress,
                     backgroundColor: Colors.transparent,
-                    progressColorStart: isUserLarger
-                        ? const Color(0xFF0062FF)
-                        : const Color(0xFF7DAFFF),
-                    progressColorEnd: isUserLarger
-                        ? const Color(0xFF0062FF)
-                        : const Color(0xFF7DAFFF),
+                    progressColorStart: smallerColor,
+                    progressColorEnd: smallerColor,
                     strokeWidth: 22,
                     isFullCircle: true,
                     isDashed: true,
@@ -310,7 +351,7 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                 // 탭 영역 판별용 투명 레이어
                 GestureDetector(
                   onTapDown: (d) =>
-                      _handleTapGauge(d, minP, maxP, isUserLarger),
+                      _handleTapGauge(d, smallerProgress, largerProgress, isUserLarger),
                   child: Container(
                     width: 300,
                     height: 300,

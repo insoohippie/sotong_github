@@ -124,10 +124,14 @@ class EmailLoginPage extends StatelessWidget {
                   if (!hydrated) return;
                   final authRepo = context.read<AuthRepository>();
                   var next = authRepo.nextRouteBySession();
-                  if (next == '/plan_chat') {
+
+                  final shouldProbeExistingPlan =
+                      next == '/unsuccess_plan_quit' || !authRepo.cachedHasPlan;
+                  if (shouldProbeExistingPlan) {
                     try {
                       final planRepo = context.read<PlanRepository>();
                       final existingPlan =
+
                       await planRepo.getLatestPlanForCurrentUser();
                       if (existingPlan != null) {
                         final refDataRepo = context.read<RefDataRepository>();

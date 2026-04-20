@@ -4,6 +4,7 @@ import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:intl/intl.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/model/refData/entry.dart';
+import 'package:sotong_local/model/saving_calculation_result.dart';
 
 import '../../../../../component/buttons/small_rounded_button.dart';
 import '../../../../../component/texts/caption_with_dot.dart';
@@ -42,6 +43,10 @@ class InputModalWidget extends StatefulWidget {
   /// ✅ 바텀시트에서 드래그로 바뀐 카테고리 순서를 바깥(VM)에 저장하기 위한 콜백
   /// newOrder: "현재 바텀시트에서 보여주는 categories의 최종 순서"
   final void Function(List<String> newOrder)? onCategoryOrderChanged;
+  final SavingCalculationResult? Function(List<Entry> entries)?
+      dailyPreviewCalculator;
+  final double? targetAmount;
+  final double currentAsset;
 
   const InputModalWidget({
     Key? key,
@@ -61,6 +66,9 @@ class InputModalWidget extends StatefulWidget {
     this.onCustomCategoryAddedWithEmoji,
     this.categoryEmojis,
     this.onCategoryOrderChanged,
+    this.dailyPreviewCalculator,
+    this.targetAmount,
+    this.currentAsset = 0,
   }) : super(key: key);
 
   @override
@@ -80,6 +88,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
   // ----- 데이터 -----
   List<Entry> items = [];
   String error = '';
+  SavingCalculationResult? _dailyPreviewResult;
   final Map<int, TextEditingController> _amountControllers = {};
   final Map<int, TextEditingController> _categoryControllers = {};
 
@@ -114,6 +123,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
     _keyboardVisibilityController = KeyboardVisibilityController();
     _initKeyboardVisibility();
     _initItems(widget.initialEntries);
+    _dailyPreviewResult = _computeDailyPreviewResult();
   }
 
   @override
@@ -133,6 +143,14 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
     if (oldWidget.monthlyIncome != widget.monthlyIncome) {
       setState(() {});
+    }
+
+    if (oldWidget.dailyPreviewCalculator != widget.dailyPreviewCalculator ||
+        oldWidget.targetAmount != widget.targetAmount ||
+        oldWidget.currentAsset != widget.currentAsset) {
+      setState(() {
+        _dailyPreviewResult = _computeDailyPreviewResult();
+      });
     }
   }
 
@@ -167,7 +185,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
     if (limit <= 0.0) return false;
     if (kind == ItemKind.income) return false;
     if (kind == ItemKind.daily) return (getTotalAmount() * 30.0) > limit;
-    return getTotalAmount() > limit;
+    return total >= limit;
   }
 
   void _initItems(List<Entry>? initial) {
@@ -233,6 +251,17 @@ class _InputModalWidgetState extends State<InputModalWidget>
   double getTotalAmount() =>
       items.fold<double>(0.0, (sum, item) => sum + item.amount);
 
+  SavingCalculationResult? _computeDailyPreviewResult() {
+    if (_resolveKind() != ItemKind.daily ||
+        widget.dailyPreviewCalculator == null) {
+      return null;
+    }
+    final previewEntries = items
+        .map((item) => item.copyWith())
+        .toList(growable: false);
+    return widget.dailyPreviewCalculator!(previewEntries);
+  }
+
   void addItem() {
     final newIdx = DateTime.now().millisecondsSinceEpoch + items.length;
     setState(() {
@@ -249,6 +278,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
       );
       _initializeControllers(newIdx, '', 0.0);
       if (error.isNotEmpty) error = '';
+      _dailyPreviewResult = _computeDailyPreviewResult();
     });
   }
 
@@ -282,6 +312,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
     setState(() {
       if (error.isNotEmpty) error = '';
+      _dailyPreviewResult = _computeDailyPreviewResult();
     });
   }
 
@@ -299,6 +330,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
     setState(() {
       if (error.isNotEmpty) error = '';
+      _dailyPreviewResult = _computeDailyPreviewResult();
     });
   }
 
@@ -315,6 +347,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
       _categoryControllers.remove(idx);
       _amountControllers.remove(idx);
       if (error.isNotEmpty) error = '';
+      _dailyPreviewResult = _computeDailyPreviewResult();
     });
   }
 
@@ -487,6 +520,9 @@ class _InputModalWidgetState extends State<InputModalWidget>
         isOverBudget: over,
         monthlyIncome: limit,
         isEdit: widget.isEdit,
+        previewResult: _dailyPreviewResult,
+        targetAmount: widget.targetAmount,
+        currentAsset: widget.currentAsset,
       );
     } else {
       return FooterDefault(

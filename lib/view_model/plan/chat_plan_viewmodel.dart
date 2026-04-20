@@ -23,6 +23,7 @@ import '../../repository/plan_cache_repository.dart';
 import '../../services/plan_debug_printer.dart';
 import '../../services/plan_saved_event_bus.dart';
 import '../services/ref_data_viewmodel.dart';
+import '../services/plan_preview_service.dart';
 import '../services/saving_calculator.dart';
 import '../services/total_plan_viewmodel.dart';
 import '../../services/plan_mutation_service.dart';
@@ -231,6 +232,7 @@ class ChatPlanViewModel extends ChangeNotifier {
   bool _refDataLoaded = false;
   late TotalPlanViewModel _totalPlanVM;
   late SavingPlanCalculator _calculationVM;
+  final PlanPreviewService _previewService = const PlanPreviewService();
   final PlanMutationRepository _mutationRepository;
   late final PlanMutationService _mutationService;
 
@@ -278,6 +280,39 @@ class ChatPlanViewModel extends ChangeNotifier {
           (sum, entry) => sum + entry.amount,
     );
     return refTotal > 0 ? refTotal : fallback;
+  }
+
+  SavingCalculationResult? previewDailyEntries(
+    List<Entry> entries, {
+    DateTime? applyDate,
+  }) {
+    final targetAmount = (_totalPlan.targetAmount ?? 0).toDouble();
+    if (targetAmount <= 0) {
+      return null;
+    }
+
+    final basePlan = _buildPreviewPlan();
+    final normalizedApply = _clampPreviewDate(
+      applyDate ?? DateTime.now(),
+      basePlan,
+    );
+    final dailyTotal = entries.fold<double>(
+      0,
+      (sum, entry) => sum + entry.amount,
+    );
+
+    return _previewService.calculatePreview(
+      PlanPreviewInput(
+        plan: basePlan,
+        refData: _refData,
+        applyDate: normalizedApply,
+        targetAmount: targetAmount,
+        currentAsset: _totalPlan.currentAsset.toDouble(),
+        monthlyIncome: _refData.primaryMonthlyIncomeSum,
+        monthlyFixedCost: _refData.primaryMonthlyConsumeSum,
+        dailySpendingLimit: dailyTotal,
+      ),
+    );
   }
 
   /// 섹터 내 메시지들을 순차적으로 타이핑
@@ -631,16 +666,30 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   void applyPlanEditResult(PlanEditResult result) { // 만든 결과를 앱의 메인 상태에 반영
-    _totalPlan = result.updatedPlan;
-    _totalPlanVM = TotalPlanViewModel(_totalPlan);
     _refData = result.updatedRefData;
-    _refData.planId = _totalPlan.planId;
+    _refData.planId = result.updatedPlan.planId;
     _refDataVM = RefDataViewModel(_refData);
-    debugPrint('[applyPlanEditResult] updated totalPlan planId=${_totalPlan.planId}');
-    if (_totalPlan.planId.isNotEmpty && !_hasSavedPlan) {
+    debugPrint('[applyPlanEditResult] updated totalPlan planId=${result.updatedPlan.planId}');
+    if (result.updatedPlan.planId.isNotEmpty && !_hasSavedPlan) {
       debugPrint('[applyPlanEditResult] detected existing plan, setting _hasSavedPlan true');
       _setHasSavedPlan(true);
     }
+    final isOnboardingDraftEdit =
+        !_hasSavedPlan && result.updatedPlan.planId.isEmpty;
+    if (isOnboardingDraftEdit) {
+      _totalPlan = _materializeOnboardingPreviewPlan(
+        seedPlan: result.updatedPlan,
+        goalDate: result.projectedGoalDate,
+      );
+      _pendingMonthlyCommands.clear();
+      _pendingDailyCommands.clear();
+      _pendingPlanEditGoalDate = null;
+      _pendingPlanEditApplyDate = null;
+      debugPrint('[applyPlanEditResult] materialized onboarding preview plan');
+    } else {
+      _totalPlan = result.updatedPlan;
+    }
+    _totalPlanVM = TotalPlanViewModel(_totalPlan);
     if (_hasSavedPlan) {
       _pendingMonthlyCommands = List<UpdateMonthlyCommand>.from(
         result.monthlyCommands.where((cmd) => cmd.entries.isNotEmpty),
@@ -660,10 +709,12 @@ class ChatPlanViewModel extends ChangeNotifier {
     }
     _calculationVM.updatePlan(_totalPlan);
     calculate();
-    _overwriteSummaryRecommendationFromPlanEdit(
-      projectedGoal: result.projectedGoalDate,
-      applyDate: result.applyDate,
-    );
+    if (!isOnboardingDraftEdit) {
+      _overwriteSummaryRecommendationFromPlanEdit(
+        projectedGoal: result.projectedGoalDate,
+        applyDate: result.applyDate,
+      );
+    }
     _summaryRenderVersion++;
     notifyListeners();
     _logPlanTree('After Edit');
@@ -1593,11 +1644,45 @@ class ChatPlanViewModel extends ChangeNotifier {
 
   String _fallbackDocId(String kind) => 'bootstrap_$kind';
 
+  DateTime _normalizeDay(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
+
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
   bool _isSameMonth(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month;
+
+  TotalPlan _buildPreviewPlan() {
+    if (_hasSavedPlan) {
+      return _totalPlan;
+    }
+    final start = _normalizeDay(_totalPlan.startDate ?? DateTime.now());
+    final horizonEnd = start.add(const Duration(days: 1095));
+    return _totalPlan
+        .copyWith(
+          startDate: start,
+          endDate: horizonEnd,
+          modEndDate: horizonEnd,
+          subPlans: _buildInitialSubPlanSkeleton(start, horizonEnd),
+        )
+        .recalculateTotals();
+  }
+
+  DateTime _clampPreviewDate(DateTime date, TotalPlan plan) {
+    var normalized = _normalizeDay(date);
+    final start = plan.startDate != null ? _normalizeDay(plan.startDate!) : null;
+    final end = plan.modEndDate != null
+        ? _normalizeDay(plan.modEndDate!)
+        : (plan.endDate != null ? _normalizeDay(plan.endDate!) : null);
+    if (start != null && normalized.isBefore(start)) {
+      normalized = start;
+    }
+    if (end != null && normalized.isAfter(end)) {
+      normalized = end;
+    }
+    return normalized;
+  }
 
   String _nextMiniDocId(DateTime applyDate) {
     final key = _formatYearMonth(applyDate);
@@ -1773,6 +1858,29 @@ class ChatPlanViewModel extends ChangeNotifier {
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
     _calculationVM.updatePlan(_totalPlan);
     calculate();
+  }
+
+  TotalPlan _materializeOnboardingPreviewPlan({
+    required TotalPlan seedPlan,
+    required DateTime goalDate,
+  }) {
+    final normalizedStart = _normalizeDay(
+      seedPlan.startDate ?? _totalPlan.startDate ?? DateTime.now(),
+    );
+    var exactGoal = goalDate;
+    if (exactGoal.isBefore(normalizedStart)) {
+      exactGoal = normalizedStart;
+    }
+    final skeleton = _buildInitialSubPlanSkeleton(normalizedStart, exactGoal);
+    final materialized = seedPlan
+        .copyWith(
+          startDate: normalizedStart,
+          endDate: exactGoal,
+          modEndDate: exactGoal,
+          subPlans: skeleton,
+        )
+        .recalculateTotals();
+    return _applyExactPlanEnd(materialized, exactGoal);
   }
 
   DateTime _initialCalculate({required DateTime start}) {

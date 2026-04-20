@@ -237,6 +237,13 @@ class _PlanEditPageState extends State<PlanEditPage> {
             type: EntryType.daily,
             initialEntries: vm.currentDailyConsumeEntries,
             monthlyIncome: availableMonthly,
+            targetAmount: vm.parsedTarget <= 0
+                ? (vm.totalPlan.targetAmount ?? 0).toDouble()
+                : vm.parsedTarget,
+            currentAsset: vm.parsedCurrent <= 0
+                ? vm.totalPlan.currentAsset.toDouble()
+                : vm.parsedCurrent,
+            dailyPreviewCalculator: vm.previewDailyEntries,
             onComplete: (items, total) {
               stagedEntries = List<Entry>.from(items);
             },

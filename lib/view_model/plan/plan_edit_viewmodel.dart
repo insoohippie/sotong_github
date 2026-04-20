@@ -13,7 +13,7 @@ import '../../model/refData/entry.dart';
 import '../services/ref_data_viewmodel.dart';
 import '../../model/saving_calculation_result.dart';
 import '../../services/plan_debug_printer.dart';
-import '../services/saving_calculator.dart';
+import '../services/plan_preview_service.dart';
 import '../services/total_plan_viewmodel.dart';
 
 class PlanEditViewModel extends ChangeNotifier {
@@ -33,6 +33,7 @@ class PlanEditViewModel extends ChangeNotifier {
   DateTime? _pendingFixedIncomeApplyDate;
   DateTime? _pendingFixedConsumeApplyDate;
   DateTime? _pendingDailyConsumeApplyDate;
+  final PlanPreviewService _previewService = const PlanPreviewService();
 
   // Getters for calculated values
   double get monthlyIncome => _pendingFixedIncomeEntries != null
@@ -95,65 +96,42 @@ class PlanEditViewModel extends ChangeNotifier {
       return null;
     }
     final todayForCalc = _normalizeDay(effectiveToday);
-    final remainingTarget = _remainingTarget(todayForCalc);
-    if (remainingTarget <= 0) {
-      return SavingCalculationResult(
-        dailyNetSaving: 0,
-        daysToGoal: 0,
-        goalDateTime: todayForCalc,
-      );
+    return _previewCalculationFor(
+      applyDate: todayForCalc,
+      dailyLimit: dailySpendingLimit,
+    );
+  }
+
+  SavingCalculationResult? previewDailyEntries(List<Entry> entries) {
+    if (_calculatorInputIssue() != null) {
+      return null;
     }
-    final calculator = UpdateEndDateCalculator(
+    final todayForCalc = _normalizeDay(effectiveToday);
+    return _previewCalculationFor(
+      applyDate: todayForCalc,
+      dailyLimit: _sumEntries(entries),
+    );
+  }
+
+  SavingCalculationResult? _previewCalculationFor({
+    required DateTime applyDate,
+    required double dailyLimit,
+  }) {
+    final previewInput = PlanPreviewInput(
       plan: totalPlan,
-      targetAmount: remainingTarget.toDouble(),
-      currentAsset: parsedCurrent,
+      refData: refData,
+      applyDate: applyDate,
+      targetAmount: parsedTarget <= 0
+          ? (totalPlan.targetAmount ?? 0).toDouble()
+          : parsedTarget,
+      currentAsset: parsedCurrent <= 0
+          ? totalPlan.currentAsset.toDouble()
+          : parsedCurrent,
       monthlyIncome: monthlyIncome,
       monthlyFixedCost: monthlyFixedCost,
-      dailySpendingLimit: dailySpendingLimit,
-      today: todayForCalc,
+      dailySpendingLimit: dailyLimit,
     );
-    return calculator.calculate();
-  }
-
-  int _remainingTarget(DateTime applyDate) {
-    final baseTarget = parsedTarget <= 0
-        ? (totalPlan.targetAmount ?? 0).toDouble()
-        : parsedTarget;
-    final preSaved = _preSavedAmountBefore(applyDate);
-    final alreadySaved = (parsedCurrent <= 0
-        ? totalPlan.currentAsset.toDouble()
-        : parsedCurrent) +
-        preSaved;
-    final remaining = baseTarget - alreadySaved;
-    return remaining.isNegative ? 0 : remaining.round();
-  }
-
-  double _preSavedAmountBefore(DateTime applyDate) {
-    if (totalPlan.subPlans.isEmpty) {
-      return 0;
-    }
-    final targetDay = _normalizeDay(applyDate);
-    double total = 0;
-    final subEntries = totalPlan.subPlans.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-    for (final entry in subEntries) {
-      final minis = entry.value.orderedMinis();
-      for (final mini in minis) {
-        if (!mini.endDate.isBefore(targetDay)) {
-          if (mini.startDate.isBefore(targetDay)) {
-            final clipEnd = targetDay.subtract(const Duration(days: 1));
-            if (!clipEnd.isBefore(mini.startDate)) {
-              final clipped = mini.copyWith(endDate: clipEnd)
-                  .recalculateNetAmounts();
-              total += clipped.toMetrics().monthlyNetSaving.toDouble();
-            }
-          }
-          return total;
-        }
-        total += mini.toMetrics().monthlyNetSaving.toDouble();
-      }
-    }
-    return total;
+    return _previewService.calculatePreview(previewInput);
   }
 
   // 일일 순저축(원/일)
@@ -490,7 +468,23 @@ class PlanEditViewModel extends ChangeNotifier {
 
   @visibleForTesting
   int debugRemainingTargetFor(DateTime applyDate) =>
-      _remainingTarget(_normalizeDay(applyDate));
+      _previewService.remainingTargetFor(
+        input: PlanPreviewInput(
+          plan: totalPlan,
+          refData: refData,
+          applyDate: _normalizeDay(applyDate),
+          targetAmount: parsedTarget <= 0
+              ? (totalPlan.targetAmount ?? 0).toDouble()
+              : parsedTarget,
+          currentAsset: parsedCurrent <= 0
+              ? totalPlan.currentAsset.toDouble()
+              : parsedCurrent,
+          monthlyIncome: monthlyIncome,
+          monthlyFixedCost: monthlyFixedCost,
+          dailySpendingLimit: dailySpendingLimit,
+        ),
+        applyDate: _normalizeDay(applyDate),
+      );
 
   PlanEditResult finalizeEdits() { //
     final projected = projectedGoalDate ??

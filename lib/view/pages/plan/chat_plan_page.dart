@@ -831,6 +831,18 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                     final leftover = vm.liveDailyBudgetLimitFromRef;
                     return leftover;
                   }()),
+                  targetAmount: context.read<ChatPlanViewModel>().totalPlan.targetAmount
+                      ?.toDouble(),
+                  currentAsset: context.read<ChatPlanViewModel>().totalPlan.currentAsset
+                      .toDouble(),
+                  dailyPreviewCalculator: (entries) {
+                    final vm = context.read<ChatPlanViewModel>();
+                    final now = DateTime.now();
+                    return vm.previewDailyEntries(
+                      entries,
+                      applyDate: DateTime(now.year, now.month, now.day),
+                    );
+                  },
 
                   onComplete: (items, total) async {
                     final vm = context.read<ChatPlanViewModel>();
