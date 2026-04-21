@@ -13,10 +13,21 @@ import '../../../view_model/auth/signup_view_model.dart';
 class SignupSuccessPage extends StatelessWidget {
   const SignupSuccessPage({super.key});
 
+  double _authHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width <= 320) return 16;
+    if (width <= 360) return 18;
+    if (width <= 390) return 20;
+    if (width <= 430) return 24;
+    if (width < 768) return 28;
+    return 40;
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<SignupViewModel>();
     final userName = vm.signUpInfo?.name ?? '사용자';
+    final horizontalPadding = _authHorizontalPadding(context);
 
     final List<TextPart> messageHeaderParts = [
       TextPart('$userName', AppColors.primary),
@@ -46,8 +57,8 @@ class SignupSuccessPage extends StatelessWidget {
           children: [
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.screenPadding,
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

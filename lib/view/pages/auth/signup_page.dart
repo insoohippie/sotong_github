@@ -23,8 +23,17 @@ class SignUpPage extends StatefulWidget {
   @override
   State<SignUpPage> createState() => _SignUpPageState();
 }
-
 class _SignUpPageState extends State<SignUpPage> {
+  double _authHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width <= 320) return 16;
+    if (width <= 360) return 18;
+    if (width <= 390) return 20;
+    if (width <= 430) return 24;
+    if (width < 768) return 28;
+    return 40;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +46,7 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<SignupViewModel>();
+    final horizontalPadding = _authHorizontalPadding(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -55,8 +65,8 @@ class _SignUpPageState extends State<SignUpPage> {
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.screenPadding,
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
                 ).copyWith(bottom: 120),
                 child: Column(
                   children: [

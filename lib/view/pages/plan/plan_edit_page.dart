@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -72,6 +73,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
     final planRepo = context.read<PlanRepository>();
     final refRepo = context.read<RefDataRepository>();
 
+
     TotalPlan? plan =
         widget.initialPlan ?? await planRepo.getLatestPlanForCurrentUser();
     if (plan == null) {
@@ -82,6 +84,30 @@ class _PlanEditPageState extends State<PlanEditPage> {
     refData.planId = plan.planId;
 
     return _PlanEditInitData(plan: plan, refData: refData);
+  }
+
+  _CategorySeed _buildCategorySeed({
+    required List<Entry> currentEntries,
+    required List<Entry> fallbackEntries,
+  }) {
+    final source = currentEntries.isNotEmpty ? currentEntries : fallbackEntries;
+
+    final ordered = LinkedHashMap<String, String>();
+
+    for (final entry in source) {
+      final name = entry.category.trim();
+      if (name.isEmpty) continue;
+
+      final emoji = entry.emoji.trim().isNotEmpty ? entry.emoji.trim() : '💰';
+
+      // 먼저 들어온 순서를 유지하고, 이모지가 비어 있지 않으면 반영
+      ordered.putIfAbsent(name, () => emoji);
+    }
+
+    return _CategorySeed(
+      categories: ordered.keys.toList(growable: false),
+      categoryEmojis: Map<String, String>.from(ordered),
+    );
   }
 
   /// 저장 비활성 사유 (짧은 메시지)
@@ -148,8 +174,17 @@ class _PlanEditPageState extends State<PlanEditPage> {
   }
 
   // ----------------- 모달 -----------------
-  Future<void> _openIncomeModal(BuildContext context, PlanEditViewModel vm) async {
+  Future<void> _openIncomeModal(
+      BuildContext context,
+      PlanEditViewModel vm,
+      RefData refData,
+      ) async {
     List<Entry>? stagedEntries;
+
+    final seed = _buildCategorySeed(
+      currentEntries: vm.currentMonthlyIncomeEntries,
+      fallbackEntries: refData.primaryMonthlyIncomeEntries,
+    );
 
     await showDialog(
       context: context,
@@ -166,6 +201,10 @@ class _PlanEditPageState extends State<PlanEditPage> {
             placeholder: '수입 카테고리',
             type: EntryType.fixed,
             initialEntries: vm.currentMonthlyIncomeEntries,
+
+            customCategories: seed.categories,
+            categoryEmojis: seed.categoryEmojis,
+
             onComplete: (items, total) {
               stagedEntries = List<Entry>.from(items);
             },
@@ -176,15 +215,20 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
     if (!mounted || stagedEntries == null) return;
 
-    // ✅ applyDate 제거(요청 반영)
     vm.applyFixedIncomeEdit(entries: stagedEntries!);
   }
 
   Future<void> _openFixedCostModal(
       BuildContext context,
       PlanEditViewModel vm,
+      RefData refData,
       ) async {
     List<Entry>? stagedEntries;
+
+    final seed = _buildCategorySeed(
+      currentEntries: vm.currentMonthlyConsumeEntries,
+      fallbackEntries: refData.primaryMonthlyConsumeEntries,
+    );
 
     await showDialog(
       context: context,
@@ -201,6 +245,10 @@ class _PlanEditPageState extends State<PlanEditPage> {
             placeholder: '고정 소비 항목',
             type: EntryType.fixed,
             initialEntries: vm.currentMonthlyConsumeEntries,
+
+            customCategories: seed.categories,
+            categoryEmojis: seed.categoryEmojis,
+
             onComplete: (items, total) {
               stagedEntries = List<Entry>.from(items);
             },
@@ -211,19 +259,26 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
     if (!mounted || stagedEntries == null) return;
 
-    // ✅ applyDate 제거(요청 반영)
     vm.applyFixedConsumeEdit(entries: stagedEntries!);
   }
 
-  Future<void> _openDailyModal(BuildContext context, PlanEditViewModel vm) async {
+  Future<void> _openDailyModal(
+      BuildContext context,
+      PlanEditViewModel vm,
+      RefData refData,
+      ) async {
     List<Entry>? stagedEntries;
+
+    final seed = _buildCategorySeed(
+      currentEntries: vm.currentDailyConsumeEntries,
+      fallbackEntries: refData.primaryDailyConsumeEntries,
+    );
 
     await showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.transparent,
       builder: (ctx) {
-        // ✅ 월 잔여 예산 = 월수입 - 고정소비 (음수면 0)
         final double leftover = (vm.monthlyIncome - vm.monthlyFixedCost);
         final double availableMonthly = leftover > 0 ? leftover : 0.0;
 
@@ -236,6 +291,10 @@ class _PlanEditPageState extends State<PlanEditPage> {
             placeholder: '하루 소비 항목',
             type: EntryType.daily,
             initialEntries: vm.currentDailyConsumeEntries,
+
+            customCategories: seed.categories,
+            categoryEmojis: seed.categoryEmojis,
+
             monthlyIncome: availableMonthly,
             targetAmount: vm.parsedTarget <= 0
                 ? (vm.totalPlan.targetAmount ?? 0).toDouble()
@@ -244,6 +303,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
                 ? vm.totalPlan.currentAsset.toDouble()
                 : vm.parsedCurrent,
             dailyPreviewCalculator: vm.previewDailyEntries,
+
             onComplete: (items, total) {
               stagedEntries = List<Entry>.from(items);
             },
@@ -254,7 +314,6 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
     if (!mounted || stagedEntries == null) return;
 
-    // ✅ applyDate 제거(요청 반영)
     vm.applyDailyConsumeEdit(entries: stagedEntries!);
   }
 
@@ -451,9 +510,9 @@ class _PlanEditPageState extends State<PlanEditPage> {
                         children: [
                           IndexedStack(
                             index: _selectedTabIndex,
-                            children: const [
-                              _PlanBasicInfoTab(),
-                              _UserInfoTab(),
+                            children: [
+                              const _PlanBasicInfoTab(),
+                              _UserInfoTab(refData: refData),
                             ],
                           ),
                         ],
@@ -880,7 +939,12 @@ class _BasicInfoTile extends StatelessWidget {
 /// 탭 2: 사용자 정보 (EditSummaryTile)
 /// =========================
 class _UserInfoTab extends StatelessWidget {
-  const _UserInfoTab({Key? key}) : super(key: key);
+  const _UserInfoTab({
+    Key? key,
+    required this.refData,
+  }) : super(key: key);
+
+  final RefData refData;
 
   @override
   Widget build(BuildContext context) {
@@ -900,20 +964,20 @@ class _UserInfoTab extends StatelessWidget {
               EditSummaryTile(
                 label: '월 수입',
                 total: vm.monthlyIncome,
-                onEdit: () => page._openIncomeModal(context, vm),
+                onEdit: () => page._openIncomeModal(context, vm, refData),
                 labelColor: labelColor,
               ),
               EditSummaryTile(
                 label: '고정 소비',
                 total: vm.monthlyFixedCost,
-                onEdit: () => page._openFixedCostModal(context, vm),
+                onEdit: () => page._openFixedCostModal(context, vm, refData),
                 labelColor: labelColor,
               ),
               EditSummaryTile(
                 label: '하루 소비 한도 금액',
                 total: vm.dailySpendingLimit,
                 unit: '원',
-                onEdit: () => page._openDailyModal(context, vm),
+                onEdit: () => page._openDailyModal(context, vm, refData),
                 showDivider: false,
                 labelColor: labelColor,
               ),
@@ -992,4 +1056,14 @@ class _PlanEditInitData {
 
   final TotalPlan plan;
   final RefData refData;
+}
+
+class _CategorySeed {
+  const _CategorySeed({
+    required this.categories,
+    required this.categoryEmojis,
+  });
+
+  final List<String> categories;
+  final Map<String, String> categoryEmojis;
 }

@@ -72,7 +72,9 @@ Widget _buildSummaryChartWithRecommendation(
     ChatPlanViewModel viewModel,
     ) {
   final recommendation = viewModel.summaryRecommendation; // null 가능
-  final canEdit = context.read<ChatPlanViewModel>().currentStep != ChatStep.autoService;
+  // final canEdit = context.watch<ChatPlanViewModel>().currentStep != ChatStep.autoService;
+  final canEdit =
+      context.watch<ChatPlanViewModel>().currentStep == ChatStep.summary;
 
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,

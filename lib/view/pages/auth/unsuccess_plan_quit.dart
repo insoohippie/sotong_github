@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
-import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
@@ -11,49 +10,79 @@ import '../../../repository/auth_repository.dart';
 class UnsuccessPlanQuitPage extends StatelessWidget {
   const UnsuccessPlanQuitPage({super.key});
 
+  double _authHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width <= 320) return 16;
+    if (width <= 360) return 18;
+    if (width <= 390) return 20;
+    if (width <= 430) return 24;
+    if (width < 768) return 28;
+    return 40;
+  }
+
+  void _goLogin(BuildContext context) {
+    Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: const BackOnlyAppBar(),
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenPadding,
-                    ),
-                    child: FutureBuilder<String>(
-                      future: context.read<AuthRepository>().getUserName(),
-                      builder: (context, snapshot) {
-                        final userName =
-                        (snapshot.data?.trim().isNotEmpty ?? false)
-                            ? snapshot.data!.trim()
-                            : '회원';
+    final horizontalPadding = _authHorizontalPadding(context);
 
-                        return _WelcomeTexts(userName: userName);
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _goLogin(context);
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
+            onPressed: () => _goLogin(context),
+          ),
+        ),
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                      child: FutureBuilder<String>(
+                        future: context.read<AuthRepository>().getUserName(),
+                        builder: (context, snapshot) {
+                          final userName =
+                          (snapshot.data?.trim().isNotEmpty ?? false)
+                              ? snapshot.data!.trim()
+                              : '회원';
+
+                          return _WelcomeTexts(userName: userName);
+                        },
+                      ),
+                    ),
+                    const Spacer(),
+                    CustomButton(
+                      text: '플랜 만들기',
+                      onPressed: () {
+                        Navigator.of(context)
+                            .pushReplacementNamed('/plan_chat');
                       },
                     ),
-                  ),
-                  const Spacer(),
-                  CustomButton(
-                    text: '플랜 만들기',
-                    onPressed: () {
-                      Navigator.of(context).pushReplacementNamed('/plan_chat');
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.bottomSpacing),
-                ],
+                    const SizedBox(height: AppSpacing.bottomSpacing),
+                  ],
+                ),
               ),
-            ),
-            const Positioned.fill(
-              child: Center(child: _CheckSettingAnimation()),
-            ),
-          ],
+              const Positioned.fill(
+                child: Center(child: _CheckSettingAnimation()),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -5,7 +5,6 @@ import 'package:sotong_local/model/plan/plan_metrics.dart';
 import 'package:sotong_local/model/plan/total_plan.dart';
 import 'package:sotong_local/model/saving_calculation_result.dart';
 
-// 차트 파일 경로 맞춰서!
 import '../../../../../component/chart/fl_donut_budget_chart.dart';
 import '../../../../../component/chart/fl_donut_colored_budget.dart';
 import '../../../../../component/theme/app_colors.dart';
@@ -66,6 +65,8 @@ class _PlanSummaryDonutChartWidgetState
     final minutes = remain.inMinutes % 60;
     final seconds = remain.inSeconds % 60;
 
+    final bool canEdit = widget.onEdit != null;
+
     return Container(
       padding: const EdgeInsets.all(0),
       decoration: BoxDecoration(
@@ -95,7 +96,6 @@ class _PlanSummaryDonutChartWidgetState
           ),
           const SizedBox(height: 50),
 
-          // 목표/카운트다운
           Center(
             child: Column(
               children: [
@@ -107,7 +107,10 @@ class _PlanSummaryDonutChartWidgetState
                 const SizedBox(height: 2),
                 Text(
                   '목표까지 ${days}일 ${hours}시간 ${minutes}분 ${seconds}초 남았어요!',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
               ],
             ),
@@ -115,26 +118,31 @@ class _PlanSummaryDonutChartWidgetState
 
           const SizedBox(height: 12),
 
-          // 수정하기 = 현재 모드로 재생 + 콜백
           Center(
             child: ElevatedButton(
-              onPressed: () {
-                _chartKey.currentState?.replay(); // 현재 모드로 재생
+              onPressed: canEdit
+                  ? () {
+                _chartKey.currentState?.replay();
                 widget.onEdit?.call();
-              },
+              }
+                  : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF3B82F6),
+                backgroundColor:
+                canEdit ? const Color(0xFF3B82F6) : const Color(0xFFCBD5E1),
+                disabledBackgroundColor: const Color(0xFFCBD5E1),
                 padding:
                 const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: const Text(
+              child: Text(
                 '수정하기',
                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600),
+                  color: canEdit ? Colors.white : const Color(0xFF94A3B8),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),

@@ -283,9 +283,9 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   SavingCalculationResult? previewDailyEntries(
-    List<Entry> entries, {
-    DateTime? applyDate,
-  }) {
+      List<Entry> entries, {
+        DateTime? applyDate,
+      }) {
     final targetAmount = (_totalPlan.targetAmount ?? 0).toDouble();
     if (targetAmount <= 0) {
       return null;
@@ -298,7 +298,7 @@ class ChatPlanViewModel extends ChangeNotifier {
     );
     final dailyTotal = entries.fold<double>(
       0,
-      (sum, entry) => sum + entry.amount,
+          (sum, entry) => sum + entry.amount,
     );
 
     return _previewService.calculatePreview(
@@ -1661,11 +1661,11 @@ class ChatPlanViewModel extends ChangeNotifier {
     final horizonEnd = start.add(const Duration(days: 1095));
     return _totalPlan
         .copyWith(
-          startDate: start,
-          endDate: horizonEnd,
-          modEndDate: horizonEnd,
-          subPlans: _buildInitialSubPlanSkeleton(start, horizonEnd),
-        )
+      startDate: start,
+      endDate: horizonEnd,
+      modEndDate: horizonEnd,
+      subPlans: _buildInitialSubPlanSkeleton(start, horizonEnd),
+    )
         .recalculateTotals();
   }
 
@@ -1874,11 +1874,11 @@ class ChatPlanViewModel extends ChangeNotifier {
     final skeleton = _buildInitialSubPlanSkeleton(normalizedStart, exactGoal);
     final materialized = seedPlan
         .copyWith(
-          startDate: normalizedStart,
-          endDate: exactGoal,
-          modEndDate: exactGoal,
-          subPlans: skeleton,
-        )
+      startDate: normalizedStart,
+      endDate: exactGoal,
+      modEndDate: exactGoal,
+      subPlans: skeleton,
+    )
         .recalculateTotals();
     return _applyExactPlanEnd(materialized, exactGoal);
   }

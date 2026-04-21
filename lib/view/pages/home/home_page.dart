@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sotong_local/component/texts/paragraph_text.dart';
 import '../../../component/appbars/custom_app_bar_home.dart';
 import '../../../component/buttons/small_rounded_button.dart';
 import '../../../component/containers/rounded_info_container.dart';
+import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 
@@ -29,8 +29,7 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
-  // 소비 입력 컨테이너에서 날짜 관련 함수
-  DateTime _selectedDate = DateTime.now(); // 오늘 날짜
+  // 여기 원래 DateTime _selectedDate = DateTime.now(); 이거랑 void _changeDate(int days) 함수가 있었는데 뷰모델로 옮겼다.
 
   String _formatDate(DateTime date) {
     const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
@@ -38,26 +37,26 @@ class _HomePageState extends State<HomePage> {
     return '${date.month}월 ${date.day}일 ($weekday)';
   }
 
-  Future<void> _changeDate(int days) async {
-    final vm = context.read<HomeViewModel>();
-    final planStart = vm.latestPlan?.startDate ?? vm.latestPlan?.creationDate;
-    if (planStart != null) {
-      final nextDate = _selectedDate.add(Duration(days: days));
-      if (nextDate.isBefore(DateTime(planStart.year, planStart.month, planStart.day))) {
-        return;
-      }
-      setState(() {
-        _selectedDate = nextDate;
-      });
-    } else {
-      setState(() {
-        _selectedDate = _selectedDate.add(Duration(days: days));
-      });
+  String _compactIncomeText(int amount) {
+    if (amount >= 100000000) {
+      final value = amount / 100000000;
+      final text = value % 1 == 0
+          ? value.toStringAsFixed(0)
+          : value.toStringAsFixed(1);
+      return '+${text}억';
     }
-    await vm.loadDailySummary(_selectedDate);
+
+    if (amount >= 10000) {
+      final value = amount / 10000;
+      final text = value % 1 == 0
+          ? value.toStringAsFixed(0)
+          : value.toStringAsFixed(1);
+      return '+${text}만';
+    }
+
+    return '+$amount';
   }
 
-  /// D-Day 표시
   String _buildDDayText(HomeViewModel vm) {
     final remain = vm.liveRemaining;
     if (remain == null) return '목표일 없음';
@@ -77,12 +76,17 @@ class _HomePageState extends State<HomePage> {
 
     if (vm.isLoading) {
       return const Scaffold(
-        body: SafeArea(child: Center(child: CircularProgressIndicator())),
+        body: SafeArea(
+          child: Center(child: CircularProgressIndicator()),
+        ),
       );
     }
+
     if (vm.error != null) {
       return Scaffold(
-        body: SafeArea(child: Center(child: Text('오류: ${vm.error}'))),
+        body: SafeArea(
+          child: Center(child: Text('오류: ${vm.error}')),
+        ),
       );
     }
 
@@ -92,28 +96,43 @@ class _HomePageState extends State<HomePage> {
     final currentRate = vm.progressRatio;
     final fixedSpending = vm.dailyLimitText;
 
-    final displayDate = _formatDate(_selectedDate);
-    final actualSpent = vm.todaySpending.toDouble();
-    final todaySpending = '${vm.todaySpending}원';
+    final selectedDate = vm.selectedDate;  // 하경 추가(뷰모델에서 선택된 날짜 받아오기)
+    final displayDate = _formatDate(selectedDate);
+
+    final todayIncome = vm.todayIncome; // 하경 추가
+    final todaySpending = vm.todaySpending; // 하경 추가
+
+    final hasIncome = todayIncome > 0; // 하경 추가
+    final hasSpending = todaySpending > 0; // 하경 추가
+    //final hasRecord = actualSpent > 0; 이거를 삭제, hasRecord 대신 hasSpending 사용
+
+    final todaySpendingText = vm.todaySpendingText; // 하경 추가
+    final isUnrecorded = !vm.isTodayRecorded; // 하경 추가
+    //final todaySpending = '${vm.todaySpending}원'; 이거를 삭제, 뷰모델 사용해서 텍스트 불러옴
+
     final dailyLimit =
         double.tryParse(fixedSpending.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0.0;
 
-    final hasRecord = actualSpent > 0;
-    final isOverLimit = hasRecord && dailyLimit > 0 && actualSpent > dailyLimit;
+    final actualSpent = todaySpending.toDouble();
+    final isOverLimit =
+        hasSpending && dailyLimit > 0 && actualSpent > dailyLimit;
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final containerBackgroundColor = !hasRecord
+
+    final containerBackgroundColor = !hasSpending
         ? (isDark ? theme.colorScheme.surface : Colors.grey[200]!)
         : isOverLimit
         ? (isDark ? const Color(0xFF3D2020) : const Color(0xFFFFEFEF))
         : (isDark ? theme.colorScheme.surface : const Color(0xFFEFF5FF));
 
-    final spentTextColor = !hasRecord
+    final spentTextColor = !hasSpending
         ? theme.colorScheme.onSurface
         : isOverLimit
         ? const Color(0xFFFF5F5F)
         : AppColors.primary;
+
+
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -130,7 +149,6 @@ class _HomePageState extends State<HomePage> {
                 rootNavigator: true,
               ).pushNamed('/setting'),
             ),
-
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
@@ -194,58 +212,110 @@ class _HomePageState extends State<HomePage> {
 
                       const SizedBox(height: 40),
 
-                      /// 오늘 지출 UI
+                      // 하경 작업 - 수입/소비 요약 UI
                       RoundedInfoContainer(
                         backgroundColor: containerBackgroundColor,
                         padding: 20,
                         child: Column(
-                          crossAxisAlignment: hasRecord
+                          crossAxisAlignment: hasSpending
                               ? CrossAxisAlignment.start
                               : CrossAxisAlignment.center,
                           children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                ParagraphText(
-                                  text: displayDate,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onSurface,
-                                ),
-                                Row(
-                                  children: [
-                                    InkWell(
-                                      onTap: () => _changeDate(-1),
-                                      child: Icon(
-                                        Icons.chevron_left,
-                                        color:
-                                        theme.colorScheme.onSurfaceVariant,
-                                      ),
+                            SizedBox(
+                              height: 32,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: Text(
+                                              displayDate,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color:
+                                                theme.colorScheme.onSurface,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+
+                                        // 수입 chip 영역
+                                        SizedBox(
+                                          width: 72,
+                                          child: Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: hasIncome
+                                                ? _IncomeChip(
+                                              text: _compactIncomeText(
+                                                todayIncome,
+                                              ),
+                                            )
+                                                : const SizedBox.shrink(),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 4),
-                                    InkWell(
-                                      onTap: () => _changeDate(1),
-                                      child: Icon(
-                                        Icons.chevron_right,
-                                        color:
-                                        theme.colorScheme.onSurfaceVariant,
-                                      ),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // 오른쪽 버튼 영역
+                                  SizedBox(
+                                    width: 116,
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        _HeaderIconButton(
+                                          icon: Icons.chevron_left,
+                                          iconColor: theme
+                                              .colorScheme.onSurfaceVariant,
+                                          onTap: () => vm.changeDate(-1),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        _HeaderIconButton(
+                                          icon: Icons.chevron_right,
+                                          iconColor: theme
+                                              .colorScheme.onSurfaceVariant,
+                                          onTap: () => vm.changeDate(1),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        _CalendarHeaderButton(
+                                          isUnrecorded: isUnrecorded,
+                                          onTap: () {
+                                            Navigator.of(
+                                              context,
+                                              rootNavigator: true,
+                                            ).pushNamed(
+                                              '/pending_spending',
+                                              arguments: <String, dynamic>{
+                                                'initialMonth': selectedDate,
+                                              },
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
-                                  ],
-                                ),
-                              ],
+                                  ),
+                                ],
+                              ),
                             ),
                             const SizedBox(height: 12),
 
-                            if (!hasRecord)
+                            if (!hasSpending)
                               SmallRoundedButton(
-                                text: "수입/소비 기록하러 가기",
+                                text: '수입/소비 기록하러 가기',
                                 onPressed: () {
                                   Navigator.of(
                                     context,
                                     rootNavigator: true,
                                   ).pushNamed(
                                     '/record',
-                                    arguments: _selectedDate,
+                                    arguments: selectedDate,
                                   );
                                 },
                               )
@@ -257,16 +327,21 @@ class _HomePageState extends State<HomePage> {
                                     rootNavigator: true,
                                   ).pushNamed(
                                     '/today_record',
-                                    arguments: _selectedDate,
+                                    arguments: selectedDate,
                                   );
                                 },
                                 child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      todaySpending,
-                                      style: TextStyle(
-                                        color: spentTextColor,
-                                        fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: Text(
+                                        todaySpendingText,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: spentTextColor,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                     Text(
@@ -276,11 +351,15 @@ class _HomePageState extends State<HomePage> {
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    Text(
-                                      fixedSpending,
-                                      style: TextStyle(
-                                        color: theme.colorScheme.onSurface,
-                                        fontWeight: FontWeight.bold,
+                                    Flexible(
+                                      child: Text(
+                                        fixedSpending,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                       ),
                                     ),
                                   ],
@@ -301,6 +380,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openSavingSheet(HomeViewModel vm) {
+    // 세은님 작업
     final userPercent = (vm.userPercent * 100).round();
     final planPercent = (vm.planPercent * 100).round();
 
@@ -320,6 +400,136 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
+    );
+  }
+}
+
+class _IncomeChip extends StatelessWidget {
+  final String text;
+
+  const _IncomeChip({
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF2FF),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: AppColors.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          height: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _HeaderIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final VoidCallback onTap;
+
+  const _HeaderIconButton({
+    required this.icon,
+    required this.iconColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 18,
+        child: Center(
+          child: Icon(
+            icon,
+            size: 24,
+            color: iconColor,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CalendarHeaderButton extends StatelessWidget {
+  final bool isUnrecorded;
+  final VoidCallback onTap;
+
+  const _CalendarHeaderButton({
+    required this.isUnrecorded,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SizedBox(
+      width: 32,
+      height: 32,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: InkResponse(
+              onTap: onTap,
+              radius: 18,
+              child: const Center(
+                child: Icon(
+                  Icons.calendar_month_outlined,
+                  size: 24,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+          if (isUnrecorded)
+            Positioned(
+              right: -1,
+              top: -1,
+              child: IgnorePointer(
+                child: Container(
+                  width: 11,
+                  height: 11,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade600,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: theme.colorScheme.surface,
+                      width: 1,
+                    ),
+                  ),
+                  child: const Text(
+                    '!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 6,
+                      fontWeight: FontWeight.w800,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

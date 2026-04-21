@@ -44,7 +44,7 @@ class InputModalWidget extends StatefulWidget {
   /// newOrder: "현재 바텀시트에서 보여주는 categories의 최종 순서"
   final void Function(List<String> newOrder)? onCategoryOrderChanged;
   final SavingCalculationResult? Function(List<Entry> entries)?
-      dailyPreviewCalculator;
+  dailyPreviewCalculator;
   final double? targetAmount;
   final double currentAsset;
 
@@ -504,12 +504,12 @@ class _InputModalWidgetState extends State<InputModalWidget>
     final double limit = widget.monthlyIncome ?? 0.0;
 
     debugPrint(
-    '[FOOTER_BUILD] '
-    'title=${widget.title}, '
-    'kind=$kind, '
-    'limit=$limit, '
-    'total=${getTotalAmount()}, '
-    'over=$over',
+      '[FOOTER_BUILD] '
+          'title=${widget.title}, '
+          'kind=$kind, '
+          'limit=$limit, '
+          'total=${getTotalAmount()}, '
+          'over=$over',
     );
 
 

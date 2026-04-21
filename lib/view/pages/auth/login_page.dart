@@ -20,9 +20,20 @@ import '../../../repository/ref_category_repository.dart';
 class EmailLoginPage extends StatelessWidget {
   const EmailLoginPage({super.key});
 
+  double _authHorizontalPadding(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width <= 320) return 16;
+    if (width <= 360) return 18;
+    if (width <= 390) return 20;
+    if (width <= 430) return 24;
+    if (width < 768) return 28;
+    return 40;
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<LoginViewModel>();
+    final horizontalPadding = _authHorizontalPadding(context);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -32,8 +43,8 @@ class EmailLoginPage extends StatelessWidget {
             const SizedBox(height: 60),
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.screenPadding,
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,14 +135,13 @@ class EmailLoginPage extends StatelessWidget {
                   if (!hydrated) return;
                   final authRepo = context.read<AuthRepository>();
                   var next = authRepo.nextRouteBySession();
-
+                  // 세은님 수정 부분
                   final shouldProbeExistingPlan =
                       next == '/unsuccess_plan_quit' || !authRepo.cachedHasPlan;
                   if (shouldProbeExistingPlan) {
                     try {
                       final planRepo = context.read<PlanRepository>();
                       final existingPlan =
-
                       await planRepo.getLatestPlanForCurrentUser();
                       if (existingPlan != null) {
                         final refDataRepo = context.read<RefDataRepository>();

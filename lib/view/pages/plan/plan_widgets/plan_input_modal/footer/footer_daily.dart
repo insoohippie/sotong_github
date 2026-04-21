@@ -79,14 +79,14 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
 
 // preview 계산 결과 기준으로 저축 가능 여부를 판정한다.
     final hasNonPositiveSaving =
-        preview != null ? preview.dailyNetSaving <= 0 : false;
+    preview != null ? preview.dailyNetSaving <= 0 : false;
 
 
     if (over) {
       helperLine =
       '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome)}원을 초과했어요.';
     } else if (target != null && target > 0) {
-      
+
       final remaining = target - current;
       if (remaining <= 0) {
         helperLine = '🎉 이미 목표를 달성했어요!';
