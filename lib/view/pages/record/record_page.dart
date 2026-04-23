@@ -49,6 +49,11 @@ class _RecordPageState extends State<RecordPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<RecordSpendingViewModel>().resetSpending();
       context.read<RecordAddIncomeViewModel>().resetIncome();
+      if (mounted) {
+        setState(() {
+          _noSpendingChecked = false;
+        });
+      }
     });
 
     _didInit = true;
@@ -104,9 +109,11 @@ class _RecordPageState extends State<RecordPage> {
                           width: 24,
                           child: Checkbox(
                             value: _noSpendingChecked,
-                            onChanged: (v) => setState(
-                                  () => _noSpendingChecked = v ?? false,
-                            ),
+                            onChanged: (v) {
+                              final checked = v ?? false;
+                              setState(() => _noSpendingChecked = checked);
+                              context.read<RecordSpendingViewModel>().setNoSpending(checked);
+                            },
                             materialTapTargetSize:
                             MaterialTapTargetSize.shrinkWrap,
                             activeColor: AppColors.primary,
@@ -114,9 +121,11 @@ class _RecordPageState extends State<RecordPage> {
                         ),
                         const SizedBox(width: 4),
                         GestureDetector(
-                          onTap: () => setState(
-                                () => _noSpendingChecked = !_noSpendingChecked,
-                          ),
+                          onTap: () {
+                            final checked = !_noSpendingChecked;
+                            setState(() => _noSpendingChecked = checked);
+                            context.read<RecordSpendingViewModel>().setNoSpending(checked);
+                          },
                           child: Text(
                             '무지출',
                             style: TextStyle(

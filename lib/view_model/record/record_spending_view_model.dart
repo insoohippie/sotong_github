@@ -23,6 +23,16 @@ class RecordSpendingViewModel extends ChangeNotifier {
 
   int _entryCounter = 0;
 
+  /// 무지출 여부
+  bool _isNoSpending = false;
+  bool get isNoSpending => _isNoSpending;
+
+  void setNoSpending(bool value) {
+    if (_isNoSpending == value) return;
+    _isNoSpending = value;
+    notifyListeners();
+  }
+
   String _newEntryId() {
     final us = DateTime.now().microsecondsSinceEpoch;
     _entryCounter = (_entryCounter + 1) % 1000000;
@@ -67,6 +77,7 @@ class RecordSpendingViewModel extends ChangeNotifier {
     }
 
     spendingEntries.clear();
+    _isNoSpending = false;
 
     final amountController = TextEditingController();
     final noteController = TextEditingController();
@@ -87,6 +98,8 @@ class RecordSpendingViewModel extends ChangeNotifier {
   }
 
   int get totalSpending {
+    if (_isNoSpending) return 0;
+
     return spendingEntries.fold(0, (sum, e) {
       final amount = (e['amount'] as num?)?.toInt() ?? 0;
       return sum + amount;
@@ -96,6 +109,8 @@ class RecordSpendingViewModel extends ChangeNotifier {
   String get formattedTotal => NumberFormat('#,###').format(totalSpending);
 
   bool get hasInvalidCategorySelection {
+    if (_isNoSpending) return false;
+
     for (final entry in spendingEntries) {
       final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
       final categoryKey = (entry['categoryKey'] as String?)?.trim() ?? '';
@@ -108,6 +123,8 @@ class RecordSpendingViewModel extends ChangeNotifier {
   }
 
   bool get canProceedToNextStep {
+    if (_isNoSpending) return true;
+
     final hasAmount = spendingEntries.any(
           (e) => ((e['amount'] as num?)?.toDouble() ?? 0) > 0,
     );
@@ -133,71 +150,61 @@ class RecordSpendingViewModel extends ChangeNotifier {
     resetEmotion();
   }
 
-  List<Map<String, dynamic>> _buildEntriesJson() {
-    final List<Map<String, dynamic>> entriesJson = [];
-
-    for (final entry in spendingEntries) {
-      final id = (entry['id'] as String?)?.trim() ?? '';
-      final categoryKey = (entry['categoryKey'] as String?)?.trim() ?? '';
-      final category = entry['category'] as String? ?? '';
-      final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
-      final note = entry['note'] as String? ?? '';
-
-      if (amount <= 0 && category.isEmpty && note.isEmpty) continue;
-
-      entriesJson.add({
-        'id': id,
-        'categoryKey': categoryKey,
-        'category': category,
-        'amount': amount,
-        'note': note,
-      });
-    }
-
-    return entriesJson;
-  }
-
   Future<void> saveAllForDate(DateTime date) async {
     if (hasInvalidCategorySelection) {
       throw Exception('카테고리가 선택되지 않은 소비 항목이 있습니다.');
     }
 
-    final entries = spendingEntries
-        .where((entry) {
-      final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
-      final category = (entry['category'] as String? ?? '').trim();
-      final note = (entry['note'] as String? ?? '').trim();
+    final List<RecordEntry> entries;
 
-      return amount > 0 || category.isNotEmpty || note.isNotEmpty;
-    })
-        .map((entry) {
-      final rawId = (entry['id'] as String?)?.trim();
-      final categoryKey = (entry['categoryKey'] as String?)?.trim() ?? '';
-      final category = entry['category'] as String? ?? '';
-      final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
-      final note = entry['note'] as String? ?? '';
+    if (_isNoSpending) {
+      entries = [
+        RecordEntry(
+          id: _newEntryId(),
+          categoryKey: 'no_spending',
+          category: '무지출',
+          amount: 0,
+          note: '',
+        ),
+      ];
+    } else {
+      entries = spendingEntries
+          .where((entry) {
+        final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
+        final category = (entry['category'] as String? ?? '').trim();
+        final note = (entry['note'] as String? ?? '').trim();
 
-      return RecordEntry(
-        id: (rawId == null || rawId.isEmpty) ? _newEntryId() : rawId,
-        categoryKey: categoryKey,
-        category: category,
-        amount: amount,
-        note: note,
-      );
-    })
-        .toList();
+        return amount > 0 || category.isNotEmpty || note.isNotEmpty;
+      })
+          .map((entry) {
+        final rawId = (entry['id'] as String?)?.trim();
+        final categoryKey = (entry['categoryKey'] as String?)?.trim() ?? '';
+        final category = entry['category'] as String? ?? '';
+        final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
+        final note = entry['note'] as String? ?? '';
+
+        return RecordEntry(
+          id: (rawId == null || rawId.isEmpty) ? _newEntryId() : rawId,
+          categoryKey: categoryKey,
+          category: category,
+          amount: amount,
+          note: note,
+        );
+      })
+          .toList();
+    }
 
     await _recordRepo.upsertSpendingForDate(
       date: date,
       spendingEntries: entries,
-      totalSpendingAmount: totalSpending,
+      totalSpendingAmount: _isNoSpending ? 0 : totalSpending,
       emotion: selectedEmotion ?? '',
       comment: commentController.text,
     );
 
     debugPrint(
       '[RecordSpendingViewModel] saveAllForDate '
-          '(date=$date, localMode=${_recordRepo.localMode})',
+          '(date=$date, localMode=${_recordRepo.localMode}, noSpending=$_isNoSpending)',
     );
 
     _recordEventBus.fire(RecordUpdatedEvent(date));
