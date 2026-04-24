@@ -386,6 +386,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
       return;
     }
 
+    // 키보드 내리기 + 시트 내려가기 동시에 시작 (순차 대기 없음)
+    FocusManager.instance.primaryFocus?.unfocus();
     widget.onComplete(valid, getTotalAmount());
     debugPrint(valid.map((e) => '${e.category}=${e.emoji}').join(' | '));
     await _closeAfterSubmit();
@@ -542,8 +544,10 @@ class _InputModalWidgetState extends State<InputModalWidget>
         children: [
           FadeTransition(
             opacity: _scrimFade,
-            child: AbsorbPointer(
-              absorbing: true,
+            child: GestureDetector(
+              onTap: () =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
+              behavior: HitTestBehavior.translucent,
               child: Container(color: Colors.black54),
             ),
           ),
@@ -569,15 +573,21 @@ class _InputModalWidgetState extends State<InputModalWidget>
                         top: Radius.circular(24),
                         bottom: Radius.zero,
                       ),
-                      child: Container(
-                        color: Colors.white,
-                        child: Column(
-                          children: [
-                            buildDetailBox(),
-                            if (!_isKeyboardVisible) const SizedBox(height: 8),
-                            Expanded(child: buildContent()),
-                            buildFooter(),
-                          ],
+                      child: GestureDetector(
+                        onTap: () =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
+                        behavior: HitTestBehavior.translucent,
+                        child: Container(
+                          color: Colors.white,
+                          child: Column(
+                            children: [
+                              buildDetailBox(),
+                              if (!_isKeyboardVisible)
+                                const SizedBox(height: 8),
+                              Expanded(child: buildContent()),
+                              buildFooter(),
+                            ],
+                          ),
                         ),
                       ),
                     ),

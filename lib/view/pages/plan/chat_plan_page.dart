@@ -559,19 +559,24 @@ class _ChatPlanPageState extends State<ChatPlanPage>
 
           return Stack(
             children: [
-              Column(
-                children: [
-                  Container(padding: EdgeInsets.only(top: statusBarHeight)),
-                  Expanded(
-                    child: ListView(
-                      controller: _scrollController,
-                      padding: const EdgeInsets.fromLTRB(
-                        16,
-                        16,
-                        16,
-                        bottomBarHeight + 16,
-                      ),
-                      children: [
+              GestureDetector(
+                onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                behavior: HitTestBehavior.translucent,
+                child: Column(
+                  children: [
+                    Container(padding: EdgeInsets.only(top: statusBarHeight)),
+                    Expanded(
+                      child: ListView(
+                        controller: _scrollController,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.fromLTRB(
+                          16,
+                          16,
+                          16,
+                          bottomBarHeight + 16,
+                        ),
+                        children: [
                         ...messages.asMap().entries.map((entry) {
                           final message = entry.value;
 
@@ -611,10 +616,11 @@ class _ChatPlanPageState extends State<ChatPlanPage>
                                 ? '목표금액'
                                 : '보유금액',
                           ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
 
               if (_showBottomArea)
