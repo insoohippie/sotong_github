@@ -20,14 +20,10 @@ import '../../../repository/ref_category_repository.dart';
 class EmailLoginPage extends StatelessWidget {
   const EmailLoginPage({super.key});
 
+  /// `clamp(16px, 7.5vw, 40px)`.
   double _authHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width <= 320) return 16;
-    if (width <= 360) return 18;
-    if (width <= 390) return 20;
-    if (width <= 430) return 24;
-    if (width < 768) return 28;
-    return 40;
+    final w = MediaQuery.sizeOf(context).width;
+    return (w * 0.075).clamp(16.0, 40.0).toDouble();
   }
 
   @override
@@ -116,15 +112,18 @@ class EmailLoginPage extends StatelessWidget {
               ),
             ),
 
-            // 로그인 버튼 + 로딩 인디케이터
-            vm.isLoading
-                ? const SizedBox(
-              height: 48,
-              child: Center(child: CircularProgressIndicator()),
-            )
-                : CustomButton(
-              text: '로그인',
-              onPressed: () async {
+            // 본문 스크롤과 동일: EdgeInsets.symmetric(horizontal: horizontalPadding)
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: vm.isLoading
+                  ? const SizedBox(
+                      height: 48,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : CustomButton(
+                      padding: EdgeInsets.zero,
+                      text: '로그인',
+                      onPressed: () async {
                 final success = await vm.login();
 
                 if (!context.mounted) return;
@@ -207,6 +206,7 @@ class EmailLoginPage extends StatelessWidget {
                   );
                 }
               },
+                    ),
             ),
             const SizedBox(height: 40),
           ],
