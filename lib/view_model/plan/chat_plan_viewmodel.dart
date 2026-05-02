@@ -187,7 +187,7 @@ class ChatPlanViewModel extends ChangeNotifier {
   }
 
   void _hydrateFromSnapshot(PlanCacheSnapshot snapshot) {
-    _totalPlan = snapshot.plan;
+    _totalPlan = snapshot.plan.recalculateTotals();
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
     _refData = snapshot.refData;
     _refDataVM = RefDataViewModel(_refData);
@@ -205,7 +205,7 @@ class ChatPlanViewModel extends ChangeNotifier {
       debugPrint('[ChatPlanViewModel] server plan loaded planId=${plan.planId}');
       final refData = await _refDataRepo.loadAll();
       refData.planId = plan.planId;
-      _totalPlan = plan;
+      _totalPlan = plan.recalculateTotals();
       _totalPlanVM = TotalPlanViewModel(_totalPlan);
       _refData = refData;
       _refDataVM = RefDataViewModel(_refData);

@@ -54,6 +54,7 @@ class HomeViewModel extends ChangeNotifier {
 
         _monthlyCache.remove(monthKey);
         await _ensureMonthlyLoaded(savedDate);
+        await _rebuildDailyNetThroughToday();
         await loadDailySummary(savedDate, ensureMonthlyLoaded: false); // 세은 추가 후 하경 수정 loadDailySpending -> loadDailySummary
       } finally {
         _handlingRecordEvent = false;
@@ -91,14 +92,14 @@ class HomeViewModel extends ChangeNotifier {
 
   // 자동 저축 + 모인 금액 계산 기준 값들
   // 세은님 수정 부분
-  double _currentAsset = 0;
-  double _savingPerSecond = 0;
   DateTime? _goalDate;
   bool _autoFillRunning = false;
   final Map<String, _DailyNet> _dailyNet = {};
-  double _sumDailyNet = 0;
+  double _actualSavedThroughConfirmedDays = 0;
   DateTime _guideStart = DateTime.now();
   DateTime? _guideLockUntil;
+  DateTime _todayAnchor = DateTime.now();
+  bool _dayBoundaryRefreshRunning = false;
 
   // ---------- 기록 캐시 (메모리) ----------
   // key: 'yyyy-MM'
@@ -160,7 +161,6 @@ class HomeViewModel extends ChangeNotifier {
     try {
       final monthly = await _recordRepo.loadMonthlyRecord(monthKey);
       _monthlyCache[monthKey] = monthly;
-      _updateDailyNetForMonth(monthKey); // 세은님 추가 부분
     } catch (_) {
       _monthlyCache[monthKey] = MonthlyRecord.empty(monthKey);
     }
@@ -185,9 +185,10 @@ class HomeViewModel extends ChangeNotifier {
 
       // 세은 추가
       _dailyNet.clear();
-      _sumDailyNet = 0;
+      _actualSavedThroughConfirmedDays = 0;
       _guideStart = _normalizeDay(DateTime.now());
       _guideLockUntil = null;
+      _todayAnchor = _normalizeDay(DateTime.now());
 
 
       _ticker?.cancel();
@@ -197,6 +198,9 @@ class HomeViewModel extends ChangeNotifier {
     }
 
     if (_initialized && !forceRefresh) {
+      _refreshPlanForToday();
+      await _autoFillMissingDays();
+      await _rebuildDailyNetThroughToday();
       await loadDailySummary(_selectedDate); // 세은 추가 후 하경 수정 loadDailySpending(DateTime.now()); -> loadDailySummary(_selectedDate);
       return;
     }
@@ -211,24 +215,12 @@ class HomeViewModel extends ChangeNotifier {
       // 2) 최신 플랜
       _latestPlan = await _planRepo.getLatestPlanForCurrentUser();
       _refData = await _refDataRepo.loadAll(); //세은님 추가 부분
-      // 3) 플랜 기반 계산 결과
-      if (_latestPlan != null && _hasMetrics(_latestPlan!)) {
-        _calc = SavingPlanCalculator(plan: _latestPlan!).calculate();
-      } else {
-        _calc = null;
-      }
-
-      _savingPerSecond = _calc?.savingPerSecond ?? 0;
-      _goalDate = _calc?.goalDateTime;
-
-      // 세은님 수정 부분 그대로 가져옴
-      if (_currentAsset == 0 && _latestPlan != null) {
-        _currentAsset = (_latestPlan?.currentAmount ?? 0).toDouble();
-      }
+      _refreshPlanForToday();
 
       _selectedDate = _clampDateToAllowedRange(_selectedDate);
 
       await _autoFillMissingDays();  // 세은님 추가 부분
+      await _rebuildDailyNetThroughToday();
 
       // 4) 1초 타이머 시작
       _startTicker();
@@ -281,6 +273,7 @@ class HomeViewModel extends ChangeNotifier {
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       secondTick.value++;
+      _scheduleDayBoundaryRefreshIfNeeded();
     });
   }
 
@@ -334,15 +327,10 @@ class HomeViewModel extends ChangeNotifier {
 
       _todaySpending = day?.totalSpendingAmount ?? 0;
       _todayIncome = day?.totalIncomeAmount ?? 0; // 하경 추가 부분
-
-
-      _updateDailyNetForDate(_selectedDate, day); // 세은 추가 부분, 하경이 date 대신 _selectedDate
     } catch (_) {
       _todaySpending = 0;
       _todayIncome = 0; // 하경 추가 부분
     }
-
-    _recomputeDailyNetSummary();  // 세은 추가 부분
     notifyListeners();
   }
 
@@ -398,8 +386,7 @@ class HomeViewModel extends ChangeNotifier {
       _todayIncome = existingDay?.totalIncomeAmount ?? 0;  // 하경 추가 부분
     }
 
-    _updateDailyNetForDate(date, newDay);   // 세은 추가 부분
-    _recomputeDailyNetSummary();  // 세은 추가 부분
+    await _rebuildDailyNetThroughToday();
 
     notifyListeners();
   }
@@ -411,9 +398,7 @@ class HomeViewModel extends ChangeNotifier {
   }
 
   // 세은님 수정 내용
-  double get liveSavedAmount {
-    return confirmedSaved + guideSum;
-  }
+  double get liveSavedAmount => actualSavedNow;
 
   String get liveSavedAmountText {
     return '${SavingPlanCalculator.formatAmount(liveSavedAmount)}원';
@@ -427,15 +412,31 @@ class HomeViewModel extends ChangeNotifier {
     return '${SavingPlanCalculator.formatAmount(metrics.dailyConsumeAmount.toDouble())}원';
   }
 
+  int get selectedDateDailyLimit => _dailyBudgetForDate(_selectedDate) ?? 0;
+
+  String get selectedDateDailyLimitText {
+    final limit = _dailyBudgetForDate(_selectedDate);
+    if (limit == null) return '—';
+    return '${SavingPlanCalculator.formatAmount(limit.toDouble())}원';
+  }
+
   // 하경 추가 내용
   String get todayIncomeText {
     return '${SavingPlanCalculator.formatAmount(_todayIncome.toDouble())}원';
   }
 
+  int get selectedDateIncome => _todayIncome;
+
+  String get selectedDateIncomeText => todayIncomeText;
+
   // 하경 추가 내용
   String get todaySpendingText {
     return '${SavingPlanCalculator.formatAmount(_todaySpending.toDouble())}원';
   }
+
+  int get selectedDateSpending => _todaySpending;
+
+  String get selectedDateSpendingText => todaySpendingText;
 
   // 하경 추가 내용
   bool get isTodayRecorded { // 소비 엔트리가 있는지 없는지 여부
@@ -448,46 +449,75 @@ class HomeViewModel extends ChangeNotifier {
 
     return day.spendingEntries.isNotEmpty;
   }
+
+  bool get isSelectedDateRecorded => isTodayRecorded;
+
   DayRecord? get selectedDayRecord { //선택된 날짜의 DayRecord
     final monthKey = DateFormat('yyyy-MM').format(_selectedDate);
     final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
     return _monthlyCache[monthKey]?.days[dateKey];
   }
 
+  DayRecord? get selectedDateRecord => selectedDayRecord;
 
-  String get perSecondSaving => _savingPerSecond.toStringAsFixed(2);
+
+  String get perSecondSaving => activeMiniPerSecondSaving.toStringAsFixed(2);
   double get progressRatio => _calc?.savingRatio ?? 0.0;
 
-  // 세은 추가 내용
-  double get confirmedSaved => _currentAsset + _sumDailyNet;
-  // 세은 추가 내용
+  double get effectiveTargetAmount {
+    final plan = _latestPlan;
+    if (plan == null) return 0;
+    final target = (plan.targetAmount ?? 0).toDouble();
+    return max(0, target - plan.currentAsset.toDouble());
+  }
+
+  double get confirmedSaved => _actualSavedThroughConfirmedDays;
+
+  double get actualSavedNow => confirmedSaved + guideSum;
+
+  double get plannedSavedNow {
+    final today = _normalizeDay(DateTime.now());
+    final yesterday = today.subtract(const Duration(days: 1));
+    final throughYesterday = _plannedSavedThrough(yesterday);
+    final elapsedSeconds = _secondsElapsedToday();
+    return throughYesterday + elapsedSeconds * activeMiniPerSecondSaving;
+  }
+
   double get guideSum {
-    if (_savingPerSecond == 0) return 0;
     _refreshGuideAnchors();
+    final todayRecord = _recordForDate(DateTime.now());
+    if (todayRecord != null && todayRecord.spendingEntries.isNotEmpty) {
+      return 0;
+    }
+    final perSecond = activeMiniPerSecondSaving;
+    if (perSecond == 0) return 0;
     if (_guideLockUntil != null && DateTime.now().isBefore(_guideLockUntil!)) {
       return 0;
     }
-    return max(0, DateTime.now().difference(_guideStart).inSeconds) *
-        _savingPerSecond;
+    return _secondsElapsedToday() * perSecond;
   }
   // 세은 추가 내용
   double get userPercent {
-    final target = (_latestPlan?.targetAmount ?? 0).toDouble();
+    final target = effectiveTargetAmount;
     if (target <= 0) return 0;
-    final value = (confirmedSaved + guideSum) / target;
+    final value = actualSavedNow / target;
     return value.clamp(0.0, 1.0);
   }
   // 세은 추가 내용
   double get planPercent {
-    final plan = _latestPlan;
-    if (plan == null) return 0;
-    final start = plan.startDate ?? plan.creationDate ?? DateTime.now();
-    final end = plan.modEndDate ?? plan.endDate ?? start;
-    if (!end.isAfter(start)) return 1;
-    final ratio = DateTime.now().difference(start).inSeconds /
-        end.difference(start).inSeconds;
-    return ratio.clamp(0.0, 1.0);
+    final target = effectiveTargetAmount;
+    if (target <= 0) return 0;
+    final value = plannedSavedNow / target;
+    return value.clamp(0.0, 1.0);
   }
+
+  double get currentMiniDailyNetSaving {
+    return _plannedDailyNetForDate(DateTime.now());
+  }
+
+  double get activeMiniPerSecondSaving => currentMiniDailyNetSaving / 86400.0;
+
+  double get planProgressPercentValue => (planPercent * 100).clamp(0.0, 100.0);
 
   bool _hasMetrics(TotalPlan plan) {
     final metrics = plan.result.totalMetrics;
@@ -567,9 +597,8 @@ class HomeViewModel extends ChangeNotifier {
       for (final key in monthNeedsReload) {
         final monthly = await _recordRepo.loadMonthlyRecord(key);
         _monthlyCache[key] = monthly;
-        _updateDailyNetForMonth(key);
       }
-      _recomputeDailyNetSummary();
+      await _rebuildDailyNetThroughToday();
     } finally {
       _autoFillRunning = false;
     }
@@ -654,40 +683,80 @@ class HomeViewModel extends ChangeNotifier {
   // 세은님 추가 내용
   String _toMonthKey(DateTime date) => DateFormat('yyyy-MM').format(date);
 
-  // 세은님 추가 내용
-  void _updateDailyNetForMonth(String monthKey) {
-    final monthly = _monthlyCache[monthKey];
-    if (monthly == null) return;
-    monthly.days.forEach((dateKey, record) {
-      final parsed = DateTime.tryParse(dateKey);
-      if (parsed != null) {
-        _updateDailyNetForDate(parsed, record);
-      }
-    });
+  DayRecord? _recordForDate(DateTime date) {
+    final normalized = _normalizeDay(date);
+    final monthKey = DateFormat('yyyy-MM').format(normalized);
+    final dateKey = DateFormat('yyyy-MM-dd').format(normalized);
+    return _monthlyCache[monthKey]?.days[dateKey];
+  }
+
+  double _plannedDailyNetForDate(DateTime date) {
+    final plan = _latestPlan;
+    if (plan == null) return 0;
+    final normalized = _normalizeDay(date);
+    final key = DateFormat('yyyyMM').format(normalized);
+    final subPlan = plan.subPlans[key];
+    if (subPlan == null) return 0;
+    final mini = _miniForDate(subPlan, normalized);
+    if (mini == null) return 0;
+    final daysInMonth = DateTime(normalized.year, normalized.month + 1, 0).day;
+    final monthlyNet = mini.monthlyIncomeAmount -
+        mini.monthlyConsumeAmount -
+        (mini.dailyConsumeAmount * daysInMonth);
+    return monthlyNet / daysInMonth;
+  }
+
+  double _plannedSavedThrough(DateTime endDate) {
+    final plan = _latestPlan;
+    if (plan == null) return 0;
+    final rawStart = plan.startDate ?? plan.creationDate;
+    if (rawStart == null) return 0;
+    final start = _normalizeDay(rawStart);
+    final end = _normalizeDay(endDate);
+    if (end.isBefore(start)) return 0;
+
+    var sum = 0.0;
+    var cursor = start;
+    while (!cursor.isAfter(end)) {
+      sum += _plannedDailyNetForDate(cursor);
+      cursor = _nextDay(cursor);
+    }
+    return sum;
+  }
+
+  int _secondsElapsedToday() {
+    final now = DateTime.now();
+    final todayStart = _normalizeDay(now);
+    return max(0, now.difference(todayStart).inSeconds);
   }
 
   // 세은님 추가 내용
   void _updateDailyNetForDate(DateTime date, DayRecord? record) {
     final normalized = _normalizeDay(date);
     final key = DateFormat('yyyy-MM-dd').format(normalized);
-    final planned = _dailyBudgetForDate(normalized) ?? 0;
-    if (record == null && planned == 0) {
+    final plannedBudget = _dailyBudgetForDate(normalized) ?? 0;
+    final plannedDailySaving = _plannedDailyNetForDate(normalized);
+    if (record == null && plannedBudget == 0 && plannedDailySaving == 0) {
       _dailyNet.remove(key);
       return;
     }
     final actual = record?.totalSpendingAmount ?? 0;
     final income = record?.totalIncomeAmount ?? 0;
-    if (planned == 0 && actual == 0 && income == 0) {
+    if (plannedBudget == 0 &&
+        plannedDailySaving == 0 &&
+        actual == 0 &&
+        income == 0) {
       _dailyNet.remove(key);
       return;
     }
-    final hasRecord = record != null && !record.isAutoGenerated;
+    final hasSpendingEntries = record?.spendingEntries.isNotEmpty ?? false;
     _dailyNet[key] = _DailyNet(
       date: normalized,
-      plannedAmount: planned,
+      plannedBudget: plannedBudget,
+      plannedDailySaving: plannedDailySaving,
       actualSpending: actual,
       extraIncome: income,
-      hasRecord: hasRecord,
+      hasSpendingEntries: hasSpendingEntries,
     );
   }
 
@@ -697,22 +766,94 @@ class HomeViewModel extends ChangeNotifier {
     final today = _normalizeDay(DateTime.now());
     var todayConfirmed = false;
     _dailyNet.forEach((_, net) {
-      if (net.hasRecord || net.date.isBefore(today)) {
-        sum += net.netSaving;
+      if (net.date.isAfter(today)) return;
+      if (net.date.isBefore(today) || net.hasSpendingEntries) {
+        sum += net.actualSaved;
       }
-      if (net.hasRecord) {
+      if (net.hasSpendingEntries) {
         if (net.date.isAtSameMomentAs(today)) {
           todayConfirmed = true;
         }
       }
     });
-    _sumDailyNet = sum;
+    _actualSavedThroughConfirmedDays = sum;
     _guideStart = _normalizeDay(DateTime.now());
     if (todayConfirmed) {
       _guideLockUntil = _nextDay(_guideStart);
     } else {
+      _guideLockUntil = null;
       _refreshGuideAnchors();
     }
+  }
+
+  Future<void> _rebuildDailyNetThroughToday() async {
+    final plan = _latestPlan;
+    if (plan == null) {
+      _dailyNet.clear();
+      _actualSavedThroughConfirmedDays = 0;
+      _guideStart = _normalizeDay(DateTime.now());
+      _guideLockUntil = null;
+      return;
+    }
+
+    final start = _normalizeDay(
+      plan.startDate ?? plan.creationDate ?? DateTime.now(),
+    );
+    final today = _normalizeDay(DateTime.now());
+
+    _dailyNet.clear();
+
+    var cursor = start;
+    while (!cursor.isAfter(today)) {
+      await _ensureMonthlyLoaded(cursor);
+      final monthKey = DateFormat('yyyy-MM').format(cursor);
+      final dateKey = DateFormat('yyyy-MM-dd').format(cursor);
+      final day = _monthlyCache[monthKey]?.days[dateKey];
+      _updateDailyNetForDate(cursor, day);
+      cursor = _nextDay(cursor);
+    }
+
+    _recomputeDailyNetSummary();
+  }
+
+  void _refreshPlanForToday() {
+    final plan = _latestPlan;
+    if (plan == null) {
+      _calc = null;
+      _goalDate = null;
+      return;
+    }
+
+    final normalizedPlan = plan.recalculateTotals();
+    _latestPlan = normalizedPlan;
+
+    if (_hasMetrics(normalizedPlan)) {
+      _calc = SavingPlanCalculator(plan: normalizedPlan).calculate();
+    } else {
+      _calc = null;
+    }
+
+    _goalDate = _calc?.goalDateTime;
+  }
+
+  void _scheduleDayBoundaryRefreshIfNeeded() {
+    final today = _normalizeDay(DateTime.now());
+    if (_todayAnchor.isAtSameMomentAs(today) || _dayBoundaryRefreshRunning) {
+      return;
+    }
+
+    _todayAnchor = today;
+    _dayBoundaryRefreshRunning = true;
+    Future<void>(() async {
+      try {
+        _refreshPlanForToday();
+        await _autoFillMissingDays();
+        await _rebuildDailyNetThroughToday();
+        await loadDailySummary(_selectedDate);
+      } finally {
+        _dayBoundaryRefreshRunning = false;
+      }
+    });
   }
 
   // 세은님 추가 내용
@@ -741,17 +882,20 @@ class HomeViewModel extends ChangeNotifier {
 class _DailyNet {
   _DailyNet({
     required this.date,
-    required this.plannedAmount,
+    required this.plannedBudget,
+    required this.plannedDailySaving,
     required this.actualSpending,
     required this.extraIncome,
-    required this.hasRecord,
+    required this.hasSpendingEntries,
   });
 
   final DateTime date;
-  final int plannedAmount;
+  final int plannedBudget;
+  final double plannedDailySaving;
   final int actualSpending;
   final int extraIncome;
-  final bool hasRecord;
+  final bool hasSpendingEntries;
 
-  int get netSaving => plannedAmount - actualSpending + extraIncome;
+  double get actualSaved =>
+      plannedDailySaving + plannedBudget - actualSpending + extraIncome;
 }

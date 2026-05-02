@@ -20,20 +20,15 @@ class TodayRecordSpendingSection extends StatelessWidget {
   String _formatAmount(int amount) {
     return amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
+      (Match m) => '${m[1]},',
     );
   }
 
-  int _timeInMinutes(int diffAmount) {
-    if (diffAmount <= 0) return 0;
-    return (diffAmount / 0.11).round();
-  }
-
   String _formatTime(int minutes) {
-    if (minutes < 60) return '${minutes}분';
+    if (minutes < 60) return '$minutes분';
     final h = minutes ~/ 60;
     final m = minutes % 60;
-    return (m == 0) ? '${h}시간' : '${h}시간 ${m}분';
+    return (m == 0) ? '$h시간' : '$h시간 $m분';
   }
 
   @override
@@ -42,7 +37,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
     final totalAmount = vm.totalAmount;
     final dailyLimit = vm.dailyLimit;
     final diffAmount = vm.diffAmount;
-    final minutes = _timeInMinutes(diffAmount);
+    final minutes = vm.diffTimeMinutes;
     final isOverLimit = (dailyLimit > 0 && totalAmount > dailyLimit);
 
     return SingleChildScrollView(
@@ -67,55 +62,62 @@ class TodayRecordSpendingSection extends StatelessWidget {
                 children: [
                   entries.isEmpty
                       ? Padding(
-                    padding: const EdgeInsets.all(40),
-                    child: Column(
-                      children: [
-                        Icon(Icons.receipt_long,
-                            size: 48, color: Colors.grey[400]),
-                        const SizedBox(height: 16),
-                        Text(
-                          '등록된 소비가 없어요',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                      : Column(
-                    children: entries.asMap().entries.map((kv) {
-                      final index = kv.key;
-                      final e = kv.value;
-
-                      return Column(
-                        children: [
-                          _buildSpendingEntryWithSwipe(
-                            entry: e,
-                            onEdit: () => onEdit(e),
-                            onDelete: () => onDelete(e),
-                            isOverLimit: isOverLimit,
-                          ),
-                          if (index < entries.length - 1)
-                            Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 20),
-                              height: 2,
-                              decoration: BoxDecoration(
-                                border: Border(
-                                  top: BorderSide(
-                                    color: isOverLimit
-                                        ? Colors.red.withOpacity(0.3)
-                                        : const Color(0xFF4A90E2).withOpacity(0.25),
-                                    width: 1,
-                                  ),
+                          padding: const EdgeInsets.all(40),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.receipt_long,
+                                size: 48,
+                                color: Colors.grey[400],
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                '등록된 소비가 없어요',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
-                            ),
-                        ],
-                      );
-                    }).toList(),
-                  ),
+                            ],
+                          ),
+                        )
+                      : Column(
+                          children: entries.asMap().entries.map((kv) {
+                            final index = kv.key;
+                            final e = kv.value;
+
+                            return Column(
+                              children: [
+                                _buildSpendingEntryWithSwipe(
+                                  entry: e,
+                                  onEdit: () => onEdit(e),
+                                  onDelete: () => onDelete(e),
+                                  isOverLimit: isOverLimit,
+                                ),
+                                if (index < entries.length - 1)
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                    ),
+                                    height: 2,
+                                    decoration: BoxDecoration(
+                                      border: Border(
+                                        top: BorderSide(
+                                          color: isOverLimit
+                                              ? Colors.red.withOpacity(0.3)
+                                              : const Color(
+                                                  0xFF4A90E2,
+                                                ).withOpacity(0.25),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
 
                   // ✅ 리스트 아래 / 총액 위 + 버튼
                   Padding(
@@ -193,7 +195,10 @@ class TodayRecordSpendingSection extends StatelessWidget {
                             children: [
                               const Text(
                                 '하루소비한도금액',
-                                style: TextStyle(fontSize: 14, color: Colors.grey),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
                               ),
                               Text(
                                 '${_formatAmount(dailyLimit)}원',
@@ -258,7 +263,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
                                     child: Text(
                                       diffAmount > 0
                                           ? '${_formatAmount(diffAmount)}원치, 목표도달까지 ${_formatTime(minutes)}이 미뤄졌어요! 내일 더 힘내봐요!'
-                                          : '${_formatAmount(diffAmount.abs())}원치, 목표도달까지 ${_formatTime(_timeInMinutes(diffAmount.abs()))}이 당겨졌어요! 오늘도 잘했어요!',
+                                          : '${_formatAmount(diffAmount.abs())}원치, 목표도달까지 ${_formatTime(minutes)}이 당겨졌어요! 오늘도 잘했어요!',
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: diffAmount > 0

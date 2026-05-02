@@ -106,6 +106,7 @@ Widget _buildSummaryChartWithRecommendation(
       if (recommendation != null && recommendation.isNotEmpty)
         _BotBubbleTyping(
           key: ValueKey('${viewModel.summaryRenderVersion}:$recommendation'),
+          completionKey: '${viewModel.summaryRenderVersion}:$recommendation',
           text: recommendation,
           delay: const Duration(milliseconds: 500),   // ⏱️ 타이핑 시작 전 대기
           charInterval: const Duration(milliseconds: 22), // ⌨️ 글자당 속도
@@ -187,12 +188,14 @@ class _BotBubble extends StatelessWidget {
 
 class _BotBubbleTyping extends StatefulWidget {
   final String text;
+  final String completionKey;
   final Duration delay;        // 타이핑 시작 전 대기
   final Duration charInterval; // 글자당 타이핑 속도
 
   const _BotBubbleTyping({
     super.key,
     required this.text,
+    required this.completionKey,
     this.delay = const Duration(milliseconds: 400),
     this.charInterval = const Duration(milliseconds: 25),
   });
@@ -202,6 +205,8 @@ class _BotBubbleTyping extends StatefulWidget {
 }
 
 class _BotBubbleTypingState extends State<_BotBubbleTyping> with SingleTickerProviderStateMixin {
+  static final Set<String> _completedKeys = <String>{};
+
   bool _showTypingDots = true;
   int _visibleChars = 0;
   Timer? _timer;
@@ -209,14 +214,29 @@ class _BotBubbleTypingState extends State<_BotBubbleTyping> with SingleTickerPro
   @override
   void initState() {
     super.initState();
-    _startSequence();
+    if (_completedKeys.contains(widget.completionKey)) {
+      _showTypingDots = false;
+      _visibleChars = widget.text.length;
+    } else {
+      _startSequence();
+    }
   }
 
   @override
   void didUpdateWidget(covariant _BotBubbleTyping oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.text == widget.text) return;
+    if (oldWidget.text == widget.text &&
+        oldWidget.completionKey == widget.completionKey) {
+      return;
+    }
     _timer?.cancel();
+    if (_completedKeys.contains(widget.completionKey)) {
+      setState(() {
+        _showTypingDots = false;
+        _visibleChars = widget.text.length;
+      });
+      return;
+    }
     setState(() {
       _showTypingDots = true;
       _visibleChars = 0;
@@ -235,8 +255,13 @@ class _BotBubbleTypingState extends State<_BotBubbleTyping> with SingleTickerPro
       if (!mounted) return;
       if (_visibleChars >= widget.text.length) {
         t.cancel();
+        _completedKeys.add(widget.completionKey);
       } else {
         setState(() => _visibleChars++);
+        if (_visibleChars >= widget.text.length) {
+          t.cancel();
+          _completedKeys.add(widget.completionKey);
+        }
       }
     });
   }
