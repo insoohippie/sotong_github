@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/theme/app_border_radius.dart';
 import '../../../model/notification/notification_item.dart';
@@ -16,24 +17,23 @@ class _NotificationPageState extends State<NotificationPage> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NotificationViewModel>().generateSampleNotifications();
+      context.read<NotificationViewModel>().loadNotifications();
     });
   }
 
   static DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  /// 이번 주 월요일(00:00 기준 날짜만)
   static DateTime _mondayOfWeek(DateTime any) {
     final day = _dateOnly(any);
     return day.subtract(Duration(days: day.weekday - 1));
   }
 
-  /// 이번 주 일요일(날짜만)
-  static DateTime _sundayOfWeek(DateTime any) =>
-      _mondayOfWeek(any).add(const Duration(days: 6));
+  static DateTime _sundayOfWeek(DateTime any) {
+    return _mondayOfWeek(any).add(const Duration(days: 6));
+  }
 
-  /// [createdAt] 기준으로 오늘 / 이번 주(월~일, 오늘 제외) / 그 이전
   static Map<String, List<NotificationItem>> _partitionByTime(
       List<NotificationItem> all,
       ) {
@@ -48,6 +48,7 @@ class _NotificationPageState extends State<NotificationPage> {
 
     for (final n in all) {
       final d = _dateOnly(n.createdAt);
+
       if (d == today) {
         todayList.add(n);
       } else if (!d.isBefore(weekStart) && !d.isAfter(weekEnd)) {
@@ -57,8 +58,9 @@ class _NotificationPageState extends State<NotificationPage> {
       }
     }
 
-    int byTimeDesc(NotificationItem a, NotificationItem b) =>
-        b.createdAt.compareTo(a.createdAt);
+    int byTimeDesc(NotificationItem a, NotificationItem b) {
+      return b.createdAt.compareTo(a.createdAt);
+    }
 
     todayList.sort(byTimeDesc);
     thisWeekList.sort(byTimeDesc);
@@ -74,6 +76,7 @@ class _NotificationPageState extends State<NotificationPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: const BackOnlyAppBar(),
@@ -81,16 +84,19 @@ class _NotificationPageState extends State<NotificationPage> {
         child: Consumer<NotificationViewModel>(
           builder: (context, vm, _) {
             final buckets = _partitionByTime(vm.notifications);
+
             return ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 _buildSectionHeader('오늘 알림', context),
                 const SizedBox(height: 8),
                 _buildNotificationSection(buckets['today']!, vm, context),
+
                 const SizedBox(height: 24),
                 _buildSectionHeader('이번 주 알림', context),
                 const SizedBox(height: 8),
                 _buildNotificationSection(buckets['thisWeek']!, vm, context),
+
                 const SizedBox(height: 24),
                 _buildSectionHeader('지난 알림', context),
                 const SizedBox(height: 8),
@@ -124,6 +130,7 @@ class _NotificationPageState extends State<NotificationPage> {
       BuildContext context,
       ) {
     final theme = Theme.of(context);
+
     return Container(
       constraints: const BoxConstraints(minHeight: 80),
       decoration: BoxDecoration(
@@ -178,10 +185,15 @@ class _NotificationPageState extends State<NotificationPage> {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete, color: Colors.white, size: 24),
+        child: const Icon(
+          Icons.delete,
+          color: Colors.white,
+          size: 24,
+        ),
       ),
       onDismissed: (direction) {
         vm.removeNotification(notification.id);
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${notification.title} 알림을 삭제했습니다.'),
@@ -193,9 +205,12 @@ class _NotificationPageState extends State<NotificationPage> {
         );
       },
       child: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: const Color(0xFFE5E7EB), width: 0.5),
+            bottom: BorderSide(
+              color: Color(0xFFE5E7EB),
+              width: 0.5,
+            ),
           ),
         ),
         child: ListTile(
@@ -211,7 +226,9 @@ class _NotificationPageState extends State<NotificationPage> {
             ),
             child: Icon(
               _getIconForType(notification.type),
-              color: notification.isRead ? Colors.grey : const Color(0xFF2563EB),
+              color: notification.isRead
+                  ? Colors.grey
+                  : const Color(0xFF2563EB),
               size: 20,
             ),
           ),
@@ -250,13 +267,24 @@ class _NotificationPageState extends State<NotificationPage> {
               ),
             ],
           ),
-          onTap: () {
+          onTap: () async {
             if (!notification.isRead) {
-              vm.markAsRead(notification.id);
+              await vm.markAsRead(notification.id);
             }
-            if (notification.targetRoute != null) {
-              // 네비게이션 로직
-            }
+
+            final route = notification.targetRoute;
+            if (route == null) return;
+
+            final Object? args = notification.targetTabIndex ??
+                notification.targetDate;
+
+            Navigator.of(
+              context,
+              rootNavigator: true,
+            ).pushNamed(
+              route,
+              arguments: args,
+            );
           },
         ),
       ),

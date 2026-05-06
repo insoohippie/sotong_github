@@ -5,7 +5,12 @@ import 'package:sotong_local/route.dart';
 import '../../../component/theme/app_colors.dart'; // <-- appRoutes 가져오기
 
 class HomeTabNavigator extends StatefulWidget {
-  const HomeTabNavigator({super.key});
+  const HomeTabNavigator({
+    super.key,
+    this.initialIndex = 1,
+  });
+
+  final int initialIndex;
 
   @override
   State<HomeTabNavigator> createState() => _HomeTabNavigatorState();
@@ -13,7 +18,7 @@ class HomeTabNavigator extends StatefulWidget {
 
 class _HomeTabNavigatorState extends State<HomeTabNavigator> {
   late PageController _pageController;
-  int _currentIndex = 1;
+  late int _currentIndex;
 
   // appRoutes 키 기반으로 탭 라우트 구성
   final List<String> _tabRoutes = ['/report', '/home', '/communication'];
@@ -21,6 +26,7 @@ class _HomeTabNavigatorState extends State<HomeTabNavigator> {
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
     _pageController = PageController(initialPage: _currentIndex);
   }
 

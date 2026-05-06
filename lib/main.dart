@@ -61,6 +61,7 @@ Future<void> main() async {
   await Hive.openBox('past_plans');
   await Hive.openBox('settings');
   await Hive.openBox('plan_cache');
+  await Hive.openBox('notification_read');
 
   // 2) Firebase 초기화
   try {
@@ -240,7 +241,11 @@ class MyApp extends StatelessWidget {
           create: (_) => AlarmViewModel(),
         ),
         ChangeNotifierProvider<NotificationViewModel>(
-          create: (_) => NotificationViewModel(),
+          create: (ctx) => NotificationViewModel(
+            ctx.read<RecordRepository>(),
+            ctx.read<RefDataRepository>(),
+            ctx.read<PlanRepository>(),
+          ),
         ),
       ],
       child: Consumer<SettingViewModel>(

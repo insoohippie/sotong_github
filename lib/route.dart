@@ -65,7 +65,14 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/category_edit': (_) => const CategoryEditPage(),
 
   // 메인 페이지(홈, 소통, 레포트)
-  '/home_tab_navigator': (_) => const HomeTabNavigator(),
+  '/home_tab_navigator': (context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    int initialIndex = 1;
+    if (args is int) {
+      initialIndex = args;
+    }
+    return HomeTabNavigator(initialIndex: initialIndex);
+  },
   '/home': (_) => const HomePage(),
   '/report': (_) => const ReportPage(),
   '/communication': (_) => const CommunicationPage(),
