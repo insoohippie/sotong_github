@@ -1,0 +1,39 @@
+5.6일 패딩 작업 — 변경·추가된 파일 경로 (lib 기준)
+
+참고: ViewModel에서는 이 패딩 유틸을 import 하지 않음. 화면(Widget)·모달(UI) 단에서만 사용.
+
+────────────────────────────────
+■ 새로 두는 패딩 규칙 파일 (2)
+────────────────────────────────
+lib/component/theme/padding/horizontal_padding_clamped_fraction.dart
+lib/component/theme/padding/vertical_section_spacing_ref_height_600.dart
+
+────────────────────────────────
+■ 가로 패딩(horizontal…) 적용
+────────────────────────────────
+lib/view/pages/auth/login_page.dart
+lib/view/pages/auth/signup_page.dart
+lib/view/pages/auth/signup_success_page.dart
+lib/view/pages/auth/unsuccess_plan_quit.dart
+lib/view/pages/plan/plan_success_page.dart
+lib/view/pages/home/home_tab_navigator.dart
+lib/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart
+lib/view/pages/plan/plan_widgets/plan_input_modal/footer/footer_default.dart
+lib/view/pages/plan/plan_widgets/plan_input_modal/footer/footer_daily.dart
+
+────────────────────────────────
+■ 세로 구간 간격(vertical…) 추가 적용
+   (각 뷰에서 min 리스트 길이·값만 지정)
+────────────────────────────────
+lib/view/pages/auth/signup_success_page.dart
+lib/view/pages/auth/unsuccess_plan_quit.dart
+lib/view/pages/plan/plan_success_page.dart
+
+────────────────────────────────
+■ 과거 이름(삭제됨 · 동일 목적 파일로 통합/이름변경)
+   팀 원격에 남아 있으면 참고 후 제거·치환
+────────────────────────────────
+lib/component/theme/padding/padding_responsive_16_40_0_06vw.dart
+lib/component/theme/padding/padding_responsive_16_40_0_075vw.dart
+lib/component/theme/padding/padding_responsive_16_40_vw.dart
+lib/component/theme/padding/section_gap_ref_height_600.dart
