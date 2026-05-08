@@ -5,6 +5,7 @@ import 'package:sotong_local/component/texts/paragraph_text.dart';
 import 'package:sotong_local/component/texts/subtext.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/component/theme/app_spacing.dart';
+import 'package:sotong_local/component/theme/padding/horizontal_padding_clamped_fraction.dart';
 import 'package:sotong_local/model/saving_calculation_result.dart';
 
 class FooterDaily extends StatefulWidget {
@@ -72,6 +73,10 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
     final target = widget.targetAmount;
     final current = widget.currentAsset;
     final preview = widget.previewResult;
+    final hPad = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionModal06,
+    );
 
 
 // 예상 도달 안내문
@@ -125,7 +130,7 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
       child: Column(
         children: [
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            padding: EdgeInsets.symmetric(horizontal: hPad),
             child: AnimatedBuilder(
               animation: _shake,
               builder: (_, __) {
@@ -201,7 +206,7 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
             child: showTargetWarning
                 ? Padding(
               key: const ValueKey('target-warning'),
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              padding: EdgeInsets.symmetric(horizontal: hPad),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -232,7 +237,7 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
           ),
           if (showTargetWarning) const SizedBox(height: 8),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+            padding: EdgeInsets.symmetric(horizontal: hPad),
             child: Center(
               child: Text(
                 helperLine ?? '',

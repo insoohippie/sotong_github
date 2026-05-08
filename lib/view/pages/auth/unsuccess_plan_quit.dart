@@ -5,20 +5,14 @@ import 'package:provider/provider.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
+import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
+import '../../../component/theme/padding/vertical_section_spacing_ref_height_600.dart';
 import '../../../repository/auth_repository.dart';
+
+const _kUnsuccessSectionMins = <double>[12, 100];
 
 class UnsuccessPlanQuitPage extends StatelessWidget {
   const UnsuccessPlanQuitPage({super.key});
-
-  double _authHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width <= 320) return 16;
-    if (width <= 360) return 18;
-    if (width <= 390) return 20;
-    if (width <= 430) return 24;
-    if (width < 768) return 28;
-    return 40;
-  }
 
   void _goLogin(BuildContext context) {
     Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
@@ -26,7 +20,14 @@ class UnsuccessPlanQuitPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final horizontalPadding = _authHorizontalPadding(context);
+    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionScreen075,
+    );
+    final sectionGaps = SectionGapRefHeight600.scaledMinsFromContext(
+      context,
+      minGaps: _kUnsuccessSectionMins,
+    );
 
     return PopScope(
       canPop: false,
@@ -46,72 +47,62 @@ class UnsuccessPlanQuitPage extends StatelessWidget {
           ),
         ),
         body: SafeArea(
-          child: Stack(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Positioned.fill(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-                      child: FutureBuilder<String>(
-                        future: context.read<AuthRepository>().getUserName(),
-                        builder: (context, snapshot) {
-                          final userName =
-                          (snapshot.data?.trim().isNotEmpty ?? false)
-                              ? snapshot.data!.trim()
-                              : '회원';
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                child: FutureBuilder<String>(
+                  future: context.read<AuthRepository>().getUserName(),
+                  builder: (context, snapshot) {
+                    final userName =
+                        (snapshot.data?.trim().isNotEmpty ?? false)
+                            ? snapshot.data!.trim()
+                            : '회원';
 
-                          return _WelcomeTexts(userName: userName);
-                        },
-                      ),
-                    ),
-                    const Spacer(),
-                    CustomButton(
-                      text: '플랜 만들기',
-                      onPressed: () {
-                        Navigator.of(context)
-                            .pushReplacementNamed('/plan_chat');
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.bottomSpacing),
-                  ],
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: sectionGaps[0]),
+                        _WelcomeTitle(userName: userName),
+                        const SizedBox(height: 24),
+                        const Text(
+                          '다시 만나서 반가워요.\n플랜을 아직 완성하지 않으셨네요,\n이어서 만들어볼까요?',
+                          style: TextStyle(
+                            fontSize: 17,
+                            height: 1.25,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
-              const Positioned.fill(
-                child: Center(child: _CheckSettingAnimation()),
+              SizedBox(height: sectionGaps[1]),
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _CheckSettingAnimation(),
+                ],
               ),
+              const Spacer(),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                child: CustomButton(
+                  padding: EdgeInsets.zero,
+                  text: '플랜 만들기',
+                  onPressed: () {
+                    Navigator.of(context).pushReplacementNamed('/plan_chat');
+                  },
+                ),
+              ),
+              const SizedBox(height: AppSpacing.bottomSpacing),
             ],
           ),
         ),
       ),
-    );
-  }
-}
-
-class _WelcomeTexts extends StatelessWidget {
-  const _WelcomeTexts({required this.userName});
-
-  final String userName;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 12),
-        _WelcomeTitle(userName: userName),
-        const SizedBox(height: 24),
-        const Text(
-          '다시 만나서 반가워요.\n플랜을 아직 완성하지 않으셨네요,\n이어서 만들어볼까요?',
-          style: TextStyle(
-            fontSize: 17,
-            height: 1.25,
-            color: Colors.black,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ],
     );
   }
 }

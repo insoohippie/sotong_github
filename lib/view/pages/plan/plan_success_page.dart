@@ -8,12 +8,16 @@ import '../../../component/texts/multi_color_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
+import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
+import '../../../component/theme/padding/vertical_section_spacing_ref_height_600.dart';
 
 import '../../../repository/auth_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/services/saving_calculator.dart';
 import '../../../services/local_notification_service.dart';
 import '../../../services/notification_settings_storage.dart';
+
+const _kSuccessSectionGaps = <double>[24, 24, 12];
 
 class PlanSuccessPage extends StatefulWidget {
   const PlanSuccessPage({super.key});
@@ -63,24 +67,31 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
   Widget build(BuildContext context) {
     final vm = context.watch<ChatPlanViewModel>();
     final isLoading = vm.isSaving || !_savingDone;
+    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionScreen075,
+    );
 
     // 로딩 중
     if (isLoading) {
       return Scaffold(
         backgroundColor: Colors.white,
         appBar: const BackOnlyAppBar(),
-        body: const SafeArea(
+        body: SafeArea(
           child: Column(
             children: [
               Expanded(
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('플랜을 저장하는 중입니다...'),
-                    ],
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  child: const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('플랜을 저장하는 중입니다...'),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -100,9 +111,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
             children: [
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.screenPadding,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -126,7 +135,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
                             Navigator.pushNamedAndRemoveUntil(
                               context,
                               '/home_tab_navigator',
-                                  (route) => false,
+                              (route) => false,
                             );
                           },
                           child: const Text('홈으로 이동'),
@@ -185,6 +194,11 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
       TextPart('이 모여요!', AppColors.text),
     ];
 
+    final sectionGaps = SectionGapRefHeight600.scaledMinsFromContext(
+      context,
+      minGaps: _kSuccessSectionGaps,
+    );
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: const BackOnlyAppBar(),
@@ -193,17 +207,16 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
           children: [
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.screenPadding,
-                ),
+                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    SizedBox(height: sectionGaps[0]),
                     MultiColorText(
                       baseStyle: AppTextStyles.header,
                       parts: messageHeaderParts,
                     ),
-                    const SizedBox(height: 24),
+                    SizedBox(height: sectionGaps[1]),
                     RoundedInfoContainer(
                       child: Row(
                         children: [
@@ -221,7 +234,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: sectionGaps[2]),
                     RoundedInfoContainer(
                       child: Row(
                         children: [
@@ -251,7 +264,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
                 Navigator.pushNamedAndRemoveUntil(
                   context,
                   '/home_tab_navigator',
-                      (route) => false,
+                  (route) => false,
                 );
               },
             ),

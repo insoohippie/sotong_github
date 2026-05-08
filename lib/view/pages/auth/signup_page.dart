@@ -14,6 +14,7 @@ import '../../../component/inputs/wheel_date_picker.dart';
 import '../../../component/texts/multi_color_text.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
+import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 import '../../../view_model/auth/signup_view_model.dart';
 import '../../../component/buttons/custom_button.dart';
 
@@ -24,16 +25,6 @@ class SignUpPage extends StatefulWidget {
   State<SignUpPage> createState() => _SignUpPageState();
 }
 class _SignUpPageState extends State<SignUpPage> {
-  double _authHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width <= 320) return 16;
-    if (width <= 360) return 18;
-    if (width <= 390) return 20;
-    if (width <= 430) return 24;
-    if (width < 768) return 28;
-    return 40;
-  }
-
   @override
   void initState() {
     super.initState();
@@ -46,7 +37,10 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<SignupViewModel>();
-    final horizontalPadding = _authHorizontalPadding(context);
+    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionScreen075,
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -86,13 +80,14 @@ class _SignUpPageState extends State<SignUpPage> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(
-            0,
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
             AppSpacing.bottomSpacing,
-            0,
+            horizontalPadding,
             AppSpacing.bottomSpacing,
           ),
           child: CustomButton(
+            padding: EdgeInsets.zero,
             text: vm.currentStep == SignupStep.userInfo ? '회원가입 완료' : '다음',
             enabled: vm.isCurrentStepValid,
             onPressed: () async {

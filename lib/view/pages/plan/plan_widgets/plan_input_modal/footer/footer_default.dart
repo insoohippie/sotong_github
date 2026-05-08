@@ -4,6 +4,7 @@ import 'package:sotong_local/component/buttons/custom_button.dart';
 import 'package:sotong_local/component/texts/paragraph_text.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/component/theme/app_spacing.dart';
+import 'package:sotong_local/component/theme/padding/horizontal_padding_clamped_fraction.dart';
 
 class FooterDefault extends StatefulWidget {
   final double total; // 고정소비/수입 합계 (수입일 땐 isOverBudget=false로 들어옴)
@@ -64,7 +65,13 @@ class _FooterDefaultState extends State<FooterDefault>
     final canComplete = !over && (widget.allowZeroTotal || widget.total > 0);
 
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.screenPadding),
+      padding: EdgeInsets.symmetric(
+        horizontal: PaddingResponsive16_40Vw.horizontal(
+          context,
+          PaddingResponsive16_40Vw.fractionModal06,
+        ),
+        vertical: AppSpacing.screenPadding,
+      ),
       decoration: BoxDecoration(
         color: const Color(0xFFF9FAFB),
         border: const Border(top: BorderSide(color: Color(0xFFF0F0F0))),

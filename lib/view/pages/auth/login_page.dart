@@ -7,6 +7,7 @@ import '../../../component/texts/multi_color_text.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
+import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 import '../../../repository/auth_repository.dart';
 import '../../../repository/plan_cache_repository.dart';
 import '../../../repository/plan_repository.dart';
@@ -20,20 +21,13 @@ import '../../../repository/ref_category_repository.dart';
 class EmailLoginPage extends StatelessWidget {
   const EmailLoginPage({super.key});
 
-  double _authHorizontalPadding(BuildContext context) {
-    final width = MediaQuery.sizeOf(context).width;
-    if (width <= 320) return 16;
-    if (width <= 360) return 18;
-    if (width <= 390) return 20;
-    if (width <= 430) return 24;
-    if (width < 768) return 28;
-    return 40;
-  }
-
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<LoginViewModel>();
-    final horizontalPadding = _authHorizontalPadding(context);
+    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionScreen075,
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -117,96 +111,122 @@ class EmailLoginPage extends StatelessWidget {
             ),
 
             // 로그인 버튼 + 로딩 인디케이터
-            vm.isLoading
-                ? const SizedBox(
-              height: 48,
-              child: Center(child: CircularProgressIndicator()),
-            )
-                : CustomButton(
-              text: '로그인',
-              onPressed: () async {
-                final success = await vm.login();
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: vm.isLoading
+                  ? const SizedBox(
+                      height: 48,
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : CustomButton(
+                      padding: EdgeInsets.zero,
+                      text: '로그인',
+                      onPressed: () async {
+                        final success = await vm.login();
 
-                if (!context.mounted) return;
+                        if (!context.mounted) return;
 
-                if (success) {
-                  // 세은님 수정 부분
-                  final hydrated = await _hydrateCachesIfNeeded(context);
-                  if (!hydrated) return;
-                  final authRepo = context.read<AuthRepository>();
-                  var next = authRepo.nextRouteBySession();
-                  // 세은님 수정 부분
-                  final shouldProbeExistingPlan =
-                      next == '/unsuccess_plan_quit' || !authRepo.cachedHasPlan;
-                  if (shouldProbeExistingPlan) {
-                    try {
-                      final planRepo = context.read<PlanRepository>();
-                      final existingPlan =
-                      await planRepo.getLatestPlanForCurrentUser();
-                      if (existingPlan != null) {
-                        final refDataRepo = context.read<RefDataRepository>();
-                        final refData = await refDataRepo.loadAll();
-                        refData.planId = existingPlan.planId;
-                        final tree = PlanDebugPrinter.describe(
-                          plan: existingPlan,
-                          refData: refData,
-                        );
-                        debugPrint('--- Plan Tree Loaded (Login) ---\n$tree');
-                        final cacheRepo = context.read<PlanCacheRepository>();
-                        final uid =
-                            authRepo.cachedUid ?? authRepo.currentUserId;
-                        if (uid != null) {
-                          await cacheRepo.saveSnapshot(
-                            uid: uid,
-                            snapshot: PlanCacheSnapshot(
-                              plan: existingPlan,
-                              refData: refData,
-                              needsInitialUpload: false, // 세은님 추가 부분
-                            ),
+                        if (success) {
+                          // 세은님 수정 부분
+                          final hydrated =
+                              await _hydrateCachesIfNeeded(context);
+                          if (!hydrated) return;
+                          final authRepo = context.read<AuthRepository>();
+                          var next = authRepo.nextRouteBySession();
+                          // 세은님 수정 부분
+                          final shouldProbeExistingPlan =
+                              next == '/unsuccess_plan_quit' ||
+                                  !authRepo.cachedHasPlan;
+                          if (shouldProbeExistingPlan) {
+                            try {
+                              final planRepo =
+                                  context.read<PlanRepository>();
+                              final existingPlan =
+                                  await planRepo.getLatestPlanForCurrentUser();
+                              if (existingPlan != null) {
+                                final refDataRepo =
+                                    context.read<RefDataRepository>();
+                                final refData = await refDataRepo.loadAll();
+                                refData.planId = existingPlan.planId;
+                                final tree = PlanDebugPrinter.describe(
+                                  plan: existingPlan,
+                                  refData: refData,
+                                );
+                                debugPrint(
+                                  '--- Plan Tree Loaded (Login) ---\n$tree',
+                                );
+                                final cacheRepo =
+                                    context.read<PlanCacheRepository>();
+                                final uid =
+                                    authRepo.cachedUid ?? authRepo.currentUserId;
+                                if (uid != null) {
+                                  await cacheRepo.saveSnapshot(
+                                    uid: uid,
+                                    snapshot: PlanCacheSnapshot(
+                                      plan: existingPlan,
+                                      refData: refData,
+                                      needsInitialUpload: false, // 세은님 추가 부분
+                                    ),
+                                  );
+                                  debugPrint(
+                                    '[EmailLoginPage] plan snapshot cached for uid=$uid',
+                                  );
+                                } else {
+                                  debugPrint(
+                                    '[EmailLoginPage] skipping plan cache save: uid missing',
+                                  );
+                                }
+                                await authRepo.setHasPlan(true);
+                                next = authRepo.nextRouteBySession(
+                                  skipHasPlanCheck: true,
+                                );
+                              }
+                            } catch (e) {
+                              debugPrint(
+                                '[EmailLoginPage] failed to probe existing plan: $e',
+                              );
+                            }
+                          }
+
+                          if (authRepo.cachedHasPlan) {
+                            final cacheRepo =
+                                context.read<PlanCacheRepository>();
+                            final uid =
+                                authRepo.cachedUid ?? authRepo.currentUserId;
+                            final snapshot =
+                                uid != null ? cacheRepo.loadSnapshot(uid) : null;
+                            if (snapshot != null) {
+                              final tree = PlanDebugPrinter.describe(
+                                plan: snapshot.plan,
+                                refData: snapshot.refData,
+                              );
+                              debugPrint(
+                                '--- Plan Cache Snapshot (Login) ---\n$tree',
+                              );
+                            } else {
+                              debugPrint(
+                                '[EmailLoginPage] hasPlan=true but cache snapshot missing',
+                              );
+                            }
+                          }
+
+                          print(
+                            '🧩 [EmailLoginPage] login success -> nextRoute=$next',
                           );
-                          debugPrint('[EmailLoginPage] plan snapshot cached for uid=$uid');
-                        } else {
-                          debugPrint('[EmailLoginPage] skipping plan cache save: uid missing');
+
+                          if (next == '/home_tab_navigator') {
+                            await context.read<HomeViewModel>().refresh();
+                          }
+
+                          if (!context.mounted) return;
+
+                          Navigator.of(context).pushNamedAndRemoveUntil(
+                            next,
+                            (route) => false,
+                          );
                         }
-                        await authRepo.setHasPlan(true);
-                        next = authRepo.nextRouteBySession(skipHasPlanCheck: true);
-                      }
-                    } catch (e) {
-                      debugPrint('[EmailLoginPage] failed to probe existing plan: $e');
-                    }
-                  }
-
-                  if (authRepo.cachedHasPlan) {
-                    final cacheRepo = context.read<PlanCacheRepository>();
-                    final uid =
-                        authRepo.cachedUid ?? authRepo.currentUserId;
-                    final snapshot =
-                    uid != null ? cacheRepo.loadSnapshot(uid) : null;
-                    if (snapshot != null) {
-                      final tree = PlanDebugPrinter.describe(
-                        plan: snapshot.plan,
-                        refData: snapshot.refData,
-                      );
-                      debugPrint('--- Plan Cache Snapshot (Login) ---\n$tree');
-                    } else {
-                      debugPrint('[EmailLoginPage] hasPlan=true but cache snapshot missing');
-                    }
-                  }
-
-                  print('🧩 [EmailLoginPage] login success -> nextRoute=$next');
-
-                  if (next == '/home_tab_navigator') {
-                    await context.read<HomeViewModel>().refresh();
-                  }
-
-                  if (!context.mounted) return;
-
-                  Navigator.of(context).pushNamedAndRemoveUntil(
-                    next,
-                        (route) => false,
-                  );
-                }
-              },
+                      },
+                    ),
             ),
             const SizedBox(height: 40),
           ],

@@ -3,6 +3,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:intl/intl.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:sotong_local/component/theme/padding/horizontal_padding_clamped_fraction.dart';
 import 'package:sotong_local/model/refData/entry.dart';
 import 'package:sotong_local/model/saving_calculation_result.dart';
 
@@ -408,8 +409,16 @@ class _InputModalWidgetState extends State<InputModalWidget>
         ? '예: 1,000,000원'
         : '예: 450,000원';
 
+    final horizontalPad = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionModal06,
+    );
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.screenPadding),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPad,
+        vertical: AppSpacing.screenPadding,
+      ),
       child: Column(
         children: [
           if (error.isNotEmpty)
@@ -481,8 +490,11 @@ class _InputModalWidgetState extends State<InputModalWidget>
         children: [
           const SizedBox(height: 40),
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.screenPadding,
+            padding: EdgeInsets.symmetric(
+              horizontal: PaddingResponsive16_40Vw.horizontal(
+                context,
+                PaddingResponsive16_40Vw.fractionModal06,
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
