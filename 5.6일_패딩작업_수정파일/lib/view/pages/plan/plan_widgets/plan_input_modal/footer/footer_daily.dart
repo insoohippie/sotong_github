@@ -73,10 +73,6 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
     final target = widget.targetAmount;
     final current = widget.currentAsset;
     final preview = widget.previewResult;
-    final hPad = PaddingResponsive16_40Vw.horizontal(
-      context,
-      PaddingResponsive16_40Vw.fractionModal06,
-    );
 
 
 // 예상 도달 안내문
@@ -117,6 +113,10 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
         '목표를 조금 올리거나 예산을 다시 조정해볼까요?'
         : null;
 
+    final hPad = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionModal06,
+    );
     return Container(
       padding: EdgeInsets.symmetric(vertical: AppSpacing.screenPadding),
       decoration: BoxDecoration(

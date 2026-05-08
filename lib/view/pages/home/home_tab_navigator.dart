@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:sotong_local/route.dart';
 
 import '../../../component/theme/app_colors.dart'; // <-- appRoutes 가져오기
+import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 
 class HomeTabNavigator extends StatefulWidget {
   const HomeTabNavigator({
@@ -69,36 +70,44 @@ class _HomeTabNavigatorState extends State<HomeTabNavigator> {
           return routeBuilder(context);
         },
       ),
-      bottomNavigationBar: Theme(
-        data: Theme.of(context).copyWith(
-          splashFactory: NoSplash.splashFactory,
-          highlightColor: Colors.transparent,
-          splashColor: Colors.transparent,
-          hoverColor: Colors.transparent,
+      bottomNavigationBar: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: PaddingResponsive16_40Vw.horizontal(
+            context,
+            PaddingResponsive16_40Vw.fractionScreen075,
+          ),
         ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: _onTabTapped,
-          elevation: 0,
-          showSelectedLabels: false,
-          showUnselectedLabels: false,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: Colors.grey,
-          type: BottomNavigationBarType.fixed,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.bar_chart_rounded, size: 28),
-              label: '',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home, size: 28),
-              label: '',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.favorite, size: 28),
-              label: '',
-            ),
-          ],
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            splashFactory: NoSplash.splashFactory,
+            highlightColor: Colors.transparent,
+            splashColor: Colors.transparent,
+            hoverColor: Colors.transparent,
+          ),
+          child: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            onTap: _onTabTapped,
+            elevation: 0,
+            showSelectedLabels: false,
+            showUnselectedLabels: false,
+            selectedItemColor: AppColors.primary,
+            unselectedItemColor: Colors.grey,
+            type: BottomNavigationBarType.fixed,
+            items: const [
+              BottomNavigationBarItem(
+                icon: Icon(Icons.bar_chart_rounded, size: 28),
+                label: '',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.home, size: 28),
+                label: '',
+              ),
+              BottomNavigationBarItem(
+                icon: Icon(Icons.favorite, size: 28),
+                label: '',
+              ),
+            ],
+          ),
         ),
       ),
     );

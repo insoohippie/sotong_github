@@ -9,6 +9,8 @@ import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dar
 import '../../../component/theme/padding/vertical_section_spacing_ref_height_600.dart';
 import '../../../repository/auth_repository.dart';
 
+/// 구역 2개(텍스트 / 로티) → 최소 **2숫자** = 맨 위~1, 1~2(텍스트~로티). 버튼은 제외(고정).
+/// 600 미만·600일 때: 그대로 12·100. 600 초과: `SectionGapRefHeight600`이 `h/600`배.
 const _kUnsuccessSectionMins = <double>[12, 100];
 
 class UnsuccessPlanQuitPage extends StatelessWidget {
@@ -20,7 +22,8 @@ class UnsuccessPlanQuitPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
+    final horizontalPadding =
+        PaddingResponsive16_40Vw.horizontal(
       context,
       PaddingResponsive16_40Vw.fractionScreen075,
     );
@@ -59,7 +62,6 @@ class UnsuccessPlanQuitPage extends StatelessWidget {
                         (snapshot.data?.trim().isNotEmpty ?? false)
                             ? snapshot.data!.trim()
                             : '회원';
-
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -81,9 +83,11 @@ class UnsuccessPlanQuitPage extends StatelessWidget {
                 ),
               ),
               SizedBox(height: sectionGaps[1]),
-              const Row(
+              // 텍스트~로티 간격 = sectionGaps[1]만. Expanded+Center 쓰면 짧은 화면에서
+              // 로티가 위로 뭉쳐 24(스케일)보다 **가깝게** 보이므로, 로티는 바로 이어서 배치.
+              Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+                children: const [
                   _CheckSettingAnimation(),
                 ],
               ),

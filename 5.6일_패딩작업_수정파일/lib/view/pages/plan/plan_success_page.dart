@@ -17,6 +17,8 @@ import '../../../view_model/services/saving_calculator.dart';
 import '../../../services/local_notification_service.dart';
 import '../../../services/notification_settings_storage.dart';
 
+/// [SectionGapRefHeight600.refHeight] 600에서의 **최소** 구역 간 pt.
+/// 구역 3개(헤더, 카드1, 카드2) → 3칸: 맨 위~1, 1~2, 2~3. 값만 조정.
 const _kSuccessSectionGaps = <double>[24, 24, 12];
 
 class PlanSuccessPage extends StatefulWidget {
@@ -27,7 +29,9 @@ class PlanSuccessPage extends StatefulWidget {
 }
 
 class _PlanSuccessPageState extends State<PlanSuccessPage> {
-  bool _started = false;
+  /// 저장 루프가 이미 돌고 있을 때(중복 탭 방지)만 막는다. 첫 시도 이후 `true`로 고정돼
+  /// 끊기면(구버전 `if (_started) return`처럼) '다시 시도'가 영구 무반응이 된다.
+  bool _saveInFlight = false;
   bool _savingDone = false;
   bool _saveOk = false;
 
@@ -38,39 +42,48 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
   }
 
   Future<void> _runSave() async {
-    if (_started) return;
-    _started = true;
-
-    final vm = context.read<ChatPlanViewModel>();
-    vm.preparePlanStructureForSummary();
-    final ok = await vm.savePlan();
-
-    if (ok) {
-      final storage = NotificationSettingsStorage.instance;
-      final applied = await storage.hasAppliedSignupDefaults();
-      if (!applied) {
-        final defaults = defaultSignupNotificationSettings;
-        await storage.save(defaults);
-        await storage.markSignupDefaultsApplied();
-        await LocalNotificationService.instance.updateSchedules(defaults);
-      }
+    if (_saveInFlight) {
+      return;
+    }
+    _saveInFlight = true;
+    if (mounted) {
+      setState(() {
+        _savingDone = false;
+      });
     }
 
-    if (!mounted) return;
-    setState(() {
-      _savingDone = true;
-      _saveOk = ok;
-    });
+    try {
+      final vm = context.read<ChatPlanViewModel>();
+      vm.preparePlanStructureForSummary();
+      final ok = await vm.savePlan();
+
+      if (ok) {
+        final storage = NotificationSettingsStorage.instance;
+        final applied = await storage.hasAppliedSignupDefaults();
+        if (!applied) {
+          final defaults = defaultSignupNotificationSettings;
+          await storage.save(defaults);
+          await storage.markSignupDefaultsApplied();
+          await LocalNotificationService.instance.updateSchedules(defaults);
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _savingDone = true;
+        _saveOk = ok;
+      });
+    } finally {
+      _saveInFlight = false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ChatPlanViewModel>();
     final isLoading = vm.isSaving || !_savingDone;
-    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
-      context,
-      PaddingResponsive16_40Vw.fractionScreen075,
-    );
 
     // 로딩 중
     if (isLoading) {
@@ -82,7 +95,12 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
             children: [
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: PaddingResponsive16_40Vw.horizontal(
+                      context,
+                      PaddingResponsive16_40Vw.fractionScreen075,
+                    ),
+                  ),
                   child: const Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -111,7 +129,12 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
             children: [
               Expanded(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: PaddingResponsive16_40Vw.horizontal(
+                      context,
+                      PaddingResponsive16_40Vw.fractionScreen075,
+                    ),
+                  ),
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -132,8 +155,8 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
                         const SizedBox(height: 12),
                         TextButton(
                           onPressed: () {
-                            Navigator.pushNamedAndRemoveUntil(
-                              context,
+                            Navigator.of(context, rootNavigator: true)
+                                .pushNamedAndRemoveUntil(
                               '/home_tab_navigator',
                               (route) => false,
                             );
@@ -207,7 +230,12 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
           children: [
             Expanded(
               child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                padding: EdgeInsets.symmetric(
+                  horizontal: PaddingResponsive16_40Vw.horizontal(
+                    context,
+                    PaddingResponsive16_40Vw.fractionScreen075,
+                  ),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -261,8 +289,8 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
               onPressed: () async {
                 HomeSavingChartWidget.resetGaugeAnimationForPlay();
                 await context.read<AuthRepository>().setHasPlan(true); // 추후 수정 필요
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
+                Navigator.of(context, rootNavigator: true)
+                    .pushNamedAndRemoveUntil(
                   '/home_tab_navigator',
                   (route) => false,
                 );

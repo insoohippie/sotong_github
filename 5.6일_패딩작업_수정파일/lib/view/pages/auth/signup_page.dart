@@ -14,9 +14,9 @@ import '../../../component/inputs/wheel_date_picker.dart';
 import '../../../component/texts/multi_color_text.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/theme/app_text_styles.dart';
-import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 import '../../../view_model/auth/signup_view_model.dart';
 import '../../../component/buttons/custom_button.dart';
+import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -37,10 +37,11 @@ class _SignUpPageState extends State<SignUpPage> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<SignupViewModel>();
-    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
-      context,
-      PaddingResponsive16_40Vw.fractionScreen075,
-    );
+    final horizontalPadding =
+        PaddingResponsive16_40Vw.horizontal(
+        context,
+        PaddingResponsive16_40Vw.fractionScreen075,
+      );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
