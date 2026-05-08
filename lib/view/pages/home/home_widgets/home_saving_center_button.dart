@@ -130,10 +130,8 @@ class HomeSavingCenterButton extends StatelessWidget {
       );
 
       String actualProgressText = '0%';
-      if (vm.latestPlan?.targetAmount != null &&
-          vm.latestPlan!.targetAmount! > 0) {
-        final target = vm.latestPlan!.targetAmount!.toDouble();
-        final p = (vm.liveSavedAmount / target * 100);
+      if (vm.effectiveTargetAmount > 0) {
+        final p = vm.userPercent * 100;
         actualProgressText = '${p.toStringAsFixed(1)}%';
       }
 
@@ -155,22 +153,21 @@ class HomeSavingCenterButton extends StatelessWidget {
       ]);
     } else {
       String targetAmountText = '0원';
-      if (vm.latestPlan?.targetAmount != null) {
+      if (vm.effectiveTargetAmount > 0) {
         targetAmountText = SavingPlanCalculator.formatAmount(
-          vm.latestPlan!.targetAmount!.toDouble(),
+          vm.effectiveTargetAmount,
         );
       }
 
       String progressText = '0%';
-      if (vm.latestPlan?.targetAmount != null &&
-          vm.latestPlan!.targetAmount! > 0) {
-        progressText = '55%'; // 기존 코드 유지(나중에 실제 계산으로 교체)
+      if (vm.latestPlan != null) {
+        progressText = '${vm.planProgressPercentValue.toStringAsFixed(2)}%';
       }
 
       String dailySavingText = '0원/일';
-      if (vm.calc != null && vm.calc!.dailySaving > 0) {
+      if (vm.currentMiniDailyNetSaving > 0) {
         dailySavingText =
-        '${SavingPlanCalculator.formatAmount(vm.calc!.dailySaving)}원/일';
+        '${SavingPlanCalculator.formatAmount(vm.currentMiniDailyNetSaving)}원/일';
       }
 
       items.addAll([
