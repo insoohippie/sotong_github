@@ -92,7 +92,6 @@ class HomeViewModel extends ChangeNotifier {
 
   // 자동 저축 + 모인 금액 계산 기준 값들
   // 세은님 수정 부분
-  DateTime? _goalDate;
   bool _autoFillRunning = false;
   final Map<String, _DailyNet> _dailyNet = {};
   double _actualSavedThroughConfirmedDays = 0;
@@ -393,8 +392,16 @@ class HomeViewModel extends ChangeNotifier {
 
   // ---------- 실시간 Getter ----------
   Duration? get liveRemaining {
-    if (_goalDate == null) return null;
-    return _goalDate!.difference(DateTime.now());
+    final target = effectiveTargetAmount;
+    if (target <= 0) return Duration.zero;
+
+    final remainingAmount = target - actualSavedNow;
+    if (remainingAmount <= 0) return Duration.zero;
+
+    final perSecond = activeMiniPerSecondSaving;
+    if (perSecond <= 0) return null;
+
+    return Duration(seconds: (remainingAmount / perSecond).ceil());
   }
 
   // 세은님 수정 내용
@@ -820,7 +827,6 @@ class HomeViewModel extends ChangeNotifier {
     final plan = _latestPlan;
     if (plan == null) {
       _calc = null;
-      _goalDate = null;
       return;
     }
 
@@ -832,8 +838,6 @@ class HomeViewModel extends ChangeNotifier {
     } else {
       _calc = null;
     }
-
-    _goalDate = _calc?.goalDateTime;
   }
 
   void _scheduleDayBoundaryRefreshIfNeeded() {

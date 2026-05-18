@@ -49,13 +49,7 @@ class LoginViewModel extends ChangeNotifier {
           msg == '비밀번호가 일치하지 않습니다.' ||
           msg == '이메일 또는 비밀번호를 다시 확인해 주세요.' ||
           msg == '존재하지 않는 아이디입니다.') {
-        final exists = await _repository.isIdAlreadyExists(id);
-
-        if (!exists) {
-          msg = '존재하지 않는 아이디입니다.';
-        } else {
-          msg = '비밀번호가 일치하지 않습니다.';
-        }
+        msg = '아이디 또는 비밀번호를 다시 확인해 주세요.';
       }
 
       errorMessage = msg;

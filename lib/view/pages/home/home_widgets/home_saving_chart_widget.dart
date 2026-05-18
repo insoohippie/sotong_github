@@ -274,14 +274,6 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              '플랜과 사용자 그래프가 같은 ${widget.planPercent.toStringAsFixed(2)}%예요',
-              style: TextStyle(
-                fontSize: 14,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
           ],
         ),
       );
