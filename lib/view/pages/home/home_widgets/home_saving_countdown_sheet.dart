@@ -20,34 +20,6 @@ class HomeSavingCountdownSheet extends StatefulWidget {
 }
 
 class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
-  // ✅ 진행률 블록 입력 상태(원본 HomeCopyPage와 동일 컨셉)
-  int _inputProgressPercent = 0;
-  int _appliedProgressPercent = 40;
-
-  int _inputYellowLinePercent = 40;
-  int _appliedYellowLinePercent = 40;
-
-  late final TextEditingController _progressInputController;
-  late final TextEditingController _yellowLineInputController;
-
-  @override
-  void initState() {
-    super.initState();
-    _progressInputController = TextEditingController(
-      text: _appliedProgressPercent.toString(),
-    );
-    _yellowLineInputController = TextEditingController(
-      text: _appliedYellowLinePercent.toString(),
-    );
-  }
-
-  @override
-  void dispose() {
-    _progressInputController.dispose();
-    _yellowLineInputController.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final vm = widget.vm;
@@ -95,7 +67,6 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
                       ),
                       const SizedBox(height: 24),
 
-                      // ✅ 여기! 스샷 블록 추가
                       _buildProgressBarCard(),
                     ],
                   ),
@@ -108,325 +79,208 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
     );
   }
 
-  // ✅ 스샷에 있는 “저축 목표 진행률” 카드
   Widget _buildProgressBarCard() {
+    final vm = widget.vm;
     final theme = Theme.of(context);
-    final progressPercentText = '${_appliedProgressPercent.toString()}%';
+    const planColor = Color(0xFF0062FF);
+    const userColor = Color(0xFFFFC107);
+    const behindColor = Color(0xFFFF6B6B);
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.dividerColor),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 제목 + 날짜
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '저축 목표 진행률',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-              Builder(
-                builder: (context) {
-                  final yesterday = DateTime.now().subtract(
-                    const Duration(days: 1),
-                  );
-                  final dateText =
-                      '${yesterday.year.toString().substring(2)}.'
-                      '${yesterday.month.toString().padLeft(2, '0')}.'
-                      '${yesterday.day.toString().padLeft(2, '0')}일자 기준';
-                  return Text(
-                    dateText,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  );
-                },
+    return ValueListenableBuilder<int>(
+      valueListenable: vm.secondTick,
+      builder: (_, __, ___) {
+        final planPercent =
+            (vm.planPercent * 100).clamp(0.0, 100.0).toDouble();
+        final userPercent =
+            (vm.userPercent * 100).clamp(0.0, 100.0).toDouble();
+        final planProgress = planPercent / 100.0;
+        final userProgress = userPercent / 100.0;
+        final dailySaving = vm.currentMiniDailyNetSaving;
+        final savedDiff = vm.actualSavedNow - vm.plannedSavedNow;
+
+        String paceText;
+        Color paceColor;
+        if (dailySaving <= 0) {
+          paceText = '플랜 대비 차이를 계산할 수 없어요';
+          paceColor = theme.colorScheme.onSurfaceVariant;
+        } else {
+          final dayDiff = savedDiff / dailySaving;
+          final absDays = dayDiff.abs().toStringAsFixed(1);
+          if (absDays == '0.0') {
+            paceText = '플랜과 같은 속도로 진행 중이에요';
+            paceColor = theme.colorScheme.onSurfaceVariant;
+          } else if (dayDiff > 0) {
+            paceText = '플랜보다 $absDays일 빨라요';
+            paceColor = userColor;
+          } else if (dayDiff < 0) {
+            paceText = '플랜보다 $absDays일 느려요';
+            paceColor = behindColor;
+          } else {
+            paceText = '플랜과 같은 속도로 진행 중이에요';
+            paceColor = theme.colorScheme.onSurfaceVariant;
+          }
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: theme.dividerColor),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-
-          // 진행 바 + 노란선
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final barWidth = constraints.maxWidth;
-              final yellowPos = (_appliedYellowLinePercent / 100.0).clamp(
-                0.0,
-                1.0,
-              );
-              final yellowX = barWidth * yellowPos;
-
-              const tolerance = 0.01;
-              final threshold = yellowPos - tolerance;
-
-              final inputProgress = (_appliedProgressPercent / 100.0).clamp(
-                0.0,
-                1.0,
-              );
-              final isBlue = inputProgress > threshold;
-
-              final graphColor = isBlue
-                  ? const Color(0xFF0062FF)
-                  : const Color(0xFFFF6B6B);
-
-              return Stack(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Container(
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: inputProgress,
-                    child: Container(
-                      height: 12,
-                      decoration: BoxDecoration(
-                        color: graphColor,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    left: yellowX - 1,
-                    top: -4,
-                    child: Container(
-                      width: 2,
-                      height: 20,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFC107),
-                        borderRadius: BorderRadius.circular(1),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFFC107).withOpacity(0.5),
-                            blurRadius: 4,
-                            spreadRadius: 1,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 16),
-
-          // 입력 + 적용 영역(스샷과 동일 구성)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // 기준선 입력
-              SizedBox(
-                width: 80,
-                child: TextField(
-                  controller: _yellowLineInputController,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    hintText: '기준선',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: theme.dividerColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: theme.dividerColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(
-                        color: Color(0xFFFFC107),
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  onChanged: (v) {
-                    final num = int.tryParse(v);
-                    if (num != null) {
-                      setState(
-                            () => _inputYellowLinePercent = num.clamp(0, 100),
-                      );
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 기준선 적용
-              InkWell(
-                onTap: () {
-                  final input = int.tryParse(_yellowLineInputController.text);
-                  if (input != null && input >= 0 && input <= 100) {
-                    setState(() => _appliedYellowLinePercent = input);
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFC107),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    '적용',
+                  Text(
+                    '저축 목표 진행률',
                     style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
-                ),
-              ),
-
-              const SizedBox(width: 16),
-
-              // 그래프 입력
-              SizedBox(
-                width: 80,
-                child: TextField(
-                  controller: _progressInputController,
-                  keyboardType: TextInputType.number,
-                  textAlign: TextAlign.center,
-                  decoration: InputDecoration(
-                    hintText: '그래프',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: theme.dividerColor),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide(color: theme.dividerColor),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(
-                        color: Color(0xFF0062FF),
-                        width: 2,
-                      ),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  onChanged: (v) {
-                    final num = int.tryParse(v);
-                    if (num != null) {
-                      setState(() => _inputProgressPercent = num.clamp(0, 100));
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 그래프 적용
-              InkWell(
-                onTap: () {
-                  final input = int.tryParse(_progressInputController.text);
-                  if (input != null && input >= 0 && input <= 100) {
-                    setState(() => _appliedProgressPercent = input);
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0062FF),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    '적용',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 16),
-
-          // 하단 문구(스샷처럼)
-          Row(
-            children: [
-              Builder(
-                builder: (_) {
-                  final diff =
-                  (_appliedProgressPercent - _appliedYellowLinePercent)
-                      .abs();
-                  final isAhead =
-                      _appliedProgressPercent >= _appliedYellowLinePercent;
-
-                  final dotColor = isAhead
-                      ? const Color(0xFF0062FF)
-                      : const Color(0xFFFF6B6B);
-
-                  final text = isAhead
-                      ? '플랜보다 ${diff}일 빨라요'
-                      : '플랜보다 ${diff}일 느려요';
-
-                  return Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: dotColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        text,
+                  Builder(
+                    builder: (context) {
+                      final today = DateTime.now();
+                      final dateText =
+                          '${today.year.toString().substring(2)}.'
+                          '${today.month.toString().padLeft(2, '0')}.'
+                          '${today.day.toString().padLeft(2, '0')}일자 기준';
+                      return Text(
+                        dateText,
                         style: TextStyle(
                           fontSize: 12,
                           color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final barWidth = constraints.maxWidth;
+                  final maxMarkerLeft = barWidth > 2 ? barWidth - 2 : 0.0;
+                  final markerLeft = (barWidth * userProgress - 1)
+                      .clamp(0.0, maxMarkerLeft)
+                      .toDouble();
+
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                      ),
+                      FractionallySizedBox(
+                        widthFactor: planProgress,
+                        child: Container(
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: planColor,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: markerLeft.toDouble(),
+                        top: -4,
+                        child: Container(
+                          width: 2,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            color: userColor,
+                            borderRadius: BorderRadius.circular(1),
+                            boxShadow: [
+                              BoxShadow(
+                                color: userColor.withOpacity(0.5),
+                                blurRadius: 4,
+                                spreadRadius: 1,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   );
                 },
               ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: paceColor,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      paceText,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
+        );
+      },
+    );
+  }
+}
 
-          // (선택) 진행률 텍스트가 필요하면:
-          // const SizedBox(height: 8),
-          // Text('현재: $progressPercentText'),
-        ],
-      ),
+class _ProgressLegendText extends StatelessWidget {
+  const _ProgressLegendText({
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  final Color color;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          '$label $value',
+          style: TextStyle(
+            fontSize: 12,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -440,7 +294,31 @@ class _CountdownHeader extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: vm.secondTick,
       builder: (_, __, ___) {
-        final remain = vm.liveRemaining ?? Duration.zero;
+        final remain = vm.liveRemaining;
+        if (remain == null) {
+          return Column(
+            children: [
+              Text(
+                '목표일 없음',
+                style: TextStyle(
+                  fontFamily: 'RobotoMono',
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                '현재 저축 속도로는 계산할 수 없어요',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          );
+        }
+
         final clamped = remain.isNegative ? Duration.zero : remain;
 
         final days = clamped.inDays;
