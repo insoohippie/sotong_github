@@ -7,7 +7,10 @@ class SignUpInfo {
   /// Firebase Auth 내부용 이메일
   String email;
 
+  /// Firebase Auth 회원가입에만 사용.
+  /// Firestore에는 저장하지 않음.
   String password;
+
   String name;
   String gender;
   String birthday;
@@ -30,7 +33,6 @@ class SignUpInfo {
     return {
       'id': id,
       'email': email,
-      'pw': password,
       'name': name,
       'gender': gender,
       'birthday': birthday,

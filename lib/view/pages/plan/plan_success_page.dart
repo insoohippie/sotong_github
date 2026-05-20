@@ -45,13 +45,17 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
     vm.preparePlanStructureForSummary();
     final ok = await vm.savePlan();
 
-    if (ok) {
+    final authRepo = context.read<AuthRepository>();
+    final uid = authRepo.cachedUid ?? authRepo.currentUserId;
+
+    if (ok && uid != null) {
       final storage = NotificationSettingsStorage.instance;
-      final applied = await storage.hasAppliedSignupDefaults();
+      final applied = await storage.hasAppliedSignupDefaults(uid);
+
       if (!applied) {
         final defaults = defaultSignupNotificationSettings;
-        await storage.save(defaults);
-        await storage.markSignupDefaultsApplied();
+        await storage.save(uid, defaults);
+        await storage.markSignupDefaultsApplied(uid);
         await LocalNotificationService.instance.updateSchedules(defaults);
       }
     }

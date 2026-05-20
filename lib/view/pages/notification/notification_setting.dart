@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
@@ -11,6 +12,7 @@ import '../../../component/theme/app_colors.dart';
 import '../../../model/notification/notification_settings.dart';
 import '../../../services/local_notification_service.dart';
 import '../../../services/notification_settings_storage.dart';
+import '../../../repository/auth_repository.dart';
 
 class NotificationSettingPage extends StatefulWidget {
   const NotificationSettingPage({Key? key}) : super(key: key);
@@ -52,8 +54,26 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
     _loadSettings();
   }
 
+
+  String? _currentUidOrNull() {
+    final authRepo = context.read<AuthRepository>();
+    return authRepo.cachedUid ?? authRepo.currentUserId;
+  }
+
   Future<void> _loadSettings() async {
-    final settings = await NotificationSettingsStorage.instance.load();
+    final uid = _currentUidOrNull();
+
+    if (uid == null) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
+    final settings = await NotificationSettingsStorage.instance.load(uid);
+
     if (mounted) {
       setState(() {
         _attendanceEnabled = settings.attendanceEnabled;
@@ -83,7 +103,10 @@ class _NotificationSettingPageState extends State<NotificationSettingPage> {
       weeklyReportEnabled: _weeklyReportEnabled,
       emotionReportEnabled: _emotionReportEnabled,
     );
-    await NotificationSettingsStorage.instance.save(settings);
+    final uid = _currentUidOrNull();
+    if (uid == null) return;
+
+    await NotificationSettingsStorage.instance.save(uid, settings);
     await LocalNotificationService.instance.updateSchedules(settings);
   }
 

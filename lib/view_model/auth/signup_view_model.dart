@@ -96,32 +96,21 @@ class SignupViewModel extends ChangeNotifier {
 
   // ---------------- 비밀번호 검증 ----------------
   bool get isPasswordValid {
-    final password = passwordController.text;
-    final hasMinLength = password.length >= 8;
-    final hasUppercase = RegExp(r'[A-Z]').hasMatch(password);
-    final hasNumber = RegExp(r'\d').hasMatch(password);
-    final hasSpecialChar =
-    RegExp(r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''').hasMatch(password);
+    final password = passwordController.text.trim();
 
-    return hasMinLength && hasUppercase && hasSpecialChar && hasNumber;
+    return password.length >= 6 && password.length <= 20;
   }
 
   List<String> get passwordErrors {
-    final password = passwordController.text;
+    final password = passwordController.text.trim();
     final errors = <String>[];
 
-    if (password.length < 8) {
-      errors.add('8자 이상이어야 해요.');
+    if (password.length < 6) {
+      errors.add('비밀번호는 6자 이상이어야 해요.');
     }
-    if (!RegExp(r'[A-Z]').hasMatch(password)) {
-      errors.add('대문자를 하나 이상 포함해야 해요.');
-    }
-    if (!RegExp(r'\d').hasMatch(password)) {
-      errors.add('숫자를 하나 이상 포함해야 해요.');
-    }
-    if (!RegExp(r'''[!@#\$&*~%^()_\-+=\[\]{}|\\:;"'<>,.?/]''')
-        .hasMatch(password)) {
-      errors.add('특수문자를 하나 이상 포함해야 해요.');
+
+    if (password.length > 20) {
+      errors.add('비밀번호는 20자 이하여야 해요.');
     }
 
     return errors;
@@ -151,6 +140,22 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---------------- 개인정보 검증 ----------------
+
+  String? validateName(String raw) {
+    final name = raw.trim();
+
+    if (name.isEmpty) {
+      return '이름을 입력해주세요.';
+    }
+
+    if (name.length < 2 || name.length > 12) {
+      return '이름은 2~12자여야 해요.';
+    }
+
+    return null;
+  }
+
   // ---------------- reset / submit ----------------
   void reset() {
     currentStep = SignupStep.email;
@@ -178,7 +183,7 @@ class SignupViewModel extends ChangeNotifier {
       case SignupStep.password:
         return isPasswordStepValid;
       case SignupStep.userInfo:
-        return nameController.text.isNotEmpty &&
+        return validateName(nameController.text) == null &&
             birthdayController.text.isNotEmpty &&
             gender != null &&
             gender!.isNotEmpty;

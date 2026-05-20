@@ -235,4 +235,14 @@ class AuthRepository {
     if (!skipHasPlanCheck && !cachedHasPlan) return '/unsuccess_plan_quit'; // 인수님 작업 페이지
     return '/home_tab_navigator';
   }
+
+  Future<void> deleteCurrentAccount() async {
+    final user = _remote.currentUser;
+    if (user == null) {
+      throw Exception('로그인된 사용자가 없습니다.');
+    }
+
+    await user.delete();
+    await _cache.setLoggedOutExplicit();
+  }
 }

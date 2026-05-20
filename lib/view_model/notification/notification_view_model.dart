@@ -11,17 +11,20 @@ import '../../model/plan/total_plan.dart';
 import '../../repository/record_repository.dart';
 import '../../repository/ref_data_repository.dart';
 import '../../repository/plan_repository.dart';
+import '../../repository/auth_repository.dart';
 
 class NotificationViewModel extends ChangeNotifier {
   NotificationViewModel(
       this._recordRepo,
       this._refRepo,
       this._planRepo,
+      this._authRepo,
       ) : _readBox = Hive.box('notification_read');
 
   final RecordRepository _recordRepo;
   final RefDataRepository _refRepo;
   final PlanRepository _planRepo;
+  final AuthRepository _authRepo;
   final Box _readBox;
 
   List<NotificationItem> _notifications = [];
@@ -518,12 +521,17 @@ class NotificationViewModel extends ChangeNotifier {
     return DateTime(date.year, date.month, date.day);
   }
 
+  String _readKey(String id) {
+    final uid = _authRepo.cachedUid ?? _authRepo.currentUserId;
+    return uid == null ? 'NO_UID:$id' : '$uid:$id';
+  }
+
   bool _isRead(String id) {
-    return _readBox.get(id, defaultValue: false) == true;
+    return _readBox.get(_readKey(id), defaultValue: false) == true;
   }
 
   Future<void> _saveRead(String id) async {
-    await _readBox.put(id, true);
+    await _readBox.put(_readKey(id), true);
   }
 
   NotificationItem _createNotification({
@@ -571,7 +579,7 @@ class NotificationViewModel extends ChangeNotifier {
     for (int i = 0; i < _notifications.length; i++) {
       final id = _notifications[i].id;
       _notifications[i] = _notifications[i].copyWith(isRead: true);
-      _readBox.put(id, true);
+      _readBox.put(_readKey(id), true);
     }
 
     notifyListeners();
