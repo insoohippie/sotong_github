@@ -154,6 +154,27 @@ class InputItemRow extends StatelessWidget {
                     onChanged: (v) {
                       final un = _un(v);
                       final amt = double.tryParse(un) ?? 0.0;
+
+                      final maxAmount = switch (kind) {
+                        ItemKind.income => 100000000,
+                        ItemKind.fixed => 100000000,
+                        ItemKind.daily => 10000000,
+                      };
+
+                      if (amt > maxAmount) {
+                        final limitedText = _comma(maxAmount.toString());
+
+                        amountController.value = TextEditingValue(
+                          text: limitedText,
+                          selection: TextSelection.collapsed(
+                            offset: limitedText.length,
+                          ),
+                        );
+
+                        onUpdate(item.idx, 'amount', maxAmount.toDouble());
+                        return;
+                      }
+
                       onUpdate(item.idx, 'amount', amt);
 
                       final formatted = _comma(un);

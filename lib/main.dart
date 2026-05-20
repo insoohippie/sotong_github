@@ -24,6 +24,7 @@ import 'repository/record_repository.dart';
 import 'repository/ref_data_repository.dart';
 import 'repository/ref_category_repository.dart';
 import 'repository/plan_cache_repository.dart';
+import 'repository/account_delete_repository.dart';
 
 // EventBus
 import 'services/plan_saved_event_bus.dart';
@@ -139,6 +140,11 @@ class MyApp extends StatelessWidget {
         Provider<PlanCacheRepository>(
           create: (_) => PlanCacheRepository(),
         ),
+        Provider<AccountDeleteRepository>(
+          create: (ctx) => AccountDeleteRepository(
+            ctx.read<AuthRepository>(),
+          ),
+        ),
 
         // 4) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
@@ -235,6 +241,7 @@ class MyApp extends StatelessWidget {
             ctx.read<RefDataRepository>(),
             ctx.read<PlanCacheRepository>(),
             ctx.read<RefCategoryRepository>(),
+            ctx.read<AccountDeleteRepository>(),
           ),
         ),
         ChangeNotifierProvider<AlarmViewModel>(
@@ -245,6 +252,7 @@ class MyApp extends StatelessWidget {
             ctx.read<RecordRepository>(),
             ctx.read<RefDataRepository>(),
             ctx.read<PlanRepository>(),
+            ctx.read<AuthRepository>(),
           ),
         ),
       ],

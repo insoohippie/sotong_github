@@ -286,20 +286,23 @@ class ChatBottomInputArea extends StatelessWidget {
 
     switch (step) {
       case ChatStep.planName:
-      // case ChatStep.purposeCustom:
-        return trimmedText.length >= 2;
+        return trimmedText.length >= 2 && trimmedText.length <= 15;
 
       case ChatStep.targetAmount:
-      // 목표금액: 반드시 양수
         final amountStr = trimmedText.replaceAll(',', '');
         final amount = double.tryParse(amountStr);
-        return amount != null && amount > 0;
+
+        return amount != null &&
+            amount >= 1000 &&
+            amount <= 1000000000;
 
       case ChatStep.currentAsset:
-      // 보유자산: 음수/0/양수 모두 허용 (숫자만이면 OK)
-        final amountStr2 = trimmedText.replaceAll(',', '');
-        final amount2 = double.tryParse(amountStr2);
-        return amount2 != null;
+        final amountStr = trimmedText.replaceAll(',', '');
+        final amount = double.tryParse(amountStr);
+
+        return amount != null &&
+            amount >= -1000000000 &&
+            amount <= 1000000000;
 
       default:
         return true;
