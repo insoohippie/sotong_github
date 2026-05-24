@@ -15,12 +15,16 @@ class HomeSavingChartWidget extends StatefulWidget {
     required this.vm,
     required this.planPercent, // 0~100, 소수 둘째 자리까지
     required this.userPercent, // 0~100, 소수 둘째 자리까지
+    this.showIntro = false,
+    this.onIntroDismissed,
     required this.onOpenCountdown, // 중앙 버튼 기본 상태 클릭 시
   });
 
   final HomeViewModel vm;
   final double planPercent;
   final double userPercent;
+  final bool showIntro;
+  final FutureOr<void> Function()? onIntroDismissed;
   final VoidCallback onOpenCountdown;
 
   /// 플랜 완료 후 홈 진입 시 애니메이션을 다시 재생하도록 플래그 리셋
@@ -37,116 +41,125 @@ bool _homeGaugeAnimationPlayed = false;
 
 class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
     with TickerProviderStateMixin {
+  static const _gaugeAnimationDuration = Duration(milliseconds: 1600);
+  static const _coachmarkDelay = Duration(milliseconds: 900);
+  static const _hapticInterval = Duration(milliseconds: 200);
+  static const _hapticCount = 8;
+
   String? _clickedSection; // 'plan' | 'user' | null
 
-  late final AnimationController _greenController;
-  late final AnimationController _blueController;
-  late final Animation<double> _greenAnim;
-  late final Animation<double> _blueAnim;
+  late final AnimationController _gaugeController;
+  late final Animation<double> _gaugeAnim;
   Timer? _hapticTimer;
-  bool _isRunningFirstAnimation = false; // 이번에 재생 중인 게 첫 애니인지
+  Timer? _coachmarkTimer;
+  bool _showIntroCoachmark = false;
 
   @override
   void initState() {
     super.initState();
 
-    _greenController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
-      vsync: this,
-    );
-    _blueController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+    _gaugeController = AnimationController(
+      duration: _gaugeAnimationDuration,
       vsync: this,
     );
 
-    _greenAnim = CurvedAnimation(
-      parent: _greenController,
-      curve: Curves.easeOut,
+    _gaugeAnim = CurvedAnimation(
+      parent: _gaugeController,
+      curve: Curves.easeOutCubic,
     );
-    _blueAnim = CurvedAnimation(parent: _blueController, curve: Curves.easeOut);
-
-    _greenController.addStatusListener((status) {
-      if (status == AnimationStatus.completed &&
-          _isRunningFirstAnimation &&
-          mounted) {
-        _blueController.forward();
-        _playGaugeSequentialHaptic(); // 파랑 구간 쫘라락
-      }
-    });
-    _blueController.addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        _isRunningFirstAnimation = false;
-      }
-    });
 
     // 🔥 1차: 즉시 시작 (중요)
-    _restartGaugeAnimation();
+    _restartGaugeAnimation(force: widget.showIntro);
+    if (widget.showIntro) {
+      _scheduleIntroCoachmark();
+    }
 
     // 🔥 2차: 프레임 이후 보정 (이미 한 번 재생된 경우 스킵)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_homeGaugeAnimationPlayed) _restartGaugeAnimation();
-    });
-
-    _greenController.addListener(() {
-      if (mounted) setState(() {});
-    });
-    _blueController.addListener(() {
-      if (mounted) setState(() {});
+      if (mounted && !_homeGaugeAnimationPlayed) {
+        _restartGaugeAnimation(force: widget.showIntro);
+      }
     });
   }
 
   @override
   void didUpdateWidget(covariant HomeSavingChartWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!oldWidget.showIntro && widget.showIntro) {
+      _restartGaugeAnimation(force: true);
+      _scheduleIntroCoachmark();
+      _clickedSection = null;
+      return;
+    }
+
+    if (oldWidget.showIntro && !widget.showIntro) {
+      _coachmarkTimer?.cancel();
+      _showIntroCoachmark = false;
+    }
+
     // 퍼센트가 바뀌면 애니메이션 리스타트
     if (oldWidget.planPercent != widget.planPercent ||
         oldWidget.userPercent != widget.userPercent) {
+      if (widget.showIntro) return;
       _restartGaugeAnimation();
       _clickedSection = null; // 값 변경 시 상세 닫기(원하면 제거 가능)
     }
   }
 
-  void _restartGaugeAnimation() {
+  void _restartGaugeAnimation({bool force = false}) {
     // 로그인 후 최초 1회만 애니 재생, 이후엔 최종 상태만 표시
-    if (_homeGaugeAnimationPlayed) {
-      _greenController.value = 1.0;
-      _blueController.value = 1.0;
-      _isRunningFirstAnimation = false;
+    if (_homeGaugeAnimationPlayed && !force) {
+      _gaugeController.value = 1.0;
       return;
     }
     _homeGaugeAnimationPlayed = true;
-    _isRunningFirstAnimation = true;
 
-    _greenController
+    _gaugeController
       ..stop()
       ..reset()
       ..forward();
     _playGaugeSequentialHaptic(); // 초록 구간 쫘라락
-
-    _blueController
-      ..stop()
-      ..reset();
   }
 
   @override
   void dispose() {
     _hapticTimer?.cancel();
-    _greenController.dispose();
-    _blueController.dispose();
+    _coachmarkTimer?.cancel();
+    _gaugeController.dispose();
     super.dispose();
   }
 
-  /// 게이지 애니(1200ms)에 맞춰 쫘라락 햅틱 (8회, 150ms 간격)
+  void _scheduleIntroCoachmark() {
+    _coachmarkTimer?.cancel();
+    _showIntroCoachmark = false;
+    _coachmarkTimer = Timer(_coachmarkDelay, () {
+      if (!mounted || !widget.showIntro) return;
+      setState(() => _showIntroCoachmark = true);
+    });
+  }
+
+  void _dismissIntroCoachmark() {
+    _coachmarkTimer?.cancel();
+    if (mounted) {
+      setState(() => _showIntroCoachmark = false);
+    }
+    final callback = widget.onIntroDismissed;
+    if (callback != null) {
+      unawaited(Future<void>.sync(callback));
+    }
+  }
+
+  /// 게이지 애니메이션에 맞춰 과하지 않게 햅틱을 분산한다.
   void _playGaugeSequentialHaptic() {
     _hapticTimer?.cancel();
     HapticFeedback.selectionClick();
     int count = 1;
-    _hapticTimer = Timer.periodic(const Duration(milliseconds: 150), (_) {
+    _hapticTimer = Timer.periodic(_hapticInterval, (_) {
       if (!mounted) {
         _hapticTimer?.cancel();
         return;
       }
-      if (count >= 8) {
+      if (count >= _hapticCount) {
         _hapticTimer?.cancel();
         _hapticTimer = null;
         return;
@@ -157,11 +170,11 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
   }
 
   void _handleTapGauge(
-      TapDownDetails details,
-      double minP,
-      double maxP,
-      bool isUserLarger,
-      ) {
+    TapDownDetails details,
+    double minP,
+    double maxP,
+    bool isUserLarger,
+  ) {
     const size = Size(300, 300);
     final center = Offset(size.width / 2, size.height / 2);
     final local = details.localPosition;
@@ -223,28 +236,41 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  CustomPaint(
-                    size: const Size(300, 300),
-                    painter: SemiGaugePainter(
-                      progress: 1.0,
-                      backgroundColor: gaugeBg,
-                      progressColorStart: gaugeBg,
-                      progressColorEnd: gaugeBg,
-                      strokeWidth: 22,
-                      isFullCircle: true,
-                    ),
-                  ),
-                  CustomPaint(
-                    size: const Size(300, 300),
-                    painter: SemiGaugePainter(
-                      startProgress: 0.0,
-                      progress: _greenAnim.value * planProgress,
-                      backgroundColor: Colors.transparent,
-                      progressColorStart: planColor,
-                      progressColorEnd: planColor,
-                      strokeWidth: 22,
-                      isFullCircle: true,
-                      isDashed: false,
+                  RepaintBoundary(
+                    child: AnimatedBuilder(
+                      animation: _gaugeAnim,
+                      child: CustomPaint(
+                        size: const Size(300, 300),
+                        painter: SemiGaugePainter(
+                          progress: 1.0,
+                          backgroundColor: gaugeBg,
+                          progressColorStart: gaugeBg,
+                          progressColorEnd: gaugeBg,
+                          strokeWidth: 22,
+                          isFullCircle: true,
+                        ),
+                      ),
+                      builder: (context, child) {
+                        return Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            child!,
+                            CustomPaint(
+                              size: const Size(300, 300),
+                              painter: SemiGaugePainter(
+                                startProgress: 0.0,
+                                progress: _gaugeAnim.value * planProgress,
+                                backgroundColor: Colors.transparent,
+                                progressColorStart: planColor,
+                                progressColorEnd: planColor,
+                                strokeWidth: 22,
+                                isFullCircle: true,
+                                isDashed: false,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                   HomeSavingCenterButton(
@@ -254,6 +280,13 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                         setState(() => _clickedSection = null),
                     onOpenCountdown: widget.onOpenCountdown,
                   ),
+                  if (_showIntroCoachmark)
+                    Align(
+                      alignment: const Alignment(0, 0.14),
+                      child: _PlanGraphIntroCoachmark(
+                        onDismiss: _dismissIntroCoachmark,
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -296,54 +329,71 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
               alignment: Alignment.center,
               children: [
                 // 배경
-                CustomPaint(
-                  size: const Size(300, 300),
-                  painter: SemiGaugePainter(
-                    progress: 1.0,
-                    backgroundColor: gaugeBg,
-                    progressColorStart: gaugeBg,
-                    progressColorEnd: gaugeBg,
-                    strokeWidth: 22,
-                    isFullCircle: true,
-                  ),
-                ),
+                RepaintBoundary(
+                  child: AnimatedBuilder(
+                    animation: _gaugeAnim,
+                    child: CustomPaint(
+                      size: const Size(300, 300),
+                      painter: SemiGaugePainter(
+                        progress: 1.0,
+                        backgroundColor: gaugeBg,
+                        progressColorStart: gaugeBg,
+                        progressColorEnd: gaugeBg,
+                        strokeWidth: 22,
+                        isFullCircle: true,
+                      ),
+                    ),
+                    builder: (context, child) {
+                      final progress = _gaugeAnim.value;
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          child!,
+                          // 큰 그래프: 0~큰값 전체를 먼저 그린다
+                          CustomPaint(
+                            size: const Size(300, 300),
+                            painter: SemiGaugePainter(
+                              startProgress: 0.0,
+                              progress: progress * largerProgress,
+                              backgroundColor: Colors.transparent,
+                              progressColorStart: largerColor,
+                              progressColorEnd: largerColor,
+                              strokeWidth: 22,
+                              isFullCircle: true,
+                              isDashed: false,
+                            ),
+                          ),
 
-                // 큰 그래프: 0~큰값 전체를 먼저 그린다
-                CustomPaint(
-                  size: const Size(300, 300),
-                  painter: SemiGaugePainter(
-                    startProgress: 0.0,
-                    progress: _blueAnim.value * largerProgress,
-                    backgroundColor: Colors.transparent,
-                    progressColorStart: largerColor,
-                    progressColorEnd: largerColor,
-                    strokeWidth: 22,
-                    isFullCircle: true,
-                    isDashed: false,
-                  ),
-                ),
-
-                // 작은 그래프: 위에 덮어서 항상 더 위에 보이게 한다
-                CustomPaint(
-                  size: const Size(300, 300),
-                  painter: SemiGaugePainter(
-                    startProgress: 0.0,
-                    progress: _greenAnim.value * smallerProgress,
-                    backgroundColor: Colors.transparent,
-                    progressColorStart: smallerColor,
-                    progressColorEnd: smallerColor,
-                    strokeWidth: 22,
-                    isFullCircle: true,
-                    isDashed: true,
-                    dashWidth: 12.0,
-                    dashGap: 6.0,
+                          // 작은 그래프: 위에 덮어서 항상 더 위에 보이게 한다
+                          CustomPaint(
+                            size: const Size(300, 300),
+                            painter: SemiGaugePainter(
+                              startProgress: 0.0,
+                              progress: progress * smallerProgress,
+                              backgroundColor: Colors.transparent,
+                              progressColorStart: smallerColor,
+                              progressColorEnd: smallerColor,
+                              strokeWidth: 22,
+                              isFullCircle: true,
+                              isDashed: true,
+                              dashWidth: 12.0,
+                              dashGap: 6.0,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
 
                 // 탭 영역 판별용 투명 레이어
                 GestureDetector(
-                  onTapDown: (d) =>
-                      _handleTapGauge(d, smallerProgress, largerProgress, isUserLarger),
+                  onTapDown: (d) => _handleTapGauge(
+                    d,
+                    smallerProgress,
+                    largerProgress,
+                    isUserLarger,
+                  ),
                   child: Container(
                     width: 300,
                     height: 300,
@@ -358,6 +408,13 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                   onCloseSection: () => setState(() => _clickedSection = null),
                   onOpenCountdown: widget.onOpenCountdown,
                 ),
+                if (_showIntroCoachmark)
+                  Align(
+                    alignment: const Alignment(0, 0.14),
+                    child: _PlanGraphIntroCoachmark(
+                      onDismiss: _dismissIntroCoachmark,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -381,6 +438,75 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PlanGraphIntroCoachmark extends StatelessWidget {
+  const _PlanGraphIntroCoachmark({required this.onDismiss});
+
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final backgroundColor = isDark
+        ? const Color(0xFF13233F)
+        : const Color(0xFFEAF2FF);
+    const borderColor = Color(0x473C7BFF);
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 260,
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: borderColor),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x26000000),
+              blurRadius: 18,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Icon(
+                Icons.info_outline,
+                size: 20,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '오늘 자정부터 1초마다 누적된 저축액이에요!',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isDark ? Colors.white : AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: onDismiss,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: const Size(0, 32),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('확인'),
+            ),
+          ],
+        ),
       ),
     );
   }

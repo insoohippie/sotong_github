@@ -20,6 +20,9 @@ class SpendingInputEntry extends StatefulWidget {
 
   final VoidCallback? onCategoryTapOverride;
   final Widget? inlineCategoryPicker;
+  final List<CategoryEditItem>? planItemsOverride;
+  final List<RefCategoryItem>? refItemsOverride;
+  final bool? categoryLoadingOverride;
 
   const SpendingInputEntry({
     super.key,
@@ -30,6 +33,9 @@ class SpendingInputEntry extends StatefulWidget {
     this.showBottomDivider = true,
     this.onCategoryTapOverride,
     this.inlineCategoryPicker,
+    this.planItemsOverride,
+    this.refItemsOverride,
+    this.categoryLoadingOverride,
   });
 
   @override
@@ -105,9 +111,14 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
 
   @override
   Widget build(BuildContext context) {
-    final catVM = context.watch<SpendingCategoryViewModel>();
-    final planItems = catVM.planItems;
-    final refItems = catVM.refItems;
+    final needsCategoryVM = widget.planItemsOverride == null ||
+        widget.refItemsOverride == null ||
+        widget.categoryLoadingOverride == null;
+    final catVM = needsCategoryVM
+        ? context.watch<SpendingCategoryViewModel>()
+        : null;
+    final planItems = widget.planItemsOverride ?? catVM!.planItems;
+    final refItems = widget.refItemsOverride ?? catVM!.refItems;
 
     final amountController =
     widget.entry['amountController'] as TextEditingController;
@@ -125,7 +136,8 @@ class _SpendingInputEntryState extends State<SpendingInputEntry> {
     ) ??
         '💰';
 
-    final bool canInteract = !catVM.loading;
+    final bool canInteract =
+        !(widget.categoryLoadingOverride ?? catVM!.loading);
 
     Future<void> handleCategoryTap() async {
       if (widget.onCategoryTapOverride != null) {
