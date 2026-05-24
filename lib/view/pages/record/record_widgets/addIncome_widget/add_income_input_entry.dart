@@ -18,6 +18,8 @@ class AddIncomeInputEntry extends StatefulWidget {
 
   final VoidCallback? onCategoryTapOverride;
   final Widget? inlineCategoryPicker;
+  final List<RefCategoryItem>? refItemsOverride;
+  final bool? categoryLoadingOverride;
 
   const AddIncomeInputEntry({
     super.key,
@@ -28,6 +30,8 @@ class AddIncomeInputEntry extends StatefulWidget {
     this.showBottomDivider = true,
     this.onCategoryTapOverride,
     this.inlineCategoryPicker,
+    this.refItemsOverride,
+    this.categoryLoadingOverride,
   });
 
   @override
@@ -74,7 +78,7 @@ class _AddIncomeInputEntryState extends State<AddIncomeInputEntry> {
     if (n == null) return '';
     return n.toString().replaceAllMapped(
       RegExp(r'\B(?=(\d{3})+(?!\d))'),
-          (m) => ',',
+      (m) => ',',
     );
   }
 
@@ -96,25 +100,32 @@ class _AddIncomeInputEntryState extends State<AddIncomeInputEntry> {
 
   @override
   Widget build(BuildContext context) {
-    final catVM = context.watch<AddIncomeCategoryViewModel>();
-    final refItems = catVM.refItems;
+    final needsCategoryVM =
+        widget.refItemsOverride == null ||
+        widget.categoryLoadingOverride == null;
+    final catVM = needsCategoryVM
+        ? context.watch<AddIncomeCategoryViewModel>()
+        : null;
+    final refItems = widget.refItemsOverride ?? catVM!.refItems;
 
     final amountController =
-    widget.entry['amountController'] as TextEditingController;
+        widget.entry['amountController'] as TextEditingController;
     final noteController =
-    widget.entry['noteController'] as TextEditingController;
+        widget.entry['noteController'] as TextEditingController;
 
     final String? selectedKey = widget.entry['categoryKey'] as String?;
     final String selectedName = (widget.entry['category'] as String?) ?? '';
 
-    final currentEmoji = _emojiByKeyOrName(
-      key: selectedKey,
-      name: selectedName,
-      refItems: refItems,
-    ) ??
+    final currentEmoji =
+        _emojiByKeyOrName(
+          key: selectedKey,
+          name: selectedName,
+          refItems: refItems,
+        ) ??
         '💰';
 
-    final bool canInteract = !catVM.loading;
+    final bool canInteract =
+        !(widget.categoryLoadingOverride ?? catVM!.loading);
 
     Future<void> handleCategoryTap() async {
       if (widget.onCategoryTapOverride != null) {
@@ -128,12 +139,10 @@ class _AddIncomeInputEntryState extends State<AddIncomeInputEntry> {
         onAddRef: (name, emoji) => context
             .read<AddIncomeCategoryViewModel>()
             .addRef(name: name, emoji: emoji),
-        onRemoveRef: (key) => context
-            .read<AddIncomeCategoryViewModel>()
-            .removeRefByKey(key),
-        onReorderRef: (keys) => context
-            .read<AddIncomeCategoryViewModel>()
-            .reorderRefByKeys(keys),
+        onRemoveRef: (key) =>
+            context.read<AddIncomeCategoryViewModel>().removeRefByKey(key),
+        onReorderRef: (keys) =>
+            context.read<AddIncomeCategoryViewModel>().reorderRefByKeys(keys),
         selectedName: widget.entry['category'] as String?,
         selectedKey: widget.entry['categoryKey'] as String?,
       );
@@ -231,17 +240,17 @@ class _AddIncomeInputEntryState extends State<AddIncomeInputEntry> {
 
     final wrapped = widget.enableDismissible
         ? Dismissible(
-      key: ObjectKey(widget.entry),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => widget.onDelete(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: Colors.redAccent,
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      child: content,
-    )
+            key: ObjectKey(widget.entry),
+            direction: DismissDirection.endToStart,
+            onDismissed: (_) => widget.onDelete(),
+            background: Container(
+              alignment: Alignment.centerRight,
+              padding: const EdgeInsets.only(right: 20),
+              color: Colors.redAccent,
+              child: const Icon(Icons.delete, color: Colors.white),
+            ),
+            child: content,
+          )
         : content;
 
     return Column(

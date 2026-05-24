@@ -13,6 +13,13 @@ import '../drag_grid.dart';
 import '../spending_widget/record_spending_category_sheet.dart';
 import '../spending_widget/spending_input_entry.dart';
 
+const _spendingSheetDismissDelay = Duration(milliseconds: 320);
+
+Future<void> _waitForSpendingSheetDismissed() async {
+  await WidgetsBinding.instance.endOfFrame;
+  await Future<void>.delayed(_spendingSheetDismissDelay);
+}
+
 Future<RecordEntry?> showTodayRecordAddSpendingBottomSheet({
   required BuildContext context,
 }) async {
@@ -26,7 +33,6 @@ Future<RecordEntry?> showTodayRecordAddSpendingBottomSheet({
     buttonText: '추가',
   );
 
-  await Future.delayed(const Duration(milliseconds: 50));
   _disposeTempEntry(tempEntry);
   return result;
 }
@@ -50,7 +56,6 @@ Future<RecordEntry?> showTodayRecordEditSpendingBottomSheet({
     buttonText: '수정',
   );
 
-  await Future.delayed(const Duration(milliseconds: 50));
   _disposeTempEntry(tempEntry);
   return result;
 }
@@ -63,6 +68,7 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
   required String buttonText,
 }) async {
   bool isClosing = false;
+  final categoryVM = context.read<SpendingCategoryViewModel>();
 
   bool canSubmit() {
     final categoryKey = ((entry['categoryKey'] as String?) ?? '').trim();
@@ -294,26 +300,24 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
             setModalState(fn);
           }
 
-          final vm = context.watch<SpendingCategoryViewModel>();
-          final planItemsLive = vm.planItems;
+          final planItemsLive = categoryVM.planItems;
 
           if (committedRef.isEmpty && localRef.isEmpty) {
-            committedRef = List<RefCategoryItem>.from(vm.refItems);
+            committedRef = List<RefCategoryItem>.from(categoryVM.refItems);
             localRef = List<RefCategoryItem>.from(committedRef);
           }
 
-          final selectedDate = vm.selectedDate;
+          final selectedDate = categoryVM.selectedDate;
           final isToday = isSameDay(selectedDate, DateTime.now());
           final settingsEnabled = isToday;
 
           Future<void> commitEditChanges() async {
             for (final k in pendingRemoveKeys) {
-              await context.read<SpendingCategoryViewModel>().removeRefByKey(k);
+              await categoryVM.removeRefByKey(k);
             }
             pendingRemoveKeys.clear();
 
-            await context
-                .read<SpendingCategoryViewModel>()
+            await categoryVM
                 .reorderRefByKeys(localRef.map((e) => e.categoryKey).toList());
 
             committedRef = List<RefCategoryItem>.from(localRef);
@@ -329,11 +333,10 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
             await nav.pushNamed('/category_edit');
             if (!context.mounted) return;
 
-            final vmRead = context.read<SpendingCategoryViewModel>();
-            await vmRead.initForDate(vmRead.selectedDate);
+            await categoryVM.initForDate(categoryVM.selectedDate);
 
             safeSetModalState(() {
-              committedRef = List<RefCategoryItem>.from(vmRead.refItems);
+              committedRef = List<RefCategoryItem>.from(categoryVM.refItems);
               localRef = List<RefCategoryItem>.from(committedRef);
               pendingRemoveKeys.clear();
               editMode = false;
@@ -734,9 +737,7 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
 
                               if (dupInPlan || dupInRef) return;
 
-                              final created = await context
-                                  .read<SpendingCategoryViewModel>()
-                                  .addRef(
+                              final created = await categoryVM.addRef(
                                 name: name,
                                 emoji: selectedEmoji,
                               );
@@ -775,21 +776,25 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
           }
 
           return PopScope(
-            canPop: true,
-            onPopInvokedWithResult: (_, __) {
+            canPop: !hasUnsavedEditChanges(),
+            onPopInvokedWithResult: (didPop, _) async {
+              if (didPop) {
+                isClosing = true;
+                FocusManager.instance.primaryFocus?.unfocus();
+                return;
+              }
+
+              if (!hasUnsavedEditChanges()) return;
+
+              final discard = await confirmDiscardDialog(context);
+              if (!discard || !context.mounted) return;
+
+              safeSetModalState(() => cancelEditChanges());
               isClosing = true;
               FocusManager.instance.primaryFocus?.unfocus();
+              Navigator.of(context).pop();
             },
-            child: WillPopScope(
-              onWillPop: () async {
-                if (hasUnsavedEditChanges()) {
-                  final discard = await confirmDiscardDialog(context);
-                  if (!discard) return false;
-                  safeSetModalState(() => cancelEditChanges());
-                }
-                return true;
-              },
-              child: Padding(
+            child: Padding(
                 padding: EdgeInsets.only(
                   bottom: MediaQuery.of(context).viewInsets.bottom,
                 ),
@@ -838,6 +843,9 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
                             inlineCategoryPicker: showCategoryPicker
                                 ? buildInlineCategoryPicker()
                                 : null,
+                            planItemsOverride: planItemsLive,
+                            refItemsOverride: localRef,
+                            categoryLoadingOverride: categoryVM.loading,
                           ),
                           const SizedBox(height: 24),
                           CustomButton(
@@ -872,7 +880,6 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
                   ),
                 ),
               ),
-            ),
           );
         },
       );
@@ -880,8 +887,10 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
   ).whenComplete(() {
     isClosing = true;
     FocusManager.instance.primaryFocus?.unfocus();
-    tempNameCtrl.dispose();
   });
+
+  await _waitForSpendingSheetDismissed();
+  tempNameCtrl.dispose();
 
   return result;
 }

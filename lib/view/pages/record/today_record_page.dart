@@ -28,6 +28,7 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
 
   bool _isIncome = false;
   bool _isList = true;
+  bool _allowPop = false;
 
   DateTime get _selectedDate => _argDate ?? DateTime.now();
 
@@ -44,12 +45,17 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
 
-      await context.read<SpendingCategoryViewModel>().initForDate(date);
-      await context.read<AddIncomeCategoryViewModel>().initForDate(date);
+      final spendingCategoryVM = context.read<SpendingCategoryViewModel>();
+      final incomeCategoryVM = context.read<AddIncomeCategoryViewModel>();
+      final spendingVM = context.read<TodaySpendingViewModel>();
+      final incomeVM = context.read<TodayIncomeViewModel>();
+
+      await spendingCategoryVM.initForDate(date);
+      await incomeCategoryVM.initForDate(date);
 
       if (!mounted) return;
-      await context.read<TodaySpendingViewModel>().load(date);
-      await context.read<TodayIncomeViewModel>().load(date);
+      await spendingVM.load(date);
+      await incomeVM.load(date);
     });
 
     _didInit = true;
@@ -57,15 +63,7 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
-    );
-  }
-
-  Future<void> _waitForOverlaySettled() async {
-    await Future<void>.delayed(Duration.zero);
-    await WidgetsBinding.instance.endOfFrame;
-    await Future<void>.delayed(const Duration(milliseconds: 10));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   void _showLoading() {
@@ -73,9 +71,7 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
       context: context,
       barrierDismissible: false,
       useRootNavigator: true,
-      builder: (_) => const Center(
-        child: CircularProgressIndicator(),
-      ),
+      builder: (_) => const Center(child: CircularProgressIndicator()),
     );
   }
 
@@ -97,6 +93,114 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
     }
   }
 
+  Future<bool> _confirmDiscardRecordDraft() async {
+    final res = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dCtx) {
+        return AlertDialog(
+          content: const Text('저장하지 않고 나가면 수정한 기록이 사라져요.\n그래도 나갈까요?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx, false),
+              child: const Text('계속 편집'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx, true),
+              child: const Text(
+                '나가기',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    return res ?? false;
+  }
+
+  Future<void> _handleBackPressed({
+    required TodayIncomeViewModel incomeVM,
+    required TodaySpendingViewModel spendingVM,
+  }) async {
+    final hasUnsavedChanges =
+        incomeVM.hasUnsavedChanges || spendingVM.hasUnsavedChanges;
+
+    if (!hasUnsavedChanges) {
+      if (mounted) Navigator.pop(context);
+      return;
+    }
+
+    final leave = await _confirmDiscardRecordDraft();
+    if (!leave || !mounted) return;
+
+    incomeVM.discardDraft();
+    spendingVM.discardDraft();
+    setState(() => _allowPop = true);
+    Navigator.pop(context);
+  }
+
+  Future<void> _saveAllDrafts({
+    required TodayIncomeViewModel incomeVM,
+    required TodaySpendingViewModel spendingVM,
+  }) async {
+    final hasIncomeChanges = incomeVM.hasUnsavedChanges;
+    final hasSpendingChanges = spendingVM.hasUnsavedChanges;
+    if (!hasIncomeChanges && !hasSpendingChanges) return;
+
+    try {
+      await _runWithLoading(() async {
+        if (hasIncomeChanges) {
+          await incomeVM.saveDraft();
+        }
+        if (hasSpendingChanges) {
+          await spendingVM.saveDraft();
+        }
+      });
+      _snack('오늘 기록이 저장되었어요.');
+    } catch (e) {
+      _snack('오늘 기록 저장 중 오류가 발생했어요: $e');
+    }
+  }
+
+  Widget _buildRecordModeDropdown() {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.only(left: 12, right: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<bool>(
+          value: _isList,
+          borderRadius: BorderRadius.circular(12),
+          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+          style: const TextStyle(
+            color: Colors.black87,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+          items: const [
+            DropdownMenuItem<bool>(value: true, child: Text('목록')),
+            DropdownMenuItem<bool>(value: false, child: Text('일지')),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _isList = value;
+              if (!_isList) _isIncome = false;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final spendingVM = context.watch<TodaySpendingViewModel>();
@@ -104,12 +208,12 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
 
     final isLoading = spendingVM.isLoading || incomeVM.isLoading;
     final error = spendingVM.error ?? incomeVM.error;
+    final hasUnsavedRecordChanges =
+        incomeVM.hasUnsavedChanges || spendingVM.hasUnsavedChanges;
 
     if (isLoading) {
       return const Scaffold(
-        body: SafeArea(
-          child: Center(child: CircularProgressIndicator()),
-        ),
+        body: SafeArea(child: Center(child: CircularProgressIndicator())),
       );
     }
 
@@ -119,207 +223,179 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
           title: DateFormat('yyyy년 M월 d일').format(_selectedDate),
           centerTitle: true,
         ),
-        body: SafeArea(
-          child: Center(child: Text('오류: $error')),
-        ),
+        body: SafeArea(child: Center(child: Text('오류: $error'))),
       );
     }
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: BackOnlyAppBar(
-        title: DateFormat('yyyy년 M월 d일').format(_selectedDate),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  TwoOptionToggle(
-                    labels: const ['수입', '소비'],
-                    selected: _isIncome ? '수입' : '소비',
-                    onChanged: (v) => setState(() {
-                      _isIncome = (v == '수입');
-                      if (_isIncome) _isList = true;
-                    }),
-                    width: 120,
-                    height: 34,
-                  ),
-                ],
-              ),
-            ),
-
-            if (!_isIncome) ...[
+    return PopScope(
+      canPop: _allowPop || !hasUnsavedRecordChanges,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        _handleBackPressed(incomeVM: incomeVM, spendingVM: spendingVM);
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: BackOnlyAppBar(
+          title: DateFormat('yyyy년 M월 d일').format(_selectedDate),
+          centerTitle: true,
+          onBack: () {
+            _handleBackPressed(incomeVM: incomeVM, spendingVM: spendingVM);
+          },
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
               const SizedBox(height: 12),
+
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    TwoOptionToggle(
-                      labels: const ['목록', '일지'],
-                      selected: _isList ? '목록' : '일지',
-                      onChanged: (v) => setState(() => _isList = (v == '목록')),
-                      width: 120,
-                      height: 34,
+                    Opacity(
+                      opacity: _isList ? 1 : 0.35,
+                      child: IgnorePointer(
+                        ignoring: !_isList,
+                        child: TwoOptionToggle(
+                          labels: const ['수입', '소비'],
+                          selected: _isIncome ? '수입' : '소비',
+                          onChanged: (v) => setState(() {
+                            _isIncome = (v == '수입');
+                          }),
+                          width: 120,
+                          height: 34,
+                        ),
+                      ),
                     ),
+                    _buildRecordModeDropdown(),
                   ],
                 ),
               ),
+
+              const SizedBox(height: 20),
+
+              Expanded(
+                child: _isIncome
+                    ? TodayRecordIncomeSection(
+                        vm: incomeVM,
+                        hasUnsavedChanges: hasUnsavedRecordChanges,
+                        hasEntryChanges: incomeVM.hasEntryChanges,
+                        onSave: () => _saveAllDrafts(
+                          incomeVM: incomeVM,
+                          spendingVM: spendingVM,
+                        ),
+                        onEdit: (entry) async {
+                          final edited =
+                              await showTodayRecordEditIncomeBottomSheet(
+                                context: context,
+                                entry: entry,
+                              );
+
+                          if (edited == null || !mounted) return;
+
+                          await incomeVM.updateEntry(
+                            entryId: edited.id,
+                            categoryKey: edited.categoryKey,
+                            category: edited.category,
+                            amount: edited.amount,
+                            note: edited.note,
+                          );
+                        },
+                        onDelete: (entry) async {
+                          await incomeVM.deleteEntry(entry.id);
+                        },
+                        onAdd: () async {
+                          final created =
+                              await showTodayRecordAddIncomeBottomSheet(
+                                context: context,
+                              );
+
+                          if (created == null || !mounted) return;
+
+                          await incomeVM.addEntry(
+                            categoryKey: created.categoryKey,
+                            category: created.category,
+                            amount: created.amount,
+                            note: created.note,
+                          );
+                        },
+                      )
+                    : (_isList
+                          ? TodayRecordSpendingSection(
+                              vm: spendingVM,
+                              hasUnsavedChanges: hasUnsavedRecordChanges,
+                              hasEntryChanges: spendingVM.hasEntryChanges,
+                              onSave: () => _saveAllDrafts(
+                                incomeVM: incomeVM,
+                                spendingVM: spendingVM,
+                              ),
+                              onEdit: (entry) async {
+                                final edited =
+                                    await showTodayRecordEditSpendingBottomSheet(
+                                      context: context,
+                                      entry: entry,
+                                    );
+
+                                if (edited == null || !mounted) return;
+
+                                await spendingVM.updateEntry(
+                                  entryId: edited.id,
+                                  categoryKey: edited.categoryKey,
+                                  category: edited.category,
+                                  amount: edited.amount,
+                                  note: edited.note,
+                                );
+                                // _snack('저장 버튼을 누르면 수정사항이 반영돼요.');
+                              },
+                              onDelete: (entry) async {
+                                await spendingVM.deleteEntry(entry.id);
+                                // _snack('저장 버튼을 누르면 삭제사항이 반영돼요.');
+                              },
+                              onAdd: () async {
+                                final created =
+                                    await showTodayRecordAddSpendingBottomSheet(
+                                      context: context,
+                                    );
+
+                                if (created == null || !mounted) return;
+
+                                await spendingVM.addEntry(
+                                  categoryKey: created.categoryKey,
+                                  category: created.category,
+                                  amount: created.amount,
+                                  note: created.note,
+                                );
+                                // _snack('저장 버튼을 누르면 추가사항이 반영돼요.');
+                              },
+                            )
+                          : TodayRecordDiarySection(
+                              vm: spendingVM,
+                              hasUnsavedChanges: hasUnsavedRecordChanges,
+                              onSave: () => _saveAllDrafts(
+                                incomeVM: incomeVM,
+                                spendingVM: spendingVM,
+                              ),
+                              onEdit: () async {
+                                try {
+                                  final edited =
+                                      await showTodayRecordEditDiaryBottomSheet(
+                                        context: context,
+                                        vm: spendingVM,
+                                      );
+                                  if (edited == null || !mounted) return;
+
+                                  spendingVM.updateDiaryDraft(
+                                    emotion: edited.emotion,
+                                    comment: edited.comment,
+                                  );
+                                } catch (e) {
+                                  _snack('일지 수정 중 오류가 발생했어요: $e');
+                                }
+                              },
+                            )),
+              ),
             ],
-
-            const SizedBox(height: 20),
-
-            Expanded(
-              child: _isIncome
-                  ? TodayRecordIncomeSection(
-                vm: incomeVM,
-                onEdit: (entry) async {
-                  final edited =
-                  await showTodayRecordEditIncomeBottomSheet(
-                    context: context,
-                    entry: entry,
-                  );
-
-                  if (edited == null || !mounted) return;
-
-                  await _waitForOverlaySettled();
-
-                  try {
-                    await _runWithLoading(() async {
-                      await incomeVM.updateEntry(
-                        entryId: edited.id,
-                        categoryKey: edited.categoryKey,
-                        category: edited.category,
-                        amount: edited.amount,
-                        note: edited.note,
-                      );
-                    });
-                    _snack('수입 항목이 수정되었어요.');
-                  } catch (e) {
-                    _snack('수입 수정 중 오류가 발생했어요: $e');
-                  }
-                },
-                onDelete: (entry) async {
-                  try {
-                    await _runWithLoading(() async {
-                      await incomeVM.deleteEntry(entry.id);
-                    });
-                    _snack('수입 항목이 삭제되었어요.');
-                  } catch (e) {
-                    _snack('수입 삭제 중 오류가 발생했어요: $e');
-                  }
-                },
-                onAdd: () async {
-                  final created =
-                  await showTodayRecordAddIncomeBottomSheet(
-                    context: context,
-                  );
-
-                  if (created == null || !mounted) return;
-
-                  await _waitForOverlaySettled();
-
-                  try {
-                    await _runWithLoading(() async {
-                      await incomeVM.addEntry(
-                        categoryKey: created.categoryKey,
-                        category: created.category,
-                        amount: created.amount,
-                        note: created.note,
-                      );
-                    });
-                    _snack('수입 항목이 추가되었어요.');
-                  } catch (e) {
-                    _snack('수입 저장 중 오류가 발생했어요: $e');
-                  }
-                },
-              )
-                  : (_isList
-                  ? TodayRecordSpendingSection(
-                vm: spendingVM,
-                onEdit: (entry) async {
-                  final edited =
-                  await showTodayRecordEditSpendingBottomSheet(
-                    context: context,
-                    entry: entry,
-                  );
-
-                  if (edited == null || !mounted) return;
-
-                  await _waitForOverlaySettled();
-
-                  try {
-                    await _runWithLoading(() async {
-                      await spendingVM.updateEntry(
-                        entryId: edited.id,
-                        categoryKey: edited.categoryKey,
-                        category: edited.category,
-                        amount: edited.amount,
-                        note: edited.note,
-                      );
-                    });
-                    _snack('소비 항목이 수정되었어요.');
-                  } catch (e) {
-                    _snack('소비 수정 중 오류가 발생했어요: $e');
-                  }
-                },
-                onDelete: (entry) async {
-                  try {
-                    await _runWithLoading(() async {
-                      await spendingVM.deleteEntry(entry.id);
-                    });
-                    _snack('소비 항목이 삭제되었어요.');
-                  } catch (e) {
-                    _snack('소비 삭제 중 오류가 발생했어요: $e');
-                  }
-                },
-                onAdd: () async {
-                  final created =
-                  await showTodayRecordAddSpendingBottomSheet(
-                    context: context,
-                  );
-
-                  if (created == null || !mounted) return;
-
-                  await _waitForOverlaySettled();
-
-                  try {
-                    await _runWithLoading(() async {
-                      await spendingVM.addEntry(
-                        categoryKey: created.categoryKey,
-                        category: created.category,
-                        amount: created.amount,
-                        note: created.note,
-                      );
-                    });
-                    _snack('소비 항목이 추가되었어요.');
-                  } catch (e) {
-                    _snack('소비 저장 중 오류가 발생했어요: $e');
-                  }
-                },
-              )
-                  : TodayRecordDiarySection(
-                vm: spendingVM,
-                onEdit: () async {
-                  try {
-                    await showTodayRecordEditDiaryBottomSheet(
-                      context: context,
-                      vm: spendingVM,
-                    );
-                  } catch (e) {
-                    _snack('일지 수정 중 오류가 발생했어요: $e');
-                  }
-                },
-              )),
-            ),
-          ],
+          ),
         ),
       ),
     );

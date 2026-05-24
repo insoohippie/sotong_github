@@ -10,11 +10,46 @@ import '../../../../../view_model/category/add_income_category_view_model.dart';
 import '../drag_grid.dart';
 import '../addIncome_widget/add_income_input_entry.dart';
 
+const _incomeSheetDismissDelay = Duration(milliseconds: 320);
+
+Future<void> _waitForIncomeSheetDismissed() async {
+  await WidgetsBinding.instance.endOfFrame;
+  await Future<void>.delayed(_incomeSheetDismissDelay);
+}
+
 const List<String> recordIncomeEmojis = [
-  '💰', '💵', '💸', '🏦', '💳', '📈', '📊', '🪙',
-  '🎁', '🧾', '💼', '🏢', '🛒', '🚗', '🏠', '📚',
-  '🖥️', '📱', '🎉', '❤️', '⭐', '🔥', '🌱', '🍀',
-  '☕', '🍽️', '✈️', '🎬', '🎵', '🛍️', '📦', '🔧',
+  '💰',
+  '💵',
+  '💸',
+  '🏦',
+  '💳',
+  '📈',
+  '📊',
+  '🪙',
+  '🎁',
+  '🧾',
+  '💼',
+  '🏢',
+  '🛒',
+  '🚗',
+  '🏠',
+  '📚',
+  '🖥️',
+  '📱',
+  '🎉',
+  '❤️',
+  '⭐',
+  '🔥',
+  '🌱',
+  '🍀',
+  '☕',
+  '🍽️',
+  '✈️',
+  '🎬',
+  '🎵',
+  '🛍️',
+  '📦',
+  '🔧',
 ];
 
 Future<RecordEntry?> showTodayRecordAddIncomeBottomSheet({
@@ -30,7 +65,6 @@ Future<RecordEntry?> showTodayRecordAddIncomeBottomSheet({
     buttonText: '추가',
   );
 
-  await Future.delayed(const Duration(milliseconds: 50));
   _disposeTempEntry(tempEntry);
   return result;
 }
@@ -54,7 +88,6 @@ Future<RecordEntry?> showTodayRecordEditIncomeBottomSheet({
     buttonText: '수정',
   );
 
-  await Future.delayed(const Duration(milliseconds: 50));
   _disposeTempEntry(tempEntry);
   return result;
 }
@@ -67,6 +100,7 @@ Future<RecordEntry?> _showIncomeEntryBottomSheet({
   required String buttonText,
 }) async {
   bool isClosing = false;
+  final categoryVM = context.read<AddIncomeCategoryViewModel>();
 
   bool canSubmit() {
     final categoryKey = ((entry['categoryKey'] as String?) ?? '').trim();
@@ -198,7 +232,9 @@ Future<RecordEntry?> _showIncomeEntryBottomSheet({
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
-                        color: selected ? Colors.white : const Color(0xFF111827),
+                        color: selected
+                            ? Colors.white
+                            : const Color(0xFF111827),
                         height: 1.05,
                       ),
                     ),
@@ -237,479 +273,500 @@ Future<RecordEntry?> _showIncomeEntryBottomSheet({
     );
   }
 
-  final result = await showModalBottomSheet<RecordEntry>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (BuildContext sheetContext) {
-      return StatefulBuilder(
-        builder: (context, setModalState) {
-          void safeSetModalState(VoidCallback fn) {
-            if (isClosing) return;
-            if (!context.mounted) return;
-            setModalState(fn);
-          }
+  final result =
+      await showModalBottomSheet<RecordEntry>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (BuildContext sheetContext) {
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              void safeSetModalState(VoidCallback fn) {
+                if (isClosing) return;
+                if (!context.mounted) return;
+                setModalState(fn);
+              }
 
-          final vm = context.watch<AddIncomeCategoryViewModel>();
+              if (committedRef.isEmpty && localRef.isEmpty) {
+                committedRef = List<RefCategoryItem>.from(categoryVM.refItems);
+                localRef = List<RefCategoryItem>.from(committedRef);
+              }
 
-          if (committedRef.isEmpty && localRef.isEmpty) {
-            committedRef = List<RefCategoryItem>.from(vm.refItems);
-            localRef = List<RefCategoryItem>.from(committedRef);
-          }
+              Future<void> commitEditChanges() async {
+                for (final k in pendingRemoveKeys) {
+                  await categoryVM.removeRefByKey(k);
+                }
+                pendingRemoveKeys.clear();
 
-          Future<void> commitEditChanges() async {
-            for (final k in pendingRemoveKeys) {
-              await context.read<AddIncomeCategoryViewModel>().removeRefByKey(k);
-            }
-            pendingRemoveKeys.clear();
+                await categoryVM.reorderRefByKeys(
+                  localRef.map((e) => e.categoryKey).toList(),
+                );
 
-            await context
-                .read<AddIncomeCategoryViewModel>()
-                .reorderRefByKeys(localRef.map((e) => e.categoryKey).toList());
+                committedRef = List<RefCategoryItem>.from(localRef);
+              }
 
-            committedRef = List<RefCategoryItem>.from(localRef);
-          }
+              Widget buildRefGrid(double width) {
+                const gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                  mainAxisExtent: 64,
+                );
 
-          Widget buildRefGrid(double width) {
-            const gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 4,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-              mainAxisExtent: 64,
-            );
+                return ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 320),
+                  child: editMode
+                      ? DragGrid<RefCategoryItem>(
+                          itemList: localRef,
+                          itemKey: (item) => ValueKey(item.categoryKey),
+                          reorderableKey: const ValueKey(
+                            'inline_income_ref_grid_edit',
+                          ),
+                          sliverGridDelegate: gridDelegate,
+                          enableLongPress: true,
+                          longPressDelay: Duration.zero,
+                          onReorder: (newList) {
+                            safeSetModalState(() {
+                              localRef = List<RefCategoryItem>.from(newList);
+                            });
+                          },
+                          itemBuilder: (context, item, index) {
+                            final selected =
+                                ((entry['categoryKey'] as String?) ?? '') ==
+                                item.categoryKey;
 
-            return ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 320),
-              child: editMode
-                  ? DragGrid<RefCategoryItem>(
-                itemList: localRef,
-                itemKey: (item) => ValueKey(item.categoryKey),
-                reorderableKey: const ValueKey('inline_income_ref_grid_edit'),
-                sliverGridDelegate: gridDelegate,
-                enableLongPress: true,
-                longPressDelay: Duration.zero,
-                onReorder: (newList) {
-                  safeSetModalState(() {
-                    localRef = List<RefCategoryItem>.from(newList);
-                  });
-                },
-                itemBuilder: (context, item, index) {
-                  final selected =
-                      ((entry['categoryKey'] as String?) ?? '') == item.categoryKey;
-
-                  return buildCategoryChip(
-                    name: item.name,
-                    emoji: item.emoji,
-                    selected: selected,
-                    width: width,
-                    onTap: () {
-                      if (editMode) return;
-                      safeSetModalState(() {
-                        entry['category'] = item.name;
-                        entry['categoryKey'] = item.categoryKey;
-                        entry['categorySource'] = 'ref';
-                        entry['categoryEmoji'] = item.emoji;
-                        showCategoryPicker = false;
-                        showAdd = false;
-                        showEmojiPicker = false;
-                      });
-                    },
-                    onDeleteRef: () {
-                      safeSetModalState(() {
-                        pendingRemoveKeys.add(item.categoryKey);
-                        localRef.removeWhere(
-                              (e) => e.categoryKey == item.categoryKey,
-                        );
-                      });
-                    },
-                  );
-                },
-              )
-                  : GridView.builder(
-                shrinkWrap: true,
-                physics: const BouncingScrollPhysics(),
-                gridDelegate: gridDelegate,
-                itemCount: localRef.length,
-                itemBuilder: (context, index) {
-                  final item = localRef[index];
-                  final selected =
-                      ((entry['categoryKey'] as String?) ?? '') == item.categoryKey;
-
-                  return buildCategoryChip(
-                    name: item.name,
-                    emoji: item.emoji,
-                    selected: selected,
-                    width: width,
-                    onTap: () {
-                      safeSetModalState(() {
-                        entry['category'] = item.name;
-                        entry['categoryKey'] = item.categoryKey;
-                        entry['categorySource'] = 'ref';
-                        entry['categoryEmoji'] = item.emoji;
-                        showCategoryPicker = false;
-                        showAdd = false;
-                        showEmojiPicker = false;
-                      });
-                    },
-                    onDeleteRef: editMode
-                        ? () {
-                      safeSetModalState(() {
-                        pendingRemoveKeys.add(item.categoryKey);
-                        localRef.removeWhere(
-                              (e) => e.categoryKey == item.categoryKey,
-                        );
-                      });
-                    }
-                        : null,
-                  );
-                },
-              ),
-            );
-          }
-
-          Widget buildInlineCategoryPicker() {
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final chipWidth = (constraints.maxWidth - 8 * 3) / 4;
-
-                return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8F9FB),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFE5E7EB)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          if (editMode)
-                            GestureDetector(
-                              onTap: () async {
-                                await commitEditChanges();
-                                if (!context.mounted) return;
+                            return buildCategoryChip(
+                              name: item.name,
+                              emoji: item.emoji,
+                              selected: selected,
+                              width: width,
+                              onTap: () {
+                                if (editMode) return;
                                 safeSetModalState(() {
-                                  editMode = false;
-                                  closeAddUI();
+                                  entry['category'] = item.name;
+                                  entry['categoryKey'] = item.categoryKey;
+                                  entry['categorySource'] = 'ref';
+                                  entry['categoryEmoji'] = item.emoji;
+                                  showCategoryPicker = false;
+                                  showAdd = false;
+                                  showEmojiPicker = false;
                                 });
                               },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
-                                ),
-                                margin: const EdgeInsets.only(right: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey[200],
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: const Row(
-                                  children: [
-                                    Icon(Icons.check, size: 14),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      '편집 완료',
-                                      style: TextStyle(fontSize: 11),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          GestureDetector(
-                            onTap: () {
-                              safeSetModalState(() {
-                                showAdd = !showAdd;
-                                if (showAdd) {
-                                  tempNameCtrl.clear();
-                                  selectedEmoji = '💰';
+                              onDeleteRef: () {
+                                safeSetModalState(() {
+                                  pendingRemoveKeys.add(item.categoryKey);
+                                  localRef.removeWhere(
+                                    (e) => e.categoryKey == item.categoryKey,
+                                  );
+                                });
+                              },
+                            );
+                          },
+                        )
+                      : GridView.builder(
+                          shrinkWrap: true,
+                          physics: const BouncingScrollPhysics(),
+                          gridDelegate: gridDelegate,
+                          itemCount: localRef.length,
+                          itemBuilder: (context, index) {
+                            final item = localRef[index];
+                            final selected =
+                                ((entry['categoryKey'] as String?) ?? '') ==
+                                item.categoryKey;
+
+                            return buildCategoryChip(
+                              name: item.name,
+                              emoji: item.emoji,
+                              selected: selected,
+                              width: width,
+                              onTap: () {
+                                safeSetModalState(() {
+                                  entry['category'] = item.name;
+                                  entry['categoryKey'] = item.categoryKey;
+                                  entry['categorySource'] = 'ref';
+                                  entry['categoryEmoji'] = item.emoji;
+                                  showCategoryPicker = false;
+                                  showAdd = false;
                                   showEmojiPicker = false;
-                                } else {
-                                  showEmojiPicker = false;
-                                }
-                              });
-                            },
-                            child: Container(
-                              width: 28,
-                              height: 28,
-                              decoration: BoxDecoration(
-                                color: showAdd
-                                    ? const Color(0xFFD1D5DB)
-                                    : const Color(0xFFF3F4F6),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: showAdd
-                                      ? const Color(0xFF9CA3AF)
-                                      : const Color(0xFFE5E7EB),
-                                ),
-                              ),
-                              child: Icon(
-                                showAdd ? Icons.close : Icons.add,
-                                size: 16,
-                                color: showAdd
-                                    ? const Color(0xFF374151)
-                                    : const Color(0xFF6B7280),
-                              ),
-                            ),
-                          ),
-                        ],
+                                });
+                              },
+                              onDeleteRef: editMode
+                                  ? () {
+                                      safeSetModalState(() {
+                                        pendingRemoveKeys.add(item.categoryKey);
+                                        localRef.removeWhere(
+                                          (e) =>
+                                              e.categoryKey == item.categoryKey,
+                                        );
+                                      });
+                                    }
+                                  : null,
+                            );
+                          },
+                        ),
+                );
+              }
+
+              Widget buildInlineCategoryPicker() {
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final chipWidth = (constraints.maxWidth - 8 * 3) / 4;
+
+                    return Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F9FB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
                       ),
-                      const SizedBox(height: 16),
-                      buildRefGrid(chipWidth),
-                      if (showAdd) ...[
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            GestureDetector(
-                              onTap: () => safeSetModalState(
-                                    () => showEmojiPicker = !showEmojiPicker,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              if (editMode)
+                                GestureDetector(
+                                  onTap: () async {
+                                    await commitEditChanges();
+                                    if (!context.mounted) return;
+                                    safeSetModalState(() {
+                                      editMode = false;
+                                      closeAddUI();
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[200],
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: const Row(
+                                      children: [
+                                        Icon(Icons.check, size: 14),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          '편집 완료',
+                                          style: TextStyle(fontSize: 11),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              GestureDetector(
+                                onTap: () {
+                                  safeSetModalState(() {
+                                    showAdd = !showAdd;
+                                    if (showAdd) {
+                                      tempNameCtrl.clear();
+                                      selectedEmoji = '💰';
+                                      showEmojiPicker = false;
+                                    } else {
+                                      showEmojiPicker = false;
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  width: 28,
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: showAdd
+                                        ? const Color(0xFFD1D5DB)
+                                        : const Color(0xFFF3F4F6),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: showAdd
+                                          ? const Color(0xFF9CA3AF)
+                                          : const Color(0xFFE5E7EB),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    showAdd ? Icons.close : Icons.add,
+                                    size: 16,
+                                    color: showAdd
+                                        ? const Color(0xFF374151)
+                                        : const Color(0xFF6B7280),
+                                  ),
+                                ),
                               ),
-                              child: Container(
-                                width: 60,
-                                height: 60,
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          buildRefGrid(chipWidth),
+                          if (showAdd) ...[
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: () => safeSetModalState(
+                                    () => showEmojiPicker = !showEmojiPicker,
+                                  ),
+                                  child: Container(
+                                    width: 60,
+                                    height: 60,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF3F4F6),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: const Color(0xFFE5E7EB),
+                                      ),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        selectedEmoji,
+                                        style: const TextStyle(fontSize: 24),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 60,
+                                    child: CustomTextField(
+                                      controller: tempNameCtrl,
+                                      hintText: '새 수입 카테고리 이름',
+                                      onChanged: (_) =>
+                                          safeSetModalState(() {}),
+                                      height: 60,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (showEmojiPicker) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                height: 120,
+                                padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F4F6),
+                                  color: const Color(0xFFF9FAFB),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: const Color(0xFFE5E7EB),
                                   ),
                                 ),
-                                child: Center(
-                                  child: Text(
-                                    selectedEmoji,
-                                    style: const TextStyle(fontSize: 24),
-                                  ),
+                                child: GridView.builder(
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 8,
+                                        crossAxisSpacing: 4,
+                                        mainAxisSpacing: 4,
+                                      ),
+                                  itemCount: recordIncomeEmojis.length,
+                                  itemBuilder: (context, index) {
+                                    final emoji = recordIncomeEmojis[index];
+                                    return GestureDetector(
+                                      onTap: () => safeSetModalState(() {
+                                        selectedEmoji = emoji;
+                                        showEmojiPicker = false;
+                                      }),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: selectedEmoji == emoji
+                                              ? AppColors.primary.withOpacity(
+                                                  0.1,
+                                                )
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            emoji,
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              color: selectedEmoji == emoji
+                                                  ? AppColors.primary
+                                                  : null,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: SizedBox(
-                                height: 60,
-                                child: CustomTextField(
-                                  controller: tempNameCtrl,
-                                  hintText: '새 수입 카테고리 이름',
-                                  onChanged: (_) => safeSetModalState(() {}),
-                                  height: 60,
+                            ],
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 50,
+                              child: ElevatedButton(
+                                onPressed: tempNameCtrl.text.trim().isEmpty
+                                    ? null
+                                    : () async {
+                                        final name = tempNameCtrl.text.trim();
+                                        final dupInRef = localRef.any(
+                                          (e) => e.name == name,
+                                        );
+
+                                        if (dupInRef) return;
+
+                                        final created = await categoryVM.addRef(
+                                          name: name,
+                                          emoji: selectedEmoji,
+                                        );
+
+                                        if (created == null) return;
+
+                                        safeSetModalState(() {
+                                          localRef.add(created);
+                                          committedRef =
+                                              List<RefCategoryItem>.from(
+                                                localRef,
+                                              );
+                                          closeAddUI();
+                                        });
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: const Text(
+                                  '수입 카테고리 추가',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                  ),
                                 ),
                               ),
                             ),
                           ],
-                        ),
-                        if (showEmojiPicker) ...[
-                          const SizedBox(height: 12),
-                          Container(
-                            height: 120,
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF9FAFB),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: const Color(0xFFE5E7EB),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              }
+
+              return PopScope(
+                canPop: !hasUnsavedEditChanges(),
+                onPopInvokedWithResult: (didPop, _) async {
+                  if (didPop) {
+                    isClosing = true;
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    return;
+                  }
+
+                  if (!hasUnsavedEditChanges()) return;
+
+                  final discard = await confirmDiscardDialog(context);
+                  if (!discard || !context.mounted) return;
+
+                  safeSetModalState(() => cancelEditChanges());
+                  isClosing = true;
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  Navigator.of(context).pop();
+                },
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                  ),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: SingleChildScrollView(
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
                               ),
                             ),
-                            child: GridView.builder(
-                              gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 8,
-                                crossAxisSpacing: 4,
-                                mainAxisSpacing: 4,
-                              ),
-                              itemCount: recordIncomeEmojis.length,
-                              itemBuilder: (context, index) {
-                                final emoji = recordIncomeEmojis[index];
-                                return GestureDetector(
-                                  onTap: () => safeSetModalState(() {
-                                    selectedEmoji = emoji;
-                                    showEmojiPicker = false;
-                                  }),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: selectedEmoji == emoji
-                                          ? AppColors.primary.withOpacity(0.1)
-                                          : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        emoji,
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          color: selectedEmoji == emoji
-                                              ? AppColors.primary
-                                              : null,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
+                            const SizedBox(height: 20),
+                            AddIncomeInputEntry(
+                              entry: entry,
+                              onDelete: () {},
+                              enableDismissible: false,
+                              showBottomDivider: true,
+                              onChanged: () => safeSetModalState(() {}),
+                              onCategoryTapOverride: () {
+                                safeSetModalState(() {
+                                  showCategoryPicker = !showCategoryPicker;
+                                  if (!showCategoryPicker) {
+                                    if (hasUnsavedEditChanges()) {
+                                      cancelEditChanges();
+                                    } else {
+                                      editMode = false;
+                                      closeAddUI();
+                                    }
+                                  }
+                                });
+                              },
+                              inlineCategoryPicker: showCategoryPicker
+                                  ? buildInlineCategoryPicker()
+                                  : null,
+                              refItemsOverride: localRef,
+                              categoryLoadingOverride: categoryVM.loading,
+                            ),
+                            const SizedBox(height: 24),
+                            CustomButton(
+                              text: buttonText,
+                              height: 56,
+                              enabled: canSubmit(),
+                              onPressed: () {
+                                if (!canSubmit()) return;
+
+                                isClosing = true;
+                                FocusManager.instance.primaryFocus?.unfocus();
+
+                                final result = RecordEntry(
+                                  id: originEntryId,
+                                  categoryKey:
+                                      ((entry['categoryKey'] as String?) ?? '')
+                                          .trim(),
+                                  category:
+                                      ((entry['category'] as String?) ?? '')
+                                          .trim(),
+                                  amount:
+                                      ((entry['amount'] as num?)?.toDouble() ??
+                                      0.0),
+                                  note: ((entry['note'] as String?) ?? '')
+                                      .trim(),
                                 );
+
+                                Navigator.of(context).pop(result);
                               },
                             ),
-                          ),
-                        ],
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 50,
-                          child: ElevatedButton(
-                            onPressed: tempNameCtrl.text.trim().isEmpty
-                                ? null
-                                : () async {
-                              final name = tempNameCtrl.text.trim();
-                              final dupInRef =
-                              localRef.any((e) => e.name == name);
-
-                              if (dupInRef) return;
-
-                              final created = await context
-                                  .read<AddIncomeCategoryViewModel>()
-                                  .addRef(
-                                name: name,
-                                emoji: selectedEmoji,
-                              );
-
-                              if (created == null) return;
-
-                              safeSetModalState(() {
-                                localRef.add(created);
-                                committedRef =
-                                List<RefCategoryItem>.from(localRef);
-                                closeAddUI();
-                              });
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            child: const Text(
-                              '수입 카테고리 추가',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
+                          ],
                         ),
-                      ],
-                    ],
-                  ),
-                );
-              },
-            );
-          }
-
-          return PopScope(
-            canPop: true,
-            onPopInvokedWithResult: (_, __) {
-              isClosing = true;
-              FocusManager.instance.primaryFocus?.unfocus();
-            },
-            child: WillPopScope(
-              onWillPop: () async {
-                if (hasUnsavedEditChanges()) {
-                  final discard = await confirmDiscardDialog(context);
-                  if (!discard) return false;
-                  safeSetModalState(() => cancelEditChanges());
-                }
-                return true;
-              },
-              child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: MediaQuery.of(context).viewInsets.bottom,
-                ),
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius:
-                    BorderRadius.vertical(top: Radius.circular(24)),
-                  ),
-                  child: SafeArea(
-                    top: false,
-                    child: SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          AddIncomeInputEntry(
-                            entry: entry,
-                            onDelete: () {},
-                            enableDismissible: false,
-                            showBottomDivider: true,
-                            onChanged: () => safeSetModalState(() {}),
-                            onCategoryTapOverride: () {
-                              safeSetModalState(() {
-                                showCategoryPicker = !showCategoryPicker;
-                                if (!showCategoryPicker) {
-                                  if (hasUnsavedEditChanges()) {
-                                    cancelEditChanges();
-                                  } else {
-                                    editMode = false;
-                                    closeAddUI();
-                                  }
-                                }
-                              });
-                            },
-                            inlineCategoryPicker: showCategoryPicker
-                                ? buildInlineCategoryPicker()
-                                : null,
-                          ),
-                          const SizedBox(height: 24),
-                          CustomButton(
-                            text: buttonText,
-                            height: 56,
-                            enabled: canSubmit(),
-                            onPressed: () {
-                              if (!canSubmit()) return;
-
-                              isClosing = true;
-                              FocusManager.instance.primaryFocus?.unfocus();
-
-                              final result = RecordEntry(
-                                id: originEntryId,
-                                categoryKey:
-                                ((entry['categoryKey'] as String?) ?? '')
-                                    .trim(),
-                                category: ((entry['category'] as String?) ?? '')
-                                    .trim(),
-                                amount:
-                                ((entry['amount'] as num?)?.toDouble() ?? 0.0),
-                                note: ((entry['note'] as String?) ?? '').trim(),
-                              );
-
-                              Navigator.of(context).pop(result);
-                            },
-                          ),
-                        ],
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           );
         },
-      );
-    },
-  ).whenComplete(() {
-    isClosing = true;
-    FocusManager.instance.primaryFocus?.unfocus();
-    tempNameCtrl.dispose();
-  });
+      ).whenComplete(() {
+        isClosing = true;
+        FocusManager.instance.primaryFocus?.unfocus();
+      });
+
+  await _waitForIncomeSheetDismissed();
+  tempNameCtrl.dispose();
 
   return result;
 }

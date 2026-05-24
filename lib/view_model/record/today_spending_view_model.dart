@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../model/record/day_record.dart';
@@ -26,14 +25,15 @@ class TodaySpendingViewModel extends ChangeNotifier {
   DateTime? _date;
   DateTime? get date => _date;
 
-  DayRecord? _day;
-  DayRecord? get day => _day;
+  DayRecord? _savedDay;
+  DayRecord? _draftDay;
+  DayRecord? get day => _draftDay;
 
-  List<RecordEntry> get entries => _day?.spendingEntries ?? const [];
+  List<RecordEntry> get entries => _draftDay?.spendingEntries ?? const [];
 
   int get totalAmount {
-    if (_day == null) return 0;
-    final sum = _day!.spendingEntries
+    if (_draftDay == null) return 0;
+    final sum = _draftDay!.spendingEntries
         .fold<double>(0, (s, e) => s + e.amount)
         .round();
     return sum;
@@ -56,8 +56,20 @@ class TodaySpendingViewModel extends ChangeNotifier {
     return (diff / _plannedPerSecond / 60).round();
   }
 
-  String get emotion => _day?.emotion ?? '';
-  String get comment => _day?.comment ?? '';
+  String get emotion => _draftDay?.emotion ?? '';
+  String get comment => _draftDay?.comment ?? '';
+
+  bool get hasUnsavedChanges => _hasDraftChanged(_savedDay, _draftDay);
+  bool get hasEntryChanges {
+    if (_savedDay == null || _draftDay == null) return false;
+    if (_savedDay!.totalSpendingAmount != _draftDay!.totalSpendingAmount) {
+      return true;
+    }
+    return !_sameEntries(
+      _savedDay!.spendingEntries,
+      _draftDay!.spendingEntries,
+    );
+  }
 
   Future<void> load(DateTime date) async {
     if (_isLoading) return;
@@ -72,7 +84,8 @@ class TodaySpendingViewModel extends ChangeNotifier {
       final dateKey = DateFormat('yyyy-MM-dd').format(date);
       final loadedDay = month.days[dateKey];
 
-      _day = loadedDay ?? DayRecord.empty(date);
+      _savedDay = _cloneDay(loadedDay ?? DayRecord.empty(date));
+      _draftDay = _cloneDay(_savedDay!);
       final budget = await _readDailyPlanBudgetForDate(date);
       _dailyLimit = budget.dailyLimit;
       _plannedDailyNet = budget.plannedDailyNet;
@@ -126,7 +139,7 @@ class TodaySpendingViewModel extends ChangeNotifier {
     required double amount,
     required String note,
   }) async {
-    if (_day == null) return;
+    if (_draftDay == null) return;
 
     final newEntry = RecordEntry(
       id: DateTime.now().microsecondsSinceEpoch.toString(),
@@ -136,17 +149,15 @@ class TodaySpendingViewModel extends ChangeNotifier {
       note: note,
     );
 
-    final newEntries = [..._day!.spendingEntries, newEntry];
+    final newEntries = [..._draftDay!.spendingEntries, newEntry];
 
-    _day = _day!.copyWith(
+    _draftDay = _draftDay!.copyWith(
       spendingEntries: newEntries,
       totalSpendingAmount: newEntries
           .fold<double>(0, (s, e) => s + e.amount)
           .round(),
     );
     notifyListeners();
-
-    await _persist('addEntry');
   }
 
   Future<void> updateEntry({
@@ -156,9 +167,9 @@ class TodaySpendingViewModel extends ChangeNotifier {
     required double amount,
     required String note,
   }) async {
-    if (_day == null) return;
+    if (_draftDay == null) return;
 
-    final newEntries = _day!.spendingEntries.map((e) {
+    final newEntries = _draftDay!.spendingEntries.map((e) {
       if (e.id != entryId) return e;
       return e.copyWith(
         categoryKey: categoryKey,
@@ -168,72 +179,131 @@ class TodaySpendingViewModel extends ChangeNotifier {
       );
     }).toList();
 
-    _day = _day!.copyWith(
+    _draftDay = _draftDay!.copyWith(
       spendingEntries: newEntries,
       totalSpendingAmount: newEntries
           .fold<double>(0, (s, e) => s + e.amount)
           .round(),
     );
     notifyListeners();
-
-    await _persist('updateEntry');
   }
 
   Future<void> deleteEntry(String entryId) async {
-    if (_day == null) return;
+    if (_draftDay == null) return;
 
-    final newEntries = _day!.spendingEntries
+    final newEntries = _draftDay!.spendingEntries
         .where((e) => e.id != entryId)
         .toList();
 
-    _day = _day!.copyWith(
+    _draftDay = _draftDay!.copyWith(
       spendingEntries: newEntries,
       totalSpendingAmount: newEntries
           .fold<double>(0, (s, e) => s + e.amount)
           .round(),
     );
     notifyListeners();
-
-    await _persist('deleteEntry');
   }
 
   Future<void> updateEmotionAndComment({
     required String emotion,
     required String comment,
   }) async {
-    if (_day == null) return;
+    if (_savedDay == null) return;
 
-    _day = _day!.copyWith(emotion: emotion, comment: comment);
+    _savedDay = _savedDay!.copyWith(emotion: emotion, comment: comment);
+    if (_draftDay != null) {
+      _draftDay = _draftDay!.copyWith(emotion: emotion, comment: comment);
+    }
     notifyListeners();
 
-    await _persist('updateEmotion');
+    await _persistDay('updateEmotion', _savedDay!);
+  }
+
+  void updateDiaryDraft({required String emotion, required String comment}) {
+    if (_draftDay == null) return;
+
+    _draftDay = _draftDay!.copyWith(emotion: emotion, comment: comment);
+    notifyListeners();
   }
 
   void _recalcTotal() {
-    if (_day == null) return;
-    final sum = _day!.spendingEntries
+    if (_draftDay == null) return;
+    final sum = _draftDay!.spendingEntries
         .fold<double>(0, (s, e) => s + e.amount)
         .round();
-    _day = _day!.copyWith(totalSpendingAmount: sum);
+    _draftDay = _draftDay!.copyWith(totalSpendingAmount: sum);
   }
 
-  Future<void> _persist(String action) async {
-    if (_day == null) return;
+  Future<void> saveDraft() async {
+    if (_draftDay == null) return;
+
+    await _persistDay('saveDraft', _draftDay!);
+    _savedDay = _cloneDay(_draftDay!);
+    _draftDay = _cloneDay(_savedDay!);
+    notifyListeners();
+  }
+
+  void discardDraft() {
+    if (_savedDay == null) return;
+    _draftDay = _cloneDay(_savedDay!);
+    notifyListeners();
+  }
+
+  Future<void> _persistDay(String action, DayRecord day) async {
+    final normalized = _recalculatedDay(day);
 
     final localMode = _recordRepo.localMode;
     await _recordRepo.upsertSpendingForDate(
-      date: _day!.date,
-      spendingEntries: _day!.spendingEntries,
-      totalSpendingAmount: _day!.totalSpendingAmount,
-      emotion: _day!.emotion,
-      comment: _day!.comment,
+      date: normalized.date,
+      spendingEntries: normalized.spendingEntries,
+      totalSpendingAmount: normalized.totalSpendingAmount,
+      emotion: normalized.emotion,
+      comment: normalized.comment,
     );
 
     debugPrint(
       '[TodaySpendingViewModel] $action persisted '
-      '(date=${_day!.date}, localMode=$localMode)',
+      '(date=${normalized.date}, localMode=$localMode)',
     );
-    _eventBus.fire(RecordUpdatedEvent(_day!.date));
+    _eventBus.fire(RecordUpdatedEvent(normalized.date));
+  }
+
+  DayRecord _recalculatedDay(DayRecord day) {
+    final total = day.spendingEntries
+        .fold<double>(0, (sum, entry) => sum + entry.amount)
+        .round();
+    return day.copyWith(totalSpendingAmount: total);
+  }
+
+  DayRecord _cloneDay(DayRecord day) {
+    return day.copyWith(
+      spendingEntries: List<RecordEntry>.from(day.spendingEntries),
+      incomeEntries: List<RecordEntry>.from(day.incomeEntries),
+    );
+  }
+
+  bool _hasDraftChanged(DayRecord? saved, DayRecord? draft) {
+    if (saved == null || draft == null) return false;
+    if (saved.totalSpendingAmount != draft.totalSpendingAmount) return true;
+    if (saved.emotion != draft.emotion) return true;
+    if (saved.comment != draft.comment) return true;
+    return !_sameEntries(saved.spendingEntries, draft.spendingEntries);
+  }
+
+  bool _sameEntries(List<RecordEntry> a, List<RecordEntry> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (left.id != right.id ||
+          left.categoryKey != right.categoryKey ||
+          left.category != right.category ||
+          left.amount != right.amount ||
+          left.note != right.note) {
+        return false;
+      }
+    }
+    return true;
   }
 }
 
@@ -245,9 +315,9 @@ class _DailyPlanBudget {
   });
 
   const _DailyPlanBudget.empty()
-      : dailyLimit = 0,
-        plannedDailyNet = 0,
-        perSecondSaving = 0;
+    : dailyLimit = 0,
+      plannedDailyNet = 0,
+      perSecondSaving = 0;
 
   factory _DailyPlanBudget.fromMini(MiniPlan mini) {
     final metrics = mini.toMetrics();
