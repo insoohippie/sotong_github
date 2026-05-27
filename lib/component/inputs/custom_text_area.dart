@@ -17,7 +17,7 @@ class CustomTextArea extends StatelessWidget {
   final int maxLines;
 
   const CustomTextArea({
-    Key? key,
+    super.key,
     required this.controller,
     required this.hintText,
     this.onChanged,
@@ -29,27 +29,34 @@ class CustomTextArea extends StatelessWidget {
     this.suffix,
     this.minLines = 5,
     this.maxLines = 10,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final Color bgColor =
         backgroundColor ??
-        (controller.text.isEmpty
-            ? AppColors.greyBackground
-            : AppColors.lightBlue);
+        (isDark
+            ? const Color(0xFF242424)
+            : (controller.text.isEmpty
+                  ? AppColors.greyBackground
+                  : AppColors.lightBlue));
 
     return Container(
       height: height,
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(borderRadius),
+        border: isDark ? Border.all(color: AppColors.darkBorder) : null,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       alignment: Alignment.topLeft,
       child: TextFormField(
         controller: controller,
-        style: AppTextStyles.paragraph,
+        style: AppTextStyles.paragraph.copyWith(
+          color: theme.colorScheme.onSurface,
+        ),
         textAlignVertical: TextAlignVertical.top,
         minLines: minLines,
         maxLines: maxLines,
@@ -59,7 +66,7 @@ class CustomTextArea extends StatelessWidget {
           hintText: hintText,
           hintStyle: AppTextStyles.paragraph.copyWith(
             fontSize: 13,
-            color: Colors.grey,
+            color: theme.colorScheme.onSurfaceVariant,
             fontFamily: 'Pretendard Variable',
           ),
           border: InputBorder.none,

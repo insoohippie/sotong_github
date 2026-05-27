@@ -10,17 +10,26 @@ class SelectableEmojiSelector extends StatelessWidget {
   final double radius;
 
   const SelectableEmojiSelector({
-    Key? key,
+    super.key,
     required this.label,
     required this.emojiWidget,
     required this.selected,
     required this.onTap,
     this.size = 80.0,
     this.radius = 40.0,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final circleColor = selected
+        ? (isDark ? const Color(0xFF3A3A3A) : const Color(0xFFEDEDED))
+        : (isDark ? const Color(0xFF242424) : const Color(0xFFF3F4F6));
+    final labelColor = selected
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.onSurfaceVariant;
+
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -29,14 +38,17 @@ class SelectableEmojiSelector extends StatelessWidget {
             width: size,
             height: size,
             decoration: BoxDecoration(
-              color: selected ? Colors.white : Colors.white10,
-              // color: selected ? Colors.white10 : Colors.white,
-              // color: selected ? Colors.white : Colors.white,
+              color: circleColor,
               borderRadius: BorderRadius.circular(radius),
-              // border: ,
+              border: Border.all(
+                color: selected
+                    ? theme.colorScheme.primary
+                    : theme.dividerColor,
+                width: selected ? 1.2 : 0.8,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.08),
                   blurRadius: 6,
                   offset: const Offset(0, 4),
                 ),
@@ -50,8 +62,8 @@ class SelectableEmojiSelector extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: selected ? Colors.black : Colors.grey,
-              fontWeight: FontWeight.w500,
+              color: labelColor,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
             ),
           ),
         ],

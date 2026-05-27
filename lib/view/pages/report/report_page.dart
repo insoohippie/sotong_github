@@ -44,9 +44,7 @@ class _ReportPageContentState extends State<_ReportPageContent> {
 
     // 로딩/에러 처리(선택)
     if (vm.isLoading && vm.budgetChart == null) {
-      return const SafeArea(
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const SafeArea(child: Center(child: CircularProgressIndicator()));
     }
     if (vm.error != null && vm.budgetChart == null) {
       return SafeArea(
@@ -108,9 +106,11 @@ class _ReportPageContentState extends State<_ReportPageContent> {
                                 child: Text(
                                   title,
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.onSurface,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,

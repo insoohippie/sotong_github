@@ -72,6 +72,7 @@ class WheelDateSelector extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width),
       builder: (ctx) => _WheelDatePickerModal(
         initialYear: selectedYear,
         initialMonth: selectedMonth,
@@ -216,13 +217,14 @@ class _WheelDatePickerModalState extends State<_WheelDatePickerModal> {
     );
 
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         color: theme.scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(
-              theme.brightness == Brightness.dark ? 0.3 : 0.1,
+            color: Colors.black.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.3 : 0.1,
             ),
             offset: const Offset(0, -4),
             blurRadius: 6,

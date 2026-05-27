@@ -41,6 +41,7 @@ class DragGrid<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final children = [
       for (int i = 0; i < itemList.length; i++)
         KeyedSubtree(
@@ -52,8 +53,9 @@ class DragGrid<T> extends StatelessWidget {
     // ✅ 편집모드(true)면: 즉시 드래그(dragImmediately=true) → enableLongPress=false
     // ✅ 편집모드(false)면: 사실상 드래그 잠금(초장기 delay + onReorder 무시)
     final effectiveEnableLongPress = reorderEnabled ? !dragImmediately : true;
-    final effectiveDelay =
-    reorderEnabled ? (dragImmediately ? Duration.zero : longPressDelay) : const Duration(days: 365);
+    final effectiveDelay = reorderEnabled
+        ? (dragImmediately ? Duration.zero : longPressDelay)
+        : const Duration(days: 365);
 
     Widget grid = ReorderableBuilder(
       key: reorderableKey,
@@ -61,8 +63,8 @@ class DragGrid<T> extends StatelessWidget {
       longPressDelay: effectiveDelay,
       dragChildBoxDecoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: theme.colorScheme.surface,
+        border: Border.all(color: theme.dividerColor),
         boxShadow: const [],
       ),
       onReorder: (ReorderedListFunction f) {

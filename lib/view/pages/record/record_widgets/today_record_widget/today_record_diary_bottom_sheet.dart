@@ -3,7 +3,6 @@ import 'package:lottie/lottie.dart';
 import 'package:sotong_local/component/buttons/custom_button.dart';
 import 'package:sotong_local/component/inputs/custom_text_area.dart';
 import 'package:sotong_local/component/inputs/selectable_emoji_selector.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
 import '../../../../../view_model/record/today_spending_view_model.dart';
 
 const _diarySheetDismissDelay = Duration(milliseconds: 320);
@@ -40,6 +39,7 @@ showTodayRecordEditDiaryBottomSheet({
         builder: (BuildContext sheetContext) {
           return StatefulBuilder(
             builder: (context, setModalState) {
+              final theme = Theme.of(context);
               void safeSetModalState(VoidCallback fn) {
                 if (isClosing) return;
                 if (!context.mounted) return;
@@ -60,9 +60,9 @@ showTodayRecordEditDiaryBottomSheet({
                     bottom: MediaQuery.of(context).viewInsets.bottom,
                   ),
                   child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(
+                    decoration: BoxDecoration(
+                      color: theme.scaffoldBackgroundColor,
+                      borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(24),
                       ),
                     ),
@@ -81,7 +81,7 @@ showTodayRecordEditDiaryBottomSheet({
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.bold,
-                                  color: AppColors.text,
+                                  color: theme.colorScheme.onSurface,
                                 ),
                               ),
                             ),
@@ -92,7 +92,7 @@ showTodayRecordEditDiaryBottomSheet({
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.text,
+                                color: theme.colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: 12),
@@ -154,7 +154,7 @@ showTodayRecordEditDiaryBottomSheet({
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.text,
+                                color: theme.colorScheme.onSurface,
                               ),
                             ),
                             const SizedBox(height: 8),

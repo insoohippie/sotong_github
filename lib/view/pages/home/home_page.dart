@@ -27,6 +27,7 @@ class _HomePageState extends State<HomePage> {
     super.initState();
 
     Future.microtask(() {
+      if (!mounted) return;
       context.read<HomeViewModel>().load();
       context.read<NotificationViewModel>().loadNotifications();
     });
@@ -44,7 +45,7 @@ class _HomePageState extends State<HomePage> {
       final text = value % 1 == 0
           ? value.toStringAsFixed(0)
           : value.toStringAsFixed(1);
-      return '+${text}억';
+      return '+$text억';
     }
 
     if (amount >= 10000) {
@@ -52,7 +53,7 @@ class _HomePageState extends State<HomePage> {
       final text = value % 1 == 0
           ? value.toStringAsFixed(0)
           : value.toStringAsFixed(1);
-      return '+${text}만';
+      return '+$text만';
     }
 
     return '+$amount';
@@ -115,7 +116,7 @@ class _HomePageState extends State<HomePage> {
     final spentTextColor = !hasSpending
         ? theme.colorScheme.onSurface
         : isUnrecorded
-        ? theme.colorScheme.onSurface.withOpacity(0.8)
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.8)
         : isOverLimit
         ? const Color(0xFFFF5F5F)
         : AppColors.primary;
@@ -147,7 +148,9 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     children: [
                       RoundedInfoContainer(
-                        backgroundColor: theme.colorScheme.surface,
+                        backgroundColor: isDark
+                            ? AppColors.darkBackground
+                            : theme.colorScheme.surface,
                         padding: 12,
                         child: Column(
                           children: [
@@ -386,8 +389,10 @@ class _HomePageState extends State<HomePage> {
       useSafeArea: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black54,
+      constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width),
       builder: (_) {
         return FractionallySizedBox(
+          widthFactor: 1,
           heightFactor: 0.7,
           child: HomeSavingCountdownSheet(
             vm: vm,

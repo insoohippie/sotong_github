@@ -38,7 +38,7 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
     try {
       await vm.saveAllForDate(selectedDate);
 
-      if (!mounted) return;
+      if (!context.mounted) return;
 
       setState(() {
         _isLoading = false;
@@ -46,15 +46,15 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
       });
 
       await Future.delayed(const Duration(seconds: 2));
-      if (mounted) {
+      if (context.mounted) {
         Navigator.pushNamedAndRemoveUntil(
           context,
           '/home_tab_navigator',
-              (route) => false,
+          (route) => false,
         );
       }
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(
         context,
@@ -113,9 +113,9 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
 
                               return SizedBox(
                                 width:
-                                (MediaQuery.of(context).size.width -
-                                    AppSpacing.screenPadding * 2 -
-                                    24) /
+                                    (MediaQuery.of(context).size.width -
+                                        AppSpacing.screenPadding * 2 -
+                                        24) /
                                     3,
                                 child: SelectableEmojiSelector(
                                   label: emotion,
@@ -133,14 +133,14 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                                           fit: BoxFit.contain,
                                           errorBuilder:
                                               (context, error, stackTrace) {
-                                            debugPrint(
-                                              'Lottie load failed: $path — $error',
-                                            );
-                                            return const Icon(
-                                              Icons.sentiment_neutral,
-                                              size: 40,
-                                            );
-                                          },
+                                                debugPrint(
+                                                  'Lottie load failed: $path — $error',
+                                                );
+                                                return const Icon(
+                                                  Icons.sentiment_neutral,
+                                                  size: 40,
+                                                );
+                                              },
                                         );
                                       } catch (e) {
                                         debugPrint(
@@ -203,7 +203,9 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
 
         if (_isLoading || _isDone)
           Container(
-            color: Colors.white.withOpacity(0.9),
+            color: Theme.of(
+              context,
+            ).scaffoldBackgroundColor.withValues(alpha: 0.92),
             child: Center(
               child: Lottie.asset(
                 _isLoading
