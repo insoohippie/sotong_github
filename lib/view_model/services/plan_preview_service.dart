@@ -30,7 +30,8 @@ class PlanPreviewService {
 
   SavingCalculationResult? calculatePreview(PlanPreviewInput input) {
     final normalizedApply = _normalizeDay(input.applyDate);
-    final remainingTarget = _remainingTarget(input, normalizedApply);
+    final adjustedTarget = _targetAfterPreSaved(input, normalizedApply);
+    final remainingTarget = adjustedTarget - input.currentAsset;
     if (remainingTarget <= 0) {
       return SavingCalculationResult(
         dailyNetSaving: 0,
@@ -41,7 +42,7 @@ class PlanPreviewService {
 
     final calculator = UpdateEndDateCalculator(
       plan: input.plan,
-      targetAmount: remainingTarget.toDouble(),
+      targetAmount: adjustedTarget,
       currentAsset: input.currentAsset,
       monthlyIncome: input.monthlyIncome,
       monthlyFixedCost: input.monthlyFixedCost,
@@ -59,11 +60,15 @@ class PlanPreviewService {
   }
 
   int _remainingTarget(PlanPreviewInput input, DateTime applyDate) {
-    final baseTarget = input.targetAmount;
-    final preSaved = _preSavedAmountBefore(input.plan, applyDate);
-    final alreadySaved = input.currentAsset + preSaved;
-    final remaining = baseTarget - alreadySaved;
+    final baseTarget = _targetAfterPreSaved(input, applyDate);
+    final remaining = baseTarget - input.currentAsset;
     return remaining.isNegative ? 0 : remaining.round();
+  }
+
+  double _targetAfterPreSaved(PlanPreviewInput input, DateTime applyDate) {
+    final preSaved = _preSavedAmountBefore(input.plan, applyDate);
+    final adjusted = input.targetAmount - preSaved;
+    return adjusted.isNegative ? 0 : adjusted;
   }
 
   double _preSavedAmountBefore(TotalPlan plan, DateTime applyDate) {
@@ -81,7 +86,8 @@ class PlanPreviewService {
           if (mini.startDate.isBefore(targetDay)) {
             final clipEnd = targetDay.subtract(const Duration(days: 1));
             if (!clipEnd.isBefore(mini.startDate)) {
-              final clipped = mini.copyWith(endDate: clipEnd)
+              final clipped = mini
+                  .copyWith(endDate: clipEnd)
                   .recalculateNetAmounts();
               total += clipped.toMetrics().monthlyNetSaving.toDouble();
             }

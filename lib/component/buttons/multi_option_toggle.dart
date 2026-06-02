@@ -10,11 +10,12 @@ class MultiOptionToggle extends StatelessWidget {
     this.width = 320,
     this.height = 34,
     this.padding = const EdgeInsets.all(3),
+    this.fontSize = 12,
 
     /// 선택된 옵션 배경(흰색 칩)의 너비 비율. 1.0 = 한 칸 전체, 0.85 = 칸의 85% (좌우 여백 생김)
     this.indicatorWidthRatio = 1.0,
   }) : assert(labels.length >= 2),
-        assert(indicatorWidthRatio > 0 && indicatorWidthRatio <= 1.0);
+       assert(indicatorWidthRatio > 0 && indicatorWidthRatio <= 1.0);
 
   final List<String> labels;
   final String selected;
@@ -23,6 +24,7 @@ class MultiOptionToggle extends StatelessWidget {
   final double width;
   final double height;
   final EdgeInsets padding;
+  final double fontSize;
   final double indicatorWidthRatio;
 
   Alignment _alignmentForIndex(int index, int count) {
@@ -105,7 +107,7 @@ class MultiOptionToggle extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: fontSize,
                         fontWeight: FontWeight.w600,
                         color: isSelected
                             ? theme.colorScheme.onSurface

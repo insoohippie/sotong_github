@@ -23,7 +23,7 @@ class _EmotionTop3CarouselSectionState
 
   String _format(int v) => v.toString().replaceAllMapped(
     RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-        (m) => '${m[1]},',
+    (m) => '${m[1]},',
   );
 
   String _periodLabel(String period) => period == '주간' ? '최근 7일' : '최근 30일';
@@ -79,6 +79,22 @@ class _EmotionTop3CarouselSectionState
     ];
 
     final theme = Theme.of(context);
+    final viewWidth = MediaQuery.sizeOf(context).width;
+    final toggleWidth = viewWidth <= 386
+        ? 88.0
+        : viewWidth < 412
+        ? 96.0
+        : 106.0;
+    final toggleHeight = viewWidth <= 386
+        ? 26.0
+        : viewWidth < 412
+        ? 28.0
+        : 30.0;
+    final toggleFontSize = viewWidth <= 386
+        ? 10.0
+        : viewWidth < 412
+        ? 11.0
+        : 12.0;
     return Container(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
@@ -113,8 +129,9 @@ class _EmotionTop3CarouselSectionState
                 TwoOptionToggle(
                   labels: const ['주간', '월간'],
                   selected: period,
-                  width: 106,
-                  height: 30,
+                  width: toggleWidth,
+                  height: toggleHeight,
+                  fontSize: toggleFontSize,
                   onChanged: (v) {
                     if (v == vm.selectedAnalysisPeriod) return;
                     vm.setAnalysisPeriod(v);
@@ -393,6 +410,12 @@ class _EmptyState extends StatelessWidget {
         ? theme.colorScheme.surfaceContainerHighest
         : Colors.grey.shade50;
     final cardBorder = isDark ? theme.dividerColor : Colors.grey[200]!;
+    final viewWidth = MediaQuery.sizeOf(context).width;
+    final bodyFontSize = viewWidth <= 386
+        ? 11.0
+        : viewWidth < 412
+        ? 12.0
+        : 13.0;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
@@ -421,7 +444,7 @@ class _EmptyState extends StatelessWidget {
             child: Text(
               '$periodLabel 기준으로 감정 기록이 없어요.\n오늘의 소비를 기록해보세요!',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: bodyFontSize,
                 height: 1.3,
                 color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,

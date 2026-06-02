@@ -224,6 +224,12 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
     final userColor = const Color(0xFF7DAFFF);
     final isSamePercent =
         (widget.planPercent - widget.userPercent).abs() < 0.005;
+    final viewHeight = MediaQuery.sizeOf(context).height;
+    final gaugeLegendGap = viewHeight < 750
+        ? 16.0
+        : viewHeight < 820
+        ? 20.0
+        : 24.0;
 
     if (isSamePercent) {
       return Center(
@@ -290,7 +296,7 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            SizedBox(height: gaugeLegendGap),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -419,7 +425,7 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
             ),
           ),
 
-          const SizedBox(height: 24),
+          SizedBox(height: gaugeLegendGap),
           // 범례
           Row(
             mainAxisAlignment: MainAxisAlignment.center,

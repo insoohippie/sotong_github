@@ -41,7 +41,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
   String _formatWonFull(int v) {
     return v.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (m) => '${m[1]},',
+      (m) => '${m[1]},',
     );
   }
 
@@ -228,12 +228,29 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
   }
 
   Widget _buildModeToggle() {
+    final viewWidth = MediaQuery.sizeOf(context).width;
+    final toggleWidth = viewWidth <= 386
+        ? 88.0
+        : viewWidth < 412
+        ? 96.0
+        : 106.0;
+    final toggleHeight = viewWidth <= 386
+        ? 26.0
+        : viewWidth < 412
+        ? 28.0
+        : 30.0;
+    final toggleFontSize = viewWidth <= 386
+        ? 10.0
+        : viewWidth < 412
+        ? 11.0
+        : 12.0;
     return TwoOptionToggle(
       labels: const ['감정', '금액'],
       selected: selectedMode,
       onChanged: (v) => _changeMode(v),
-      width: 106,
-      height: 30,
+      width: toggleWidth,
+      height: toggleHeight,
+      fontSize: toggleFontSize,
     );
   }
 
@@ -276,13 +293,13 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
 
           final Animation<Offset> slideAnimation = isIncoming
               ? Tween<Offset>(
-            begin: incomingOffset,
-            end: Offset.zero,
-          ).animate(curved)
+                  begin: incomingOffset,
+                  end: Offset.zero,
+                ).animate(curved)
               : Tween<Offset>(
-            begin: Offset.zero,
-            end: outgoingOffset,
-          ).animate(ReverseAnimation(curved));
+                  begin: Offset.zero,
+                  end: outgoingOffset,
+                ).animate(ReverseAnimation(curved));
 
           return ClipRect(
             child: SlideTransition(position: slideAnimation, child: child),
@@ -295,17 +312,17 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
               children: ['월', '화', '수', '목', '금', '토', '일']
                   .map(
                     (day) => Expanded(
-                  child: Text(
-                    day,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: _weekdayHeaderColor(context, day),
+                      child: Text(
+                        day,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: _weekdayHeaderColor(context, day),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              )
+                  )
                   .toList(),
             ),
             const SizedBox(height: 8),
@@ -335,18 +352,18 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
                 final isIncoming = child.key == ValueKey<String>(selectedMode);
                 final slideAnim = isIncoming
                     ? Tween<Offset>(
-                  begin: incomingOffset,
-                  end: Offset.zero,
-                ).animate(curved)
+                        begin: incomingOffset,
+                        end: Offset.zero,
+                      ).animate(curved)
                     : Tween<Offset>(
-                  begin: Offset.zero,
-                  end: outgoingOffset,
-                ).animate(
-                  CurvedAnimation(
-                    parent: ReverseAnimation(animation),
-                    curve: Curves.easeInOutCubic,
-                  ),
-                );
+                        begin: Offset.zero,
+                        end: outgoingOffset,
+                      ).animate(
+                        CurvedAnimation(
+                          parent: ReverseAnimation(animation),
+                          curve: Curves.easeInOutCubic,
+                        ),
+                      );
 
                 return ClipRect(
                   child: SlideTransition(position: slideAnim, child: child),
@@ -428,7 +445,7 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
                     vm.dailySpendingLimit > 0 && amount > vm.dailySpendingLimit;
 
                 final showDayText =
-                (!showEmotion || (showEmotion && !hasEmotion));
+                    (!showEmotion || (showEmotion && !hasEmotion));
 
                 return Stack(
                   alignment: Alignment.center,

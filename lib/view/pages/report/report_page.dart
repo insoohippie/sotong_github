@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:sotong_local/component/banner/sliding_banner.dart';
 import 'package:sotong_local/view/pages/report/report_widgets/report_category_budget_chart_section.dart';
 import 'package:sotong_local/view/pages/report/report_widgets/report_month_category_section.dart';
+import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 import '../../../view_model/report/report_view_model.dart';
 
 class ReportPage extends StatelessWidget {
@@ -41,12 +42,20 @@ class _ReportPageContentState extends State<_ReportPageContent> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ReportViewModel>();
+    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionScreen075,
+    );
+    final viewWidth = MediaQuery.sizeOf(context).width;
+    final bannerFontSize = viewWidth <= 386
+        ? 11.0
+        : viewWidth < 412
+        ? 12.0
+        : 13.0;
 
     // 로딩/에러 처리(선택)
     if (vm.isLoading && vm.budgetChart == null) {
-      return const SafeArea(
-        child: Center(child: CircularProgressIndicator()),
-      );
+      return const SafeArea(child: Center(child: CircularProgressIndicator()));
     }
     if (vm.error != null && vm.budgetChart == null) {
       return SafeArea(
@@ -67,7 +76,7 @@ class _ReportPageContentState extends State<_ReportPageContent> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -108,9 +117,11 @@ class _ReportPageContentState extends State<_ReportPageContent> {
                                 child: Text(
                                   title,
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: bannerFontSize,
                                     fontWeight: FontWeight.w600,
-                                    color: Theme.of(context).colorScheme.onSurface,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                   maxLines: 3,
                                   overflow: TextOverflow.ellipsis,

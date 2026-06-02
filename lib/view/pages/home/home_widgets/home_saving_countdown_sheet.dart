@@ -6,13 +6,9 @@ class HomeSavingCountdownSheet extends StatefulWidget {
   const HomeSavingCountdownSheet({
     super.key,
     required this.vm,
-    required this.planPercent,
-    required this.userPercent,
   });
 
   final HomeViewModel vm;
-  final int planPercent;
-  final int userPercent;
 
   @override
   State<HomeSavingCountdownSheet> createState() =>
@@ -61,10 +57,7 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
                       _CountdownHeader(vm: vm),
                       const SizedBox(height: 24),
 
-                      _GoalPaceContainer(
-                        planPercent: widget.planPercent,
-                        userPercent: widget.userPercent,
-                      ),
+                      _GoalPaceContainer(vm: vm),
                       const SizedBox(height: 24),
 
                       _buildProgressBarCard(),
@@ -355,50 +348,77 @@ class _CountdownHeader extends StatelessWidget {
 }
 
 class _GoalPaceContainer extends StatelessWidget {
-  const _GoalPaceContainer({
-    required this.planPercent,
-    required this.userPercent,
-  });
-  final int planPercent;
-  final int userPercent;
+  const _GoalPaceContainer({required this.vm});
+  final HomeViewModel vm;
 
   @override
   Widget build(BuildContext context) {
-    final diff = (planPercent - userPercent).abs();
-    final isUserLarger = userPercent > planPercent;
+    return AnimatedBuilder(
+      animation: vm,
+      builder: (context, _) {
+        return ValueListenableBuilder<int>(
+          valueListenable: vm.secondTick,
+          builder: (context, __, ___) => _buildContent(context),
+        );
+      },
+    );
+  }
 
-    const targetAmount = 5000000.0;
-    final amountDiff = (diff / 100.0) * targetAmount;
-    const totalDays = 180;
-    final daysDiff = (diff / 100.0) * totalDays;
+  Widget _buildContent(BuildContext context) {
+    const aheadColor = Color(0xFF0062FF);
+    const behindColor = Color(0xFFFF6B6B);
+    const reachedColor = Color(0xFF4CAF50);
+
+    final amountDiff = vm.paceAmountDiff;
+    final dayDiff = vm.averagePaceDayDiff;
+    final amountDiffText = SavingPlanCalculator.formatAmount(amountDiff.abs());
+    final dayDiffText = dayDiff.abs().toStringAsFixed(1);
+    final isAmountSame = amountDiff.abs().round() == 0;
 
     String amountText;
     Color amountColor;
-    if (isUserLarger) {
-      amountText = '${SavingPlanCalculator.formatAmount(amountDiff)}원 더 모았어요!';
-      amountColor = const Color(0xFF0062FF);
-    } else if (planPercent > userPercent) {
-      amountText = '${SavingPlanCalculator.formatAmount(amountDiff)}원 부족해요!';
-      amountColor = const Color(0xFFFF6B6B);
-    } else {
-      amountText = '목표 달성!';
-      amountColor = const Color(0xFF4CAF50);
-    }
-
     String daysText;
     Color daysColor;
-    if (isUserLarger) {
-      daysText = '${daysDiff.round()}일 빨라요!';
-      daysColor = const Color(0xFF0062FF);
-    } else if (planPercent > userPercent) {
-      daysText = '${daysDiff.round()}일 느려요!';
-      daysColor = const Color(0xFFFF6B6B);
-    } else {
-      daysText = '목표 달성!';
-      daysColor = const Color(0xFF4CAF50);
-    }
 
     final theme = Theme.of(context);
+    final neutralColor = theme.colorScheme.onSurfaceVariant;
+
+    if (vm.latestPlan == null) {
+      amountText = '플랜 없음';
+      amountColor = neutralColor;
+      daysText = '계산할 수 없어요';
+      daysColor = neutralColor;
+    } else if (vm.effectiveTargetAmount <= 0 ||
+        vm.hasReachedSavingTarget ||
+        isAmountSame) {
+      amountText = '목표를 달성했어요';
+      amountColor = reachedColor;
+      daysText = '목표 달성';
+      daysColor = reachedColor;
+    } else {
+      if (amountDiff > 0) {
+        amountText = '$amountDiffText원 더 모았어요';
+        amountColor = aheadColor;
+      } else {
+        amountText = '$amountDiffText원 부족해요';
+        amountColor = behindColor;
+      }
+
+      if (vm.averageDailySaving <= 0) {
+        daysText = '계산할 수 없어요';
+        daysColor = neutralColor;
+      } else if (dayDiffText == '0.0') {
+        daysText = '평균 페이스와 같아요';
+        daysColor = neutralColor;
+      } else if (dayDiff > 0) {
+        daysText = '평균 페이스보다 $dayDiffText일 빨라요';
+        daysColor = aheadColor;
+      } else {
+        daysText = '평균 페이스보다 $dayDiffText일 느려요';
+        daysColor = behindColor;
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
