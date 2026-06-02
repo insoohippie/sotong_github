@@ -75,7 +75,7 @@ class _ReportCategoryBudgetChartSectionState
   String _formatAmount(int amount) {
     return amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
+      (Match m) => '${m[1]},',
     );
   }
 
@@ -85,8 +85,9 @@ class _ReportCategoryBudgetChartSectionState
     required int count,
     required double popupWidth,
   }) {
-    final double centerX =
-    (count <= 1) ? chartWidth / 2 : (chartWidth * index / (count - 1));
+    final double centerX = (count <= 1)
+        ? chartWidth / 2
+        : (chartWidth * index / (count - 1));
     final double rawLeft = centerX - (popupWidth / 2);
     final double maxLeft = math.max(0.0, chartWidth - popupWidth);
     return rawLeft.clamp(0.0, maxLeft);
@@ -161,15 +162,16 @@ class _ReportCategoryBudgetChartSectionState
 
                   ReportCategoryBudgetRow? popupRow;
 
-                  final selectedIndex = (_selectedSlotIndex != null &&
-                      _selectedSlotIndex! >= 0 &&
-                      _selectedSlotIndex! < slotData.length)
+                  final selectedIndex =
+                      (_selectedSlotIndex != null &&
+                          _selectedSlotIndex! >= 0 &&
+                          _selectedSlotIndex! < slotData.length)
                       ? _selectedSlotIndex!
                       : -1;
 
                   if (_showPopup && _selectedChartKey != null) {
                     final match = slotData.where(
-                          (row) => row?.categoryKey == _selectedChartKey,
+                      (row) => row?.categoryKey == _selectedChartKey,
                     );
                     if (match.isNotEmpty) {
                       popupRow = match.first;
@@ -178,30 +180,35 @@ class _ReportCategoryBudgetChartSectionState
 
                   final popupLeft = (popupRow != null && selectedIndex >= 0)
                       ? (() {
-                    const double barGap = 40;
-                    final bool placeRight = selectedIndex <= 2;
+                          const double barGap = 40;
+                          final bool placeRight = selectedIndex <= 2;
 
-                    final double chartWidth = constraints.maxWidth;
-                    final double groupCount = slotData.length.toDouble();
+                          final double chartWidth = constraints.maxWidth;
+                          final double groupCount = slotData.length.toDouble();
 
-                    // 현재 막대의 중심 x
-                    final double centerX = (groupCount <= 1)
-                        ? chartWidth / 2
-                        : (chartWidth * selectedIndex / (groupCount - 1));
+                          // 현재 막대의 중심 x
+                          final double centerX = (groupCount <= 1)
+                              ? chartWidth / 2
+                              : (chartWidth * selectedIndex / (groupCount - 1));
 
-                    // 현재 막대 너비와 비슷하게 맞춤
-                    final double barWidth = popupRow!.isTotal ? 48.0 : 36.0;
-                    final double halfBarWidth = barWidth / 2;
+                          // 현재 막대 너비와 비슷하게 맞춤
+                          final double barWidth = popupRow!.isTotal
+                              ? 48.0
+                              : 36.0;
+                          final double halfBarWidth = barWidth / 2;
 
-                    final double rawLeft = placeRight
-                    // 왼쪽 3개: 막대 오른쪽에 배치
-                        ? centerX + halfBarWidth + barGap
-                    // 나머지: 막대 왼쪽에 배치
-                        : centerX - halfBarWidth - barGap - _popupWidth;
+                          final double rawLeft = placeRight
+                              // 왼쪽 3개: 막대 오른쪽에 배치
+                              ? centerX + halfBarWidth + barGap
+                              // 나머지: 막대 왼쪽에 배치
+                              : centerX - halfBarWidth - barGap - _popupWidth;
 
-                    final double maxLeft = math.max(0.0, chartWidth - _popupWidth);
-                    return rawLeft.clamp(0.0, maxLeft);
-                  })()
+                          final double maxLeft = math.max(
+                            0.0,
+                            chartWidth - _popupWidth,
+                          );
+                          return rawLeft.clamp(0.0, maxLeft);
+                        })()
                       : 0.0;
 
                   final isEtcSelected =
@@ -211,12 +218,11 @@ class _ReportCategoryBudgetChartSectionState
                       ? vm.unplannedSpentListForChartRange(maxItems: 8)
                       : const <({String name, int spent})>[];
 
-                  final plannedDetailList =
-                  (!isEtcSelected && popupRow != null)
+                  final plannedDetailList = (!isEtcSelected && popupRow != null)
                       ? vm.plannedSpentDetailListForChartRange(
-                    popupRow.categoryKey,
-                    maxItems: 8,
-                  )
+                          popupRow.categoryKey,
+                          maxItems: 8,
+                        )
                       : const <({String date, int spent})>[];
 
                   return Stack(
@@ -275,13 +281,15 @@ class _ReportCategoryBudgetChartSectionState
                                 ),
                                 touchCallback: (event, response) {
                                   if (event is! FlTapUpEvent) return;
-                                  final justDragged = _lastDragEndAt != null &&
+                                  final justDragged =
+                                      _lastDragEndAt != null &&
                                       DateTime.now()
-                                          .difference(_lastDragEndAt!)
-                                          .inMilliseconds <
+                                              .difference(_lastDragEndAt!)
+                                              .inMilliseconds <
                                           120;
                                   if (_isWindowDragging || justDragged) return;
-                                  if (response == null || response.spot == null) {
+                                  if (response == null ||
+                                      response.spot == null) {
                                     _resetSelectionState();
                                     return;
                                   }
@@ -317,12 +325,13 @@ class _ReportCategoryBudgetChartSectionState
                                         }
                                         final isSelected =
                                             _showSelectionLayout &&
-                                                idx == _selectedSlotIndex &&
-                                                row.categoryKey ==
-                                                    _selectedChartKey;
+                                            idx == _selectedSlotIndex &&
+                                            row.categoryKey ==
+                                                _selectedChartKey;
                                         return Padding(
-                                          padding:
-                                          const EdgeInsets.only(top: 8),
+                                          padding: const EdgeInsets.only(
+                                            top: 8,
+                                          ),
                                           child: Text(
                                             row.name,
                                             style: TextStyle(
@@ -331,7 +340,7 @@ class _ReportCategoryBudgetChartSectionState
                                                   ? FontWeight.w700
                                                   : FontWeight.w500,
                                               color:
-                                              theme.colorScheme.onSurface,
+                                                  theme.colorScheme.onSurface,
                                             ),
                                           ),
                                         );
@@ -360,14 +369,11 @@ class _ReportCategoryBudgetChartSectionState
                                 ),
                               ),
                               borderData: FlBorderData(show: false),
-                              barGroups: _buildBarGroups(
-                                slotData,
-                                maxY,
-                                theme,
-                              ),
+                              barGroups: _buildBarGroups(slotData, maxY, theme),
                             ),
-                            swapAnimationDuration:
-                            const Duration(milliseconds: 260),
+                            swapAnimationDuration: const Duration(
+                              milliseconds: 260,
+                            ),
                             swapAnimationCurve: Curves.easeOutCubic,
                           ),
                         ),
@@ -414,10 +420,7 @@ class _ReportCategoryBudgetChartSectionState
 
           if (maxWindowStart > 0) ...[
             const SizedBox(height: 10),
-            _buildCategoryDragIndicator(
-              theme: theme,
-              maxStart: maxWindowStart,
-            ),
+            _buildCategoryDragIndicator(theme: theme, maxStart: maxWindowStart),
           ],
 
           Align(
@@ -479,8 +482,8 @@ class _ReportCategoryBudgetChartSectionState
   }
 
   List<ReportCategoryBudgetRow?> _buildChartSlots(
-      List<ReportCategoryBudgetRow> rows,
-      ) {
+    List<ReportCategoryBudgetRow> rows,
+  ) {
     final categories = rows.where((r) => !r.isTotal).toList(growable: false);
 
     ReportCategoryBudgetRow? totalRow;
@@ -518,8 +521,10 @@ class _ReportCategoryBudgetChartSectionState
     if (!_windowScrollController.hasClients) return;
 
     final maxOffset = _effectiveMaxOffset(maxStart);
-    final nextOffset =
-    (_windowScrollController.offset - deltaDx).clamp(0.0, maxOffset);
+    final nextOffset = (_windowScrollController.offset - deltaDx).clamp(
+      0.0,
+      maxOffset,
+    );
     _windowScrollController.jumpTo(nextOffset);
     _syncWindowStartFromOffset(nextOffset, maxStart);
   }
@@ -597,8 +602,9 @@ class _ReportCategoryBudgetChartSectionState
     required ThemeData theme,
     required int maxStart,
   }) {
-    final progress =
-    maxStart == 0 ? 0.0 : _categoryWindowStart.clamp(0, maxStart) / maxStart;
+    final progress = maxStart == 0
+        ? 0.0
+        : _categoryWindowStart.clamp(0, maxStart) / maxStart;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -651,7 +657,9 @@ class _ReportCategoryBudgetChartSectionState
   }
 
   double _getMaxY(List<ReportCategoryBudgetRow?> data) {
-    final rows = data.whereType<ReportCategoryBudgetRow>().toList(growable: false);
+    final rows = data.whereType<ReportCategoryBudgetRow>().toList(
+      growable: false,
+    );
     if (rows.isEmpty) return 100000;
 
     double maxVal = 0;
@@ -667,10 +675,10 @@ class _ReportCategoryBudgetChartSectionState
   }
 
   List<BarChartGroupData> _buildBarGroups(
-      List<ReportCategoryBudgetRow?> data,
-      double maxY,
-      ThemeData theme,
-      ) {
+    List<ReportCategoryBudgetRow?> data,
+    double maxY,
+    ThemeData theme,
+  ) {
     return List.generate(data.length, (index) {
       final r = data[index];
 
@@ -697,13 +705,17 @@ class _ReportCategoryBudgetChartSectionState
       final planned = isEtc ? spentRaw : (needsBudget ? spentRaw : plannedRaw);
       final spent = spentRaw;
 
-      final isOverBudget =
-      isEtc ? false : (needsBudget ? false : (spent > planned));
+      final isOverBudget = isEtc
+          ? false
+          : (needsBudget ? false : (spent > planned));
 
       final hasSelection = _selectedChartKey != null;
-      final collapsePhase = hasSelection && (_isCollapsing || !_showSelectionLayout);
-      final layoutActive = hasSelection && _showSelectionLayout && !_isCollapsing;
-      final isSelected = layoutActive &&
+      final collapsePhase =
+          hasSelection && (_isCollapsing || !_showSelectionLayout);
+      final layoutActive =
+          hasSelection && _showSelectionLayout && !_isCollapsing;
+      final isSelected =
+          layoutActive &&
           index == _selectedSlotIndex &&
           r.categoryKey == _selectedChartKey;
 
@@ -787,8 +799,8 @@ class _ReportCategoryBudgetChartSectionState
           lowerColor = isOverBudget
               ? greyBar
               : (isSelected
-              ? AppColors.primary.withOpacity(0.92)
-              : AppColors.primary);
+                    ? AppColors.primary.withOpacity(0.92)
+                    : AppColors.primary);
         }
         stackItems.add(BarChartRodStackItem(0, lowerHeight, lowerColor));
       }
@@ -866,15 +878,33 @@ class _ReportCategoryBudgetChartSectionState
   Widget _buildPeriodToggle(ReportViewModel vm) {
     const periods = ['주간', '월간'];
     final selected = (vm.rangeType == ReportRangeType.weekly) ? '주간' : '월간';
+    final viewWidth = MediaQuery.sizeOf(context).width;
+    final toggleWidth = viewWidth <= 386
+        ? 88.0
+        : viewWidth < 412
+        ? 96.0
+        : 106.0;
+    final toggleHeight = viewWidth <= 386
+        ? 26.0
+        : viewWidth < 412
+        ? 28.0
+        : 30.0;
+    final toggleFontSize = viewWidth <= 386
+        ? 10.0
+        : viewWidth < 412
+        ? 11.0
+        : 12.0;
 
     return TwoOptionToggle(
       labels: periods,
       selected: selected,
-      width: 106,
-      height: 30,
+      width: toggleWidth,
+      height: toggleHeight,
+      fontSize: toggleFontSize,
       onChanged: (period) {
-        final next =
-        (period == '주간') ? ReportRangeType.weekly : ReportRangeType.monthly;
+        final next = (period == '주간')
+            ? ReportRangeType.weekly
+            : ReportRangeType.monthly;
 
         if (vm.rangeType != next) {
           _resetSelectionState();
@@ -921,8 +951,7 @@ class _SelectedChartPopup extends StatelessWidget {
     const double rowHeight = 24;
     // final double plannedListHeight =
     //     math.min(plannedDetailList.length, 3) * rowHeight;
-    final double etcListHeight =
-        math.min(unplannedList.length, 3) * rowHeight;
+    final double etcListHeight = math.min(unplannedList.length, 3) * rowHeight;
 
     return IntrinsicWidth(
       child: Container(
@@ -941,10 +970,7 @@ class _SelectedChartPopup extends StatelessWidget {
           ],
         ),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minWidth: 120,
-            maxWidth: 220,
-          ),
+          constraints: const BoxConstraints(minWidth: 120, maxWidth: 220),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -1014,9 +1040,7 @@ class _SelectedChartPopup extends StatelessWidget {
                 ),
               ] else ...[
                 Text(
-                  planned <= 0
-                      ? '총 예산: 설정 필요'
-                      : '총 예산: ₩${formatter(planned)}',
+                  planned <= 0 ? '총 예산: 설정 필요' : '총 예산: ₩${formatter(planned)}',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

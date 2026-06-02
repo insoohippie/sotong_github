@@ -5,7 +5,7 @@ import '../../../component/appbars/custom_app_bar_home.dart';
 import '../../../component/buttons/small_rounded_button.dart';
 import '../../../component/containers/rounded_info_container.dart';
 import '../../../component/theme/app_colors.dart';
-import '../../../component/theme/app_spacing.dart';
+import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 
 import '../../../view_model/home/home_view_model.dart';
 import '../../../view_model/notification/notification_view_model.dart';
@@ -67,6 +67,16 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final vm = context.watch<HomeViewModel>();
     final notificationVM = context.watch<NotificationViewModel>();
+    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionScreen075,
+    );
+    final viewHeight = MediaQuery.sizeOf(context).height;
+    final cardGap = viewHeight < 750
+        ? 24.0
+        : viewHeight < 820
+        ? 32.0
+        : 40.0;
 
     if (vm.isLoading) {
       return const Scaffold(
@@ -141,9 +151,7 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: SingleChildScrollView(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.screenPadding,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                   child: Column(
                     children: [
                       RoundedInfoContainer(
@@ -206,22 +214,10 @@ class _HomePageState extends State<HomePage> {
                               onIntroDismissed: vm.markPlanGraphIntroSeen,
                               onOpenCountdown: () => _openSavingSheet(vm),
                             ),
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton.icon(
-                                onPressed: vm.showPlanGraphIntroForTest,
-                                icon: const Icon(
-                                  Icons.play_circle_outline,
-                                  size: 18,
-                                ),
-                                label: const Text('그래프 안내 테스트'),
-                              ),
-                            ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 40),
+                      SizedBox(height: cardGap),
                       RoundedInfoContainer(
                         backgroundColor: containerBackgroundColor,
                         padding: 20,
@@ -377,9 +373,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _openSavingSheet(HomeViewModel vm) {
-    final userPercent = (vm.userPercent * 100).round();
-    final planPercent = (vm.planPercent * 100).round();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -389,11 +382,7 @@ class _HomePageState extends State<HomePage> {
       builder: (_) {
         return FractionallySizedBox(
           heightFactor: 0.7,
-          child: HomeSavingCountdownSheet(
-            vm: vm,
-            planPercent: planPercent,
-            userPercent: userPercent,
-          ),
+          child: HomeSavingCountdownSheet(vm: vm),
         );
       },
     );

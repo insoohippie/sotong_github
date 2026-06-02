@@ -38,7 +38,8 @@ class InputItemRow extends StatelessWidget {
   final bool showMonthlyHint;
   final bool isOverBudget;
 
-  final void Function(int idx, String name, String emoji)? onCategorySelectedWithEmoji;
+  final void Function(int idx, String name, String emoji)?
+  onCategorySelectedWithEmoji;
 
   const InputItemRow({
     Key? key,
@@ -88,7 +89,7 @@ class InputItemRow extends StatelessWidget {
     if (n == null) return '';
     return n.toString().replaceAllMapped(
       RegExp(r'\B(?=(\d{3})+(?!\d))'),
-          (m) => ',',
+      (m) => ',',
     );
   }
 
@@ -108,6 +109,8 @@ class InputItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final bool isDaily = kind == ItemKind.daily;
 
     final raw = _un(amountController.text);
@@ -118,11 +121,15 @@ class InputItemRow extends StatelessWidget {
     final bool hasInput =
         categoryController.text.trim().isNotEmpty || value > 0.0;
 
-    final Color? fieldBg =
-    (isOverBudget && hasInput) ? const Color(0xFFFFF1F1) : null;
+    final Color? fieldBg = (isOverBudget && hasInput)
+        ? const Color(0xFFFFF1F1)
+        : (isDark ? theme.colorScheme.surfaceContainerHighest : null);
+    final amountBorderColor = isDark
+        ? theme.dividerColor
+        : const Color(0xFFE5E7EB);
 
     return Container(
-      color: Colors.white,
+      color: Colors.transparent,
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,58 +142,61 @@ class InputItemRow extends StatelessWidget {
             child: Row(
               children: [
                 // ✅ 카테고리 Pill
-                Expanded(
-                  flex: 2,
-                  child: _buildCategoryPill(context),
-                ),
+                Expanded(flex: 2, child: _buildCategoryPill(context)),
                 const SizedBox(width: 10),
 
                 // 금액 입력
                 Expanded(
                   flex: 3,
-                  child: CustomTextField(
-                    controller: amountController,
-                    hintText: _dynamicAmountHint(),
-                    keyboardType: TextInputType.number,
-                    borderRadius: 12,
-                    height: 60,
-                    backgroundColor: fieldBg,
-                    onChanged: (v) {
-                      final un = _un(v);
-                      final amt = double.tryParse(un) ?? 0.0;
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: amountBorderColor),
+                    ),
+                    child: CustomTextField(
+                      controller: amountController,
+                      hintText: _dynamicAmountHint(),
+                      keyboardType: TextInputType.number,
+                      borderRadius: 12,
+                      height: 60,
+                      backgroundColor: fieldBg,
+                      onChanged: (v) {
+                        final un = _un(v);
+                        final amt = double.tryParse(un) ?? 0.0;
 
-                      final maxAmount = switch (kind) {
-                        ItemKind.income => 100000000,
-                        ItemKind.fixed => 100000000,
-                        ItemKind.daily => 10000000,
-                      };
+                        final maxAmount = switch (kind) {
+                          ItemKind.income => 100000000,
+                          ItemKind.fixed => 100000000,
+                          ItemKind.daily => 10000000,
+                        };
 
-                      if (amt > maxAmount) {
-                        final limitedText = _comma(maxAmount.toString());
+                        if (amt > maxAmount) {
+                          final limitedText = _comma(maxAmount.toString());
 
-                        amountController.value = TextEditingValue(
-                          text: limitedText,
-                          selection: TextSelection.collapsed(
-                            offset: limitedText.length,
-                          ),
-                        );
+                          amountController.value = TextEditingValue(
+                            text: limitedText,
+                            selection: TextSelection.collapsed(
+                              offset: limitedText.length,
+                            ),
+                          );
 
-                        onUpdate(item.idx, 'amount', maxAmount.toDouble());
-                        return;
-                      }
+                          onUpdate(item.idx, 'amount', maxAmount.toDouble());
+                          return;
+                        }
 
-                      onUpdate(item.idx, 'amount', amt);
+                        onUpdate(item.idx, 'amount', amt);
 
-                      final formatted = _comma(un);
-                      if (formatted != v) {
-                        amountController.value = TextEditingValue(
-                          text: formatted,
-                          selection: TextSelection.collapsed(
-                            offset: formatted.length,
-                          ),
-                        );
-                      }
-                    },
+                        final formatted = _comma(un);
+                        if (formatted != v) {
+                          amountController.value = TextEditingValue(
+                            text: formatted,
+                            selection: TextSelection.collapsed(
+                              offset: formatted.length,
+                            ),
+                          );
+                        }
+                      },
+                    ),
                   ),
                 ),
               ],
@@ -198,12 +208,12 @@ class InputItemRow extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Text(
+                Text(
                   '30일 기준, 한 달에 ',
                   style: TextStyle(
                     fontFamily: 'Pretendard Variable',
                     fontSize: 14,
-                    color: Color(0xFF8E8E93),
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 Text(
@@ -215,12 +225,12 @@ class InputItemRow extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const Text(
+                Text(
                   ' 이에요.',
                   style: TextStyle(
                     fontFamily: 'Pretendard Variable',
                     fontSize: 14,
-                    color: Color(0xFF8E8E93),
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -246,10 +256,11 @@ class InputItemRow extends StatelessWidget {
     final selectedEmoji = selectedName.isEmpty
         ? (entryEmoji.isNotEmpty ? entryEmoji : '💰')
         : ((mappedEmoji != null && mappedEmoji.isNotEmpty)
-        ? mappedEmoji
-        : (entryEmoji.isNotEmpty ? entryEmoji : '💰'));
+              ? mappedEmoji
+              : (entryEmoji.isNotEmpty ? entryEmoji : '💰'));
 
-    final bool hasInput = selectedName.isNotEmpty ||
+    final bool hasInput =
+        selectedName.isNotEmpty ||
         (double.tryParse(_un(amountController.text)) ?? 0.0) > 0.0;
 
     return PlanCategoryPill(
@@ -263,7 +274,7 @@ class InputItemRow extends StatelessWidget {
         openPlanCategorySheet(
           context,
           categoryController,
-              (val) => onUpdate(item.idx, 'category', val),
+          (val) => onUpdate(item.idx, 'category', val),
           categories: allNames,
           categoryEmojis: emojiMap,
           alreadySelectedNames: alreadySelectedNames,

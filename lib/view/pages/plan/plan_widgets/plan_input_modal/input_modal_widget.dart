@@ -361,16 +361,24 @@ class _InputModalWidgetState extends State<InputModalWidget>
     if (mounted) widget.onClose();
   }
 
+  void _dismissKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
   Future<void> handleComplete() async {
+    _dismissKeyboard();
+
     final valid = items
         .where((e) => e.category.trim().isNotEmpty && e.amount > 0.0)
         .toList();
 
-    final hasEmptyCategory =
-    items.any((e) => e.amount > 0.0 && e.category.trim().isEmpty);
+    final hasEmptyCategory = items.any(
+      (e) => e.amount > 0.0 && e.category.trim().isEmpty,
+    );
 
-    final hasZeroAmountWithCategory =
-    items.any((e) => e.amount == 0.0 && e.category.trim().isNotEmpty);
+    final hasZeroAmountWithCategory = items.any(
+      (e) => e.amount == 0.0 && e.category.trim().isNotEmpty,
+    );
 
     if (hasEmptyCategory) {
       setState(() => error = '카테고리명을 정확히 입력해주세요.');
@@ -394,6 +402,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
   }
 
   Widget buildContent() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final kind = _resolveKind();
     final over = _isOverBudget();
 
@@ -415,6 +425,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
     );
 
     return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.symmetric(
         horizontal: horizontalPad,
         vertical: AppSpacing.screenPadding,
@@ -464,8 +475,12 @@ class _InputModalWidgetState extends State<InputModalWidget>
             text: '항목 추가',
             onPressed: addItem,
             icon: Icons.add,
-            backgroundColor: Colors.white,
-            textColor: AppColors.subText,
+            backgroundColor: isDark
+                ? theme.colorScheme.surfaceContainerHighest
+                : Colors.white,
+            textColor: isDark
+                ? theme.colorScheme.onSurfaceVariant
+                : AppColors.subText,
           ),
         ],
       ),
@@ -473,6 +488,8 @@ class _InputModalWidgetState extends State<InputModalWidget>
   }
 
   Widget buildDetailBox() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     String titleText = '일 변동소비 예산을\n입력해주세요';
     String captionText = '하루 지출을 입력하면 월(30일) 변동예산을 자동으로 계산해요.';
     final kind = _resolveKind();
@@ -501,7 +518,17 @@ class _InputModalWidgetState extends State<InputModalWidget>
               children: [
                 HeaderText(text: titleText),
                 const SizedBox(height: 10),
-                CaptionWithDot(text: captionText),
+                CaptionWithDot(
+                  text: captionText,
+                  dotColor: isDark
+                      ? theme.colorScheme.surfaceContainerHighest
+                      : const Color(0xFFDADADA),
+                  textStyle: TextStyle(
+                    fontFamily: 'Pretendard Variable',
+                    fontSize: 13,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ],
             ),
           ),
@@ -517,13 +544,12 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
     debugPrint(
       '[FOOTER_BUILD] '
-          'title=${widget.title}, '
-          'kind=$kind, '
-          'limit=$limit, '
-          'total=${getTotalAmount()}, '
-          'over=$over',
+      'title=${widget.title}, '
+      'kind=$kind, '
+      'limit=$limit, '
+      'total=${getTotalAmount()}, '
+      'over=$over',
     );
-
 
     if (kind == ItemKind.daily) {
       return FooterDaily(
@@ -548,6 +574,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return IgnorePointer(
       ignoring: _ctrl.status == AnimationStatus.dismissed,
       child: Stack(
@@ -582,7 +609,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
                         bottom: Radius.zero,
                       ),
                       child: Container(
-                        color: Colors.white,
+                        color: theme.colorScheme.surface,
                         child: Column(
                           children: [
                             buildDetailBox(),

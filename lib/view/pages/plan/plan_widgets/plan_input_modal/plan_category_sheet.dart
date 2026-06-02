@@ -7,54 +7,56 @@ import 'package:sotong_local/component/theme/app_colors.dart';
 
 final List<String> expenseEmojis = [
   // 음식
-  '🍕','🍔','🍟','🌭','🥪','🌮','🌯','🥙','🍱','🍜',
-  '☕','🥤','🧋','🍵','🍶','🍷','🍸','🍹','🍺','🍻',
-  '🎂','🍰','🧁','🍭','🍬','🍫','🍩','🍪','🥧',
+  '🍕', '🍔', '🍟', '🌭', '🥪', '🌮', '🌯', '🥙', '🍱', '🍜',
+  '☕', '🥤', '🧋', '🍵', '🍶', '🍷', '🍸', '🍹', '🍺', '🍻',
+  '🎂', '🍰', '🧁', '🍭', '🍬', '🍫', '🍩', '🍪', '🥧',
   // 취미·생활
-  '🎬','🎮','🎯','🎲','🎪','🎨','🎭','🎡','🎠',
-  '🛍️','🛒','💍','👕','👖','👗','👠','👟','🎒','👜',
-  '🚗','🚕','🚙','🚌','🚎','🏎️','✈️','🚁','🚀','🛸',
-  '🚢','⛵','🚤','🛥️','🚂',
-  '🏋️','🤸','🧘','🏊','🚴','🏃','⚽','🏀','🏈','🎾',
-  '📚','✏️','📝','🎁',
-  '🌱','🌿','🌾','🌻','🌺','🌸','🌼','🌷','🌹','🥀',
-  '🐕','🐈','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯',
-  '💊','🏥','⚕️','🩺','💉',
-  '📱','💻','⌨️','🖥️','📞','📺','📻',
-  '🚓','🚑','🚒','🚐',
+  '🎬', '🎮', '🎯', '🎲', '🎪', '🎨', '🎭', '🎡', '🎠',
+  '🛍️', '🛒', '💍', '👕', '👖', '👗', '👠', '👟', '🎒', '👜',
+  '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '✈️', '🚁', '🚀', '🛸',
+  '🚢', '⛵', '🚤', '🛥️', '🚂',
+  '🏋️', '🤸', '🧘', '🏊', '🚴', '🏃', '⚽', '🏀', '🏈', '🎾',
+  '📚', '✏️', '📝', '🎁',
+  '🌱', '🌿', '🌾', '🌻', '🌺', '🌸', '🌼', '🌷', '🌹', '🥀',
+  '🐕', '🐈', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯',
+  '💊', '🏥', '⚕️', '🩺', '💉',
+  '📱', '💻', '⌨️', '🖥️', '📞', '📺', '📻',
+  '🚓', '🚑', '🚒', '🚐',
   // 돈·부동산·투자
-  '💰','💸','💳','🏦','💵','💶','💷','💴','🪙','💎',
-  '🏠','🏡','🏢','🏬','🏪','🏫','🏩','🏨','🏛️',
-  '📊','📈','📉','💼','🗂️','📁','📋',
-  '🖨️','📠',
-  '🧬','🦠','🧪','🧫','🧼',
+  '💰', '💸', '💳', '🏦', '💵', '💶', '💷', '💴', '🪙', '💎',
+  '🏠', '🏡', '🏢', '🏬', '🏪', '🏫', '🏩', '🏨', '🏛️',
+  '📊', '📈', '📉', '💼', '🗂️', '📁', '📋',
+  '🖨️', '📠',
+  '🧬', '🦠', '🧪', '🧫', '🧼',
 ];
 
 Future<void> openPlanCategorySheet(
-    BuildContext context,
-    TextEditingController controller,
-    void Function(String) onSelected, {
-      required List<String> categories,
-      required Map<String, String> categoryEmojis,
+  BuildContext context,
+  TextEditingController controller,
+  void Function(String) onSelected, {
+  required List<String> categories,
+  required Map<String, String> categoryEmojis,
 
-      /// ✅ 다른 행에서 이미 선택된 카테고리들
-      required Set<String> alreadySelectedNames,
-      String? currentSelectedName,
+  /// ✅ 다른 행에서 이미 선택된 카테고리들
+  required Set<String> alreadySelectedNames,
+  String? currentSelectedName,
 
-      void Function(String name, String emoji)? onSelectedWithEmoji,
+  void Function(String name, String emoji)? onSelectedWithEmoji,
 
-      /// ✅ (name, emoji) 저장 + key 보장은 VM에서 처리
-      void Function(String name, String emoji)? onCategoryAdded,
+  /// ✅ (name, emoji) 저장 + key 보장은 VM에서 처리
+  void Function(String name, String emoji)? onCategoryAdded,
 
-      /// (호환용) 여기선 안씀
-      void Function(String name)? onCategoryRemoved,
-      void Function(List<String> newOrder)? onReorder,
-    }) async {
+  /// (호환용) 여기선 안씀
+  void Function(String name)? onCategoryRemoved,
+  void Function(List<String> newOrder)? onReorder,
+}) async {
   String temp = controller.text.trim();
 
   // 로컬 복사본 (시트 내부 UI는 이걸로만 동작)
   final List<String> localCategories = [...categories];
-  final Map<String, String> localEmojis = Map<String, String>.from(categoryEmojis);
+  final Map<String, String> localEmojis = Map<String, String>.from(
+    categoryEmojis,
+  );
 
   // 입력 컨트롤러
   final tempController = TextEditingController(text: '');
@@ -75,13 +77,27 @@ Future<void> openPlanCategorySheet(
   await showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
     builder: (ctx) {
       return StatefulBuilder(
         builder: (modalContext, setModalState) {
+          final theme = Theme.of(modalContext);
+          final isDark = theme.brightness == Brightness.dark;
+          final panelBg = isDark
+              ? theme.colorScheme.surface
+              : const Color(0xFFF9FAFB);
+          final chipBg = isDark
+              ? theme.colorScheme.surfaceContainerHighest
+              : const Color(0xFFF3F4F6);
+          final chipBorder = isDark
+              ? theme.dividerColor
+              : const Color(0xFFE5E7EB);
+          final titleColor = theme.colorScheme.onSurface;
+          final subTextColor = theme.colorScheme.onSurfaceVariant;
+
           // ✅ 드래그 닫기/백버튼 포함: reverse/dismissed 순간부터 setState 금지
           if (!routeListenerAttached) {
             routeListenerAttached = true;
@@ -133,10 +149,10 @@ Future<void> openPlanCategorySheet(
               height: height,
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: selected ? AppColors.primary : const Color(0xFFF3F4F6),
+                color: selected ? AppColors.primary : chipBg,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
+                  color: selected ? AppColors.primary : chipBorder,
                 ),
               ),
               child: Center(
@@ -155,7 +171,7 @@ Future<void> openPlanCategorySheet(
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
-                        color: selected ? Colors.white : const Color(0xFF111827),
+                        color: selected ? Colors.white : titleColor,
                         height: 1.05,
                       ),
                     ),
@@ -202,7 +218,8 @@ Future<void> openPlanCategorySheet(
             return LayoutBuilder(
               builder: (context, constraints) {
                 const double spacing = 8.0;
-                final double chipWidth = (constraints.maxWidth - spacing * 3) / 4;
+                final double chipWidth =
+                    (constraints.maxWidth - spacing * 3) / 4;
 
                 return Wrap(
                   spacing: spacing,
@@ -212,7 +229,8 @@ Future<void> openPlanCategorySheet(
                     final bool selected = temp == picked;
                     final bool disabled = isDuplicateSelected(picked);
 
-                    final emoji = (localEmojis[picked]?.trim().isNotEmpty ?? false)
+                    final emoji =
+                        (localEmojis[picked]?.trim().isNotEmpty ?? false)
                         ? localEmojis[picked]!.trim()
                         : '💰';
 
@@ -262,7 +280,9 @@ Future<void> openPlanCategorySheet(
               return;
             }
 
-            final emoji = selectedEmoji.trim().isNotEmpty ? selectedEmoji.trim() : '💰';
+            final emoji = selectedEmoji.trim().isNotEmpty
+                ? selectedEmoji.trim()
+                : '💰';
 
             // ✅ 시트 내부 리스트 먼저 반영
             setModalState(() {
@@ -299,7 +319,7 @@ Future<void> openPlanCategorySheet(
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: const Color(0xFFE5E7EB),
+                      color: theme.dividerColor,
                       borderRadius: BorderRadius.circular(999),
                     ),
                   ),
@@ -309,7 +329,7 @@ Future<void> openPlanCategorySheet(
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
+                    color: panelBg,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Column(
@@ -319,12 +339,12 @@ Future<void> openPlanCategorySheet(
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
+                          Text(
                             '카테고리 선택',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF374151),
+                              color: titleColor,
                             ),
                           ),
                           GestureDetector(
@@ -345,21 +365,23 @@ Future<void> openPlanCategorySheet(
                               height: 28,
                               decoration: BoxDecoration(
                                 color: showAddUI
-                                    ? const Color(0xFFD1D5DB)
-                                    : const Color(0xFFF3F4F6),
+                                    ? (isDark
+                                          ? theme.colorScheme.surface
+                                          : const Color(0xFFD1D5DB))
+                                    : chipBg,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: showAddUI
-                                      ? const Color(0xFF9CA3AF)
-                                      : const Color(0xFFE5E7EB),
+                                      ? (isDark
+                                            ? theme.dividerColor
+                                            : const Color(0xFF9CA3AF))
+                                      : chipBorder,
                                 ),
                               ),
                               child: Icon(
                                 showAddUI ? Icons.close : Icons.add,
                                 size: 16,
-                                color: showAddUI
-                                    ? const Color(0xFF374151)
-                                    : const Color(0xFF6B7280),
+                                color: showAddUI ? titleColor : subTextColor,
                               ),
                             ),
                           ),
@@ -372,28 +394,30 @@ Future<void> openPlanCategorySheet(
                         child: inlineError == null
                             ? const SizedBox(height: 0)
                             : Padding(
-                          padding: const EdgeInsets.only(top: 10),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFEF2F2),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: const Color(0xFFFCA5A5)),
-                            ),
-                            child: Text(
-                              inlineError!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFDC2626),
+                                padding: const EdgeInsets.only(top: 10),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF2F2),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: const Color(0xFFFCA5A5),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    inlineError!,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFDC2626),
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
                       ),
 
                       const SizedBox(height: 12),
@@ -408,15 +432,17 @@ Future<void> openPlanCategorySheet(
                               behavior: HitTestBehavior.opaque,
                               onTap: () {
                                 if (closing) return;
-                                setModalState(() => showEmojiPicker = !showEmojiPicker);
+                                setModalState(
+                                  () => showEmojiPicker = !showEmojiPicker,
+                                );
                               },
                               child: Container(
                                 width: 60,
                                 height: 60,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F4F6),
+                                  color: chipBg,
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                                  border: Border.all(color: chipBorder),
                                 ),
                                 child: Center(
                                   child: Text(
@@ -447,16 +473,17 @@ Future<void> openPlanCategorySheet(
                             height: 120,
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF9FAFB),
+                              color: panelBg,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                              border: Border.all(color: chipBorder),
                             ),
                             child: GridView.builder(
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 8,
-                                crossAxisSpacing: 4,
-                                mainAxisSpacing: 4,
-                              ),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 8,
+                                    crossAxisSpacing: 4,
+                                    mainAxisSpacing: 4,
+                                  ),
                               itemCount: expenseEmojis.length,
                               itemBuilder: (context, index) {
                                 final emoji = expenseEmojis[index];
@@ -481,7 +508,9 @@ Future<void> openPlanCategorySheet(
                                         emoji,
                                         style: TextStyle(
                                           fontSize: 18,
-                                          color: selectedEmoji == emoji ? AppColors.primary : null,
+                                          color: selectedEmoji == emoji
+                                              ? AppColors.primary
+                                              : null,
                                         ),
                                       ),
                                     ),

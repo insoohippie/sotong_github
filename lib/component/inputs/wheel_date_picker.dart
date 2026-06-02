@@ -29,8 +29,10 @@ class WheelDateSelector extends StatelessWidget {
         : (isDark ? theme.colorScheme.surface : const Color(0xFFEDF4FF));
 
     return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).requestFocus(FocusNode());
+      onTap: () async {
+        FocusManager.instance.primaryFocus?.unfocus();
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        if (!context.mounted) return;
         _showWheelDatePicker(context);
       },
       child: Container(
@@ -72,6 +74,9 @@ class WheelDateSelector extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      constraints: const BoxConstraints(maxWidth: double.infinity),
       builder: (ctx) => _WheelDatePickerModal(
         initialYear: selectedYear,
         initialMonth: selectedMonth,

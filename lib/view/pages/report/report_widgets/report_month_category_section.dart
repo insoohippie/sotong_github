@@ -34,7 +34,7 @@ class _ReportMonthCategorySectionState
   String _formatAmount(int amount) {
     return amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-          (Match m) => '${m[1]},',
+      (Match m) => '${m[1]},',
     );
   }
 
@@ -150,13 +150,30 @@ class _ReportMonthCategorySectionState
 
   Widget _buildToggleWithLabels(List<_MoneyTab> items) {
     final labels = items.map((e) => e.label).toList();
+    final viewWidth = MediaQuery.sizeOf(context).width;
+    final toggleWidth = viewWidth <= 386
+        ? 280.0
+        : viewWidth < 412
+        ? 300.0
+        : 320.0;
+    final toggleHeight = viewWidth <= 386
+        ? 26.0
+        : viewWidth < 412
+        ? 28.0
+        : 30.0;
+    final toggleFontSize = viewWidth <= 386
+        ? 10.0
+        : viewWidth < 412
+        ? 11.0
+        : 12.0;
 
     return Center(
       child: MultiOptionToggle(
         labels: labels,
         selected: labels[_tabIndex],
-        width: 320,
-        height: 30,
+        width: toggleWidth,
+        height: toggleHeight,
+        fontSize: toggleFontSize,
         onChanged: (label) {
           final index = labels.indexOf(label);
           if (index < 0) return;
@@ -172,11 +189,7 @@ class _MoneyTab {
   final IconData icon;
   final int value;
 
-  _MoneyTab({
-    required this.label,
-    required this.icon,
-    required this.value,
-  });
+  _MoneyTab({required this.label, required this.icon, required this.value});
 }
 
 class _MoneySlideCard extends StatelessWidget {
@@ -198,9 +211,7 @@ class _MoneySlideCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
       alignment: Alignment.center,
       child: Opacity(
         opacity: isLoading ? 0.4 : 1.0,

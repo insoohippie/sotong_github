@@ -301,12 +301,6 @@ class HomeViewModel extends ChangeNotifier {
     await HomeGraphIntroStorage.instance.markSeen(uid: uid, planId: planId);
   }
 
-  void showPlanGraphIntroForTest() {
-    if (_latestPlan == null) return;
-    _shouldShowPlanGraphIntro = true;
-    notifyListeners();
-  }
-
   // ---------- 타이머 ----------
   void _startTicker() {
     _ticker?.cancel();
@@ -438,13 +432,13 @@ class HomeViewModel extends ChangeNotifier {
     final target = effectiveTargetAmount;
     if (target <= 0) return Duration.zero;
 
-    final remainingAmount = target - actualSavedNow;
-    if (remainingAmount <= 0) return Duration.zero;
+    if (actualSavedNow >= target) return Duration.zero;
 
-    final perSecond = activeMiniPerSecondSaving;
-    if (perSecond <= 0) return null;
+    final goalDate =
+        _calc?.goalDateTime ?? _latestPlan?.modEndDate ?? _latestPlan?.endDate;
+    if (goalDate == null) return null;
 
-    return Duration(seconds: (remainingAmount / perSecond).ceil());
+    return goalDate.difference(DateTime.now());
   }
 
   // 세은님 수정 내용
@@ -525,6 +519,38 @@ class HomeViewModel extends ChangeNotifier {
   double get confirmedSaved => _actualSavedThroughConfirmedDays;
 
   double get actualSavedNow => confirmedSaved + guideSum;
+
+  bool get hasReachedSavingTarget {
+    final target = effectiveTargetAmount;
+    return target > 0 && actualSavedNow >= target;
+  }
+
+  double get paceAmountDiff => actualSavedNow - plannedSavedNow;
+
+  int get totalPlanDays {
+    final plan = _latestPlan;
+    if (plan == null) return 0;
+    final rawStart = plan.startDate ?? plan.creationDate;
+    final rawEnd = _calc?.goalDateTime ?? plan.modEndDate ?? plan.endDate;
+    if (rawStart == null || rawEnd == null) return 0;
+
+    final start = _normalizeDay(rawStart);
+    final end = _normalizeDay(rawEnd);
+    if (end.isBefore(start)) return 0;
+    return end.difference(start).inDays + 1;
+  }
+
+  double get averageDailySaving {
+    final days = totalPlanDays;
+    if (days <= 0) return 0;
+    return effectiveTargetAmount / days;
+  }
+
+  double get averagePaceDayDiff {
+    final average = averageDailySaving;
+    if (average <= 0) return 0;
+    return paceAmountDiff / average;
+  }
 
   double get plannedSavedNow {
     final today = _normalizeDay(DateTime.now());

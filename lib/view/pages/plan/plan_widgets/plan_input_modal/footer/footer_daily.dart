@@ -9,11 +9,11 @@ import 'package:sotong_local/component/theme/padding/horizontal_padding_clamped_
 import 'package:sotong_local/model/saving_calculation_result.dart';
 
 class FooterDaily extends StatefulWidget {
-  final double total;           // 일일 총합
+  final double total; // 일일 총합
   final VoidCallback onComplete;
-  final bool isOverBudget;      // 예산 초과 여부 (일×30 > monthlyIncome)
-  final double monthlyIncome;   // 월 잔여 예산(= 수입 - 고정비)
-  final bool isEdit;            // true if editing an existing plan
+  final bool isOverBudget; // 예산 초과 여부 (일×30 > monthlyIncome)
+  final double monthlyIncome; // 월 잔여 예산(= 수입 - 고정비)
+  final bool isEdit; // true if editing an existing plan
   final SavingCalculationResult? previewResult;
   final double? targetAmount;
   final double currentAsset;
@@ -34,7 +34,8 @@ class FooterDaily extends StatefulWidget {
   State<FooterDaily> createState() => _FooterDailyState();
 }
 
-class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin {
+class _FooterDailyState extends State<FooterDaily>
+    with TickerProviderStateMixin {
   late AnimationController _shakeController;
   late Animation<double> _shake;
 
@@ -68,6 +69,8 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final monthlySpending = (widget.total * 30).toInt();
     final over = widget.isOverBudget;
     final target = widget.targetAmount;
@@ -78,20 +81,18 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
       PaddingResponsive16_40Vw.fractionModal06,
     );
 
-
-// 예상 도달 안내문
+    // 예상 도달 안내문
     String? helperLine;
 
-// preview 계산 결과 기준으로 저축 가능 여부를 판정한다.
-    final hasNonPositiveSaving =
-    preview != null ? preview.dailyNetSaving <= 0 : false;
-
+    // preview 계산 결과 기준으로 저축 가능 여부를 판정한다.
+    final hasNonPositiveSaving = preview != null
+        ? preview.dailyNetSaving <= 0
+        : false;
 
     if (over) {
       helperLine =
-      '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome)}원을 초과했어요.';
+          '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome)}원을 초과했어요.';
     } else if (target != null && target > 0) {
-
       final remaining = target - current;
       if (remaining <= 0) {
         helperLine = '🎉 이미 목표를 달성했어요!';
@@ -110,21 +111,28 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
     }
 
     final bool showTargetWarning =
-        !widget.isEdit && target != null && target > 0 && widget.monthlyIncome > target;
+        !widget.isEdit &&
+        target != null &&
+        target > 0 &&
+        widget.monthlyIncome > target;
     final String? targetWarningText = showTargetWarning
         ? '월 잔여 예산 ${NumberFormat('#,###').format(widget.monthlyIncome.toInt())}원이 '
-        '목표 금액 ${NumberFormat('#,###').format(target!.toInt())}원을 초과했어요.\n'
-        '목표를 조금 올리거나 예산을 다시 조정해볼까요?'
+              '목표 금액 ${NumberFormat('#,###').format(target.toInt())}원을 초과했어요.\n'
+              '목표를 조금 올리거나 예산을 다시 조정해볼까요?'
         : null;
 
     return Container(
       padding: EdgeInsets.symmetric(vertical: AppSpacing.screenPadding),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        border: const Border(top: BorderSide(color: Color(0xFFF0F0F0))),
+        color: isDark ? theme.colorScheme.surface : const Color(0xFFF9FAFB),
+        border: Border(top: BorderSide(color: theme.dividerColor)),
         borderRadius: const BorderRadius.all(Radius.circular(20)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, -2)),
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
         ],
       ),
       child: Column(
@@ -141,38 +149,60 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
                       Expanded(
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.primary),
+                            const Icon(
+                              Icons.calendar_today_outlined,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
                             const SizedBox(width: 10),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 ParagraphText(
-                                  text: '${NumberFormat('#,###').format(widget.total.toInt())}원',
+                                  text:
+                                      '${NumberFormat('#,###').format(widget.total.toInt())}원',
                                   fontWeight: FontWeight.bold,
                                   color: over ? const Color(0xFFF02121) : null,
                                 ),
-                                const SubText(text: '일일 총합', fontWeight: FontWeight.bold),
+                                const SubText(
+                                  text: '일일 총합',
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ],
                             ),
                           ],
                         ),
                       ),
-                      Container(width: 2, height: 36, color: AppColors.greyBackground),
+                      Container(
+                        width: 2,
+                        height: 36,
+                        color: isDark
+                            ? theme.dividerColor
+                            : AppColors.greyBackground,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Row(
                           children: [
-                            const Icon(Icons.date_range_rounded, size: 18, color: AppColors.primary),
+                            const Icon(
+                              Icons.date_range_rounded,
+                              size: 18,
+                              color: AppColors.primary,
+                            ),
                             const SizedBox(width: 10),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 ParagraphText(
-                                  text: '${NumberFormat('#,###').format(monthlySpending)}원',
+                                  text:
+                                      '${NumberFormat('#,###').format(monthlySpending)}원',
                                   fontWeight: FontWeight.bold,
                                   color: over ? const Color(0xFFF02121) : null,
                                 ),
-                                const SubText(text: '월별 총합(30일 기준)', fontWeight: FontWeight.bold),
+                                const SubText(
+                                  text: '월별 총합(30일 기준)',
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ],
                             ),
                           ],
@@ -191,48 +221,55 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             transitionBuilder: (child, animation) {
-              final slideAnimation = Tween<Offset>(
-                begin: const Offset(0, -0.1),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
+              final slideAnimation =
+                  Tween<Offset>(
+                    begin: const Offset(0, -0.1),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                  );
               return FadeTransition(
                 opacity: animation,
-                child: SlideTransition(
-                  position: slideAnimation,
-                  child: child,
-                ),
+                child: SlideTransition(position: slideAnimation, child: child),
               );
             },
             child: showTargetWarning
                 ? Padding(
-              key: const ValueKey('target-warning'),
-              padding: EdgeInsets.symmetric(horizontal: hPad),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppColors.redText.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.error_outline, size: 18, color: AppColors.redText),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        targetWarningText ?? '',
-                        style: const TextStyle(
-                          fontFamily: 'Pretendard Variable',
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.redText,
-                        ),
+                    key: const ValueKey('target-warning'),
+                    padding: EdgeInsets.symmetric(horizontal: hPad),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.redText.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            size: 18,
+                            color: AppColors.redText,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              targetWarningText ?? '',
+                              style: const TextStyle(
+                                fontFamily: 'Pretendard Variable',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.redText,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-            )
+                  )
                 : const SizedBox.shrink(key: ValueKey('target-warning-empty')),
           ),
           if (showTargetWarning) const SizedBox(height: 8),
@@ -246,7 +283,9 @@ class _FooterDailyState extends State<FooterDaily> with TickerProviderStateMixin
                   fontFamily: 'Pretendard Variable',
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: over || hasNonPositiveSaving ? AppColors.redText : AppColors.subText,
+                  color: over || hasNonPositiveSaving
+                      ? AppColors.redText
+                      : theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ),

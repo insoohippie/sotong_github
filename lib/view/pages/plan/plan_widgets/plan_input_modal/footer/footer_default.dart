@@ -61,6 +61,8 @@ class _FooterDefaultState extends State<FooterDefault>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final over = widget.isOverBudget;
     final canComplete = !over && (widget.allowZeroTotal || widget.total > 0);
 
@@ -73,12 +75,12 @@ class _FooterDefaultState extends State<FooterDefault>
         vertical: AppSpacing.screenPadding,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        border: const Border(top: BorderSide(color: Color(0xFFF0F0F0))),
+        color: isDark ? theme.colorScheme.surface : const Color(0xFFF9FAFB),
+        border: Border(top: BorderSide(color: theme.dividerColor)),
         borderRadius: const BorderRadius.all(Radius.circular(20)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.1),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -100,7 +102,7 @@ class _FooterDefaultState extends State<FooterDefault>
                     ),
                     ParagraphText(
                       text:
-                      '${NumberFormat('#,###').format(widget.total.toInt())}원',
+                          '${NumberFormat('#,###').format(widget.total.toInt())}원',
                       fontWeight: FontWeight.bold,
                       color: over ? const Color(0xFFF02121) : AppColors.primary,
                     ),

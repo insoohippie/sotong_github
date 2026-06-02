@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../component/banner/sliding_banner.dart';
+import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 import '../../../view_model/communication/communication_view_model.dart';
 import 'comm_widgets/emotion_calendar_section.dart';
 import 'comm_widgets/emotion_top3_carousel_section.dart';
@@ -29,6 +30,16 @@ class _CommunicationPageState extends State<CommunicationPage> {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<CommunicationViewModel>();
+    final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
+      context,
+      PaddingResponsive16_40Vw.fractionScreen075,
+    );
+    final viewWidth = MediaQuery.sizeOf(context).width;
+    final bannerFontSize = viewWidth <= 386
+        ? 11.0
+        : viewWidth < 412
+        ? 12.0
+        : 13.0;
 
     if (vm.isLoading) {
       return const SafeArea(child: Center(child: CircularProgressIndicator()));
@@ -43,7 +54,7 @@ class _CommunicationPageState extends State<CommunicationPage> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -82,11 +93,11 @@ class _CommunicationPageState extends State<CommunicationPage> {
                                 child: Text(
                                   title,
                                   style: TextStyle(
-                                    fontSize: 13,
+                                    fontSize: bannerFontSize,
                                     fontWeight: FontWeight.w600,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurface,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurface,
                                   ),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,

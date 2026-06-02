@@ -25,14 +25,25 @@ class PlanCategoryPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final name = text.trim();
     final hasValue = name.isNotEmpty;
 
     final Color bgColor = (hasValue && highlight)
         ? highlightColor
-        : (hasValue ? AppColors.lightBlue : AppColors.greyBackground);
+        : (hasValue
+              ? (isDark
+                    ? theme.colorScheme.surfaceContainerHighest
+                    : AppColors.lightBlue)
+              : (isDark
+                    ? theme.colorScheme.surfaceContainerHighest
+                    : AppColors.greyBackground));
+    final borderColor = isDark ? theme.dividerColor : const Color(0xFFE5E7EB);
 
-    final Color textColor = hasValue ? Colors.black : AppColors.subText;
+    final Color textColor = hasValue
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.onSurfaceVariant;
     final displayEmoji = (emoji.trim().isNotEmpty) ? emoji : '💰';
 
     return InkWell(
@@ -45,11 +56,16 @@ class PlanCategoryPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: borderColor),
         ),
         child: Row(
           children: [
             if (!hasValue)
-              Icon(Icons.add, size: 18, color: AppColors.subText)
+              Icon(
+                Icons.add,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              )
             else
               Text(displayEmoji, style: const TextStyle(fontSize: 16)),
             const SizedBox(width: 6),

@@ -52,9 +52,6 @@ class _PlanEditPageState extends State<PlanEditPage> {
   TotalPlan? _basePlan;
   DateTime? _originalEndDate;
 
-  // ✅ overrideToday 1회 프롬프트
-  bool _overrideDatePrompted = false;
-
   @override
   void initState() {
     super.initState();
@@ -123,54 +120,6 @@ class _PlanEditPageState extends State<PlanEditPage> {
     if ((income - fixed - daily30) <= 0) return '소비가 수입을 초과했어요!';
     if (target > 0 && current >= target) return '보유 자산이 목표 금액을 넘었어요!';
     return null;
-  }
-
-  // ----------------- overrideToday (1회) -----------------
-  void _ensureOverrideDatePrompt(BuildContext context, PlanEditViewModel vm) {
-    if (_overrideDatePrompted) return;
-    _overrideDatePrompted = true;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      final selected = await _pickOverrideToday(context, vm);
-      if (!mounted) return;
-      // ✅ VM에 기준 날짜 저장
-      vm.setOverrideToday(selected ?? DateTime.now());
-    });
-  }
-
-  Future<DateTime?> _pickOverrideToday(
-      BuildContext context,
-      PlanEditViewModel vm,
-      ) async {
-    final now = DateTime.now();
-
-    final startSource = vm.totalPlan.startDate ?? now;
-    final planStart = DateTime(
-      startSource.year,
-      startSource.month,
-      startSource.day,
-    );
-
-    final endSource = vm.projectedGoalDate ??
-        vm.totalPlan.modEndDate ??
-        vm.totalPlan.endDate ??
-        planStart.add(const Duration(days: 365));
-
-    DateTime planEnd = DateTime(endSource.year, endSource.month, endSource.day);
-    if (planEnd.isBefore(planStart)) planEnd = planStart;
-
-    DateTime initial = DateTime(now.year, now.month, now.day);
-    if (initial.isBefore(planStart)) initial = planStart;
-    if (initial.isAfter(planEnd)) initial = planEnd;
-
-    return showDatePicker(
-      context: context,
-      initialDate: initial,
-      firstDate: planStart,
-      lastDate: planEnd,
-      helpText: '적용할 날짜를 선택하세요',
-    );
   }
 
   // ----------------- 모달 -----------------
@@ -484,10 +433,6 @@ class _PlanEditPageState extends State<PlanEditPage> {
         builder: (ctx) {
           final theme = Theme.of(ctx);
 
-          // ✅ overrideToday 1회 선택
-          final vm = ctx.read<PlanEditViewModel>();
-          _ensureOverrideDatePrompt(ctx, vm);
-
           return Scaffold(
             appBar: const BackOnlyAppBar(),
             backgroundColor: theme.scaffoldBackgroundColor,
@@ -501,10 +446,8 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
                   _buildTabBar(),
 
-                  // ✅ 스크롤 비활성(첫번째 코드 유지)
                   Expanded(
                     child: SingleChildScrollView(
-                      physics: const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.only(bottom: 5),
                       child: Column(
                         children: [
