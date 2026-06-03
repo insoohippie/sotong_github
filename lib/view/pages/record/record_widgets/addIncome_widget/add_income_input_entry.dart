@@ -184,7 +184,7 @@ class _AddIncomeInputEntryState extends State<AddIncomeInputEntry> {
                       widget.onChanged?.call();
                     },
                     highlight: true,
-                    highlightColor: AppColors.primary.withOpacity(0.06),
+                    highlightColor: AppColors.primary.withValues(alpha: 0.06),
                   ),
                 ),
               ),
@@ -258,8 +258,10 @@ class _AddIncomeInputEntryState extends State<AddIncomeInputEntry> {
         wrapped,
         if (widget.showBottomDivider) ...[
           const SizedBox(height: AppSpacing.fieldSpacing),
-          const Divider(
-            color: AppColors.greyBackground,
+          Divider(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.darkDivider
+                : AppColors.greyBackground,
             thickness: 1.0,
             height: 10,
           ),

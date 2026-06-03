@@ -155,7 +155,9 @@ class _HomePageState extends State<HomePage> {
                   child: Column(
                     children: [
                       RoundedInfoContainer(
-                        backgroundColor: theme.colorScheme.surface,
+                        backgroundColor: isDark
+                            ? AppColors.darkBackground
+                            : theme.colorScheme.surface,
                         padding: 12,
                         child: Column(
                           children: [

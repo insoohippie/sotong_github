@@ -147,7 +147,7 @@ class TodayRecordDiarySection extends StatelessWidget {
           child: SafeArea(
             top: false,
             minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: _buildSaveButton(),
+            child: _buildSaveButton(context),
           ),
         ),
       ],
@@ -159,11 +159,19 @@ class TodayRecordDiarySection extends StatelessWidget {
         (hasUnsavedChanges ? 96.0 : 72.0);
   }
 
-  Widget _buildSaveButton() {
+  Widget _buildSaveButton(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final backgroundColor = hasUnsavedChanges
         ? const Color(0xFF4A90E2)
+        : isDark
+        ? theme.colorScheme.surface
         : const Color(0xFFE5E7EB);
-    final textColor = hasUnsavedChanges ? Colors.white : Colors.grey[500]!;
+    final textColor = hasUnsavedChanges
+        ? Colors.white
+        : isDark
+        ? theme.colorScheme.onSurfaceVariant
+        : Colors.grey[500]!;
 
     return Column(
       children: [

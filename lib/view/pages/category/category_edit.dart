@@ -208,12 +208,18 @@ class _CategoryEditPageState extends State<CategoryEditPage>
   }
 
   Widget _buildBottomSection(CategoryEditViewModel vm) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? theme.colorScheme.surface : Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
+        border: Border.all(
+          color: isDark ? theme.dividerColor : Colors.grey.shade300,
+          width: 1,
+        ),
       ),
       child: SafeArea(
         top: false,
@@ -521,17 +527,28 @@ class _CategoryEditPageState extends State<CategoryEditPage>
   // Sliver UI Pieces
   // =========================================================
   Widget _planHeader() {
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('플랜 카테고리',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            '플랜 카테고리',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             '일일 소비 예산이 있는 카테고리입니다. (레포트 축에 사용)',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            style: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -539,17 +556,28 @@ class _CategoryEditPageState extends State<CategoryEditPage>
   }
 
   Widget _refHeader() {
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('참고 카테고리',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(
+            '참고 카테고리',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
           const SizedBox(height: 8),
           Text(
             '자주 쓰는 카테고리를 모아둘 수 있습니다.',
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+            style: TextStyle(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
           ),
         ],
       ),
@@ -557,13 +585,18 @@ class _CategoryEditPageState extends State<CategoryEditPage>
   }
 
   Widget _addButton({required VoidCallback onAdd}) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       child: Center(
         child: SmallRoundedButton(
           text: '추가',
-          backgroundColor: AppColors.greyBackground,
-          textColor: AppColors.text,
+          backgroundColor: isDark
+              ? theme.colorScheme.surfaceContainerHighest
+              : AppColors.greyBackground,
+          textColor: isDark ? theme.colorScheme.onSurface : AppColors.text,
           onPressed: onAdd,
         ),
       ),
@@ -578,6 +611,12 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     required VoidCallback onTapEditName,
     required VoidCallback onTapEditAmount,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final tileBg = isDark ? theme.colorScheme.surface : Colors.white;
+    final tileBorder = isDark ? theme.dividerColor : Colors.grey.shade200;
+    final dragColor = theme.colorScheme.onSurfaceVariant;
+
     return Container(
       key: key, // ✅ sliver reorderable이 추적할 key
       child: Dismissible(
@@ -597,9 +636,9 @@ class _CategoryEditPageState extends State<CategoryEditPage>
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: tileBg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: tileBorder),
           ),
           child: Material(
             type: MaterialType.transparency, // ✅ 핵심: Material ancestor 제공
@@ -610,7 +649,7 @@ class _CategoryEditPageState extends State<CategoryEditPage>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.drag_handle, color: Colors.grey.shade600),
+                    Icon(Icons.drag_handle, color: dragColor),
                     const SizedBox(width: 8),
                     Text(item.emoji, style: const TextStyle(fontSize: 20)),
                   ],
@@ -621,7 +660,10 @@ class _CategoryEditPageState extends State<CategoryEditPage>
                   Expanded(
                     child: GestureDetector(
                       onTap: onTapEditName,
-                      child: Text(item.name),
+                      child: Text(
+                        item.name,
+                        style: TextStyle(color: theme.colorScheme.onSurface),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -652,6 +694,12 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     required VoidCallback onDelete,
     required VoidCallback onTapEditName,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final tileBg = isDark ? theme.colorScheme.surface : Colors.white;
+    final tileBorder = isDark ? theme.dividerColor : Colors.grey.shade200;
+    final dragColor = theme.colorScheme.onSurfaceVariant;
+
     return Container(
       key: key,
       child: Dismissible(
@@ -671,9 +719,9 @@ class _CategoryEditPageState extends State<CategoryEditPage>
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: tileBg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: tileBorder),
           ),
           child: Material(
             type: MaterialType.transparency,
@@ -684,7 +732,7 @@ class _CategoryEditPageState extends State<CategoryEditPage>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.drag_handle, color: Colors.grey.shade600),
+                    Icon(Icons.drag_handle, color: dragColor),
                     const SizedBox(width: 8),
                     Text(item.emoji, style: const TextStyle(fontSize: 20)),
                   ],
@@ -692,7 +740,10 @@ class _CategoryEditPageState extends State<CategoryEditPage>
               ),
               title: GestureDetector(
                 onTap: onTapEditName,
-                child: Text(item.name),
+                child: Text(
+                  item.name,
+                  style: TextStyle(color: theme.colorScheme.onSurface),
+                ),
               ),
             ),
           ),
@@ -710,11 +761,12 @@ class _CategoryEditPageState extends State<CategoryEditPage>
       builder: (context, vm, _) {
         final dailySum = _calcDailySum(vm.draftPlan);
         final reachDate = _calcReachDate(dailySum, vm.targetAmount);
+        final theme = Theme.of(context);
 
         return WillPopScope(
           onWillPop: () => _handleBack(vm),
           child: Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: theme.scaffoldBackgroundColor,
             appBar: BackOnlyAppBar(
               onBack: () async {
                 final canPop = await _handleBack(vm);
@@ -741,7 +793,9 @@ class _CategoryEditPageState extends State<CategoryEditPage>
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                           child: Text(
                             '카테고리가 없습니다. 아래에서 추가해보세요.',
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       )
@@ -768,7 +822,13 @@ class _CategoryEditPageState extends State<CategoryEditPage>
                       ),
                     SliverToBoxAdapter(child: _addButton(onAdd: () => _openNameForAdd(isPlan: true))),
 
-                    const SliverToBoxAdapter(child: Divider(height: 1, thickness: 1)),
+                    SliverToBoxAdapter(
+                      child: Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: theme.dividerColor,
+                      ),
+                    ),
 
                     // REF
                     SliverToBoxAdapter(child: _refHeader()),
@@ -778,7 +838,9 @@ class _CategoryEditPageState extends State<CategoryEditPage>
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                           child: Text(
                             '참고 카테고리가 없습니다.',
-                            style: TextStyle(color: Colors.grey.shade600),
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       )

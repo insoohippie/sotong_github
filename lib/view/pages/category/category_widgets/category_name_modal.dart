@@ -69,6 +69,17 @@ class _CategoryNameModalState extends State<CategoryNameModal> {
   @override
   Widget build(BuildContext context) {
     final enabled = _nameCtrl.text.trim().isNotEmpty;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final sheetColor = isDark ? theme.colorScheme.surface : Colors.white;
+    final emojiBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : AppColors.greyBackground;
+    final pickerBg = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : const Color(0xFFF9FAFB);
+    final pickerBorder =
+        isDark ? theme.dividerColor : const Color(0xFFE5E7EB);
 
     return Material(
       type: MaterialType.transparency,
@@ -89,9 +100,9 @@ class _CategoryNameModalState extends State<CategoryNameModal> {
               onTap: () {}, // 중요: 시트 탭이 scrim으로 안 새게
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
+                decoration: BoxDecoration(
+                  color: sheetColor,
+                  borderRadius: const BorderRadius.only(
                     topLeft: Radius.circular(40),
                     topRight: Radius.circular(40),
                   ),
@@ -115,11 +126,13 @@ class _CategoryNameModalState extends State<CategoryNameModal> {
                                 width: 60,
                                 height: 60,
                                 decoration: BoxDecoration(
-                                  color: AppColors.greyBackground,
+                                  color: emojiBg,
                                   borderRadius: BorderRadius.circular(16),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.04),
+                                      color: Colors.black.withValues(
+                                        alpha: isDark ? 0.2 : 0.04,
+                                      ),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     ),
@@ -152,9 +165,9 @@ class _CategoryNameModalState extends State<CategoryNameModal> {
                             height: 140,
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF9FAFB),
+                              color: pickerBg,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                              border: Border.all(color: pickerBorder),
                             ),
                             child: GridView.builder(
                               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -176,7 +189,8 @@ class _CategoryNameModalState extends State<CategoryNameModal> {
                                   child: Container(
                                     decoration: BoxDecoration(
                                       color: selected
-                                          ? const Color(0xFF3B82F6).withOpacity(0.12)
+                                          ? const Color(0xFF3B82F6)
+                                              .withValues(alpha: 0.12)
                                           : Colors.transparent,
                                       borderRadius: BorderRadius.circular(8),
                                     ),

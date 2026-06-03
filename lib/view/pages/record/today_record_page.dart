@@ -167,27 +167,54 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
   }
 
   Widget _buildRecordModeDropdown() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final trackBg = isDark ? theme.colorScheme.surface : Colors.grey.shade100;
+    final trackBorder = isDark ? theme.dividerColor : Colors.grey.shade300;
+    final menuBg = isDark ? theme.colorScheme.surface : Colors.white;
+    final selectedText = theme.colorScheme.onSurface;
+    final unselectedText = theme.colorScheme.onSurfaceVariant;
+
+    TextStyle itemStyle(bool selected) {
+      return TextStyle(
+        color: selected ? selectedText : unselectedText,
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+      );
+    }
+
     return Container(
       height: 34,
       padding: const EdgeInsets.only(left: 12, right: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: trackBg,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: trackBorder),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<bool>(
           value: _isList,
+          dropdownColor: menuBg,
           borderRadius: BorderRadius.circular(12),
-          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-          style: const TextStyle(
-            color: Colors.black87,
+          icon: Icon(
+            Icons.keyboard_arrow_down,
+            size: 18,
+            color: unselectedText,
+          ),
+          style: TextStyle(
+            color: selectedText,
             fontSize: 13,
             fontWeight: FontWeight.w700,
           ),
-          items: const [
-            DropdownMenuItem<bool>(value: true, child: Text('목록')),
-            DropdownMenuItem<bool>(value: false, child: Text('일지')),
+          items: [
+            DropdownMenuItem<bool>(
+              value: true,
+              child: Text('목록', style: itemStyle(_isList)),
+            ),
+            DropdownMenuItem<bool>(
+              value: false,
+              child: Text('일지', style: itemStyle(!_isList)),
+            ),
           ],
           onChanged: (value) {
             if (value == null) return;

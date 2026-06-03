@@ -35,8 +35,8 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   static Map<String, List<NotificationItem>> _partitionByTime(
-      List<NotificationItem> all,
-      ) {
+    List<NotificationItem> all,
+  ) {
     final now = DateTime.now();
     final today = _dateOnly(now);
     final weekStart = _mondayOfWeek(now);
@@ -66,11 +66,7 @@ class _NotificationPageState extends State<NotificationPage> {
     thisWeekList.sort(byTimeDesc);
     pastList.sort(byTimeDesc);
 
-    return {
-      'today': todayList,
-      'thisWeek': thisWeekList,
-      'past': pastList,
-    };
+    return {'today': todayList, 'thisWeek': thisWeekList, 'past': pastList};
   }
 
   @override
@@ -125,11 +121,12 @@ class _NotificationPageState extends State<NotificationPage> {
   }
 
   Widget _buildNotificationSection(
-      List<NotificationItem> notifications,
-      NotificationViewModel vm,
-      BuildContext context,
-      ) {
+    List<NotificationItem> notifications,
+    NotificationViewModel vm,
+    BuildContext context,
+  ) {
     final theme = Theme.of(context);
+    final muted = theme.colorScheme.onSurfaceVariant;
 
     return Container(
       constraints: const BoxConstraints(minHeight: 80),
@@ -140,41 +137,42 @@ class _NotificationPageState extends State<NotificationPage> {
       ),
       child: notifications.isEmpty
           ? Center(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.notifications_none,
-                size: 32,
-                color: Colors.grey.withValues(alpha: 0.5),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '알림이 없습니다',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey[600],
-                  fontFamily: 'Pretendard Variable',
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.notifications_none,
+                      size: 32,
+                      color: muted.withValues(alpha: 0.75),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '알림이 없습니다',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: muted,
+                        fontFamily: 'Pretendard Variable',
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
-        ),
-      )
+            )
           : Column(
-        children: notifications
-            .map((n) => _buildNotificationItem(n, vm))
-            .toList(),
-      ),
+              children: notifications
+                  .map((n) => _buildNotificationItem(n, vm))
+                  .toList(),
+            ),
     );
   }
 
   Widget _buildNotificationItem(
-      NotificationItem notification,
-      NotificationViewModel vm,
-      ) {
+    NotificationItem notification,
+    NotificationViewModel vm,
+  ) {
+    final theme = Theme.of(context);
     return Dismissible(
       key: ValueKey(notification.id),
       direction: DismissDirection.endToStart,
@@ -185,11 +183,7 @@ class _NotificationPageState extends State<NotificationPage> {
         ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(
-          Icons.delete,
-          color: Colors.white,
-          size: 24,
-        ),
+        child: const Icon(Icons.delete, color: Colors.white, size: 24),
       ),
       onDismissed: (direction) {
         vm.removeNotification(notification.id);
@@ -197,20 +191,14 @@ class _NotificationPageState extends State<NotificationPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('${notification.title} 알림을 삭제했습니다.'),
-            action: SnackBarAction(
-              label: '실행 취소',
-              onPressed: () {},
-            ),
+            action: SnackBarAction(label: '실행 취소', onPressed: () {}),
           ),
         );
       },
       child: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(
-              color: Color(0xFFE5E7EB),
-              width: 0.5,
-            ),
+            bottom: BorderSide(color: theme.dividerColor, width: 0.5),
           ),
         ),
         child: ListTile(
@@ -236,9 +224,10 @@ class _NotificationPageState extends State<NotificationPage> {
             notification.title,
             style: TextStyle(
               fontSize: 13,
-              fontWeight:
-              notification.isRead ? FontWeight.normal : FontWeight.w600,
-              color: Colors.black,
+              fontWeight: notification.isRead
+                  ? FontWeight.normal
+                  : FontWeight.w600,
+              color: theme.colorScheme.onSurface,
               fontFamily: 'Pretendard Variable',
             ),
           ),
@@ -248,9 +237,9 @@ class _NotificationPageState extends State<NotificationPage> {
               const SizedBox(height: 4),
               Text(
                 notification.message,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: Colors.black,
+                  color: theme.colorScheme.onSurface,
                   fontFamily: 'Pretendard Variable',
                 ),
                 maxLines: 2,
@@ -261,7 +250,7 @@ class _NotificationPageState extends State<NotificationPage> {
                 _formatTime(notification.createdAt),
                 style: TextStyle(
                   fontSize: 11,
-                  color: Colors.grey[500],
+                  color: theme.colorScheme.onSurfaceVariant,
                   fontFamily: 'Pretendard Variable',
                 ),
               ),
@@ -275,16 +264,13 @@ class _NotificationPageState extends State<NotificationPage> {
             final route = notification.targetRoute;
             if (route == null) return;
 
-            final Object? args = notification.targetTabIndex ??
-                notification.targetDate;
+            final Object? args =
+                notification.targetTabIndex ?? notification.targetDate;
 
             Navigator.of(
               context,
               rootNavigator: true,
-            ).pushNamed(
-              route,
-              arguments: args,
-            );
+            ).pushNamed(route, arguments: args);
           },
         ),
       ),

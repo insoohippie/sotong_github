@@ -79,6 +79,10 @@ class _CategoryAmountModalState extends State<CategoryAmountModal> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final sheetColor = isDark ? theme.colorScheme.surface : Colors.white;
+
     return GestureDetector(
       // ✅ 시트 내부 탭이 scrim으로 새지 않게
       behavior: HitTestBehavior.translucent,
@@ -87,14 +91,14 @@ class _CategoryAmountModalState extends State<CategoryAmountModal> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: sheetColor,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(40),
             topRight: Radius.circular(40),
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.1),
               offset: const Offset(0, -4),
               blurRadius: 6,
             ),

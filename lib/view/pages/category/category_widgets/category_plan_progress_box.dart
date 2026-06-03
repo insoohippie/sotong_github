@@ -23,11 +23,18 @@ class CategoryPlanProgressBox extends StatelessWidget {
   Widget build(BuildContext context) {
     if (dailyLimitSum <= 0 || reachDate == null) return const SizedBox.shrink();
 
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final boxBg = isDark
+        ? AppColors.primary.withValues(alpha: 0.15)
+        : AppColors.lightBlue;
+    final labelColor = isDark ? theme.colorScheme.onSurface : AppColors.text;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.lightBlue,
+        color: boxBg,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -36,7 +43,10 @@ class CategoryPlanProgressBox extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('일일 한도 합계 ', style: AppTextStyles.subtext.copyWith(color: AppColors.text)),
+              Text(
+                '일일 한도 합계 ',
+                style: AppTextStyles.subtext.copyWith(color: labelColor),
+              ),
               Text(
                 _formatAmount(dailyLimitSum),
                 style: AppTextStyles.paragraph.copyWith(

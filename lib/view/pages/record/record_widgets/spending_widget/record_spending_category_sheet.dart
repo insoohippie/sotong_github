@@ -85,7 +85,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
   await showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
     ),
@@ -94,6 +94,27 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
         builder: (context, setModalState) {
           final vm = ctx.watch<SpendingCategoryViewModel>();
           final planItemsLive = vm.planItems;
+          final theme = Theme.of(context);
+          final isDark = theme.brightness == Brightness.dark;
+          final chipSurface = isDark
+              ? AppColors.darkSurface
+              : const Color(0xFFF3F4F6);
+          final chipBorder = isDark
+              ? AppColors.darkBorder
+              : const Color(0xFFE5E7EB);
+          final subtleSurface = isDark
+              ? const Color(0xFF181818)
+              : const Color(0xFFF9FAFB);
+          final mutedButtonSurface = isDark
+              ? const Color(0xFF242424)
+              : const Color(0xFFF3F4F6);
+          final activeMutedButtonSurface = isDark
+              ? const Color(0xFF303030)
+              : const Color(0xFFD1D5DB);
+          final iconMutedColor = isDark
+              ? AppColors.darkSubText
+              : const Color(0xFF6B7280);
+          final textColor = theme.colorScheme.onSurface;
 
           // -------------------------
           // helpers
@@ -113,7 +134,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.78),
+                        color: Colors.black.withValues(alpha: 0.78),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -270,15 +291,15 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                   height: height,
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   decoration: BoxDecoration(
-                    color: selected ? AppColors.primary : const Color(0xFFF3F4F6),
+                    color: selected ? AppColors.primary : chipSurface,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: selected ? AppColors.primary : const Color(0xFFE5E7EB),
+                      color: selected ? AppColors.primary : chipBorder,
                     ),
                     boxShadow: feedback
                         ? [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.18),
+                        color: Colors.black.withValues(alpha: 0.18),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       )
@@ -301,7 +322,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                           style: TextStyle(
                             fontSize: 11.5,
                             fontWeight: FontWeight.w800,
-                            color: selected ? Colors.white : const Color(0xFF111827),
+                            color: selected ? Colors.white : textColor,
                             height: 1.05,
                           ),
                         ),
@@ -320,16 +341,16 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                           color: selected
-                              ? Colors.white.withOpacity(0.20)
-                              : Colors.black.withOpacity(0.04),
+                              ? Colors.white.withValues(alpha: 0.20)
+                              : textColor.withValues(alpha: 0.08),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.close,
                           size: 14,
                           color: selected
-                              ? Colors.white.withOpacity(0.9)
-                              : const Color(0xFF9CA3AF),
+                              ? Colors.white.withValues(alpha: 0.9)
+                              : iconMutedColor,
                         ),
                       ),
                     ),
@@ -494,7 +515,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE5E7EB),
+                        color: theme.dividerColor,
                         borderRadius: BorderRadius.circular(999),
                       ),
                     ),
@@ -548,7 +569,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 margin: const EdgeInsets.only(right: 8),
                                 decoration: BoxDecoration(
-                                  color: Colors.grey[200],
+                                  color: mutedButtonSurface,
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                                 child: const Row(
@@ -569,16 +590,22 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                                 width: 28,
                                 height: 28,
                                 decoration: BoxDecoration(
-                                  color: showAdd ? const Color(0xFFD1D5DB) : const Color(0xFFF3F4F6),
+                                  color: showAdd
+                                      ? activeMutedButtonSurface
+                                      : mutedButtonSurface,
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: showAdd ? const Color(0xFF9CA3AF) : const Color(0xFFE5E7EB),
+                                    color: showAdd
+                                        ? theme.colorScheme.onSurfaceVariant
+                                        : chipBorder,
                                   ),
                                 ),
                                 child: Icon(
                                   showAdd ? Icons.close : Icons.add,
                                   size: 16,
-                                  color: showAdd ? const Color(0xFF374151) : const Color(0xFF6B7280),
+                                  color: showAdd
+                                      ? theme.colorScheme.onSurface
+                                      : iconMutedColor,
                                 ),
                               ),
                             ),
@@ -597,14 +624,14 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                                 width: 28,
                                 height: 28,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF3F4F6),
+                                  color: mutedButtonSurface,
                                   borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                                  border: Border.all(color: chipBorder),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.settings,
                                   size: 16,
-                                  color: Color(0xFF6B7280),
+                                  color: iconMutedColor,
                                 ),
                               ),
                             ),
@@ -644,9 +671,9 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                             width: 60,
                             height: 60,
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF3F4F6),
+                              color: mutedButtonSurface,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                              border: Border.all(color: chipBorder),
                             ),
                             child: Center(
                               child: Text(selectedEmoji, style: const TextStyle(fontSize: 24)),
@@ -674,9 +701,9 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                         height: 120,
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF9FAFB),
+                          color: subtleSurface,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          border: Border.all(color: chipBorder),
                         ),
                         child: GridView.builder(
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -695,7 +722,7 @@ Future<RecordCategoryPick?> openRecordCategorySheetWithKey(
                               child: Container(
                                 decoration: BoxDecoration(
                                   color: selectedEmoji == emoji
-                                      ? AppColors.primary.withOpacity(0.1)
+                                      ? AppColors.primary.withValues(alpha: 0.16)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(6),
                                 ),

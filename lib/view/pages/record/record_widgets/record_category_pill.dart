@@ -26,15 +26,22 @@ class RecordCategoryPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final name = text.trim();
     final hasValue = name.isNotEmpty;
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     final Color bgColor = (hasValue && highlight)
-        ? highlightColor
+        ? (isDark ? AppColors.darkSurface : highlightColor)
+        : isDark
+        ? AppColors.darkBackground
         : (hasValue ? AppColors.lightBlue : AppColors.greyBackground);
 
-    final Color textColor = hasValue ? Colors.black : AppColors.subText;
+    final Color textColor = hasValue
+        ? theme.colorScheme.onSurface
+        : theme.colorScheme.onSurfaceVariant;
 
-    final displayEmoji =
-    (emoji?.trim().isNotEmpty ?? false) ? emoji!.trim() : '💰';
+    final displayEmoji = (emoji?.trim().isNotEmpty ?? false)
+        ? emoji!.trim()
+        : '💰';
 
     return InkWell(
       onTap: onTap,
@@ -46,11 +53,16 @@ class RecordCategoryPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(12),
+          border: isDark ? Border.all(color: AppColors.darkBorder) : null,
         ),
         child: Row(
           children: [
             if (!hasValue)
-              Icon(Icons.add, size: 18, color: AppColors.subText)
+              Icon(
+                Icons.add,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant,
+              )
             else
               Text(displayEmoji, style: const TextStyle(fontSize: 16)),
             const SizedBox(width: 6),
