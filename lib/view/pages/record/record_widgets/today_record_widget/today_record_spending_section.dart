@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
 
+import '../../../../../component/buttons/small_rounded_button.dart';
+import '../../../../../component/theme/app_colors.dart';
 import '../../../../../model/record/record_entry.dart';
 import '../../../../../view_model/record/today_spending_view_model.dart';
 
 class TodayRecordSpendingSection extends StatelessWidget {
+  static const Color _accentColor = Color(0xFF4A90E2);
+  static const Color _amountBlue = Color(0xFF3182CE);
+  static const Color _dangerColor = Color(0xFFE53935);
+  static const Color _dangerAmountColor = Color(0xFFE53E3E);
+  static const Color _summaryLightBlue = Color(0xFFF8FBFF);
+  static const Color _summaryLightRed = Color(0xFFFFEBEE);
+  static const Color _calloutLightBlue = Color(0xFFE3F2FD);
+  static const Color _chipLightBackground = Color(0xFFF0F0F0);
+
   final TodaySpendingViewModel vm;
   final bool hasUnsavedChanges;
   final bool hasEntryChanges;
@@ -35,6 +46,18 @@ class TodayRecordSpendingSection extends StatelessWidget {
     final h = minutes ~/ 60;
     final m = minutes % 60;
     return (m == 0) ? '$h시간' : '$h시간 $m분';
+  }
+
+  bool _isDark(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark;
+
+  Color _tintedSurface(BuildContext context, Color tint, double alpha) {
+    final theme = Theme.of(context);
+    if (!_isDark(context)) return tint;
+    return Color.alphaBlend(
+      tint.withValues(alpha: alpha),
+      theme.colorScheme.surface,
+    );
   }
 
   @override
@@ -92,14 +115,18 @@ class TodayRecordSpendingSection extends StatelessWidget {
     required int minutes,
     required bool isOverLimit,
   }) {
+    final theme = Theme.of(context);
+    final isDark = _isDark(context);
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
+        border: isDark ? Border.all(color: theme.dividerColor) : null,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -116,9 +143,10 @@ class TodayRecordSpendingSection extends StatelessWidget {
                 isOverLimit: isOverLimit,
               ),
             ),
-            _buildAddButton(),
+            _buildAddButton(context),
             if (entries.isNotEmpty)
               _buildSummaryPanel(
+                context: context,
                 totalAmount: totalAmount,
                 dailyLimit: dailyLimit,
                 diffAmount: diffAmount,
@@ -135,6 +163,8 @@ class TodayRecordSpendingSection extends StatelessWidget {
     required List<RecordEntry> entries,
     required bool isOverLimit,
   }) {
+    final theme = Theme.of(context);
+
     if (entries.isEmpty) {
       return Center(
         child: Padding(
@@ -142,13 +172,19 @@ class TodayRecordSpendingSection extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.receipt_long, size: 48, color: Colors.grey[400]),
+              Icon(
+                Icons.receipt_long,
+                size: 48,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.55,
+                ),
+              ),
               const SizedBox(height: 16),
               Text(
                 '등록된 소비가 없어요',
                 style: TextStyle(
                   fontSize: 16,
-                  color: Colors.grey[600],
+                  color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -179,15 +215,17 @@ class TodayRecordSpendingSection extends StatelessWidget {
   }
 
   Widget _buildEntrySeparator(bool isOverLimit) {
+    final color = isOverLimit
+        ? Colors.red.withValues(alpha: 0.3)
+        : _accentColor.withValues(alpha: 0.25);
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       height: 2,
       decoration: BoxDecoration(
         border: Border(
           top: BorderSide(
-            color: isOverLimit
-                ? Colors.red.withOpacity(0.3)
-                : const Color(0xFF4A90E2).withOpacity(0.25),
+            color: color,
             width: 1,
           ),
         ),
@@ -195,59 +233,71 @@ class TodayRecordSpendingSection extends StatelessWidget {
     );
   }
 
-  Widget _buildAddButton() {
+  Widget _buildAddButton(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = _isDark(context);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 5, 16, 5),
-      child: SizedBox(
-        width: double.infinity,
-        height: 46,
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: SizedBox(
-            width: 44,
-            height: 36,
-            child: ElevatedButton(
-              onPressed: onAdd,
-              style: ElevatedButton.styleFrom(
-                elevation: 0,
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                backgroundColor: const Color(0xFFF4F7FB),
-                foregroundColor: const Color(0xFF4A90E2),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(999),
-                  side: BorderSide(
-                    color: const Color(0xFF4A90E2).withOpacity(0.3),
-                  ),
-                ),
-              ),
-              child: const Icon(Icons.add, size: 20),
-            ),
-          ),
+      padding: const EdgeInsets.fromLTRB(16, 5, 16, 12),
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: SmallRoundedButton(
+          text: '추가',
+          backgroundColor: isDark
+              ? theme.colorScheme.surface
+              : AppColors.greyBackground,
+          textColor: theme.colorScheme.onSurface,
+          borderColor: isDark ? theme.dividerColor : Colors.grey.shade300,
+          onPressed: onAdd,
         ),
       ),
     );
   }
 
   Widget _buildSummaryPanel({
+    required BuildContext context,
     required int totalAmount,
     required int dailyLimit,
     required int diffAmount,
     required int minutes,
   }) {
+    final theme = Theme.of(context);
+    final isDark = _isDark(context);
+    final isOverBudget = diffAmount > 0;
+    final summaryBackground = isOverBudget
+        ? (isDark
+              ? _tintedSurface(context, _dangerColor, 0.12)
+              : _summaryLightRed)
+        : (isDark
+              ? _tintedSurface(context, _accentColor, 0.10)
+              : _summaryLightBlue);
+    final calloutBackground = isOverBudget
+        ? (isDark
+              ? _tintedSurface(context, _dangerColor, 0.18)
+              : _summaryLightRed)
+        : (isDark
+              ? _tintedSurface(context, _accentColor, 0.16)
+              : _calloutLightBlue);
+    final calloutBorderColor = isOverBudget
+        ? (isDark
+              ? _dangerColor.withValues(alpha: 0.50)
+              : const Color(0xFFEF9A9A))
+        : (isDark
+              ? _accentColor.withValues(alpha: 0.50)
+              : _accentColor);
+    final labelColor = theme.colorScheme.onSurface;
+    final secondaryColor = theme.colorScheme.onSurfaceVariant;
+
     return Column(
       children: [
         Container(
           height: 1,
-          color: const Color(0xFFE0E0E0),
+          color: isDark ? theme.dividerColor : const Color(0xFFE0E0E0),
           margin: const EdgeInsets.symmetric(horizontal: 16),
         ),
         Container(
           decoration: BoxDecoration(
-            color: diffAmount > 0
-                ? const Color(0xFFFFEBEE)
-                : const Color(0xFFF8FBFF),
+            color: summaryBackground,
             borderRadius: const BorderRadius.only(
               bottomLeft: Radius.circular(12),
               bottomRight: Radius.circular(12),
@@ -259,12 +309,12 @@ class TodayRecordSpendingSection extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     '오늘의 소비',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black87,
+                      color: labelColor,
                     ),
                   ),
                   Text(
@@ -272,9 +322,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: diffAmount > 0
-                          ? const Color(0xFFE53935)
-                          : const Color(0xFF4A90E2),
+                      color: isOverBudget ? _dangerColor : _accentColor,
                     ),
                   ),
                 ],
@@ -283,13 +331,13 @@ class TodayRecordSpendingSection extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     '하루소비한도금액',
-                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(fontSize: 14, color: secondaryColor),
                   ),
                   Text(
                     '${_formatAmount(dailyLimit)}원',
-                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    style: TextStyle(fontSize: 14, color: secondaryColor),
                   ),
                 ],
               ),
@@ -297,12 +345,12 @@ class TodayRecordSpendingSection extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  Text(
                     '차액',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: Colors.black87,
+                      color: labelColor,
                     ),
                   ),
                   Text(
@@ -310,9 +358,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: diffAmount > 0
-                          ? Colors.red
-                          : const Color(0xFF4A90E2),
+                      color: isOverBudget ? Colors.red : _accentColor,
                     ),
                   ),
                 ],
@@ -322,25 +368,16 @@ class TodayRecordSpendingSection extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: diffAmount > 0
-                        ? const Color(0xFFFFEBEE)
-                        : const Color(0xFFE3F2FD),
+                    color: calloutBackground,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: diffAmount > 0
-                          ? const Color(0xFFEF9A9A)
-                          : const Color(0xFF4A90E2),
-                      width: 1,
-                    ),
+                    border: Border.all(color: calloutBorderColor, width: 1),
                   ),
                   child: Row(
                     children: [
                       Icon(
                         Icons.access_time,
                         size: 16,
-                        color: diffAmount > 0
-                            ? const Color(0xFFE53935)
-                            : const Color(0xFF4A90E2),
+                        color: isOverBudget ? _dangerColor : _accentColor,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -350,9 +387,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
                               : '${_formatAmount(diffAmount.abs())}원치, 목표도달까지 ${_formatTime(minutes)}이 당겨졌어요! 오늘도 잘했어요!',
                           style: TextStyle(
                             fontSize: 12,
-                            color: diffAmount > 0
-                                ? const Color(0xFFE53935)
-                                : const Color(0xFF4A90E2),
+                            color: isOverBudget ? _dangerColor : _accentColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -422,6 +457,16 @@ class TodayRecordSpendingSection extends StatelessWidget {
     required VoidCallback onDelete,
     required bool isOverLimit,
   }) {
+    final theme = Theme.of(context);
+    final isDark = _isDark(context);
+    final chipBackground = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : _chipLightBackground;
+    final chipTextColor = theme.colorScheme.onSurfaceVariant;
+    final editIconColor = isDark
+        ? theme.colorScheme.onSurfaceVariant
+        : const Color(0xFF999999);
+
     return Dismissible(
       key: ValueKey('spending_${entry.id}'),
       direction: DismissDirection.endToStart,
@@ -440,7 +485,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
       ),
       onDismissed: (_) => onDelete(),
       child: Container(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,13 +498,13 @@ class TodayRecordSpendingSection extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0F0F0),
+                    color: chipBackground,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     entry.category,
-                    style: const TextStyle(
-                      color: Color(0xFF666666),
+                    style: TextStyle(
+                      color: chipTextColor,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -471,14 +516,14 @@ class TodayRecordSpendingSection extends StatelessWidget {
                   child: Container(
                     width: 22,
                     height: 22,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF0F0F0),
+                    decoration: BoxDecoration(
+                      color: chipBackground,
                       shape: BoxShape.circle,
                     ),
-                    child: const Center(
+                    child: Center(
                       child: Icon(
                         Icons.edit,
-                        color: Color(0xFF999999),
+                        color: editIconColor,
                         size: 12,
                       ),
                     ),
@@ -492,8 +537,8 @@ class TodayRecordSpendingSection extends StatelessWidget {
               children: [
                 Text(
                   entry.note.isEmpty ? entry.category : entry.note,
-                  style: const TextStyle(
-                    color: Colors.black87,
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
@@ -503,9 +548,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: isOverLimit
-                        ? const Color(0xFFE53E3E)
-                        : const Color(0xFF3182CE),
+                    color: isOverLimit ? _dangerAmountColor : _amountBlue,
                   ),
                 ),
               ],

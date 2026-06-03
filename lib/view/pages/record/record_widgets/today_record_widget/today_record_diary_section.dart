@@ -34,6 +34,14 @@ class TodayRecordDiarySection extends StatelessWidget {
   Widget build(BuildContext context) {
     final emotion = vm.emotion.trim();
     final lottiePath = _emotionToLottie(emotion);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final subtleSurface = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : const Color(0xFFF2F2F2);
+    final editButtonBackground = isDark
+        ? theme.colorScheme.surfaceContainerHighest
+        : const Color(0xFFE0E0E0);
 
     return Stack(
       children: [
@@ -54,7 +62,7 @@ class TodayRecordDiarySection extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey[800],
+                          color: theme.colorScheme.onSurface,
                         ),
                       ),
                       const Spacer(),
@@ -63,13 +71,16 @@ class TodayRecordDiarySection extends StatelessWidget {
                         child: Container(
                           width: 23,
                           height: 23,
-                          decoration: const BoxDecoration(
-                            color: Color(0xFFE0E0E0),
+                          decoration: BoxDecoration(
+                            color: editButtonBackground,
                             shape: BoxShape.circle,
                           ),
-                          child: const Center(
-                            child: Icon(Icons.edit,
-                                color: Color(0xFF9E9E9E), size: 10),
+                          child: Center(
+                            child: Icon(
+                              Icons.edit,
+                              color: theme.colorScheme.onSurfaceVariant,
+                              size: 10,
+                            ),
                           ),
                         ),
                       ),
@@ -102,7 +113,7 @@ class TodayRecordDiarySection extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey[700],
+                            color: theme.colorScheme.onSurface,
                           ),
                         ),
                       ],
@@ -114,7 +125,7 @@ class TodayRecordDiarySection extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey[800],
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -122,15 +133,20 @@ class TodayRecordDiarySection extends StatelessWidget {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2F2F2),
+                      color: subtleSurface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey[300]!, width: 1),
+                      border: Border.all(
+                        color: isDark
+                            ? theme.dividerColor
+                            : Colors.grey[300]!,
+                        width: 1,
+                      ),
                     ),
                     child: Text(
                       vm.comment.isEmpty ? '오늘의 소비일지가 없어요.' : vm.comment,
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey[700],
+                        color: theme.colorScheme.onSurfaceVariant,
                         height: 1.5,
                       ),
                     ),
