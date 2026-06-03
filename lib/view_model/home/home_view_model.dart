@@ -554,6 +554,10 @@ class HomeViewModel extends ChangeNotifier {
 
   double get plannedSavedNow {
     final today = _normalizeDay(DateTime.now());
+    if (_isSavingConfirmedForDate(today)) {
+      return _plannedSavedThrough(today);
+    }
+
     final yesterday = today.subtract(const Duration(days: 1));
     final throughYesterday = _plannedSavedThrough(yesterday);
     final elapsedSeconds = _secondsElapsedToday();
@@ -562,8 +566,7 @@ class HomeViewModel extends ChangeNotifier {
 
   double get guideSum {
     _refreshGuideAnchors();
-    final todayRecord = _recordForDate(DateTime.now());
-    if (todayRecord != null && todayRecord.spendingEntries.isNotEmpty) {
+    if (_isSavingConfirmedForDate(DateTime.now())) {
       return 0;
     }
     final perSecond = activeMiniPerSecondSaving;
@@ -767,6 +770,11 @@ class HomeViewModel extends ChangeNotifier {
     final monthKey = DateFormat('yyyy-MM').format(normalized);
     final dateKey = DateFormat('yyyy-MM-dd').format(normalized);
     return _monthlyCache[monthKey]?.days[dateKey];
+  }
+
+  bool _isSavingConfirmedForDate(DateTime date) {
+    final record = _recordForDate(date);
+    return record != null && record.spendingEntries.isNotEmpty;
   }
 
   double _plannedDailyNetForDate(DateTime date) {
