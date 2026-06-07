@@ -103,12 +103,6 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     return planList.fold<int>(0, (sum, c) => sum + (c.dailyAmount ?? 0));
   }
 
-  DateTime? _calcReachDate(int dailySum, int targetAmount) {
-    if (dailySum <= 0 || targetAmount <= 0) return null;
-    final daysToReach = (targetAmount / dailySum).ceil();
-    return DateTime.now().add(Duration(days: daysToReach));
-  }
-
   String _formatAmount(int amount) {
     return '${amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
@@ -760,7 +754,7 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     return Consumer<CategoryEditViewModel>(
       builder: (context, vm, _) {
         final dailySum = _calcDailySum(vm.draftPlan);
-        final reachDate = _calcReachDate(dailySum, vm.targetAmount);
+        final reachDate = vm.projectedGoalDate;
         final theme = Theme.of(context);
 
         return WillPopScope(
