@@ -40,20 +40,17 @@ class _LogoSplashPageState extends State<LogoSplashPage>
     final authRepo = context.read<AuthRepository>();
     final next = authRepo.nextRouteBySession();
 
-    print('🧩 [LogoSplash] goNext: shouldAutoLogin=${authRepo.shouldAutoLogin}, '
-        'cachedUid=${authRepo.cachedUid}, '
-        'hasPlan=${authRepo.cachedHasPlan}');
-    print('🧩 [LogoSplash] nextRoute=${authRepo.nextRouteBySession}');
-
     if (!mounted) return;
 
-    // 홈으로 갈 때만 refresh (선택)
     if (next == '/home_tab_navigator') {
       await context.read<HomeViewModel>().refresh();
       if (!mounted) return;
     }
 
-    Navigator.of(context).pushNamedAndRemoveUntil(next, (_) => false);
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      next,
+          (_) => false,
+    );
   }
 
   @override
@@ -91,9 +88,10 @@ class _LogoSplashPageState extends State<LogoSplashPage>
   @override
   Widget build(BuildContext context) {
     final logo = Image.asset(
-      'assets/images/bot_profile.png',
+      'assets/images/sotong_logo.png',
       width: widget.size,
       height: widget.size,
+      fit: BoxFit.contain,
     );
 
     final animated = FadeTransition(

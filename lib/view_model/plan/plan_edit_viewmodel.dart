@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:meta/meta.dart';
 
 import '../../model/commands/update_daily_command.dart';
 import '../../model/commands/update_monthly_command.dart';
@@ -45,8 +46,7 @@ class PlanEditViewModel extends ChangeNotifier {
 
   double get monthlyVariableCost => dailySpendingLimit * 30.0;
 
-  double get monthlySaving =>
-      monthlyIncome - monthlyFixedCost - monthlyVariableCost;
+  double get monthlySaving => monthlyIncome - monthlyFixedCost - monthlyVariableCost;
 
   double get dailySpendingLimit => _pendingDailyConsumeEntries != null
       ? _sumEntries(_pendingDailyConsumeEntries!)
@@ -71,8 +71,7 @@ class PlanEditViewModel extends ChangeNotifier {
   }
 
   DateTime? _overrideToday;
-  DateTime get effectiveToday =>
-      _overrideToday ?? _normalizeDay(DateTime.now());
+  DateTime get effectiveToday => _overrideToday ?? _normalizeDay(DateTime.now());
 
   void setOverrideToday(DateTime date) {
     final normalized = _normalizeDay(date);
@@ -96,13 +95,10 @@ class PlanEditViewModel extends ChangeNotifier {
     if (_calculatorInputIssue() != null) {
       return null;
     }
-    final dailyApplyDate = _pendingDailyConsumeEntries != null
-        ? (_pendingDailyConsumeApplyDate ?? _defaultApplyDate())
-        : null;
+    final todayForCalc = _normalizeDay(effectiveToday);
     return _previewCalculationFor(
-      applyDate: _previewCalculationStart(dailyApplyDate: dailyApplyDate),
+      applyDate: todayForCalc,
       dailyLimit: dailySpendingLimit,
-      dailyApplyDate: dailyApplyDate,
     );
   }
 
@@ -110,18 +106,16 @@ class PlanEditViewModel extends ChangeNotifier {
     if (_calculatorInputIssue() != null) {
       return null;
     }
-    final dailyApplyDate = _defaultApplyDate();
+    final todayForCalc = _normalizeDay(effectiveToday);
     return _previewCalculationFor(
-      applyDate: _previewCalculationStart(dailyApplyDate: dailyApplyDate),
+      applyDate: todayForCalc,
       dailyLimit: _sumEntries(entries),
-      dailyApplyDate: dailyApplyDate,
     );
   }
 
   SavingCalculationResult? _previewCalculationFor({
     required DateTime applyDate,
     required double dailyLimit,
-    DateTime? dailyApplyDate,
   }) {
     final previewInput = PlanPreviewInput(
       plan: totalPlan,
@@ -136,13 +130,6 @@ class PlanEditViewModel extends ChangeNotifier {
       monthlyIncome: monthlyIncome,
       monthlyFixedCost: monthlyFixedCost,
       dailySpendingLimit: dailyLimit,
-      monthlyIncomeApplyDate: _pendingFixedIncomeEntries != null
-          ? _monthStart(_pendingFixedIncomeApplyDate ?? _defaultApplyDate())
-          : null,
-      monthlyFixedCostApplyDate: _pendingFixedConsumeEntries != null
-          ? _monthStart(_pendingFixedConsumeApplyDate ?? _defaultApplyDate())
-          : null,
-      dailySpendingApplyDate: dailyApplyDate,
     );
     return _previewService.calculatePreview(previewInput);
   }
@@ -178,7 +165,7 @@ class PlanEditViewModel extends ChangeNotifier {
     if (d == null) return null;
     if (d <= 30) return '1개월 미만';
     final months = d ~/ 30;
-    return '$months개월';
+    return '${months}개월';
   }
 
   // 컨트롤러 리스너(실시간 반영)
@@ -187,7 +174,6 @@ class PlanEditViewModel extends ChangeNotifier {
     targetAmountController.addListener(_onFieldChanged);
     currentAssetController.addListener(_onFieldChanged);
   }
-
   void _onFieldChanged() => notifyListeners();
 
   // Constructor that automatically initializes with TotalPlan
@@ -222,8 +208,10 @@ class PlanEditViewModel extends ChangeNotifier {
 
     final formatter = NumberFormat('#,###');
     planNameController.text = plan.planName ?? '';
-    targetAmountController.text = formatter.format(plan.targetAmount ?? 0);
-    currentAssetController.text = formatter.format(plan.currentAsset);
+    targetAmountController.text =
+        formatter.format(plan.targetAmount ?? 0);
+    currentAssetController.text =
+        formatter.format(plan.currentAsset);
 
     _pendingFixedIncomeEntries = null;
     _pendingFixedConsumeEntries = null;
@@ -233,7 +221,10 @@ class PlanEditViewModel extends ChangeNotifier {
     _pendingDailyConsumeApplyDate = null;
   }
 
-  void reloadWith({required TotalPlan plan, required RefData refData}) {
+  void reloadWith({
+    required TotalPlan plan,
+    required RefData refData,
+  }) {
     _applyPlanSnapshot(plan, refData);
     notifyListeners();
   }
@@ -245,7 +236,9 @@ class PlanEditViewModel extends ChangeNotifier {
   }
 
   // Entry 리스트 업데이트
-  void applyFixedIncomeEdit({required List<Entry> entries}) {
+  void applyFixedIncomeEdit({
+    required List<Entry> entries,
+  }) {
     final normalized = _defaultApplyDate();
     _pendingFixedIncomeEntries = List<Entry>.unmodifiable(entries);
     _pendingFixedIncomeApplyDate = normalized;
@@ -255,7 +248,9 @@ class PlanEditViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void applyFixedConsumeEdit({required List<Entry> entries}) {
+  void applyFixedConsumeEdit({
+    required List<Entry> entries,
+  }) {
     final normalized = _defaultApplyDate();
     _pendingFixedConsumeEntries = List<Entry>.unmodifiable(entries);
     _pendingFixedConsumeApplyDate = normalized;
@@ -265,7 +260,9 @@ class PlanEditViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void applyDailyConsumeEdit({required List<Entry> entries}) {
+  void applyDailyConsumeEdit({
+    required List<Entry> entries,
+  }) {
     final normalized = _defaultApplyDate();
     _pendingDailyConsumeEntries = List<Entry>.unmodifiable(entries);
     _pendingDailyConsumeApplyDate = normalized;
@@ -298,10 +295,8 @@ class PlanEditViewModel extends ChangeNotifier {
   }
 
   void _logPlanTree(String label) {
-    debugPrint(
-      '--- Plan Tree After $label ---\n'
-      '${PlanDebugPrinter.describe(plan: totalPlan, refData: refData)}',
-    );
+    debugPrint('--- Plan Tree After $label ---\n'
+        '${PlanDebugPrinter.describe(plan: totalPlan, refData: refData)}');
   }
 
   void _ensurePlanExtendsThrough(DateTime targetDate) {
@@ -321,26 +316,15 @@ class PlanEditViewModel extends ChangeNotifier {
       return;
     }
 
-    var cursor = DateTime(
-      lastExistingMonth.year,
-      lastExistingMonth.month + 1,
-      1,
-    );
+    var cursor = DateTime(lastExistingMonth.year, lastExistingMonth.month + 1, 1);
     while (!cursor.isAfter(targetMonth)) {
       final key = _formatYearMonth(cursor);
       if (!merged.containsKey(key)) {
         final isPlanStartMonth =
-            _isSameMonth(
-              cursor,
-              DateTime(planStart.year, planStart.month, 1),
-            ) &&
-            orderedKeys.isEmpty;
+            _isSameMonth(cursor, DateTime(planStart.year, planStart.month, 1)) &&
+                orderedKeys.isEmpty;
         final startDate = isPlanStartMonth ? planStart : cursor;
-        final normalizedEnd = DateTime(
-          targetDate.year,
-          targetDate.month,
-          targetDate.day,
-        );
+        final normalizedEnd = DateTime(targetDate.year, targetDate.month, targetDate.day);
         final endDate = _isSameMonth(cursor, targetMonth)
             ? normalizedEnd
             : DateTime(cursor.year, cursor.month + 1, 0);
@@ -357,13 +341,11 @@ class PlanEditViewModel extends ChangeNotifier {
       cursor = DateTime(cursor.year, cursor.month + 1, 1);
     }
 
-    totalPlan = totalPlan
-        .copyWith(
-          subPlans: merged,
-          // endDate는 최초 플랜 생성 시점의 목표 종료일을 보존해야 하므로
-          // 여기서 덮어쓰지 않는다. modEndDate만 외부에서 업데이트된다.
-        )
-        .recalculateTotals();
+    totalPlan = totalPlan.copyWith(
+      subPlans: merged,
+      // endDate는 최초 플랜 생성 시점의 목표 종료일을 보존해야 하므로
+      // 여기서 덮어쓰지 않는다. modEndDate만 외부에서 업데이트된다.
+    ).recalculateTotals();
     totalPlanVM = TotalPlanViewModel(totalPlan);
   }
 
@@ -386,11 +368,11 @@ class PlanEditViewModel extends ChangeNotifier {
       monthlyConsumeId: template?.monthlyConsumeId ?? '${key}_consume_auto',
       dailyConsumeId: template?.dailyConsumeId ?? '${key}_daily_auto',
       monthlyIncomeAmount:
-          template?.monthlyIncomeAmount ?? metrics.monthlyIncomeAmount,
+      template?.monthlyIncomeAmount ?? metrics.monthlyIncomeAmount,
       monthlyConsumeAmount:
-          template?.monthlyConsumeAmount ?? metrics.monthlyConsumeAmount,
+      template?.monthlyConsumeAmount ?? metrics.monthlyConsumeAmount,
       dailyConsumeAmount:
-          template?.dailyConsumeAmount ?? metrics.dailyConsumeAmount,
+      template?.dailyConsumeAmount ?? metrics.dailyConsumeAmount,
     ).recalculateNetAmounts();
     return SubPlan(
       yearMonth: monthStart,
@@ -432,8 +414,7 @@ class PlanEditViewModel extends ChangeNotifier {
     return seconds;
   }
 
-  UpdateMonthlyCommand buildMonthlyCommand({
-    // 월 단위 변경
+  UpdateMonthlyCommand buildMonthlyCommand({ // 월 단위 변경
     required DateTime applyMonth,
     required DateTime modEndMonth,
     required List<Entry> entries,
@@ -451,8 +432,7 @@ class PlanEditViewModel extends ChangeNotifier {
     );
   }
 
-  UpdateDailyCommand buildDailyCommand({
-    // 일 단위 변경
+  UpdateDailyCommand buildDailyCommand({ // 일 단위 변경
     required DateTime applyDate,
     required DateTime modEndDate,
     required List<Entry> entries,
@@ -473,8 +453,6 @@ class PlanEditViewModel extends ChangeNotifier {
   DateTime _normalizeDay(DateTime value) =>
       DateTime(value.year, value.month, value.day);
 
-  DateTime _monthStart(DateTime value) => DateTime(value.year, value.month, 1);
-
   DateTime _defaultApplyDate() {
     final today = effectiveToday;
     final planStart = totalPlan.startDate;
@@ -483,35 +461,6 @@ class PlanEditViewModel extends ChangeNotifier {
     }
     final normalizedStart = _normalizeDay(planStart);
     return today.isBefore(normalizedStart) ? normalizedStart : today;
-  }
-
-  DateTime _previewCalculationStart({DateTime? dailyApplyDate}) {
-    final candidates = <DateTime>[];
-    if (_pendingFixedIncomeEntries != null) {
-      candidates.add(
-        _monthStart(_pendingFixedIncomeApplyDate ?? _defaultApplyDate()),
-      );
-    }
-    if (_pendingFixedConsumeEntries != null) {
-      candidates.add(
-        _monthStart(_pendingFixedConsumeApplyDate ?? _defaultApplyDate()),
-      );
-    }
-    if (dailyApplyDate != null) {
-      candidates.add(_normalizeDay(dailyApplyDate));
-    }
-    if (candidates.isEmpty) {
-      return _defaultApplyDate();
-    }
-    candidates.sort();
-    final planStart = totalPlan.startDate;
-    if (planStart == null) {
-      return candidates.first;
-    }
-    final normalizedStart = _normalizeDay(planStart);
-    return candidates.first.isBefore(normalizedStart)
-        ? normalizedStart
-        : candidates.first;
   }
 
   double _sumEntries(List<Entry> entries) =>
@@ -533,25 +482,12 @@ class PlanEditViewModel extends ChangeNotifier {
           monthlyIncome: monthlyIncome,
           monthlyFixedCost: monthlyFixedCost,
           dailySpendingLimit: dailySpendingLimit,
-          monthlyIncomeApplyDate: _pendingFixedIncomeEntries != null
-              ? _monthStart(_pendingFixedIncomeApplyDate ?? _defaultApplyDate())
-              : null,
-          monthlyFixedCostApplyDate: _pendingFixedConsumeEntries != null
-              ? _monthStart(
-                  _pendingFixedConsumeApplyDate ?? _defaultApplyDate(),
-                )
-              : null,
-          dailySpendingApplyDate: _pendingDailyConsumeEntries != null
-              ? (_pendingDailyConsumeApplyDate ?? _defaultApplyDate())
-              : null,
         ),
         applyDate: _normalizeDay(applyDate),
       );
 
-  PlanEditResult finalizeEdits() {
-    //
-    final projected =
-        projectedGoalDate ??
+  PlanEditResult finalizeEdits() { //
+    final projected = projectedGoalDate ??
         totalPlan.modEndDate ??
         totalPlan.endDate ??
         effectiveToday;
@@ -569,8 +505,7 @@ class PlanEditViewModel extends ChangeNotifier {
 
     void trackApplyDate(DateTime date) {
       final normalized = _normalizeDay(date);
-      if (earliestApplyDate == null ||
-          normalized.isBefore(earliestApplyDate!)) {
+      if (earliestApplyDate == null || normalized.isBefore(earliestApplyDate!)) {
         earliestApplyDate = normalized;
       }
     }
@@ -759,4 +694,5 @@ class PlanEditViewModel extends ChangeNotifier {
     currentAssetController.dispose();
     super.dispose();
   }
+
 }

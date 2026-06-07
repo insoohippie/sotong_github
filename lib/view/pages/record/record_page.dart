@@ -93,7 +93,6 @@ class _RecordPageState extends State<RecordPage> {
                     onChanged: (v) {
                       setState(() {
                         _isSpending = v == '소비';
-                        if (!_isSpending) _noSpendingChecked = false;
                       });
                     },
                     width: 106,
@@ -221,6 +220,9 @@ class _RecordPageState extends State<RecordPage> {
                   ? (_noSpendingChecked || spendingVM.canProceedToNextStep)
                   : incomeVM.canProceedToNextStep,
               onPressed: () async {
+                final hasSpendingOrNoSpending =
+                    _noSpendingChecked || spendingVM.canProceedToNextStep;
+
                 if (_isSpending) {
                   Navigator.pushNamed(
                     context,
@@ -230,10 +232,18 @@ class _RecordPageState extends State<RecordPage> {
                   return;
                 }
 
+                if (!hasSpendingOrNoSpending) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('소비를 입력하거나 무지출을 체크해주세요.'),
+                    ),
+                  );
+                  return;
+                }
+
                 try {
                   await incomeVM.saveAllForDate(_selectedDate);
 
-                  // 세은님 추가 부분
                   final totalIncome = incomeVM.totalIncome;
                   if (totalIncome > 0 && mounted) {
                     context.read<HomeViewModel>().registerExtraIncome(
@@ -248,7 +258,7 @@ class _RecordPageState extends State<RecordPage> {
 
                   Navigator.pushNamed(
                     context,
-                    '/apply_income_option',
+                    '/record_diary',
                     arguments: _selectedDate,
                   );
                 } catch (e) {

@@ -177,12 +177,12 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
     super.didUpdateWidget(oldWidget);
     final dataChanged =
         oldWidget.income != widget.income ||
-        oldWidget.fixed != widget.fixed ||
-        oldWidget.variable != widget.variable ||
-        oldWidget.saving != widget.saving ||
-        oldWidget.minRatio != widget.minRatio ||
-        oldWidget.isOverBudget != widget.isOverBudget ||
-        oldWidget.animationTrigger != widget.animationTrigger;
+            oldWidget.fixed != widget.fixed ||
+            oldWidget.variable != widget.variable ||
+            oldWidget.saving != widget.saving ||
+            oldWidget.minRatio != widget.minRatio ||
+            oldWidget.isOverBudget != widget.isOverBudget ||
+            oldWidget.animationTrigger != widget.animationTrigger;
     if (!dataChanged) return;
 
     // 이미 exit 애니메이션 중이면 재시작하지 않음 → 버벅임 방지
@@ -261,12 +261,8 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
     }
 
     final out = List<double>.filled(n, 0.0);
-    for (final i in below) {
-      out[i] = minRatio;
-    }
-    for (final i in above) {
-      out[i] = ratios[i] / sumAbove * remaining;
-    }
+    for (final i in below) out[i] = minRatio;
+    for (final i in above) out[i] = ratios[i] / sumAbove * remaining;
     return out;
   }
 
@@ -298,27 +294,27 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
   }
 
   Widget _buildPieChart(
-    List<double> rawValues,
-    List<double> areaValues,
-    bool isOverBudget,
-    double progressT, {
-    bool showBadges = true,
-    bool isExit = false,
-    double exitT = 0,
-  }) {
+      List<double> rawValues,
+      List<double> areaValues,
+      bool isOverBudget,
+      double progressT, {
+        bool showBadges = true,
+        bool isExit = false,
+        double exitT = 0,
+      }) {
     final colors = isOverBudget
         ? [_cSaveOver, _cFixed, _cVar]
         : [_cSave, _cFixed, _cVar];
 
     final animatedAreas = isExit
         ? List<double>.generate(
-            areaValues.length,
-            (i) => areaValues[i] * _exitSectionProgress(i, exitT),
-          )
+      areaValues.length,
+          (i) => areaValues[i] * _exitSectionProgress(i, exitT),
+    )
         : List<double>.generate(
-            areaValues.length,
-            (i) => areaValues[i] * _sectionProgress(i, progressT),
-          );
+      areaValues.length,
+          (i) => areaValues[i] * _sectionProgress(i, progressT),
+    );
 
     final labels = isOverBudget
         ? ['저축', '월 고정소비', '일일 소비×30']
@@ -328,7 +324,6 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
     for (int i = 0; i < animatedAreas.length; i++) {
       final isTouched = i == touchedIndex;
       final radius = (i == 0) ? 64.0 : (isTouched ? 64.0 : 52.0);
-      final shouldShowBadge = showBadges && animatedAreas[i] > 0.0001;
 
       sections.add(
         PieChartSectionData(
@@ -337,13 +332,16 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
           radius: radius,
           title: '',
           badgePositionPercentageOffset: widget.badgeOutsideOffset,
-          badgeWidget: shouldShowBadge
-              ? _TextBadge(
-                  labelTop: labels[i],
-                  labelBottom: _manWon(rawValues[i]),
-                  scale: (i == 0 || isTouched) ? 1.1 : 1.0,
-                )
-              : null,
+          badgeWidget: showBadges
+              ? Opacity(
+            opacity: (animatedAreas[i] > 0.0001) ? 1 : 0,
+            child: _TextBadge(
+              labelTop: labels[i],
+              labelBottom: _manWon(rawValues[i]),
+              scale: (i == 0 || isTouched) ? 1.1 : 1.0,
+            ),
+          )
+              : const SizedBox.shrink(),
         ),
       );
     }
@@ -353,9 +351,8 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
         pieTouchData: PieTouchData(
           touchCallback: (event, response) {
             if (!event.isInterestedForInteractions ||
-                response?.touchedSection == null) {
+                response?.touchedSection == null)
               return;
-            }
             setState(() {
               touchedIndex = response!.touchedSection!.touchedSectionIndex;
             });
@@ -377,26 +374,26 @@ class FlDonutColoredBudgetChartState extends State<FlDonutColoredBudgetChart>
       child: RepaintBoundary(
         child: _exitingDone
             ? AnimatedBuilder(
-                animation: _ac,
-                builder: (_, __) => _buildPieChart(
-                  _rawValues,
-                  _areaValues,
-                  widget.isOverBudget,
-                  _ac.value,
-                ),
-              )
+          animation: _ac,
+          builder: (_, __) => _buildPieChart(
+            _rawValues,
+            _areaValues,
+            widget.isOverBudget,
+            _ac.value,
+          ),
+        )
             : AnimatedBuilder(
-                animation: _exitController,
-                builder: (_, __) => _buildPieChart(
-                  _prevRawValues!,
-                  _prevAreaValues!,
-                  _prevIsOverBudget,
-                  0,
-                  showBadges: false,
-                  isExit: true,
-                  exitT: _exitController.value,
-                ),
-              ),
+          animation: _exitController,
+          builder: (_, __) => _buildPieChart(
+            _prevRawValues!,
+            _prevAreaValues!,
+            _prevIsOverBudget,
+            0,
+            showBadges: false,
+            isExit: true,
+            exitT: _exitController.value,
+          ),
+        ),
       ),
     );
   }
@@ -427,8 +424,8 @@ class _TextBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(
-                alpha: theme.brightness == Brightness.dark ? 0.3 : 0.1,
+              color: Colors.black.withOpacity(
+                theme.brightness == Brightness.dark ? 0.3 : 0.1,
               ),
               blurRadius: 4,
               offset: const Offset(2, 2),

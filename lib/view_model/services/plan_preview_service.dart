@@ -13,9 +13,6 @@ class PlanPreviewInput {
     required this.monthlyIncome,
     required this.monthlyFixedCost,
     required this.dailySpendingLimit,
-    this.monthlyIncomeApplyDate,
-    this.monthlyFixedCostApplyDate,
-    this.dailySpendingApplyDate,
   });
 
   final TotalPlan plan;
@@ -26,9 +23,6 @@ class PlanPreviewInput {
   final double monthlyIncome;
   final double monthlyFixedCost;
   final double dailySpendingLimit;
-  final DateTime? monthlyIncomeApplyDate;
-  final DateTime? monthlyFixedCostApplyDate;
-  final DateTime? dailySpendingApplyDate;
 }
 
 class PlanPreviewService {
@@ -53,9 +47,6 @@ class PlanPreviewService {
       monthlyIncome: input.monthlyIncome,
       monthlyFixedCost: input.monthlyFixedCost,
       dailySpendingLimit: input.dailySpendingLimit,
-      monthlyIncomeApplyDate: input.monthlyIncomeApplyDate,
-      monthlyFixedCostApplyDate: input.monthlyFixedCostApplyDate,
-      dailySpendingApplyDate: input.dailySpendingApplyDate,
       today: normalizedApply,
     );
     return calculator.calculate();
