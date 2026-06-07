@@ -7,9 +7,9 @@ String _manWon(num v) {
   return '$man만원';
 }
 
-const _cSave = Color(0xFF3C7BFF);
+const _cSave  = Color(0xFF3C7BFF);
 const _cFixed = Color(0xFFB9D2FF);
-const _cVar = Color(0xFF8BB8FF);
+const _cVar   = Color(0xFF8BB8FF);
 
 enum _AnimMode { fan, pop }
 
@@ -64,8 +64,8 @@ class FlDonutBudgetChartState extends State<FlDonutBudgetChart>
   late final AnimationController _ac;
 
   // 데이터 캐시
-  late List<double> _rawValues; // [save, fixed, var]
-  late List<double> _areaValues; // 최소면적 보정된 면적 값
+  late List<double> _rawValues;   // [save, fixed, var]
+  late List<double> _areaValues;  // 최소면적 보정된 면적 값
 
   _AnimMode _mode = _AnimMode.fan;
 
@@ -81,7 +81,7 @@ class FlDonutBudgetChartState extends State<FlDonutBudgetChart>
   void didUpdateWidget(covariant FlDonutBudgetChart oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.income != widget.income ||
-        oldWidget.fixed != widget.fixed ||
+        oldWidget.fixed  != widget.fixed ||
         oldWidget.variable != widget.variable ||
         oldWidget.saving != widget.saving ||
         oldWidget.minRatio != widget.minRatio) {
@@ -120,9 +120,9 @@ class FlDonutBudgetChartState extends State<FlDonutBudgetChart>
   }
 
   void _recomputeData() {
-    final double vSave = widget.saving.clamp(0, widget.income);
+    final double vSave  = widget.saving.clamp(0, widget.income);
     final double vFixed = widget.fixed.clamp(0, widget.income);
-    final double vVar = widget.variable.clamp(0, widget.income);
+    final double vVar   = widget.variable.clamp(0, widget.income);
     _rawValues = [vSave, vFixed, vVar];
 
     final totalVal = _rawValues.fold<double>(0, (a, b) => a + b);
@@ -150,12 +150,8 @@ class FlDonutBudgetChartState extends State<FlDonutBudgetChart>
     }
 
     final out = List<double>.filled(n, 0.0);
-    for (final i in below) {
-      out[i] = minRatio;
-    }
-    for (final i in above) {
-      out[i] = ratios[i] / sumAbove * remaining;
-    }
+    for (final i in below) out[i] = minRatio;
+    for (final i in above) out[i] = ratios[i] / sumAbove * remaining;
     return out;
   }
 
@@ -166,7 +162,7 @@ class FlDonutBudgetChartState extends State<FlDonutBudgetChart>
     }
     // fan 모드: 섹션별 지연 + 커브
     final start = widget.fanStagger * index;
-    final span = 1.0 - start;
+    final span  = 1.0 - start;
     if (t <= start) return 0.0;
     final localT = ((t - start) / span).clamp(0.0, 1.0);
     return widget.fanCurve.transform(localT);
@@ -187,14 +183,13 @@ class FlDonutBudgetChartState extends State<FlDonutBudgetChart>
 
           final animatedAreas = List<double>.generate(
             _areaValues.length,
-            (i) => _areaValues[i] * _sectionProgress(i, t),
+                (i) => _areaValues[i] * _sectionProgress(i, t),
           );
 
           final sections = <PieChartSectionData>[];
           for (int i = 0; i < animatedAreas.length; i++) {
             final isTouched = i == touchedIndex;
             final radius = (i == 0) ? 64.0 : (isTouched ? 64.0 : 52.0);
-            final shouldShowBadge = animatedAreas[i] > 0.0001;
 
             sections.add(
               PieChartSectionData(
@@ -203,13 +198,12 @@ class FlDonutBudgetChartState extends State<FlDonutBudgetChart>
                 radius: radius,
                 title: '',
                 badgePositionPercentageOffset: 1.15,
-                badgeWidget: shouldShowBadge
-                    ? _TextBadge(
-                        labelTop: labels[i],
-                        labelBottom: _manWon(_rawValues[i]),
-                        scale: (i == 0 || isTouched) ? 1.1 : 1.0,
-                      )
-                    : null,
+                badgeWidget: _TextBadge(
+                  labelTop: labels[i],
+                  labelBottom: _manWon(_rawValues[i]),
+                  scale: (i == 0 || isTouched) ? 1.1 : 1.0,
+                  visible: animatedAreas[i] > 0.0001,
+                ),
               ),
             );
           }
@@ -219,12 +213,9 @@ class FlDonutBudgetChartState extends State<FlDonutBudgetChart>
               pieTouchData: PieTouchData(
                 touchCallback: (event, response) {
                   if (!event.isInterestedForInteractions ||
-                      response?.touchedSection == null) {
-                    return;
-                  }
+                      response?.touchedSection == null) return;
                   setState(() {
-                    touchedIndex =
-                        response!.touchedSection!.touchedSectionIndex;
+                    touchedIndex = response!.touchedSection!.touchedSectionIndex;
                   });
                 },
               ),
@@ -245,14 +236,17 @@ class _TextBadge extends StatelessWidget {
     required this.labelTop,
     required this.labelBottom,
     this.scale = 1.0,
+    this.visible = true,
   });
 
   final String labelTop;
   final String labelBottom;
   final double scale;
+  final bool visible;
 
   @override
   Widget build(BuildContext context) {
+    if (!visible) return const SizedBox.shrink();
     return AnimatedScale(
       duration: const Duration(milliseconds: 180),
       curve: Curves.easeOut,
@@ -264,7 +258,7 @@ class _TextBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: Colors.black.withOpacity(0.08),
               blurRadius: 4,
               offset: const Offset(2, 2),
             ),
