@@ -145,7 +145,7 @@ class _SignUpPageState extends State<SignUpPage> {
 
         CustomTextField(
           controller: vm.passwordController,
-          hintText: '8자리 이상 숫자, 특수문자, 대문자',
+          hintText: '6자 이상 입력',
           obscureText: !vm.isPasswordVisible,
           onChanged: (_) => vm.notifyListeners(),
           suffix: IconButton(
