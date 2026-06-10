@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 
 enum NotificationCategory {
   attendance,
@@ -64,7 +65,44 @@ class NotificationItem {
       isRead: isRead ?? this.isRead,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'title': title,
+    'message': message,
+    'type': type.name,
+    'category': category.name,
+    'createdAt': createdAt.toIso8601String(),
+    'targetRoute': targetRoute,
+    'targetDate': targetDate?.toIso8601String(),
+    'targetTabIndex': targetTabIndex,
+    'isRead': isRead,
+  };
+
+  static NotificationItem fromJson(Map<String, dynamic> json) {
+    return NotificationItem(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      message: json['message'] as String? ?? '',
+      type: NotificationType.values.firstWhere(
+            (e) => e.name == json['type'],
+        orElse: () => NotificationType.recordReminder,
+      ),
+      category: NotificationCategory.values.firstWhere(
+            (e) => e.name == json['category'],
+        orElse: () => NotificationCategory.attendance,
+      ),
+      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.now(),
+      targetRoute: json['targetRoute'] as String?,
+      targetDate: DateTime.tryParse(json['targetDate'] as String? ?? ''),
+      targetTabIndex: (json['targetTabIndex'] as num?)?.toInt(),
+      isRead: json['isRead'] as bool? ?? false,
+    );
+  }
 }
+
+
 
 /// 알림 설정 모델 (저장/로드용)
 class NotificationSettings {

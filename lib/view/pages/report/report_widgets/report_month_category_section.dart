@@ -17,12 +17,13 @@ class _ReportMonthCategorySectionState
     extends State<ReportMonthCategorySection> {
   late final PageController _pageController;
 
-  int _tabIndex = 3; // 0: 저축, 1: 수입, 2: 고정소비, 3: 변동소비
-
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: _tabIndex);
+
+    final initialIndex = context.read<ReportViewModel>().monthCategoryTabIndex;
+
+    _pageController = PageController(initialPage: initialIndex);
   }
 
   @override
@@ -34,16 +35,16 @@ class _ReportMonthCategorySectionState
   String _formatAmount(int amount) {
     return amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
+          (Match m) => '${m[1]},',
     );
   }
 
   void _jumpToTab(int index) {
-    if (_tabIndex == index) return;
+    final vm = context.read<ReportViewModel>();
 
-    setState(() {
-      _tabIndex = index;
-    });
+    if (vm.monthCategoryTabIndex == index) return;
+
+    vm.setMonthCategoryTabIndex(index);
 
     _pageController.animateToPage(
       index,
@@ -56,6 +57,8 @@ class _ReportMonthCategorySectionState
   Widget build(BuildContext context) {
     final vm = context.watch<ReportViewModel>();
     final theme = Theme.of(context);
+
+    final tabIndex = vm.monthCategoryTabIndex;
 
     final items = <_MoneyTab>[
       _MoneyTab(
@@ -80,7 +83,6 @@ class _ReportMonthCategorySectionState
       ),
     ];
 
-    final selectedItem = items[_tabIndex];
     final monthKey = '${vm.monthSectionYear}-${vm.monthSectionMonth}';
 
     return Container(
@@ -111,7 +113,7 @@ class _ReportMonthCategorySectionState
                 const SizedBox(height: 14),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: _buildToggleWithLabels(items),
+                  child: _buildToggleWithLabels(items, tabIndex),
                 ),
               ],
             ),
@@ -122,10 +124,7 @@ class _ReportMonthCategorySectionState
               controller: _pageController,
               itemCount: items.length,
               onPageChanged: (i) {
-                if (!mounted) return;
-                setState(() {
-                  _tabIndex = i;
-                });
+                context.read<ReportViewModel>().setMonthCategoryTabIndex(i);
               },
               itemBuilder: (context, index) {
                 final item = items[index];
@@ -136,7 +135,7 @@ class _ReportMonthCategorySectionState
                     amount: item.value,
                     monthKey: monthKey,
                     format: _formatAmount,
-                    isLoading: vm.isLoading,
+                    isLoading: false,
                     tabIndex: index,
                   ),
                 );
@@ -148,19 +147,22 @@ class _ReportMonthCategorySectionState
     );
   }
 
-  Widget _buildToggleWithLabels(List<_MoneyTab> items) {
+  Widget _buildToggleWithLabels(List<_MoneyTab> items, int tabIndex) {
     final labels = items.map((e) => e.label).toList();
     final viewWidth = MediaQuery.sizeOf(context).width;
+
     final toggleWidth = viewWidth <= 386
         ? 280.0
         : viewWidth < 412
         ? 300.0
         : 320.0;
+
     final toggleHeight = viewWidth <= 386
         ? 26.0
         : viewWidth < 412
         ? 28.0
         : 30.0;
+
     final toggleFontSize = viewWidth <= 386
         ? 10.0
         : viewWidth < 412
@@ -170,7 +172,7 @@ class _ReportMonthCategorySectionState
     return Center(
       child: MultiOptionToggle(
         labels: labels,
-        selected: labels[_tabIndex],
+        selected: labels[tabIndex],
         width: toggleWidth,
         height: toggleHeight,
         fontSize: toggleFontSize,
@@ -189,7 +191,11 @@ class _MoneyTab {
   final IconData icon;
   final int value;
 
-  _MoneyTab({required this.label, required this.icon, required this.value});
+  _MoneyTab({
+    required this.label,
+    required this.icon,
+    required this.value,
+  });
 }
 
 class _MoneySlideCard extends StatelessWidget {
@@ -216,8 +222,8 @@ class _MoneySlideCard extends StatelessWidget {
       child: Opacity(
         opacity: isLoading ? 0.4 : 1.0,
         child: TweenAnimationBuilder<int>(
-          key: ValueKey('$monthKey-$amount-$tabIndex'),
-          tween: IntTween(begin: 0, end: amount),
+          key: ValueKey('$monthKey-$tabIndex'),
+          tween: IntTween(end: amount),
           duration: const Duration(milliseconds: 450),
           curve: Curves.easeOutCubic,
           builder: (context, value, _) {

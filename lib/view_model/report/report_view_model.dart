@@ -15,12 +15,15 @@ import '../../model/record/day_record.dart';
 import '../../model/refData/ref_data.dart';
 import '../../model/report/report_models.dart';
 import '../../model/plan/total_plan.dart';
+import '../../repository/auth_repository.dart';
+import '../../services/app_session_reset_service.dart';
 
-class ReportViewModel extends ChangeNotifier {
+class ReportViewModel extends ChangeNotifier implements SessionResettable {
   ReportViewModel(
       this._recordRepo,
       this._refRepo,
-      this._planRepo, {
+      this._planRepo,
+      this._authRepo, {
         RecordEventBus? eventBus,
       }) {
     if (eventBus != null) {
@@ -36,9 +39,22 @@ class ReportViewModel extends ChangeNotifier {
   final RecordRepository _recordRepo;
   final RefDataRepository _refRepo;
   final PlanRepository _planRepo;
+  final AuthRepository _authRepo;
+
+  String? _loadedUid;
 
   StreamSubscription<RecordUpdatedEvent>? _eventSub;
   Timer? _spendingDebounce;
+  Timer? _savingTicker;
+
+  int _monthCategoryTabIndex = 3;
+  int get monthCategoryTabIndex => _monthCategoryTabIndex;
+
+  void setMonthCategoryTabIndex(int index) {
+    if (_monthCategoryTabIndex == index) return;
+    _monthCategoryTabIndex = index;
+    notifyListeners();
+  }
 
   bool _isLoading = false;
   String? _error;
@@ -104,9 +120,60 @@ class ReportViewModel extends ChangeNotifier {
   bool _didInit = false;
 
   Future<void> loadInitial() async {
+    final currentUid =
+        _authRepo.cachedUid ?? _authRepo.currentUserId;
+
+    if (_loadedUid != currentUid) {
+      _loadedUid = currentUid;
+      _resetUserScopedState();
+    }
+
     if (_didInit) return;
+
     _didInit = true;
     await _rebuildAll();
+  }
+
+  void _resetUserScopedState() {
+    _didInit = false;
+
+    _monthCache.clear();
+
+    _refData = null;
+    _latestPlan = null;
+
+    _lastRecordNameByKey.clear();
+
+    _budgetChart = null;
+
+    _incomeTotal = 0;
+    _savingTotal = 0;
+    _fixedExpenseTotal = 0;
+    _variableExpenseTotal = 0;
+
+    _insightIndex = 0;
+
+    monthSectionYear = DateTime.now().year;
+    monthSectionMonth = DateTime.now().month;
+
+    _rangeType = ReportRangeType.weekly;
+
+    _monthCategoryTabIndex = 3;
+
+    _error = null;
+    _isLoading = false;
+  }
+
+  @override
+  void resetSession() {
+    _loadedUid = null;
+    _savingTicker?.cancel();
+    _savingTicker = null;
+    _spendingDebounce?.cancel();
+    _spendingDebounce = null;
+
+    _resetUserScopedState();
+    notifyListeners();
   }
 
   ReportRange get chartRange {
@@ -589,6 +656,23 @@ class ReportViewModel extends ChangeNotifier {
     await _rebuildAll();
   }
 
+  void startSavingTicker() {
+    _savingTicker?.cancel();
+
+    _savingTicker = Timer.periodic(
+      const Duration(seconds: 1),
+          (_) {
+        _recomputeMonthTotalsFromRecords();
+        notifyListeners();
+      },
+    );
+  }
+
+  void stopSavingTicker() {
+    _savingTicker?.cancel();
+    _savingTicker = null;
+  }
+
   void _invalidateMonthsForRefresh() {
     final r = chartRange;
     final months = _monthsCovered(_dateOnly(r.start), _dateOnly(r.end));
@@ -706,15 +790,26 @@ class ReportViewModel extends ChangeNotifier {
   }
 
   void _recomputeMonthTotalsFromRecords() {
+    final today = _dateOnly(DateTime.now());
+
     final monthStart = DateTime(monthSectionYear, monthSectionMonth, 1);
-    final monthEnd = DateTime(monthSectionYear, monthSectionMonth + 1, 0);
+    final rawMonthEnd = DateTime(monthSectionYear, monthSectionMonth + 1, 0);
+
+    final isCurrentMonth =
+        monthStart.year == today.year && monthStart.month == today.month;
+
+    final monthEnd = isCurrentMonth ? today : rawMonthEnd;
 
     final monthly = _monthCache[_monthKey(monthStart)];
 
     final planMonthlyIncome = _plannedMonthlyIncomeForMonth(monthStart);
     final planFixedExpense = _plannedFixedExpenseForMonth(monthStart);
 
-    final recordedIncome = _recordedIncomeForMonth(monthly);
+    final recordedIncome = _recordedIncomeForRange(
+      monthly: monthly,
+      start: monthStart,
+      end: monthEnd,
+    );
 
     final variableExpense = _mixedVariableExpenseForMonth(
       monthly: monthly,
@@ -725,7 +820,127 @@ class ReportViewModel extends ChangeNotifier {
     _incomeTotal = planMonthlyIncome + recordedIncome;
     _fixedExpenseTotal = planFixedExpense;
     _variableExpenseTotal = variableExpense;
-    _savingTotal = _incomeTotal - _fixedExpenseTotal - _variableExpenseTotal;
+
+    _savingTotal = _actualSavedForRange(
+      start: monthStart,
+      end: monthEnd,
+    );
+  }
+  int _recordedIncomeForRange({
+    required MonthlyRecord? monthly,
+    required DateTime start,
+    required DateTime end,
+  }) {
+    if (monthly == null) return 0;
+
+    final s = _dateOnly(start);
+    final e = _dateOnly(end);
+
+    int total = 0;
+
+    for (final day in monthly.days.values) {
+      final date = _dateOnly(day.date);
+
+      if (date.isBefore(s) || date.isAfter(e)) continue;
+
+      for (final entry in day.incomeEntries) {
+        total += entry.amount.round();
+      }
+    }
+
+    return total;
+  }
+
+  int _actualSavedForRange({
+    required DateTime start,
+    required DateTime end,
+  }) {
+    double total = 0;
+
+    var cursor = _dateOnly(start);
+    final last = _dateOnly(end);
+    final today = _dateOnly(DateTime.now());
+
+    while (!cursor.isAfter(last)) {
+      final dayRecord = _findDayRecord(cursor);
+
+      final plannedBudget = _plannedDailyAmountOn(cursor);
+      final plannedDailySaving = _plannedDailyNetForDate(cursor);
+
+      final actualSpending =
+      dayRecord == null ? 0 : _actualSpendingFromDay(dayRecord);
+
+      final extraIncome = dayRecord?.totalIncomeAmount ?? 0;
+      final hasSpendingEntries =
+          dayRecord?.spendingEntries.isNotEmpty ?? false;
+
+      if (cursor.isBefore(today) || hasSpendingEntries) {
+        total +=
+            plannedDailySaving + plannedBudget - actualSpending + extraIncome;
+      }
+
+      cursor = cursor.add(const Duration(days: 1));
+    }
+
+    final includesToday =
+        !today.isBefore(_dateOnly(start)) && !today.isAfter(_dateOnly(end));
+
+    if (includesToday && !_isSavingConfirmedForDate(today)) {
+      total += _guideSumForToday();
+    }
+
+    return total.round();
+  }
+  bool _isSavingConfirmedForDate(DateTime date) {
+    final record = _findDayRecord(date);
+    return record != null && record.spendingEntries.isNotEmpty;
+  }
+
+  double _guideSumForToday() {
+    final perSecond = _plannedDailyNetForDate(DateTime.now()) / 86400.0;
+    if (perSecond == 0) return 0;
+
+    final now = DateTime.now();
+    final todayStart = _dateOnly(now);
+    final elapsedSeconds = now.difference(todayStart).inSeconds;
+
+    return elapsedSeconds * perSecond;
+  }
+
+  double _plannedDailyNetForDate(DateTime date) {
+    final plan = _latestPlan;
+    if (plan == null) return 0;
+
+    final normalized = _dateOnly(date);
+    final key = DateFormat('yyyyMM').format(normalized);
+    final subPlan = plan.subPlans[key];
+
+    if (subPlan == null) return 0;
+
+    final minis = subPlan.orderedMinis();
+    if (minis.isEmpty) return 0;
+
+    for (final mini in minis) {
+      final start = _dateOnly(mini.startDate);
+      final end = _dateOnly(mini.endDate);
+
+      if (!normalized.isBefore(start) && !normalized.isAfter(end)) {
+        final daysInMonth = DateTime(
+          normalized.year,
+          normalized.month + 1,
+          0,
+        ).day;
+
+        final monthlyNet =
+            mini.monthlyIncomeAmount -
+                mini.monthlyConsumeAmount -
+                (mini.dailyConsumeAmount * daysInMonth);
+
+        return monthlyNet / daysInMonth;
+      }
+    }
+
+    return 0;
   }
 
 
@@ -1031,6 +1246,7 @@ class ReportViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _savingTicker?.cancel();
     _spendingDebounce?.cancel();
     _eventSub?.cancel();
     super.dispose();

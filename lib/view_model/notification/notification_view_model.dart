@@ -1,31 +1,31 @@
+// lib/view_model/notification/notification_view_model.dart
+
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'package:intl/intl.dart';
 
 import '../../model/notification/notification_item.dart';
-import '../../model/record/day_record.dart';
-import '../../model/record/monthly_record.dart';
-import '../../model/refData/ref_data.dart';
-import '../../model/plan/total_plan.dart';
+import '../../repository/notification_repository.dart';
+import '../../services/app_session_reset_service.dart';
+import '../../services/notification_generate_service.dart';
+import '../../services/record_event_bus.dart';
 
-import '../../repository/record_repository.dart';
-import '../../repository/ref_data_repository.dart';
-import '../../repository/plan_repository.dart';
-import '../../repository/auth_repository.dart';
-
-class NotificationViewModel extends ChangeNotifier {
+class NotificationViewModel extends ChangeNotifier implements SessionResettable {
   NotificationViewModel(
-      this._recordRepo,
-      this._refRepo,
-      this._planRepo,
-      this._authRepo,
-      ) : _readBox = Hive.box('notification_read');
+      this._notificationRepo,
+      this._generateService,
+      this._recordEventBus,
+      ) {
+    _recordSub = _recordEventBus.stream.listen((event) async {
+      await refreshAfterRecordChanged();
+    });
+  }
 
-  final RecordRepository _recordRepo;
-  final RefDataRepository _refRepo;
-  final PlanRepository _planRepo;
-  final AuthRepository _authRepo;
-  final Box _readBox;
+  final NotificationRepository _notificationRepo;
+  final NotificationGenerateService _generateService;
+  final RecordEventBus _recordEventBus;
+
+  StreamSubscription<RecordUpdatedEvent>? _recordSub;
 
   List<NotificationItem> _notifications = [];
   List<NotificationItem> get notifications => _notifications;
@@ -38,45 +38,25 @@ class NotificationViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  final Map<String, MonthlyRecord> _monthCache = {};
-
-  RefData? _refData;
-  TotalPlan? _latestPlan;
-
-  final DateFormat _dateKeyFormat = DateFormat('yyyy-MM-dd');
-  final DateFormat _monthKeyFormat = DateFormat('yyyy-MM');
-  final NumberFormat _moneyFormat = NumberFormat('#,###');
-
   Future<void> loadNotifications() async {
     _setLoading(true);
     _setError(null);
     notifyListeners();
 
     try {
-      _notifications = [];
-      _monthCache.clear();
+      // 1) 오늘/어제 출석 알림 체크
+      await _generateService.runDailyCheckIfNeeded();
 
-      _latestPlan = await _planRepo.getLatestPlanForCurrentUser();
-      _refData = await _refRepo.loadAll();
+      // 2) 예산/레포트/감정 알림도 항상 한 번 갱신
+      //
+      // 기존에는 hasAnyForCurrentUser()가 false일 때만 generateInitialBackfill()을 실행했는데,
+      // 로그인 직후 출석 알림 하나가 먼저 생기면 hasAnyForCurrentUser()가 true가 되어
+      // 나머지 알림 백필이 막힐 수 있었음.
+      await _generateService.generateAfterRecordChanged();
 
-      final today = _dateOnly(DateTime.now());
-      final fullRange = _planFullRange();
-      final recent7Range = _recent7Range();
+      // 3) 현재 사용자 알림 다시 로드
+      _notifications = _notificationRepo.getAllForCurrentUser();
 
-      await _ensureMonthsLoadedForRange(fullRange);
-      await _ensureMonthsLoadedForRange(recent7Range);
-      await _ensureMonthLoaded(today);
-
-      final generated = <NotificationItem>[];
-
-      generated.addAll(_buildRecordReminderNotifications(today));
-      generated.addAll(_buildBudgetNotifications(today));
-      generated.addAll(_buildReportNotifications(fullRange, recent7Range));
-      generated.addAll(_buildEmotionNotifications(fullRange, recent7Range));
-
-      generated.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-      _notifications = generated;
       _setError(null);
     } catch (e) {
       _setError('알림 로드 실패: $e');
@@ -86,533 +66,47 @@ class NotificationViewModel extends ChangeNotifier {
     }
   }
 
-  List<NotificationItem> _buildRecordReminderNotifications(DateTime today) {
-    final result = <NotificationItem>[];
-
-    final yesterday = today.subtract(const Duration(days: 1));
-
-    final todayRecord = _findDayRecord(today);
-    final yesterdayRecord = _findDayRecord(yesterday);
-
-    final hasTodayRecord = _hasRealRecord(todayRecord);
-    final hasYesterdayRecord = _hasRealRecord(yesterdayRecord);
-
-    if (!hasTodayRecord) {
-      result.add(
-        _createNotification(
-          id: 'record_today_${_dateKeyFormat.format(today)}',
-          type: NotificationType.recordReminder,
-          category: NotificationCategory.attendance,
-          message: '오늘 소비 기록하셨나요? ✍️ 하루 한 번, 출석 체크처럼 기록해보세요!',
-          createdAt: today.add(const Duration(hours: 9, minutes: 30)),
-          targetRoute: '/record',
-          targetDate: today,
-        ),
-      );
-    }
-
-    if (!hasYesterdayRecord) {
-      result.add(
-        _createNotification(
-          id: 'record_yesterday_${_dateKeyFormat.format(yesterday)}',
-          type: NotificationType.recordReminder,
-          category: NotificationCategory.attendance,
-          message: '앗! 어제 소비 기록을 깜빡하신 것 같아요. 지금 추가해볼까요?',
-          createdAt: today.add(const Duration(hours: 10)),
-          targetRoute: '/record',
-          targetDate: yesterday,
-        ),
-      );
-    }
-
-    return result;
-  }
-
-  bool _hasRealRecord(DayRecord? day) {
-    if (day == null) return false;
-    if (day.isAutoGenerated) return false;
-
-    return day.spendingEntries.isNotEmpty ||
-        day.incomeEntries.isNotEmpty ||
-        day.emotion.trim().isNotEmpty ||
-        day.comment.trim().isNotEmpty;
-  }
-
-  List<NotificationItem> _buildBudgetNotifications(DateTime today) {
-    final result = <NotificationItem>[];
-
-    final planned = _plannedDailyAmountOn(today);
-    final spent = _spentOnDate(today);
-
-    if (planned <= 0) return result;
-
-    if (spent > planned) {
-      final over = spent - planned;
-
-      result.add(
-        _createNotification(
-          id: 'budget_over_${_dateKeyFormat.format(today)}',
-          type: NotificationType.timeValue,
-          category: NotificationCategory.home,
-          message: '오늘 소비가 일일 목표보다 ${_formatWon(over)} 많아요. 소비 흐름을 한 번 점검해볼까요?',
-          createdAt: today.add(const Duration(hours: 18)),
-          targetRoute: '/today_record',
-          targetDate: today,
-        ),
-      );
-    } else if (spent > 0 && spent <= planned) {
-      final saved = planned - spent;
-
-      result.add(
-        _createNotification(
-          id: 'budget_saved_${_dateKeyFormat.format(today)}',
-          type: NotificationType.timeValue,
-          category: NotificationCategory.home,
-          message: '오늘은 목표 안에서 소비했어요! ${_formatWon(saved)} 여유가 남았어요 🎯',
-          createdAt: today.add(const Duration(hours: 20)),
-          targetRoute: '/today_record',
-          targetDate: today,
-        ),
-      );
-    }
-
-    return result;
-  }
-
-  List<NotificationItem> _buildReportNotifications(
-      _NotificationRange fullRange,
-      _NotificationRange recent7Range,
-      ) {
-    final result = <NotificationItem>[];
-    final today = _dateOnly(DateTime.now());
-
-    final recentTop = _topCategoryStatsInRange(recent7Range);
-    final fullTop = _topCategoryStatsInRange(fullRange);
-
-    if (recentTop != null) {
-      result.add(
-        _createNotification(
-          id: 'report_recent7_${_dateKeyFormat.format(today)}',
-          type: NotificationType.report,
-          category: NotificationCategory.report,
-          message:
-          '최근 7일 동안 ${recentTop.name} 지출이 가장 많아요. 평균 ${_formatWon(recentTop.avg)} 사용했어요.',
-          createdAt: today.subtract(const Duration(days: 1)).add(
-            const Duration(hours: 20),
-          ),
-          targetRoute: '/home_tab_navigator',
-          targetTabIndex: 0,
-        ),
-      );
-    }
-
-    if (fullTop != null) {
-      result.add(
-        _createNotification(
-          id: 'report_full_${_dateKeyFormat.format(today)}',
-          type: NotificationType.report,
-          category: NotificationCategory.report,
-          message: '플랜 기간 동안 ${fullTop.name} 소비가 가장 많아요. 소비 패턴을 확인해보세요.',
-          createdAt: today.subtract(const Duration(days: 2)).add(
-            const Duration(hours: 20),
-          ),
-          targetRoute: '/home_tab_navigator',
-          targetTabIndex: 0,
-        ),
-      );
-    }
-
-    return result;
-  }
-
-  List<NotificationItem> _buildEmotionNotifications(
-      _NotificationRange fullRange,
-      _NotificationRange recent7Range,
-      ) {
-    final result = <NotificationItem>[];
-    final today = _dateOnly(DateTime.now());
-
-    final recentEmotion = _topEmotionInRange(recent7Range);
-    final categoryEmotion = _topCategoryEmotionInRange(fullRange);
-
-    if (recentEmotion != null) {
-      result.add(
-        _createNotification(
-          id: 'emotion_recent7_${_dateKeyFormat.format(today)}',
-          type: NotificationType.emotion,
-          category: NotificationCategory.communication,
-          message:
-          '최근 7일 동안 ${recentEmotion.emotion} 감정이 가장 많아요. 이번 주 감정 흐름을 돌아볼까요?',
-          createdAt: today.subtract(const Duration(days: 1)).add(
-            const Duration(hours: 18),
-          ),
-          targetRoute: '/home_tab_navigator',
-          targetTabIndex: 2,
-        ),
-      );
-    }
-
-    if (categoryEmotion != null) {
-      result.add(
-        _createNotification(
-          id: 'emotion_category_${_dateKeyFormat.format(today)}',
-          type: NotificationType.emotion,
-          category: NotificationCategory.communication,
-          message:
-          '${categoryEmotion.category} 소비를 할 때 ${categoryEmotion.emotion}을 많이 느끼는 편이에요.',
-          createdAt: today.subtract(const Duration(days: 3)).add(
-            const Duration(hours: 18),
-          ),
-          targetRoute: '/home_tab_navigator',
-          targetTabIndex: 2,
-        ),
-      );
-    }
-
-    return result;
-  }
-
-  DayRecord? _findDayRecord(DateTime date) {
-    final monthKey = _monthKeyFormat.format(DateTime(date.year, date.month, 1));
-    final monthly = _monthCache[monthKey];
-    if (monthly == null) return null;
-
-    final dateKey = _dateKeyFormat.format(_dateOnly(date));
-    return monthly.days[dateKey];
-  }
-
-  int _spentOnDate(DateTime date) {
-    final day = _findDayRecord(date);
-    if (day == null) return 0;
-
-    return day.spendingEntries.fold<int>(
-      0,
-          (sum, e) => sum + e.amount.round(),
-    );
-  }
-
-  int _plannedDailyAmountOn(DateTime date) {
-    final refData = _refData;
-    if (refData == null) return 0;
-
-    final day = _dateOnly(date);
-    int total = 0;
-
-    for (final dc in refData.dailyConsumeMap.values) {
-      if (!dc.isActive) continue;
-
-      final start = _dateOnly(dc.startDate);
-      final end = _dateOnly(dc.endDate);
-
-      if (day.isBefore(start) || day.isAfter(end)) continue;
-
-      for (final e in dc.entries) {
-        total += e.amount.round();
-      }
-    }
-
-    return total;
-  }
-
-  ({String name, int total, int avg})? _topCategoryStatsInRange(
-      _NotificationRange range,
-      ) {
-    const etcKey = 'etc';
-
-    final spentByKey = <String, int>{};
-    final nameByKey = <String, String>{};
-    final activeDaysByKey = <String, int>{};
-
-    DateTime cursor = _dateOnly(range.start);
-
-    while (!cursor.isAfter(range.end)) {
-      final day = _findDayRecord(cursor);
-
-      if (day != null) {
-        final daySumByKey = <String, int>{};
-
-        for (final e in day.spendingEntries) {
-          final key =
-          e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
-
-          daySumByKey[key] = (daySumByKey[key] ?? 0) + e.amount.round();
-
-          final name = e.category.trim();
-          if (name.isNotEmpty) {
-            nameByKey[key] = name;
-          }
-        }
-
-        for (final entry in daySumByKey.entries) {
-          spentByKey[entry.key] = (spentByKey[entry.key] ?? 0) + entry.value;
-          if (entry.value > 0) {
-            activeDaysByKey[entry.key] =
-                (activeDaysByKey[entry.key] ?? 0) + 1;
-          }
-        }
-      }
-
-      cursor = cursor.add(const Duration(days: 1));
-    }
-
-    if (spentByKey.isEmpty) return null;
-
-    final top = spentByKey.entries.reduce(
-          (a, b) => a.value >= b.value ? a : b,
-    );
-
-    final key = top.key;
-    final total = top.value;
-    final activeDays = activeDaysByKey[key] ?? 1;
-    final avg = (total / activeDays).round();
-
-    final name = nameByKey[key] ?? (key == etcKey ? '기타' : key);
-
-    return (name: name, total: total, avg: avg);
-  }
-
-  ({String emotion, int count})? _topEmotionInRange(
-      _NotificationRange range,
-      ) {
-    final emotionCount = <String, int>{};
-
-    DateTime cursor = _dateOnly(range.start);
-
-    while (!cursor.isAfter(range.end)) {
-      final day = _findDayRecord(cursor);
-      final emotion = day?.emotion.trim() ?? '';
-
-      if (emotion.isNotEmpty) {
-        emotionCount[emotion] = (emotionCount[emotion] ?? 0) + 1;
-      }
-
-      cursor = cursor.add(const Duration(days: 1));
-    }
-
-    if (emotionCount.isEmpty) return null;
-
-    final top = emotionCount.entries.reduce(
-          (a, b) => a.value >= b.value ? a : b,
-    );
-
-    return (emotion: top.key, count: top.value);
-  }
-
-  ({String category, String emotion, int count})? _topCategoryEmotionInRange(
-      _NotificationRange range,
-      ) {
-    final categoryEmotionCount = <String, Map<String, int>>{};
-
-    DateTime cursor = _dateOnly(range.start);
-
-    while (!cursor.isAfter(range.end)) {
-      final day = _findDayRecord(cursor);
-
-      if (day == null) {
-        cursor = cursor.add(const Duration(days: 1));
-        continue;
-      }
-
-      final emotion = day.emotion.trim();
-
-      if (emotion.isEmpty || day.spendingEntries.isEmpty) {
-        cursor = cursor.add(const Duration(days: 1));
-        continue;
-      }
-
-      for (final e in day.spendingEntries) {
-        final category =
-        e.category.trim().isNotEmpty ? e.category.trim() : '기타';
-
-        categoryEmotionCount[category] ??= {};
-        categoryEmotionCount[category]![emotion] =
-            (categoryEmotionCount[category]![emotion] ?? 0) + 1;
-      }
-
-      cursor = cursor.add(const Duration(days: 1));
-    }
-
-    if (categoryEmotionCount.isEmpty) return null;
-
-    String? bestCategory;
-    String? bestEmotion;
-    int bestCount = 0;
-
-    for (final categoryEntry in categoryEmotionCount.entries) {
-      final emotionMap = categoryEntry.value;
-      if (emotionMap.isEmpty) continue;
-
-      final topEmotionForCategory = emotionMap.entries.reduce(
-            (a, b) => a.value >= b.value ? a : b,
-      );
-
-      if (topEmotionForCategory.value > bestCount) {
-        bestCount = topEmotionForCategory.value;
-        bestCategory = categoryEntry.key;
-        bestEmotion = topEmotionForCategory.key;
-      }
-    }
-
-    if (bestCategory == null || bestEmotion == null) return null;
-
-    return (
-    category: bestCategory,
-    emotion: bestEmotion,
-    count: bestCount,
-    );
-  }
-
-  _NotificationRange _recent7Range() {
-    final today = _dateOnly(DateTime.now());
-
-    return _NotificationRange(
-      start: today.subtract(const Duration(days: 6)),
-      end: today,
-    );
-  }
-
-  _NotificationRange _planFullRange() {
-    final today = _dateOnly(DateTime.now());
-    final start = _latestPlan?.startDate;
-
-    if (start == null) {
-      return _NotificationRange(start: today, end: today);
-    }
-
-    return _NotificationRange(
-      start: _dateOnly(start),
-      end: today,
-    );
-  }
-
-  Future<void> _ensureMonthsLoadedForRange(_NotificationRange range) async {
-    final months = _monthsCovered(range.start, range.end);
-
-    for (final month in months) {
-      await _ensureMonthLoaded(month);
+  Future<void> refreshAfterRecordChanged() async {
+    try {
+      await _generateService.generateAfterRecordChanged();
+      _notifications = _notificationRepo.getAllForCurrentUser();
+      notifyListeners();
+    } catch (_) {
+      // 알림 생성 실패가 기록 저장 흐름을 막으면 안 됨
     }
   }
 
-  Future<void> _ensureMonthLoaded(DateTime anyDay) async {
-    final monthAnchor = DateTime(anyDay.year, anyDay.month, 1);
-    final monthKey = _monthKeyFormat.format(monthAnchor);
-
-    if (_monthCache.containsKey(monthKey)) return;
-
-    final monthly = await _recordRepo.loadMonthlyRecordByDate(monthAnchor);
-    _monthCache[monthKey] = monthly;
-  }
-
-  List<DateTime> _monthsCovered(DateTime start, DateTime end) {
-    final result = <DateTime>[];
-
-    var cursor = DateTime(start.year, start.month, 1);
-    final endMonth = DateTime(end.year, end.month, 1);
-
-    while (!cursor.isAfter(endMonth)) {
-      result.add(cursor);
-      cursor = DateTime(cursor.year, cursor.month + 1, 1);
-    }
-
-    return result;
-  }
-
-  DateTime _dateOnly(DateTime date) {
-    return DateTime(date.year, date.month, date.day);
-  }
-
-  String _readKey(String id) {
-    final uid = _authRepo.cachedUid ?? _authRepo.currentUserId;
-    return uid == null ? 'NO_UID:$id' : '$uid:$id';
-  }
-
-  bool _isRead(String id) {
-    return _readBox.get(_readKey(id), defaultValue: false) == true;
-  }
-
-  Future<void> _saveRead(String id) async {
-    await _readBox.put(_readKey(id), true);
-  }
-
-  NotificationItem _createNotification({
-    required String id,
-    required NotificationType type,
-    required NotificationCategory category,
-    required String message,
-    required DateTime createdAt,
-    String? targetRoute,
-    DateTime? targetDate,
-    int? targetTabIndex,
-  }) {
-    return NotificationItem(
-      id: id,
-      title: _getTitleByType(type),
-      message: message,
-      type: type,
-      category: category,
-      createdAt: createdAt,
-      targetRoute: targetRoute ?? _getRouteByType(type),
-      targetDate: targetDate,
-      targetTabIndex: targetTabIndex,
-      isRead: _isRead(id),
-    );
-  }
-
-  void removeNotification(String id) {
+  Future<void> removeNotification(String id) async {
     _notifications.removeWhere((notification) => notification.id == id);
+    await _notificationRepo.remove(id);
     notifyListeners();
   }
 
   Future<void> markAsRead(String id) async {
-    final index = _notifications.indexWhere(
-          (notification) => notification.id == id,
-    );
-
-    if (index != -1) {
-      _notifications[index] = _notifications[index].copyWith(isRead: true);
-      await _saveRead(id);
-      notifyListeners();
-    }
-  }
-
-  void markAllAsRead() {
-    for (int i = 0; i < _notifications.length; i++) {
-      final id = _notifications[i].id;
-      _notifications[i] = _notifications[i].copyWith(isRead: true);
-      _readBox.put(_readKey(id), true);
-    }
-
+    await _notificationRepo.markAsRead(id);
+    _notifications = _notificationRepo.getAllForCurrentUser();
     notifyListeners();
   }
 
-  String _getTitleByType(NotificationType type) {
-    switch (type) {
-      case NotificationType.recordReminder:
-        return '출석 알림';
-      case NotificationType.timeValue:
-        return '예산 알림';
-      case NotificationType.report:
-        return '레포트 알림';
-      case NotificationType.emotion:
-        return '소통 알림';
-    }
+  Future<void> markAllAsRead() async {
+    await _notificationRepo.markAllAsRead();
+    _notifications = _notificationRepo.getAllForCurrentUser();
+    notifyListeners();
   }
 
-  String? _getRouteByType(NotificationType type) {
-    switch (type) {
-      case NotificationType.recordReminder:
-        return '/record';
-      case NotificationType.timeValue:
-        return '/today_record';
-      case NotificationType.report:
-        return '/home_tab_navigator';
-      case NotificationType.emotion:
-        return '/home_tab_navigator';
-    }
+  @override
+  void dispose() {
+    _recordSub?.cancel();
+    _recordSub = null;
+    super.dispose();
   }
 
-  String _formatWon(int amount) {
-    return '${_moneyFormat.format(amount)}원';
+  @override
+  void resetSession() {
+    _notifications = [];
+    _isLoading = false;
+    _error = null;
+    notifyListeners();
   }
 
   void _setLoading(bool value) {
@@ -622,14 +116,4 @@ class NotificationViewModel extends ChangeNotifier {
   void _setError(String? value) {
     _error = value;
   }
-}
-
-class _NotificationRange {
-  const _NotificationRange({
-    required this.start,
-    required this.end,
-  });
-
-  final DateTime start;
-  final DateTime end;
 }

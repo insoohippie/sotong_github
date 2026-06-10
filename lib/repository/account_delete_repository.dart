@@ -11,6 +11,7 @@ class AccountDeleteRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   Future<void> deleteAccountCompletely() async {
+    // 1. uid 확보
     final uid = _authRepository.cachedUid ?? _authRepository.currentUserId;
 
     if (uid == null) {
@@ -19,9 +20,14 @@ class AccountDeleteRepository {
 
     debugPrint('[AccountDeleteRepository] delete start uid=$uid');
 
+    // 4. Firestore 사용자 데이터 삭제
     await _deleteUserFirestoreData(uid);
-    await _authRepository.deleteCurrentAccount();
+
+    // 5. Hive 사용자 데이터 삭제
     await clearLocalHiveCaches(uid);
+
+    // 6. Firebase Auth 계정 삭제
+    await _authRepository.deleteCurrentAccount();
 
     debugPrint('[AccountDeleteRepository] delete complete uid=$uid');
   }
@@ -70,6 +76,7 @@ class AccountDeleteRepository {
     await _deleteKeysByPrefix('ref_categories', '$uid:refcat:');
     await _deleteKeysByPrefix('past_plans', '$uid:');
     await _deleteKeysByPrefix('notification_read', '$uid:');
+    await _deleteKeysByPrefix('notification_cache', '$uid:');
 
     await _deleteExactKey('plan_cache', uid);
 

@@ -216,10 +216,13 @@ class ChatBottomInputArea extends StatelessWidget {
                     // : currentStep == ChatStep.purposeCustom
                     // ? '목적을 입력하세요'
                         : '메시지를 입력하세요',
-                    keyboardType:
-                    (currentStep == ChatStep.targetAmount ||
-                        currentStep == ChatStep.currentAsset)
+                    keyboardType: currentStep == ChatStep.targetAmount
                         ? TextInputType.number
+                        : currentStep == ChatStep.currentAsset
+                        ? const TextInputType.numberWithOptions(
+                      signed: true,
+                      decimal: false,
+                    )
                         : TextInputType.text,
                     onChanged: onInputChanged,
                   ),

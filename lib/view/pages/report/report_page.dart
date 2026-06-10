@@ -29,14 +29,28 @@ class _ReportPageContentState extends State<_ReportPageContent> {
   @override
   void initState() {
     super.initState();
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       if (_requestedInit) return;
       _requestedInit = true;
 
-      // ✅ 내 VM 기준: loadInitial()
-      await context.read<ReportViewModel>().loadInitial();
+      final vm = context.read<ReportViewModel>();
+
+      await vm.loadInitial();
+
+      if (!mounted) return;
+
+      // 초당 저축액 갱신 시작
+      vm.startSavingTicker();
     });
+  }
+
+  @override
+  void dispose() {
+    // 레포트 페이지를 벗어나면 타이머 정지
+    context.read<ReportViewModel>().stopSavingTicker();
+    super.dispose();
   }
 
   @override
