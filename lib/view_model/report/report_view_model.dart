@@ -190,6 +190,18 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     }
   }
 
+  ReportRange get spentChartRange {
+    final r = chartRange;
+    final today = _dateOnly(DateTime.now());
+
+    final end = r.end.isAfter(today) ? today : r.end;
+
+    return ReportRange(
+      start: r.start,
+      end: end,
+    );
+  }
+
   String get rangeLabel => (_rangeType == ReportRangeType.weekly) ? '주간' : '월간';
 
   String get chartRangeText {
@@ -724,8 +736,8 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
       }
     }
 
-    final days = _daysInRange(range);
-    for (final d in days) {
+    final spentDays = _daysInRange(spentChartRange);
+    for (final d in spentDays) {
       for (final e in d.spendingEntries) {
         final key =
         (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
