@@ -520,6 +520,24 @@ class HomeViewModel extends ChangeNotifier {
 
   double get actualSavedNow => confirmedSaved + guideSum;
 
+  double get graphTargetAmount {
+    final plan = _latestPlan;
+    if (plan == null) return 0;
+    return max(0, (plan.targetAmount ?? 0).toDouble());
+  }
+
+  double get graphUserAmount {
+    final plan = _latestPlan;
+    if (plan == null) return 0;
+    return actualSavedNow + plan.currentAsset.toDouble();
+  }
+
+  double get graphPlanAmount {
+    final plan = _latestPlan;
+    if (plan == null) return 0;
+    return plannedSavedNow + plan.currentAsset.toDouble();
+  }
+
   bool get hasReachedSavingTarget {
     final target = effectiveTargetAmount;
     return target > 0 && actualSavedNow >= target;
@@ -590,6 +608,20 @@ class HomeViewModel extends ChangeNotifier {
     final target = effectiveTargetAmount;
     if (target <= 0) return 0;
     final value = plannedSavedNow / target;
+    return value.clamp(0.0, 1.0);
+  }
+
+  double get graphUserPercent {
+    final target = graphTargetAmount;
+    if (target <= 0) return 0;
+    final value = graphUserAmount / target;
+    return value.clamp(0.0, 1.0);
+  }
+
+  double get graphPlanPercent {
+    final target = graphTargetAmount;
+    if (target <= 0) return 0;
+    final value = graphPlanAmount / target;
     return value.clamp(0.0, 1.0);
   }
 

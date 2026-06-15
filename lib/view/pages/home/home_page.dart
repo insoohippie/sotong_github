@@ -26,7 +26,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
 
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<HomeViewModel>().load();
       context.read<NotificationViewModel>().loadNotifications();
     });
@@ -44,7 +45,7 @@ class _HomePageState extends State<HomePage> {
       final text = value % 1 == 0
           ? value.toStringAsFixed(0)
           : value.toStringAsFixed(1);
-      return '+${text}억';
+      return '+$text억';
     }
 
     if (amount >= 10000) {
@@ -52,7 +53,7 @@ class _HomePageState extends State<HomePage> {
       final text = value % 1 == 0
           ? value.toStringAsFixed(0)
           : value.toStringAsFixed(1);
-      return '+${text}만';
+      return '+$text만';
     }
 
     return '+$amount';
@@ -125,7 +126,7 @@ class _HomePageState extends State<HomePage> {
     final spentTextColor = !hasSpending
         ? theme.colorScheme.onSurface
         : isUnrecorded
-        ? theme.colorScheme.onSurface.withOpacity(0.8)
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.8)
         : isOverLimit
         ? const Color(0xFFFF5F5F)
         : AppColors.primary;
@@ -210,8 +211,8 @@ class _HomePageState extends State<HomePage> {
                             const SizedBox(height: 24),
                             HomeSavingChartWidget(
                               vm: vm,
-                              userPercent: _toChartPercent(vm.userPercent),
-                              planPercent: _toChartPercent(vm.planPercent),
+                              userPercent: _toChartPercent(vm.graphUserPercent),
+                              planPercent: _toChartPercent(vm.graphPlanPercent),
                               showIntro: vm.shouldShowPlanGraphIntro,
                               onIntroDismissed: vm.markPlanGraphIntroSeen,
                               onOpenCountdown: () => _openSavingSheet(vm),
