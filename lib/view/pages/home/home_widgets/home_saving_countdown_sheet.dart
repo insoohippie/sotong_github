@@ -3,10 +3,7 @@ import 'package:sotong_local/view_model/home/home_view_model.dart';
 import 'package:sotong_local/view_model/services/saving_calculator.dart';
 
 class HomeSavingCountdownSheet extends StatefulWidget {
-  const HomeSavingCountdownSheet({
-    super.key,
-    required this.vm,
-  });
+  const HomeSavingCountdownSheet({super.key, required this.vm});
 
   final HomeViewModel vm;
 
@@ -82,10 +79,12 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
     return ValueListenableBuilder<int>(
       valueListenable: vm.secondTick,
       builder: (_, __, ___) {
-        final planPercent =
-            (vm.planPercent * 100).clamp(0.0, 100.0).toDouble();
-        final userPercent =
-            (vm.userPercent * 100).clamp(0.0, 100.0).toDouble();
+        final planPercent = (vm.graphPlanPercent * 100)
+            .clamp(0.0, 100.0)
+            .toDouble();
+        final userPercent = (vm.graphUserPercent * 100)
+            .clamp(0.0, 100.0)
+            .toDouble();
         final planProgress = planPercent / 100.0;
         final userProgress = userPercent / 100.0;
         final dailySaving = vm.currentMiniDailyNetSaving;
@@ -122,7 +121,7 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
             border: Border.all(color: theme.dividerColor),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -200,7 +199,7 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
                             borderRadius: BorderRadius.circular(1),
                             boxShadow: [
                               BoxShadow(
-                                color: userColor.withOpacity(0.5),
+                                color: userColor.withValues(alpha: 0.5),
                                 blurRadius: 4,
                                 spreadRadius: 1,
                               ),
@@ -239,41 +238,6 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
           ),
         );
       },
-    );
-  }
-}
-
-class _ProgressLegendText extends StatelessWidget {
-  const _ProgressLegendText({
-    required this.color,
-    required this.label,
-    required this.value,
-  });
-
-  final Color color;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          '$label $value',
-          style: TextStyle(
-            fontSize: 12,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -427,7 +391,7 @@ class _GoalPaceContainer extends StatelessWidget {
         border: Border.all(color: theme.dividerColor),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

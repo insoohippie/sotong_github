@@ -20,6 +20,7 @@ import '../../repository/auth_repository.dart';
 import '../../repository/plan_repository.dart';
 import '../../repository/ref_data_repository.dart';
 import '../../repository/plan_cache_repository.dart';
+import '../../services/app_session_reset_service.dart';
 import '../../services/plan_debug_printer.dart';
 import '../../services/plan_saved_event_bus.dart';
 import '../services/ref_data_viewmodel.dart';
@@ -46,7 +47,7 @@ class ChatSection {
 }
 
 // 기본 회원가입 창의 viewmodel
-class ChatPlanViewModel extends ChangeNotifier {
+class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
   final AuthRepository _authRepo;
   final PlanRepository _planRepo;
   final PlanSavedEventBus? _planSavedBus;
@@ -149,6 +150,8 @@ class ChatPlanViewModel extends ChangeNotifier {
 
   bool _initialPlanResolved = false;
   bool _needsInitialUpload = true;
+
+  String? _loadedUid;
 
   Future<void> _initializePlanState() async {
     if (_initialPlanResolved) return;
@@ -1211,7 +1214,67 @@ class ChatPlanViewModel extends ChangeNotifier {
   // --------------------------------------
   // 초기화
   // --------------------------------------
+  void _resetUserScopedState() {
+    _totalPlan = TotalPlan.empty();
+    _refData = RefData(planId: '');
+
+    _refDataVM = RefDataViewModel(_refData);
+    _totalPlanVM = TotalPlanViewModel(_totalPlan);
+    _calculationVM = SavingPlanCalculator(plan: _totalPlan);
+
+    _calculationResult = null;
+    _summaryRecommendation = null;
+    _summaryRenderVersion = 0;
+
+    _messages.clear();
+    _sectionMessageCounts.clear();
+    _sectionStartIndices.clear();
+
+    _currentStep = ChatStep.onboarding1;
+    _isTyping = false;
+    _buttonClicked = false;
+    _isSaving = false;
+
+    _pendingMonthlyCommands.clear();
+    _pendingDailyCommands.clear();
+    _pendingAutoMonthlyInputs.clear();
+    _pendingAutoDailyInputs.clear();
+    _pendingRefDataWrites.clear();
+
+    _pendingPlanEditGoalDate = null;
+    _pendingPlanEditApplyDate = null;
+    _pendingPlanTreeMaterialized = false;
+
+    _hasIncomeInput = false;
+    _hasFixedConsumeInput = false;
+    _hasDailyInput = false;
+    _hasSavedPlan = false;
+    _lastPersistedGoal = null;
+    _printedInitialPlanTree = false;
+
+    _previewDailyTotal = 0;
+    _initialPlanResolved = false;
+    _needsInitialUpload = true;
+    _refDataLoaded = false;
+    _loadedUid = null;
+  }
+
+  @override
+  void resetSession() {
+    _userName = '회원';
+    _resetUserScopedState();
+    notifyListeners();
+  }
+
   Future<void> initializeChat() async {
+    final currentUid = _authRepo.cachedUid ?? _authRepo.currentUserId;
+
+    if (_loadedUid != currentUid) {
+      _loadedUid = currentUid;
+      _resetUserScopedState();
+      await _initializePlanState();
+    }
+
     // 1) 이름 로드
     try {
       _userName = await _authRepo.getUserName();

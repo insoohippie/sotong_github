@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../../view_model/plan/enums/chat_step.dart';
 import '../../../../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../../../component/buttons/custom_button.dart';
@@ -112,12 +114,10 @@ class ChatBottomInputArea extends StatelessWidget {
                 leftLabel: '있어요',
                 rightLabel: '없어요',
                 onLeftPressed: () {
-                  // 보유자산 있음 → 다음 스텝에서 금액 입력
                   viewModel.handleUserResponse('있어요');
                   onDisappear();
                 },
                 onRightPressed: () {
-                  // 보유자산 없음
                   viewModel.handleUserResponse('없어요');
                   onDisappear();
                 },
@@ -185,63 +185,60 @@ class ChatBottomInputArea extends StatelessWidget {
             CustomButton(
               text: '다음으로 이동',
               onPressed: () {
-                Navigator.of(
-                  context,
-                ).pushNamedAndRemoveUntil('/plan_success', (route) => false);
+                Navigator.of(context).pushNamedAndRemoveUntil(
+                  '/plan_success',
+                      (route) => false,
+                );
               },
             ),
 
-          // if (currentStep == ChatStep.purpose && animDone)
-          //   PurposeSelectorWidget(
-          //     options: viewModel.purposeOptions,
-          //     onSelect: (value) {
-          //       viewModel.handleUserResponse(value);
-          //       onDisappear();
-          //     },
-          //   ),
           if (isTextInputStep)
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40.0),
-                  child: CustomTextField(
+                  child: currentStep == ChatStep.currentAsset
+                      ? SignedAmountTextField(
+                    controller: inputController,
+                    hintText: '보유 자산을 입력하세요',
+                    onChanged: onInputChanged,
+                  )
+                      : CustomTextField(
                     controller: inputController,
                     hintText: currentStep == ChatStep.planName
                         ? '플랜 이름을 입력하세요'
                         : currentStep == ChatStep.targetAmount
                         ? '목표 금액을 입력하세요'
-                        : currentStep == ChatStep.currentAsset
-                        ? '보유 자산을 입력하세요 (빚은 -로)'
-                    // : currentStep == ChatStep.purposeCustom
-                    // ? '목적을 입력하세요'
                         : '메시지를 입력하세요',
-                    keyboardType:
-                    (currentStep == ChatStep.targetAmount ||
-                        currentStep == ChatStep.currentAsset)
+                    keyboardType: currentStep == ChatStep.targetAmount
                         ? TextInputType.number
                         : TextInputType.text,
+                    inputFormatters: currentStep == ChatStep.targetAmount
+                        ? [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ]
+                        : null,
                     onChanged: onInputChanged,
                   ),
                 ),
                 const SizedBox(height: 12),
                 CustomButton(
                   text: _getButtonText(currentStep, inputController.text),
-                  onPressed:
-                  isTextInputStep &&
+                  onPressed: isTextInputStep &&
                       _isValidInput(currentStep, inputController.text)
                       ? () {
                     onDisappear();
                     onSubmit();
                   }
                       : () {},
-                  enabled:
-                  isTextInputStep &&
+                  enabled: isTextInputStep &&
                       _isValidInput(currentStep, inputController.text),
                 ),
               ],
             ),
-          SizedBox(height: 20),
+
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -252,12 +249,12 @@ class ChatBottomInputArea extends StatelessWidget {
       ChatStep.planName,
       ChatStep.targetAmount,
       ChatStep.currentAsset,
-      // ChatStep.purposeCustom,
     ].contains(step);
   }
 
   String _getButtonText(ChatStep step, String inputText) {
     final isEmpty = inputText.trim().isEmpty;
+
     if (isEmpty) {
       return step == ChatStep.planName
           ? '플랜 이름을 입력해주세요!'
@@ -265,18 +262,15 @@ class ChatBottomInputArea extends StatelessWidget {
           ? '목표 금액을 입력해주세요!'
           : step == ChatStep.currentAsset
           ? '보유 자산을 입력해주세요!'
-      // : step == ChatStep.purposeCustom
-      // ? '목적을 입력해주세요!'
           : '입력해주세요!';
     }
+
     return step == ChatStep.planName
         ? '이 이름으로 플랜 만들래요!'
         : step == ChatStep.targetAmount
         ? '제 목표 금액이에요!'
         : step == ChatStep.currentAsset
         ? '제 보유 자산이에요!'
-    // : step == ChatStep.purposeCustom
-    // ? '이 목적으로 설정할게요!'
         : '입력 완료!';
   }
 
@@ -307,5 +301,123 @@ class ChatBottomInputArea extends StatelessWidget {
       default:
         return true;
     }
+  }
+}
+
+class SignedAmountTextField extends StatefulWidget {
+  final TextEditingController controller;
+  final String hintText;
+  final ValueChanged<String>? onChanged;
+
+  const SignedAmountTextField({
+    super.key,
+    required this.controller,
+    required this.hintText,
+    this.onChanged,
+  });
+
+  @override
+  State<SignedAmountTextField> createState() => _SignedAmountTextFieldState();
+}
+
+class _SignedAmountTextFieldState extends State<SignedAmountTextField> {
+  String _sign = '+';
+  late final TextEditingController _amountController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final raw = widget.controller.text.trim();
+
+    _sign = raw.startsWith('-') ? '-' : '+';
+
+    _amountController = TextEditingController(
+      text: raw.replaceAll('-', ''),
+    );
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  void _syncParentController() {
+    final amount = _amountController.text.trim();
+
+    final signedValue = amount.isEmpty
+        ? ''
+        : _sign == '-'
+        ? '-$amount'
+        : amount;
+
+    widget.controller.text = signedValue;
+    widget.controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: widget.controller.text.length),
+    );
+
+    widget.onChanged?.call(signedValue);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 72,
+          height: 60,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F4F6),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _sign,
+                isExpanded: true,
+                borderRadius: BorderRadius.circular(12),
+                alignment: Alignment.center,
+                icon: const Icon(Icons.keyboard_arrow_down_rounded),
+                items: const [
+                  DropdownMenuItem(
+                    value: '+',
+                    child: Center(child: Text('+')),
+                  ),
+                  DropdownMenuItem(
+                    value: '-',
+                    child: Center(child: Text('-')),
+                  ),
+                ],
+                onChanged: (value) {
+                  if (value == null) return;
+
+                  setState(() {
+                    _sign = value;
+                  });
+
+                  _syncParentController();
+                },
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: CustomTextField(
+            controller: _amountController,
+            hintText: widget.hintText,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+            ],
+            onChanged: (_) {
+              _syncParentController();
+            },
+          ),
+        ),
+      ],
+    );
   }
 }

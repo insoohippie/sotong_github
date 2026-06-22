@@ -220,39 +220,28 @@ class _RecordPageState extends State<RecordPage> {
                   ? (_noSpendingChecked || spendingVM.canProceedToNextStep)
                   : incomeVM.canProceedToNextStep,
               onPressed: () async {
-                final hasSpendingOrNoSpending =
-                    _noSpendingChecked || spendingVM.canProceedToNextStep;
-
-                if (_isSpending) {
-                  Navigator.pushNamed(
-                    context,
-                    '/record_diary',
-                    arguments: _selectedDate,
-                  );
-                  return;
-                }
-
-                if (!hasSpendingOrNoSpending) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('소비를 입력하거나 무지출을 체크해주세요.'),
-                    ),
-                  );
-                  return;
-                }
-
                 try {
-                  await incomeVM.saveAllForDate(_selectedDate);
+                  final hasSpendingOrNoSpending =
+                      _noSpendingChecked || spendingVM.canProceedToNextStep;
 
-                  final totalIncome = incomeVM.totalIncome;
-                  if (totalIncome > 0 && mounted) {
-                    context.read<HomeViewModel>().registerExtraIncome(
-                      _selectedDate,
-                      totalIncome,
+                  if (!hasSpendingOrNoSpending) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('소비를 입력하거나 무지출을 체크해주세요.'),
+                      ),
                     );
+                    return;
                   }
 
-                  incomeVM.resetApplyStates();
+                  if (incomeVM.buildEntriesJson().isNotEmpty &&
+                      incomeVM.hasInvalidCategorySelection) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('카테고리가 선택되지 않은 수입 항목이 있습니다.'),
+                      ),
+                    );
+                    return;
+                  }
 
                   if (!mounted) return;
 
@@ -263,9 +252,10 @@ class _RecordPageState extends State<RecordPage> {
                   );
                 } catch (e) {
                   if (!mounted) return;
+
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('수입 저장 중 문제가 발생했어요: $e'),
+                      content: Text('다음 단계로 이동 중 문제가 발생했어요: $e'),
                     ),
                   );
                 }

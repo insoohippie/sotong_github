@@ -26,7 +26,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
 
-    Future.microtask(() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<HomeViewModel>().load();
       context.read<NotificationViewModel>().loadNotifications();
     });
@@ -44,7 +45,7 @@ class _HomePageState extends State<HomePage> {
       final text = value % 1 == 0
           ? value.toStringAsFixed(0)
           : value.toStringAsFixed(1);
-      return '+${text}억';
+      return '+$text억';
     }
 
     if (amount >= 10000) {
@@ -52,7 +53,7 @@ class _HomePageState extends State<HomePage> {
       final text = value % 1 == 0
           ? value.toStringAsFixed(0)
           : value.toStringAsFixed(1);
-      return '+${text}만';
+      return '+$text만';
     }
 
     return '+$amount';
@@ -109,9 +110,9 @@ class _HomePageState extends State<HomePage> {
     final actualSpent = todaySpending.toDouble();
     final isOverLimit =
         hasSpending &&
-        !isUnrecorded &&
-        dailyLimit > 0 &&
-        actualSpent > dailyLimit;
+            !isUnrecorded &&
+            dailyLimit > 0 &&
+            actualSpent > dailyLimit;
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -125,7 +126,7 @@ class _HomePageState extends State<HomePage> {
     final spentTextColor = !hasSpending
         ? theme.colorScheme.onSurface
         : isUnrecorded
-        ? theme.colorScheme.onSurface.withOpacity(0.8)
+        ? theme.colorScheme.onSurface.withValues(alpha: 0.8)
         : isOverLimit
         ? const Color(0xFFFF5F5F)
         : AppColors.primary;
@@ -193,9 +194,9 @@ class _HomePageState extends State<HomePage> {
                                       const SizedBox(width: 8),
                                       InkWell(
                                         onTap: () async =>
-                                            await showPlanNameEditSheet(
-                                              context,
-                                            ),
+                                        await showPlanNameEditSheet(
+                                          context,
+                                        ),
                                         child: const Icon(
                                           Icons.edit,
                                           size: 20,
@@ -210,8 +211,8 @@ class _HomePageState extends State<HomePage> {
                             const SizedBox(height: 24),
                             HomeSavingChartWidget(
                               vm: vm,
-                              userPercent: _toChartPercent(vm.userPercent),
-                              planPercent: _toChartPercent(vm.planPercent),
+                              userPercent: _toChartPercent(vm.graphUserPercent),
+                              planPercent: _toChartPercent(vm.graphPlanPercent),
                               showIntro: vm.shouldShowPlanGraphIntro,
                               onIntroDismissed: vm.markPlanGraphIntroSeen,
                               onOpenCountdown: () => _openSavingSheet(vm),
@@ -243,7 +244,7 @@ class _HomePageState extends State<HomePage> {
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               color:
-                                                  theme.colorScheme.onSurface,
+                                              theme.colorScheme.onSurface,
                                             ),
                                           ),
                                         ),
@@ -257,14 +258,14 @@ class _HomePageState extends State<HomePage> {
                                       _HeaderIconButton(
                                         icon: Icons.chevron_left,
                                         iconColor:
-                                            theme.colorScheme.onSurfaceVariant,
+                                        theme.colorScheme.onSurfaceVariant,
                                         onTap: () => vm.changeDate(-1),
                                       ),
                                       const SizedBox(width: 2),
                                       _HeaderIconButton(
                                         icon: Icons.chevron_right,
                                         iconColor:
-                                            theme.colorScheme.onSurfaceVariant,
+                                        theme.colorScheme.onSurfaceVariant,
                                         onTap: () => vm.changeDate(1),
                                       ),
                                       const SizedBox(width: 2),
@@ -332,7 +333,7 @@ class _HomePageState extends State<HomePage> {
                                             ' / ',
                                             style: TextStyle(
                                               color:
-                                                  theme.colorScheme.onSurface,
+                                              theme.colorScheme.onSurface,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -343,7 +344,7 @@ class _HomePageState extends State<HomePage> {
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 color:
-                                                    theme.colorScheme.onSurface,
+                                                theme.colorScheme.onSurface,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),

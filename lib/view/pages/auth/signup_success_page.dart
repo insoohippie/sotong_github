@@ -19,25 +19,32 @@ class SignupSuccessPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<SignupViewModel>();
-    final userName = vm.signUpInfo?.name ?? '사용자';
+
+    final nickname = vm.signUpInfo?.nickname.trim().isNotEmpty == true
+        ? vm.signUpInfo!.nickname.trim()
+        : '사용자';
+
     final viewWidth = MediaQuery.sizeOf(context).width;
     final successHeaderBase = viewWidth < 360
         ? AppTextStyles.header.copyWith(fontSize: 24)
         : AppTextStyles.header;
+
     final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
       context,
       PaddingResponsive16_40Vw.fractionScreen075,
     );
+
     final sectionGaps = SectionGapRefHeight600.scaledMinsFromContext(
       context,
       minGaps: _kSignupSuccessSectionMins,
     );
 
     final List<TextPart> messageHeaderParts = [
-      TextPart('$userName', AppColors.primary),
+      TextPart(nickname, AppColors.primary),
       TextPart('님,\n', AppColors.text),
       TextPart('회원가입을 축하드려요!', AppColors.text),
     ];
+
     final List<TextPart> messageParagraphParts = [
       TextPart('소비통제를 위한 나만의 계획,\n', AppColors.text),
       TextPart('소통 플랜', AppColors.primary, bold: true),

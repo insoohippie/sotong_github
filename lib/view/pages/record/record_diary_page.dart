@@ -7,6 +7,8 @@ import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_area.dart';
 import '../../../component/inputs/selectable_emoji_selector.dart';
 import '../../../component/theme/app_spacing.dart';
+import '../../../view_model/home/home_view_model.dart';
+import '../../../view_model/record/record_add_income_view_model.dart';
 import '../../../view_model/record/record_spending_view_model.dart';
 
 class RecordDiaryPage extends StatefulWidget {
@@ -29,14 +31,36 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
   }
 
   Future<void> _onSave(BuildContext context) async {
-    final vm = context.read<RecordSpendingViewModel>();
+    final spendingVM = context.read<RecordSpendingViewModel>();
+    final incomeVM = context.read<RecordAddIncomeViewModel>();
+
     final args = ModalRoute.of(context)?.settings.arguments;
     final selectedDate = (args is DateTime) ? args : DateTime.now();
 
     setState(() => _isLoading = true);
 
     try {
-      await vm.saveAllForDate(selectedDate);
+      final hasIncomeInput = incomeVM.buildEntriesJson().isNotEmpty;
+
+      if (hasIncomeInput) {
+        if (incomeVM.hasInvalidCategorySelection) {
+          throw Exception('카테고리가 선택되지 않은 수입 항목이 있습니다.');
+        }
+
+        await incomeVM.saveAllForDate(selectedDate);
+
+        final totalIncome = incomeVM.totalIncome;
+        if (totalIncome > 0 && mounted) {
+          context.read<HomeViewModel>().registerExtraIncome(
+            selectedDate,
+            totalIncome,
+          );
+        }
+
+        incomeVM.resetApplyStates();
+      }
+
+      await spendingVM.saveAllForDate(selectedDate);
 
       if (!mounted) return;
 
@@ -46,6 +70,7 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
       });
 
       await Future.delayed(const Duration(seconds: 2));
+
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -55,10 +80,14 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
       }
     } catch (e) {
       if (!mounted) return;
+
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('저장 중 오류가 발생했어요: $e')));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('저장 중 오류가 발생했어요: $e'),
+        ),
+      );
     }
   }
 

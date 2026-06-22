@@ -1,6 +1,4 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../model/auth/signup_info.dart';
 import '../../repository/auth_repository.dart';
@@ -14,27 +12,22 @@ class SignupViewModel extends ChangeNotifier {
 
   SignupStep currentStep = SignupStep.email;
 
-  /// 기존 UI 호환을 위해 이름은 유지
-  final emailController = TextEditingController(); // 실제로는 아이디 입력
+  /// 실제로는 아이디 입력
+  final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  final passwordConfirmController = TextEditingController(); // ✅ 추가
-  final nameController = TextEditingController();
-  final birthdayController = TextEditingController();
+  final passwordConfirmController = TextEditingController();
+  final nicknameController = TextEditingController();
 
-  String? gender;
-  File? profileImage;
   SignUpInfo? signUpInfo;
 
-  final ImagePicker _picker = ImagePicker();
-  DateTime? selectedBirthday;
-
-  String? emailError; // 실제로는 아이디 에러
+  String? emailError;
   bool isLoading = false;
   bool isEmailChecked = false;
   bool isPasswordVisible = false;
-  bool isPasswordConfirmVisible = false; // ✅ 추가
+  bool isPasswordConfirmVisible = false;
 
   // ---------------- 아이디 검증 ----------------
+
   String? validateId(String raw) {
     final id = raw.trim();
 
@@ -43,35 +36,44 @@ class SignupViewModel extends ChangeNotifier {
     if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(id)) {
       return '아이디는 영문, 숫자, 점(.), 밑줄(_)만 사용할 수 있어요.';
     }
+
     return null;
   }
 
   bool get isEmailFormatValid => validateId(emailController.text) == null;
+
   String? get emailFormatError => validateId(emailController.text);
 
   // ---------------- 단계 이동 ----------------
+
   void previousStep() {
     if (currentStep == SignupStep.password) {
       currentStep = SignupStep.email;
     } else if (currentStep == SignupStep.userInfo) {
       currentStep = SignupStep.password;
     }
+
     notifyListeners();
   }
 
   Future<void> nextStep() async {
     if (currentStep == SignupStep.email) {
       await checkEmailDuplication();
-      if (isEmailChecked) currentStep = SignupStep.password;
+
+      if (isEmailChecked) {
+        currentStep = SignupStep.password;
+      }
     } else if (currentStep == SignupStep.password) {
       if (isPasswordStepValid) {
         currentStep = SignupStep.userInfo;
       }
     }
+
     notifyListeners();
   }
 
   // ---------------- 아이디 중복 확인 ----------------
+
   Future<void> checkEmailDuplication() async {
     final id = emailController.text.trim();
 
@@ -84,6 +86,7 @@ class SignupViewModel extends ChangeNotifier {
     }
 
     final exists = await _repo.isIdAlreadyExists(id);
+
     if (exists) {
       emailError = '이미 사용 중인 아이디입니다';
       isEmailChecked = false;
@@ -91,13 +94,14 @@ class SignupViewModel extends ChangeNotifier {
       emailError = null;
       isEmailChecked = true;
     }
+
     notifyListeners();
   }
 
   // ---------------- 비밀번호 검증 ----------------
+
   bool get isPasswordValid {
     final password = passwordController.text.trim();
-
     return password.length >= 6 && password.length <= 20;
   }
 
@@ -116,17 +120,22 @@ class SignupViewModel extends ChangeNotifier {
     return errors;
   }
 
-  bool get isPasswordConfirmValid =>
-      passwordConfirmController.text.isNotEmpty &&
-          passwordConfirmController.text == passwordController.text;
+  bool get isPasswordConfirmValid {
+    return passwordConfirmController.text.isNotEmpty &&
+        passwordConfirmController.text == passwordController.text;
+  }
 
-  bool get isPasswordStepValid => isPasswordValid && isPasswordConfirmValid;
+  bool get isPasswordStepValid {
+    return isPasswordValid && isPasswordConfirmValid;
+  }
 
   String? get passwordConfirmError {
     if (passwordConfirmController.text.isEmpty) return null;
+
     if (passwordConfirmController.text != passwordController.text) {
       return '비밀번호가 일치하지 않습니다.';
     }
+
     return null;
   }
 
@@ -140,39 +149,39 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ---------------- 개인정보 검증 ----------------
+  // ---------------- 닉네임 검증 ----------------
 
-  String? validateName(String raw) {
-    final name = raw.trim();
+  String? validateNickname(String raw) {
+    final nickname = raw.trim();
 
-    if (name.isEmpty) {
-      return '이름을 입력해주세요.';
+    if (nickname.isEmpty) {
+      return '닉네임을 입력해주세요.';
     }
 
-    if (name.length < 2 || name.length > 12) {
-      return '이름은 2~12자여야 해요.';
+    if (nickname.length < 2 || nickname.length > 12) {
+      return '닉네임은 2~12자여야 해요.';
     }
 
     return null;
   }
 
   // ---------------- reset / submit ----------------
+
   void reset() {
     currentStep = SignupStep.email;
+
     emailController.clear();
     passwordController.clear();
     passwordConfirmController.clear();
-    nameController.clear();
-    gender = '';
-    birthdayController.text = '';
-    isEmailChecked = false;
+    nicknameController.clear();
+
     signUpInfo = null;
     emailError = null;
     isLoading = false;
+    isEmailChecked = false;
     isPasswordVisible = false;
     isPasswordConfirmVisible = false;
-    profileImage = null;
-    selectedBirthday = null;
+
     notifyListeners();
   }
 
@@ -180,18 +189,18 @@ class SignupViewModel extends ChangeNotifier {
     switch (currentStep) {
       case SignupStep.email:
         return isEmailFormatValid;
+
       case SignupStep.password:
         return isPasswordStepValid;
+
       case SignupStep.userInfo:
-        return validateName(nameController.text) == null &&
-            birthdayController.text.isNotEmpty &&
-            gender != null &&
-            gender!.isNotEmpty;
+        return validateNickname(nicknameController.text) == null;
     }
   }
 
-  bool get canSubmit =>
-      currentStep == SignupStep.userInfo && isCurrentStepValid;
+  bool get canSubmit {
+    return currentStep == SignupStep.userInfo && isCurrentStepValid;
+  }
 
   Future<bool> submit() async {
     isLoading = true;
@@ -201,9 +210,7 @@ class SignupViewModel extends ChangeNotifier {
       signUpInfo = SignUpInfo(
         id: emailController.text.trim(),
         password: passwordController.text.trim(),
-        name: nameController.text.trim(),
-        birthday: birthdayController.text.trim(),
-        gender: gender ?? '',
+        nickname: nicknameController.text.trim(),
       );
 
       await _repo.signUp(signUpInfo!);
@@ -217,49 +224,12 @@ class SignupViewModel extends ChangeNotifier {
     }
   }
 
-  // ---------------- 기타 ----------------
-  Future<void> pickBirthday(BuildContext context) async {
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: DateTime(2000, 1, 1),
-      firstDate: DateTime(1900),
-      lastDate: DateTime.now(),
-    );
-    if (pickedDate != null) {
-      selectedBirthday = pickedDate;
-      birthdayController.text =
-      "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
-      notifyListeners();
-    }
-  }
-
-  void setBirthdayFromCupertino(DateTime pickedDate) {
-    selectedBirthday = pickedDate;
-    birthdayController.text =
-    "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
-    notifyListeners();
-  }
-
-  void setGender(String? value) {
-    gender = value;
-    notifyListeners();
-  }
-
-  Future<void> pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      profileImage = File(image.path);
-      notifyListeners();
-    }
-  }
-
   @override
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
     passwordConfirmController.dispose();
-    nameController.dispose();
-    birthdayController.dispose();
+    nicknameController.dispose();
     super.dispose();
   }
 }
