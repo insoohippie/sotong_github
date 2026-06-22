@@ -11,9 +11,9 @@ class SignUpInfo {
   /// Firestore에는 저장하지 않음.
   String password;
 
-  String name;
-  String gender;
-  String birthday;
+  /// 앱 내 표시용 닉네임
+  String nickname;
+
   String profileImg;
   String planID;
 
@@ -22,9 +22,7 @@ class SignUpInfo {
     required this.id,
     this.email = '',
     required this.password,
-    this.name = '',
-    this.gender = '',
-    this.birthday = '',
+    this.nickname = '',
     this.profileImg = '',
     this.planID = '',
   });
@@ -33,9 +31,7 @@ class SignUpInfo {
     return {
       'id': id,
       'email': email,
-      'name': name,
-      'gender': gender,
-      'birthday': birthday,
+      'nickname': nickname,
       'profileImg': profileImg,
       'planID': planID,
     };

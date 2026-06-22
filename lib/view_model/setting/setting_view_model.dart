@@ -8,6 +8,7 @@ import '../../repository/ref_data_repository.dart';
 import '../../repository/plan_cache_repository.dart';
 import '../../repository/ref_category_repository.dart';
 import '../../repository/account_delete_repository.dart';
+import '../../services/app_session_reset_service.dart';
 import '../../services/plan_debug_printer.dart';
 
 const String _kDarkModeKey = 'isDarkMode';
@@ -20,6 +21,7 @@ class SettingViewModel extends ChangeNotifier {
   final PlanCacheRepository _planCacheRepository;
   final RefCategoryRepository _refCategoryRepository;
   final AccountDeleteRepository _accountDeleteRepository;
+  final AppSessionResetService _sessionResetService;
 
   bool _isDarkMode = false;
   bool get isDarkMode => _isDarkMode;
@@ -33,6 +35,7 @@ class SettingViewModel extends ChangeNotifier {
       this._planCacheRepository,
       this._refCategoryRepository,
       this._accountDeleteRepository,
+      this._sessionResetService,
       ) {
     _loadDarkMode();
   }
@@ -55,6 +58,15 @@ class SettingViewModel extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    // 1. Provider 메모리 상태 초기화
+    _sessionResetService.resetAll();
+
+    // 2. Firebase Auth 로그아웃
+    //
+    // 주의:
+    // 로그아웃에서는 monthly_spending, refData, plan_cache,
+    // notification_cache 같은 사용자 로컬 데이터는 지우면 안 됨.
+    // 계정별 key(uid prefix)로 분리되어 있으므로 보존해도 계정 간 데이터가 섞이지 않음.
     await _authRepository.logout();
   }
 
@@ -67,7 +79,15 @@ class SettingViewModel extends ChangeNotifier {
       throw Exception('비밀번호를 입력해 주세요.');
     }
 
+    // 1. 비밀번호 재인증
     await _authRepository.verifyCurrentPassword(password.trim());
+
+    // 2. Provider 메모리 상태 초기화
+    _sessionResetService.resetAll();
+
+    // 3. Firestore 사용자 데이터 삭제
+    // 4. Hive 사용자 데이터 삭제
+    // 5. Firebase Auth 계정 삭제
     await _accountDeleteRepository.deleteAccountCompletely();
   }
 

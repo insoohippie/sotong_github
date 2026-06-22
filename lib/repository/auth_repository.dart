@@ -174,12 +174,22 @@ class AuthRepository {
   Future<String> getUserName() async {
     final user = _remote.currentUser;
     _log('getUserName() called: remoteUser=${user?.uid}');
+
     if (user == null) return '회원';
 
     try {
       final doc = await _remote.getUserDoc(user.uid);
-      final name = (doc.data()?['name'] as String?)?.trim();
-      final result = (name == null || name.isEmpty) ? '회원' : name;
+      final data = doc.data();
+
+      final nickname = (data?['nickname'] as String?)?.trim();
+      final legacyName = (data?['name'] as String?)?.trim();
+
+      final result = (nickname != null && nickname.isNotEmpty)
+          ? nickname
+          : (legacyName != null && legacyName.isNotEmpty)
+          ? legacyName
+          : '회원';
+
       _log('getUserName() result: $result');
       return result;
     } catch (e) {
@@ -188,30 +198,19 @@ class AuthRepository {
     }
   }
 
-  Future<String?> getBirthday() async {
-    final uid = currentUserId;
-    _log('getBirthday() called: uid=$uid');
-    if (uid == null) return null;
 
-    try {
-      final doc = await _remote.getUserDoc(uid);
-      final b = doc.data()?['birthday'] as String?;
-      _log('getBirthday() result: $b');
-      return b;
-    } catch (e) {
-      _log('getBirthday() error: $e');
-      return null;
-    }
-  }
-
-  Future<void> updateProfile({String? name, String? birthday}) async {
+  Future<void> updateProfile({String? nickname}) async {
     final uid = currentUserId;
-    _log('updateProfile() called: uid=$uid, name=$name, birthday=$birthday');
+    _log('updateProfile() called: uid=$uid, nickname=$nickname');
+
     if (uid == null) throw Exception('로그인이 필요합니다.');
 
     final data = <String, dynamic>{};
-    if (name != null) data['name'] = name;
-    if (birthday != null) data['birthday'] = birthday;
+
+    if (nickname != null) {
+      data['nickname'] = nickname;
+    }
+
     if (data.isEmpty) return;
 
     await _remote.setUserDoc(uid, data, merge: true);
@@ -236,13 +235,15 @@ class AuthRepository {
     return '/home_tab_navigator';
   }
 
-  Future<void> deleteCurrentAccount() async {
+  Future<void> deleteFirebaseAuthAccountOnly() async {
     final user = _remote.currentUser;
+
     if (user == null) {
       throw Exception('로그인된 사용자가 없습니다.');
     }
 
     await user.delete();
-    await _cache.setLoggedOutExplicit();
+
+    _log('deleteFirebaseAuthAccountOnly() done');
   }
 }

@@ -35,13 +35,13 @@ class HomeViewModel extends ChangeNotifier {
   StreamSubscription<RecordUpdatedEvent>? _recordSub;
 
   HomeViewModel(
-    this._authRepo,
-    this._planRepo,
-    this._planSavedBus,
-    this._recordRepo,
-    this._recordEventBus,
-    this._refDataRepo, //세은님 추가부분
-  ) {
+      this._authRepo,
+      this._planRepo,
+      this._planSavedBus,
+      this._recordRepo,
+      this._recordEventBus,
+      this._refDataRepo, //세은님 추가부분
+      ) {
     _planSavedSub = _planSavedBus.stream.listen((_) {
       refresh();
     });
@@ -330,9 +330,9 @@ class HomeViewModel extends ChangeNotifier {
 
   // ---------- 날짜별 소비/수입 요약 ----------
   Future<void> loadDailySummary(
-    DateTime date, {
-    bool ensureMonthlyLoaded = true,
-  }) async {
+      DateTime date, {
+        bool ensureMonthlyLoaded = true,
+      }) async {
     _selectedDate = _clampDateToAllowedRange(date);
 
     final user = FirebaseAuth.instance.currentUser;
@@ -391,7 +391,7 @@ class HomeViewModel extends ChangeNotifier {
     // 1) 월 데이터 확보
     final existingMonthly =
         _monthlyCache[monthKey] ??
-        await _recordRepo.loadMonthlyRecord(monthKey);
+            await _recordRepo.loadMonthlyRecord(monthKey);
     // 2) 기존 day가 있으면 income 유지
     final existingDay = existingMonthly.days[dateKey];
 
@@ -821,8 +821,8 @@ class HomeViewModel extends ChangeNotifier {
     final daysInMonth = DateTime(normalized.year, normalized.month + 1, 0).day;
     final monthlyNet =
         mini.monthlyIncomeAmount -
-        mini.monthlyConsumeAmount -
-        (mini.dailyConsumeAmount * daysInMonth);
+            mini.monthlyConsumeAmount -
+            (mini.dailyConsumeAmount * daysInMonth);
     return monthlyNet / daysInMonth;
   }
 

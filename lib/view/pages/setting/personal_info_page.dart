@@ -4,12 +4,11 @@ import 'package:provider/provider.dart';
 import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_field.dart';
-import '../../../component/inputs/wheel_date_picker.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../repository/auth_repository.dart';
 import '../plan/plan_widgets/plan_input_modal/single_value_input_modal.dart';
 
-/// 개인정보 수정 페이지: 이름 / 생년월일 / 비밀번호 수정 / 아이디
+/// 개인정보 수정 페이지: 닉네임 / 비밀번호 수정 / 아이디
 class PersonalInfoPage extends StatefulWidget {
   const PersonalInfoPage({Key? key}) : super(key: key);
 
@@ -18,34 +17,31 @@ class PersonalInfoPage extends StatefulWidget {
 }
 
 class _PersonalInfoPageState extends State<PersonalInfoPage> {
-  late final TextEditingController _nameController;
-  late final TextEditingController _birthdayController;
+  late final TextEditingController _nicknameController;
+
   bool _isLoading = true;
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
-    _birthdayController = TextEditingController();
+    _nicknameController = TextEditingController();
     _loadProfile();
   }
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _birthdayController.dispose();
+    _nicknameController.dispose();
     super.dispose();
   }
 
   Future<void> _loadProfile() async {
     final authRepo = context.read<AuthRepository>();
-    final name = await authRepo.getUserName();
-    final birthday = await authRepo.getBirthday();
+    final nickname = await authRepo.getUserName();
+
     if (mounted) {
       setState(() {
-        _nameController.text = name;
-        _birthdayController.text = birthday ?? '';
+        _nicknameController.text = nickname == '회원' ? '' : nickname;
         _isLoading = false;
       });
     }
@@ -53,15 +49,16 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
 
   Future<void> _save() async {
     if (_isSaving) return;
+
     setState(() => _isSaving = true);
+
     try {
       final authRepo = context.read<AuthRepository>();
+
       await authRepo.updateProfile(
-        name: _nameController.text.trim(),
-        birthday: _birthdayController.text.trim().isEmpty
-            ? null
-            : _birthdayController.text.trim(),
+        nickname: _nicknameController.text.trim(),
       );
+
       if (mounted) {
         Navigator.pop(context);
       }
@@ -76,7 +73,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     }
   }
 
-  Future<void> _openNameModal() async {
+  Future<void> _openNicknameModal() async {
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -84,12 +81,14 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SingleValueInputModal(
-          hintText: '이름을 입력하세요',
-          buttonTextEmpty: '이름을 입력해주세요!',
+          hintText: '닉네임을 입력하세요',
+          buttonTextEmpty: '닉네임을 입력해주세요!',
           buttonTextFilled: '저장',
-          initialValue: _nameController.text,
+          initialValue: _nicknameController.text,
           onComplete: (value) {
-            if (mounted) setState(() => _nameController.text = value);
+            if (mounted) {
+              setState(() => _nicknameController.text = value);
+            }
           },
           onClose: () => Navigator.pop(ctx),
         ),
@@ -111,6 +110,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               builder: (ctx) {
                 final theme = Theme.of(ctx);
                 final isDark = theme.brightness == Brightness.dark;
+
                 return Container(
                   height: 60,
                   padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -136,15 +136,22 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               },
             ),
             const SizedBox(height: 12),
-            CustomButton(text: '확인', onPressed: () => Navigator.pop(ctx)),
+            CustomButton(
+              text: '확인',
+              onPressed: () => Navigator.pop(ctx),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoModal({required BuildContext ctx, required Widget child}) {
+  Widget _buildInfoModal({
+    required BuildContext ctx,
+    required Widget child,
+  }) {
     final theme = Theme.of(ctx);
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
       decoration: BoxDecoration(
@@ -185,15 +192,19 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
         builder: (context, setModalState) {
           Future<void> onConfirm() async {
             final cur = ctl.text.trim();
+
             if (cur.isEmpty) {
               setModalState(() => errorMsg = '현재 비밀번호를 입력해주세요.');
               return;
             }
+
             try {
               final authRepo = context.read<AuthRepository>();
               await authRepo.verifyCurrentPassword(cur);
+
               if (!mounted) return;
               Navigator.pop(ctx);
+
               if (!mounted) return;
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
@@ -269,27 +280,34 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
           bool isValid() {
             final n = newCtl.text.trim();
             final c = confirmCtl.text.trim();
+
             if (n.isEmpty || c.isEmpty) return false;
             if (n.length < 6) return false;
             if (n != c) return false;
+
             return true;
           }
 
           Future<void> onConfirm() async {
             final n = newCtl.text.trim();
             final c = confirmCtl.text.trim();
+
             if (n.length < 6) {
               setModalState(() => errorMsg = '비밀번호는 6자 이상이어야 합니다.');
               return;
             }
+
             if (n != c) {
               setModalState(() => errorMsg = '새 비밀번호가 일치하지 않습니다.');
               return;
             }
+
             try {
               final authRepo = pageContext.read<AuthRepository>();
               await authRepo.updatePasswordTo(n);
+
               Navigator.pop(ctx);
+
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (pageContext.mounted) {
                   ScaffoldMessenger.of(pageContext).showSnackBar(
@@ -377,7 +395,6 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 프로필 사진 (기본) — 이름 위
             Center(
               child: Container(
                 width: 96,
@@ -397,37 +414,21 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                 ),
               ),
             ),
+
             const SizedBox(height: 20),
-            // 이름
-            _buildLabel('이름'),
+
+            _buildLabel('닉네임'),
             const SizedBox(height: 8),
             _buildTappableField(
-              value: _nameController.text.isEmpty
-                  ? '이름을 입력하세요'
-                  : _nameController.text,
-              hintStyle: _nameController.text.isEmpty,
-              onTap: _openNameModal,
+              value: _nicknameController.text.isEmpty
+                  ? '닉네임을 입력하세요'
+                  : _nicknameController.text,
+              hintStyle: _nicknameController.text.isEmpty,
+              onTap: _openNicknameModal,
             ),
+
             const SizedBox(height: 24),
 
-            // 생년월일
-            _buildLabel('생년월일'),
-            const SizedBox(height: 8),
-            WheelDateSelector(
-              selectedDate: _birthdayController.text,
-              hintText: '생년월일을 선택하세요',
-              onDateSelected: (date) {
-                if (mounted) {
-                  setState(() {
-                    _birthdayController.text =
-                    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // 아이디 (읽기 전용)
             _buildLabel('아이디'),
             const SizedBox(height: 8),
             _buildTappableField(
@@ -436,9 +437,9 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
               readOnly: true,
               onTap: () => _openIdModal(email),
             ),
+
             const SizedBox(height: 24),
 
-            // 비밀번호 수정
             _buildLabel('비밀번호'),
             const SizedBox(height: 8),
             _buildTappableField(
@@ -483,10 +484,13 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
   }) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+
     final hasValue = !hintStyle;
+
     final fieldBg = hasValue
         ? (isDark ? theme.colorScheme.surface : AppColors.lightBlue)
         : (isDark ? theme.colorScheme.surface : AppColors.greyBackground);
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),

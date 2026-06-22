@@ -324,6 +324,16 @@ class _ProfileSection extends StatelessWidget {
 
   final bool isDark;
 
+  String _displayIdFromEmail(String email) {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) return '';
+
+    final atIndex = trimmed.indexOf('@');
+    if (atIndex <= 0) return trimmed;
+
+    return trimmed.substring(0, atIndex);
+  }
+
   @override
   Widget build(BuildContext context) {
     final authRepo = context.read<AuthRepository>();
@@ -352,8 +362,7 @@ class _ProfileSection extends StatelessWidget {
                   ? snapshot.data!
                   : '회원';
 
-              final email =
-              authRepo.currentUserEmail.isNotEmpty ? authRepo.currentUserEmail : '';
+              final userId = _displayIdFromEmail(authRepo.currentUserEmail);
 
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -394,10 +403,10 @@ class _ProfileSection extends StatelessWidget {
                             fontFamily: 'Pretendard Variable',
                           ),
                         ),
-                        if (email.isNotEmpty) ...[
+                        if (userId.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            email,
+                            userId,
                             style: TextStyle(
                               fontSize: 14,
                               color: isDark

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
+import 'package:sotong_local/repository/notification_repository.dart';
 import 'package:sotong_local/repository/plan_mutation_repository.dart';
+import 'package:sotong_local/services/notification_generate_service.dart';
 import 'package:sotong_local/view_model/record/today_income_view_model.dart';
 
 import 'data_source/auth_cache_data_source.dart';
@@ -29,6 +31,7 @@ import 'repository/account_delete_repository.dart';
 // EventBus
 import 'services/plan_saved_event_bus.dart';
 import 'services/record_event_bus.dart';
+import 'services/app_session_reset_service.dart';
 
 // ViewModels
 import 'view_model/auth/login_view_model.dart';
@@ -63,6 +66,7 @@ Future<void> main() async {
   await Hive.openBox('settings');
   await Hive.openBox('plan_cache');
   await Hive.openBox('notification_read');
+  await Hive.openBox('notification_cache');
 
   // 2) Firebase 초기화
   try {
@@ -92,6 +96,7 @@ class MyApp extends StatelessWidget {
           create: (_) => RecordEventBus(),
           dispose: (_, bus) => bus.dispose(),
         ),
+
 
         // 2) DataSources
         Provider<AuthDataSource>(create: (_) => AuthDataSource()),
@@ -143,6 +148,19 @@ class MyApp extends StatelessWidget {
         Provider<AccountDeleteRepository>(
           create: (ctx) => AccountDeleteRepository(
             ctx.read<AuthRepository>(),
+          ),
+        ),
+        Provider<NotificationRepository>(
+          create: (ctx) => NotificationRepository(
+            ctx.read<AuthRepository>(),
+          ),
+        ),
+        Provider<NotificationGenerateService>(
+          create: (ctx) => NotificationGenerateService(
+            ctx.read<NotificationRepository>(),
+            ctx.read<RecordRepository>(),
+            ctx.read<RefDataRepository>(),
+            ctx.read<PlanRepository>(),
           ),
         ),
 
@@ -201,6 +219,7 @@ class MyApp extends StatelessWidget {
             context.read<RecordRepository>(),
             context.read<RefDataRepository>(),
             context.read<PlanRepository>(),
+            context.read<AuthRepository>(),
             eventBus: context.read<RecordEventBus>(),
           ),
         ),
@@ -233,6 +252,26 @@ class MyApp extends StatelessWidget {
             context.read<PlanMutationRepository>(),
           ),
         ),
+        ChangeNotifierProvider<AlarmViewModel>(
+          create: (_) => AlarmViewModel(),
+        ),
+        ChangeNotifierProvider<NotificationViewModel>(
+          create: (ctx) => NotificationViewModel(
+            ctx.read<NotificationRepository>(),
+            ctx.read<NotificationGenerateService>(),
+            ctx.read<RecordEventBus>(),
+          ),
+        ),
+
+        Provider<AppSessionResetService>(
+          create: (ctx) => AppSessionResetService(
+            targets: [
+              ctx.read<ChatPlanViewModel>(),
+              ctx.read<ReportViewModel>(),
+              ctx.read<NotificationViewModel>(),
+            ],
+          ),
+        ),
         ChangeNotifierProvider<SettingViewModel>(
           create: (ctx) => SettingViewModel(
             ctx.read<AuthRepository>(),
@@ -242,19 +281,10 @@ class MyApp extends StatelessWidget {
             ctx.read<PlanCacheRepository>(),
             ctx.read<RefCategoryRepository>(),
             ctx.read<AccountDeleteRepository>(),
+            ctx.read<AppSessionResetService>(),
           ),
         ),
-        ChangeNotifierProvider<AlarmViewModel>(
-          create: (_) => AlarmViewModel(),
-        ),
-        ChangeNotifierProvider<NotificationViewModel>(
-          create: (ctx) => NotificationViewModel(
-            ctx.read<RecordRepository>(),
-            ctx.read<RefDataRepository>(),
-            ctx.read<PlanRepository>(),
-            ctx.read<AuthRepository>(),
-          ),
-        ),
+
       ],
       child: Consumer<SettingViewModel>(
         builder: (context, settingVM, _) {

@@ -110,9 +110,9 @@ class _HomePageState extends State<HomePage> {
     final actualSpent = todaySpending.toDouble();
     final isOverLimit =
         hasSpending &&
-        !isUnrecorded &&
-        dailyLimit > 0 &&
-        actualSpent > dailyLimit;
+            !isUnrecorded &&
+            dailyLimit > 0 &&
+            actualSpent > dailyLimit;
 
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
@@ -194,9 +194,9 @@ class _HomePageState extends State<HomePage> {
                                       const SizedBox(width: 8),
                                       InkWell(
                                         onTap: () async =>
-                                            await showPlanNameEditSheet(
-                                              context,
-                                            ),
+                                        await showPlanNameEditSheet(
+                                          context,
+                                        ),
                                         child: const Icon(
                                           Icons.edit,
                                           size: 20,
@@ -244,7 +244,7 @@ class _HomePageState extends State<HomePage> {
                                             style: TextStyle(
                                               fontWeight: FontWeight.bold,
                                               color:
-                                                  theme.colorScheme.onSurface,
+                                              theme.colorScheme.onSurface,
                                             ),
                                           ),
                                         ),
@@ -258,14 +258,14 @@ class _HomePageState extends State<HomePage> {
                                       _HeaderIconButton(
                                         icon: Icons.chevron_left,
                                         iconColor:
-                                            theme.colorScheme.onSurfaceVariant,
+                                        theme.colorScheme.onSurfaceVariant,
                                         onTap: () => vm.changeDate(-1),
                                       ),
                                       const SizedBox(width: 2),
                                       _HeaderIconButton(
                                         icon: Icons.chevron_right,
                                         iconColor:
-                                            theme.colorScheme.onSurfaceVariant,
+                                        theme.colorScheme.onSurfaceVariant,
                                         onTap: () => vm.changeDate(1),
                                       ),
                                       const SizedBox(width: 2),
@@ -333,7 +333,7 @@ class _HomePageState extends State<HomePage> {
                                             ' / ',
                                             style: TextStyle(
                                               color:
-                                                  theme.colorScheme.onSurface,
+                                              theme.colorScheme.onSurface,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -344,7 +344,7 @@ class _HomePageState extends State<HomePage> {
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 color:
-                                                    theme.colorScheme.onSurface,
+                                                theme.colorScheme.onSurface,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
