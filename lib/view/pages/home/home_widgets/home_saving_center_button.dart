@@ -31,15 +31,15 @@ class HomeSavingCenterButton extends StatelessWidget {
             final isExiting = animation.status == AnimationStatus.reverse;
 
             final slide =
-            Tween<Offset>(
-              begin: isExiting ? Offset.zero : const Offset(0.1, 0),
-              end: isExiting ? const Offset(-0.2, 0) : Offset.zero,
-            ).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: isExiting ? Curves.easeInCubic : Curves.easeOutCubic,
-              ),
-            );
+                Tween<Offset>(
+                  begin: isExiting ? Offset.zero : const Offset(0.1, 0),
+                  end: isExiting ? const Offset(-0.2, 0) : Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: isExiting ? Curves.easeInCubic : Curves.easeOutCubic,
+                  ),
+                );
 
             return FadeTransition(
               opacity: animation,
@@ -109,11 +109,11 @@ class HomeSavingCenterButton extends StatelessWidget {
                 '모인 금액',
                 style: TextStyle(
                   fontSize: 12,
-                  color: textColor.withOpacity(0.7),
+                  color: textColor.withValues(alpha: 0.7),
                 ),
               ),
               const SizedBox(height: 4),
-              _AnimatedAmount(textColor: textColor, amount: vm.liveSavedAmount),
+              _AnimatedAmount(textColor: textColor, amount: vm.graphUserAmount),
             ],
           ),
         ),
@@ -167,7 +167,7 @@ class HomeSavingCenterButton extends StatelessWidget {
       String dailySavingText = '0원/일';
       if (vm.currentMiniDailyNetSaving > 0) {
         dailySavingText =
-        '${SavingPlanCalculator.formatAmount(vm.currentMiniDailyNetSaving)}원/일';
+            '${SavingPlanCalculator.formatAmount(vm.currentMiniDailyNetSaving)}원/일';
       }
 
       items.addAll([
@@ -201,7 +201,7 @@ class HomeSavingCenterButton extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 ...items.map(
-                      (e) => Padding(
+                  (e) => Padding(
                     padding: const EdgeInsets.only(bottom: 4),
                     child: Text(
                       '${e['label']}: ${e['value']}',
@@ -232,7 +232,7 @@ class HomeSavingCenterButton extends StatelessWidget {
         border: Border.all(color: border, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
