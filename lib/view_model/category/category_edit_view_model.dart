@@ -4,17 +4,14 @@ import 'package:flutter/foundation.dart';
 
 import '../../model/category/category_edit_item.dart';
 import '../../model/category/ref_category_item.dart';
-import '../../model/category/plan_category_item.dart';
 import '../../model/commands/update_daily_command.dart';
 import '../../model/plan/total_plan.dart';
-import '../../model/refData/daily_consume.dart';
 import '../../model/refData/entry.dart';
 import '../../model/refData/ref_data.dart';
 import '../../model/saving_calculation_result.dart';
 
 import '../../repository/auth_repository.dart';
 import '../../repository/plan_cache_repository.dart';
-import '../../repository/plan_category_repository.dart';
 import '../../repository/plan_mutation_repository.dart';
 import '../../repository/plan_repository.dart';
 import '../../repository/ref_category_repository.dart';
@@ -34,7 +31,6 @@ class CategoryEditViewModel extends ChangeNotifier {
       this._planMutRepo,
       this._planCacheRepo,
       this._planSavedBus,
-      this._planCategoryRepo,
       );
 
   final AuthRepository _authRepo;
@@ -44,7 +40,6 @@ class CategoryEditViewModel extends ChangeNotifier {
   final PlanMutationRepository _planMutRepo;
   final PlanCacheRepository _planCacheRepo;
   final PlanSavedEventBus _planSavedBus;
-  final PlanCategoryRepository _planCategoryRepo;
 
   final String _refDocId = 'recordSpending';
 
@@ -69,6 +64,18 @@ class CategoryEditViewModel extends ChangeNotifier {
 
   String? _error;
   String? get error => _error;
+
+  String? _noticeMessage;
+  String? get noticeMessage => _noticeMessage;
+
+  void consumeNoticeMessage() {
+    _noticeMessage = null;
+  }
+
+  void _showNotice(String message) {
+    _noticeMessage = message;
+    notifyListeners();
+  }
 
   List<CategoryEditItem> _draftPlan = [];
   List<CategoryEditItem> get draftPlan {
@@ -109,26 +116,45 @@ class CategoryEditViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  DailyConsume? _findDailyConsumeForDate(
-      Iterable<DailyConsume> all,
-      DateTime date,
-      ) {
-    final d = _normalizeDay(date);
 
-    final candidates = all.where((daily) {
-      final s = _normalizeDay(daily.startDate);
-      final e = _normalizeDay(daily.endDate);
-      return !s.isAfter(d) && !e.isBefore(d);
-    }).toList();
-
-    if (candidates.isEmpty) return null;
-
-    candidates.sort((a, b) => b.startDate.compareTo(a.startDate));
-    return candidates.first;
-  }
 
   String _normalizeName(String s) {
     return s.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  }
+
+  String? validateNewCategoryName({
+    required bool isPlan,
+    required String name,
+  }) {
+    final trimmed = name.trim();
+
+    if (trimmed.isEmpty) {
+      return '카테고리 이름을 입력해주세요.';
+    }
+
+    final norm = _normalizeName(trimmed);
+
+    if (isPlan) {
+      final exists = _draftPlan.any(
+            (e) => _normalizeName(e.name) == norm,
+      );
+
+      if (exists) {
+        return '같은 이름의 플랜 카테고리가 이미 있어요.';
+      }
+
+      return null;
+    }
+
+    final exists = _draftRef.any(
+          (e) => _normalizeName(e.name) == norm,
+    );
+
+    if (exists) {
+      return '같은 이름의 참고 카테고리가 이미 있어요.';
+    }
+
+    return null;
   }
 
   String _fallbackEmojiByName(String name, {String fallback = '💰'}) {
@@ -154,44 +180,6 @@ class CategoryEditViewModel extends ChangeNotifier {
       default:
         return fallback;
     }
-  }
-
-  Future<String> _resolvePlanCategoryKeyForName({
-    required String name,
-    required String emoji,
-    String? fallbackCategoryKey,
-  }) async {
-    final cleanName = name.trim();
-
-    if (cleanName.isEmpty) {
-      return CategoryKey.newKey();
-    }
-
-    // 1. 현재 draft 안에 같은 이름이 있으면 그 key 재사용
-    final norm = _normalizeName(cleanName);
-
-    for (final item in _draftPlan) {
-      if (_normalizeName(item.name) == norm &&
-          CategoryKey.isValid(item.categoryKey)) {
-        return item.categoryKey.trim();
-      }
-    }
-
-    // 2. 저장소에서 같은 이름이 있으면 기존 key 재사용
-    final generatedKey = CategoryKey.isValid(fallbackCategoryKey)
-        ? fallbackCategoryKey!.trim()
-        : CategoryKey.newKey();
-
-    final item = await _planCategoryRepo.getOrCreate(
-      categoryKey: generatedKey,
-      name: cleanName,
-      emoji: emoji.trim().isNotEmpty
-          ? emoji.trim()
-          : _fallbackEmojiByName(cleanName),
-      preferExistingName: true,
-    );
-
-    return item.categoryKey;
   }
 
   void _normalizeOrdersPlanOnly() {
@@ -291,8 +279,21 @@ class CategoryEditViewModel extends ChangeNotifier {
     await loadForSelectedDate();
   }
 
+  /// ✅ 페이지 재진입/플랜 수정 후 복귀 시 강제 새로고침용.
+  /// CategoryEditViewModel은 전역 Provider라 이전 draft가 남을 수 있으므로
+  /// CategoryEditPage.initState()에서는 이 메서드를 호출하는 게 안전함.
+  Future<void> refreshForToday() async {
+    _selectedDate = _normalizeDay(DateTime.now());
+    await loadForSelectedDate();
+  }
+
+  Future<void> refreshForSelectedDate() async {
+    await loadForSelectedDate();
+  }
+
   Future<void> setSelectedDate(DateTime date) async {
-    _selectedDate = _normalizeDay(date);
+    final normalized = _normalizeDay(date);
+    _selectedDate = normalized;
     notifyListeners();
     await loadForSelectedDate();
   }
@@ -303,6 +304,7 @@ class CategoryEditViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // ✅ 플랜 draft와 ref category를 둘 다 최신화
       await Future.wait([
         _loadPlanDraftInternal(),
         _loadRefDraftInternal(),
@@ -319,7 +321,14 @@ class CategoryEditViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadPlanDraftInternal() async {
-    final plan = await _planRepo.getLatestPlanForCurrentUser();
+    final uid = _authRepo.cachedUid ?? _authRepo.currentUserId;
+
+    final cachedSnapshot = uid == null ? null : _planCacheRepo.loadSnapshot(uid);
+
+    // ✅ 카테고리 수정창도 캐시 우선으로 로드
+    final plan = cachedSnapshot?.plan ??
+        await _planRepo.getLatestPlanForCurrentUser();
+
     _latestPlan = plan;
 
     if (plan == null) {
@@ -329,24 +338,45 @@ class CategoryEditViewModel extends ChangeNotifier {
       return;
     }
 
-    final ref = await _refRepo.loadAll();
+    final ref = cachedSnapshot?.refData ?? await _refRepo.loadAll();
+
     ref.planId = plan.planId;
+
+    // ✅ 기준 통일:
+    // RefData 내부 primaryDailyConsumeId를 selectedDate 기준으로 다시 계산한다.
+    // ref_data.dart에서 같은 날짜여도 refresh 되게 수정했으므로,
+    // 여기서 매번 호출해도 최신 primary가 잡힘.
+    ref.setReferenceDate(_selectedDate);
+
     _refData = ref;
 
-    final daily = _findDailyConsumeForDate(
-      ref.dailyConsumeMap.values,
-      _selectedDate,
-    );
+    // ✅ 이제 카테고리 수정창도 플랜 에딧창과 같은 기준 사용
+    final entries = ref.primaryDailyConsumeEntries;
 
-    if (daily == null) {
+    if (entries.isEmpty) {
       _draftPlan = [];
       _draftPlanOrderKeys = const [];
+
+      debugPrint(
+        '[CategoryEdit] primaryDailyConsumeEntries empty '
+            'selectedDate=$_selectedDate '
+            'primaryDailyConsumeId=${ref.primaryDailyConsumeId} '
+            'dailyCount=${ref.dailyConsumeMap.length}',
+      );
+
       return;
     }
 
+    debugPrint(
+      '[CategoryEdit] loaded primary daily '
+          'selectedDate=$_selectedDate '
+          'primaryDailyConsumeId=${ref.primaryDailyConsumeId} '
+          'entries=${entries.map((e) => '${e.category}:${e.amount}').join(', ')}',
+    );
+
     final items = <CategoryEditItem>[];
 
-    for (final e in daily.entries) {
+    for (final e in entries) {
       if (e.type != EntryType.daily) continue;
 
       final resolvedKey = CategoryKey.isValid(e.categoryKey)
@@ -393,75 +423,42 @@ class CategoryEditViewModel extends ChangeNotifier {
     _normalizeOrdersRefOnly();
   }
 
-  Future<void> _upsertPlanCategoriesFromEntries(List<Entry> entries) async {
-    final now = DateTime.now();
-
-    final items = <PlanCategoryItem>[];
-
-    for (final e in entries) {
-      final key = e.categoryKey.trim();
-      final name = e.category.trim();
-
-      if (!CategoryKey.isValid(key)) continue;
-      if (name.isEmpty) continue;
-
-      items.add(
-        PlanCategoryItem(
-          categoryKey: key,
-          name: name,
-          emoji: e.emoji.trim().isNotEmpty ? e.emoji.trim() : _fallbackEmojiByName(name),
-          createdAt: now,
-          updatedAt: now,
-          lastUsedAt: now,
-          isArchived: false,
-        ),
-      );
-    }
-
-    if (items.isEmpty) return;
-
-    await _planCategoryRepo.upsertMany(items);
-  }
-
-  Future<void> draftAddCategory({
+  void draftAddCategory({
     required bool isPlan,
     required String categoryKey,
     required String name,
     required String emoji,
     int? dailyAmount,
-  }) async {
+  }) {
     if (!isPlan) return;
 
     final trimmed = name.trim();
-    if (trimmed.isEmpty) return;
+
+    if (trimmed.isEmpty) {
+      _showNotice('카테고리 이름을 입력해주세요.');
+      return;
+    }
+
+    final resolvedKey = CategoryKey.isValid(categoryKey)
+        ? categoryKey.trim()
+        : CategoryKey.newKey();
 
     final norm = _normalizeName(trimmed);
 
-    // 현재 화면 안에 같은 이름이 이미 있으면 중복 추가하지 않음.
-    final existsInDraft = _draftPlan.any(
-          (e) => _normalizeName(e.name) == norm,
+    final exists = _draftPlan.any(
+          (e) =>
+      e.categoryKey == resolvedKey ||
+          _normalizeName(e.name) == norm,
     );
 
-    if (existsInDraft) return;
+    if (exists) {
+      _showNotice('같은 이름의 플랜 카테고리가 이미 있어요.');
+      return;
+    }
 
     final resolvedEmoji = emoji.trim().isNotEmpty
         ? emoji.trim()
         : _fallbackEmojiByName(trimmed);
-
-    // 핵심:
-    // 새 key를 바로 쓰지 않고,
-    // planCategories 저장소에 같은 이름이 있으면 기존 key를 재사용함.
-    final resolvedKey = await _resolvePlanCategoryKeyForName(
-      name: trimmed,
-      emoji: resolvedEmoji,
-      fallbackCategoryKey: categoryKey,
-    );
-
-    final existsKey = _draftPlan.any(
-          (e) => e.categoryKey == resolvedKey,
-    );
-
-    if (existsKey) return;
 
     _draftPlan = [
       ..._draftPlan,
@@ -485,19 +482,24 @@ class CategoryEditViewModel extends ChangeNotifier {
     String? emoji,
   }) {
     String? trimmedName = name?.trim();
+
     if (trimmedName != null && trimmedName.isEmpty) {
       trimmedName = null;
     }
 
     if (trimmedName != null) {
       final norm = _normalizeName(trimmedName);
+
       final dup = _draftPlan.any(
             (e) =>
         e.categoryKey != categoryKey &&
             _normalizeName(e.name) == norm,
       );
 
-      if (dup) return;
+      if (dup) {
+        _showNotice('같은 이름의 플랜 카테고리가 이미 있어요.');
+        return;
+      }
     }
 
     for (int i = 0; i < _draftPlan.length; i++) {
@@ -508,6 +510,7 @@ class CategoryEditViewModel extends ChangeNotifier {
           name: trimmedName ?? it.name,
           emoji: emoji ?? it.emoji,
         );
+
         _markDirty();
         return;
       }
@@ -590,8 +593,15 @@ class CategoryEditViewModel extends ChangeNotifier {
   }) {
     final n = name.trim();
 
-    if (n.isEmpty) return null;
-    if (_existsRefName(n)) return null;
+    if (n.isEmpty) {
+      _showNotice('카테고리 이름을 입력해주세요.');
+      return null;
+    }
+
+    if (_existsRefName(n)) {
+      _showNotice('같은 이름의 참고 카테고리가 이미 있어요.');
+      return null;
+    }
 
     final key = CategoryKey.newKey();
 
@@ -636,12 +646,14 @@ class CategoryEditViewModel extends ChangeNotifier {
     bool? hidden,
   }) {
     String? trimmedName = name?.trim();
+
     if (trimmedName != null && trimmedName.isEmpty) {
       trimmedName = null;
     }
 
     if (trimmedName != null) {
       if (_existsRefName(trimmedName, exceptKey: categoryKey)) {
+        _showNotice('같은 이름의 참고 카테고리가 이미 있어요.');
         return;
       }
     }
@@ -655,6 +667,7 @@ class CategoryEditViewModel extends ChangeNotifier {
           emoji: emoji ?? it.emoji,
           hidden: hidden ?? it.hidden,
         );
+
         _markDirty();
         return;
       }
@@ -695,22 +708,29 @@ class CategoryEditViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final plan = await _planRepo.getLatestPlanForCurrentUser();
+      final uid = _authRepo.cachedUid ?? _authRepo.currentUserId;
+      final cachedSnapshot = uid == null ? null : _planCacheRepo.loadSnapshot(uid);
+
+      final plan = cachedSnapshot?.plan ??
+          await _planRepo.getLatestPlanForCurrentUser();
 
       if (plan == null) {
         _error = '저장할 플랜이 없습니다.';
         return false;
       }
 
-      final ref = await _refRepo.loadAll();
+      final ref = cachedSnapshot?.refData ?? await _refRepo.loadAll();
       ref.planId = plan.planId;
 
       final applyDate = _normalizeDay(_selectedDate);
 
-      final activeDaily = _findDailyConsumeForDate(
-        ref.dailyConsumeMap.values,
-        applyDate,
-      );
+// ✅ 저장 기준도 primary 기준으로 통일
+      ref.setReferenceDate(applyDate);
+
+      final activeDailyId = ref.primaryDailyConsumeId;
+      final activeDaily = activeDailyId == null
+          ? null
+          : ref.dailyConsumeMap[activeDailyId];
 
       if (activeDaily == null) {
         _error = '선택 날짜의 dailyConsume을 찾지 못했습니다.';
@@ -756,14 +776,10 @@ class CategoryEditViewModel extends ChangeNotifier {
         return false;
       }
 
-      // 플랜 카테고리 저장소에 현재 플랜 카테고리들을 등록/갱신.
-      // 삭제된 카테고리는 여기서 지우지 않음.
-      // 같은 이름 재추가 시 기존 categoryKey를 재사용하기 위한 영구 저장소 역할.
-      await _upsertPlanCategoriesFromEntries(newEntries);
-
       final modEndDate = _normalizeDay(
         plan.modEndDate ?? plan.endDate ?? applyDate,
       );
+
       final safeModEnd = applyDate.isAfter(modEndDate)
           ? applyDate
           : modEndDate;

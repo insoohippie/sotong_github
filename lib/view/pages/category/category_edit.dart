@@ -65,7 +65,12 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     _nameSheetSlide = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _nameSheetCtrl, curve: Curves.easeOut));
+    ).animate(
+      CurvedAnimation(
+        parent: _nameSheetCtrl,
+        curve: Curves.easeOut,
+      ),
+    );
     _nameScrimFade = CurvedAnimation(
       parent: _nameSheetCtrl,
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
@@ -79,14 +84,23 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     _amountSheetSlide = Tween<Offset>(
       begin: const Offset(0, 1),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _amountSheetCtrl, curve: Curves.easeOut));
+    ).animate(
+      CurvedAnimation(
+        parent: _amountSheetCtrl,
+        curve: Curves.easeOut,
+      ),
+    );
     _amountScrimFade = CurvedAnimation(
       parent: _amountSheetCtrl,
       curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
     );
 
+    // ✅ CategoryEditViewModel은 main.dart에서 전역 Provider로 살아있기 때문에
+    // initOnce()를 쓰면 이전 draft가 남을 수 있음.
+    // 페이지에 들어올 때마다 오늘 기준으로 최신 플랜/RefData를 다시 로드한다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CategoryEditViewModel>().initOnce();
+      if (!mounted) return;
+      context.read<CategoryEditViewModel>().refreshForToday();
     });
   }
 
@@ -194,7 +208,7 @@ class _CategoryEditPageState extends State<CategoryEditPage>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('카테고리가 저장되었습니다.')),
       );
-      if (popOnSuccess) Navigator.pop(context);
+      if (popOnSuccess) Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(vm.error ?? '저장에 실패했습니다.')),
@@ -340,12 +354,36 @@ class _CategoryEditPageState extends State<CategoryEditPage>
         required String emoji,
       }) async {
     final trimmed = name.trim();
-    if (trimmed.isEmpty) return;
 
+    // ✅ 1) 이름 입력 단계에서 바로 검사
+    // - 추가 모드: validateNewCategoryName()으로 중복 검사
+    // - 수정 모드: 기존 이름 그대로면 통과
+    // - 수정 모드에서 다른 이름으로 바꾸면 VM의 draftUpdateMeta / draftUpdateRefMeta가 최종 방어
+    if (_editingCategoryId == null) {
+      final message = vm.validateNewCategoryName(
+        isPlan: _editingIsPlan,
+        name: trimmed,
+      );
+
+      if (message != null) {
+        _showCategoryToast(message);
+        return;
+      }
+    } else {
+      if (trimmed.isEmpty) {
+        _showCategoryToast('카테고리 이름을 입력해주세요.');
+        return;
+      }
+    }
+
+    // ✅ 2) 검사 통과 후에만 이름 시트 닫기
     await _closeNameSheet(setFalse: true);
     if (!mounted) return;
 
+    // ✅ 3) 새 카테고리 추가
     if (_editingCategoryId == null) {
+      // 플랜 카테고리 추가:
+      // 이름 검사를 통과했을 때만 금액 입력창을 연다.
       if (_editingIsPlan) {
         final newKey = CategoryKey.newKey();
 
@@ -358,11 +396,26 @@ class _CategoryEditPageState extends State<CategoryEditPage>
         return;
       }
 
-      vm.draftAddRef(name: trimmed, emoji: emoji);
+      // 참고 카테고리 추가:
+      // 이름 검사를 통과했으므로 바로 추가한다.
+      final added = vm.draftAddRef(
+        name: trimmed,
+        emoji: emoji,
+      );
+
+      if (added == null) {
+        // 혹시 UI 사전검사를 통과했는데 VM에서 막힌 경우 최종 안내
+        final notice = vm.noticeMessage;
+        _showCategoryToast(notice ?? '카테고리를 추가하지 못했어요.');
+        vm.consumeNoticeMessage();
+        return;
+      }
+
       _clearEditingState();
       return;
     }
 
+    // ✅ 4) 기존 카테고리 이름/이모지 수정
     if (_editingIsPlan) {
       vm.draftUpdateMeta(
         categoryKey: _editingCategoryId!,
@@ -414,7 +467,7 @@ class _CategoryEditPageState extends State<CategoryEditPage>
       final exists = vm.draftPlan.any((e) => e.categoryKey == id);
 
       if (!exists) {
-        await vm.draftAddCategory(
+        vm.draftAddCategory(
           isPlan: true,
           categoryKey: id,
           name: name,
@@ -450,6 +503,53 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     _editingAmount = 1;
     _pendingMoveRefItem = null;
     _pendingMoveTargetIndex = null;
+  }
+
+  void _showCategoryToast(String message) {
+    final overlay = Overlay.of(context, rootOverlay: true);
+    if (overlay == null) return;
+
+    final entry = OverlayEntry(
+      builder: (_) => Positioned(
+        left: 16,
+        right: 16,
+        bottom: 110,
+        child: IgnorePointer(
+          child: Material(
+            color: Colors.transparent,
+            child: Center(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 320),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.78),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'Pretendard Variable',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(entry);
+
+    Future.delayed(const Duration(milliseconds: 1400), () {
+      entry.remove();
+    });
   }
 
   // =========================================================
@@ -758,6 +858,16 @@ class _CategoryEditPageState extends State<CategoryEditPage>
         final dailySum = _calcDailySum(vm.draftPlan);
         final reachDate = vm.projectedGoalDate;
         final theme = Theme.of(context);
+        final notice = vm.noticeMessage;
+
+        if (notice != null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+
+            _showCategoryToast(notice);
+            vm.consumeNoticeMessage();
+          });
+        }
 
         return WillPopScope(
           onWillPop: () => _handleBack(vm),

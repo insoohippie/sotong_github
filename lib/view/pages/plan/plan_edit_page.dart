@@ -17,7 +17,8 @@ import '../../../component/theme/app_colors.dart';
 import '../../../model/refData/entry.dart';
 import '../../../model/plan/total_plan.dart';
 import '../../../model/refData/ref_data.dart';
-import '../../../repository/plan_category_repository.dart';
+import '../../../repository/auth_repository.dart';
+import '../../../repository/plan_cache_repository.dart';
 import '../../../repository/plan_repository.dart';
 import '../../../repository/ref_data_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
@@ -68,18 +69,40 @@ class _PlanEditPageState extends State<PlanEditPage> {
       double.tryParse(c.text.replaceAll(',', '')) ?? 0.0;
 
   Future<_PlanEditInitData> _loadInitialData() async {
+    final authRepo = context.read<AuthRepository>();
+    final cacheRepo = context.read<PlanCacheRepository>();
     final planRepo = context.read<PlanRepository>();
     final refRepo = context.read<RefDataRepository>();
 
+    final uid = authRepo.cachedUid ?? authRepo.currentUserId;
+    final cachedSnapshot = uid == null ? null : cacheRepo.loadSnapshot(uid);
 
+    // ✅ 일반 플랜 수정 진입에서는 캐시 우선
+    // widget.initialPlan은 캐시가 없을 때만 fallback
     TotalPlan? plan =
-        widget.initialPlan ?? await planRepo.getLatestPlanForCurrentUser();
+        cachedSnapshot?.plan ??
+            widget.initialPlan ??
+            await planRepo.getLatestPlanForCurrentUser();
+
     if (plan == null) {
       throw StateError('편집할 플랜이 없습니다.');
     }
 
-    final refData = widget.initialRefData ?? await refRepo.loadAll();
+    final refData =
+        cachedSnapshot?.refData ??
+            widget.initialRefData ??
+            await refRepo.loadAll();
+
     refData.planId = plan.planId;
+
+    final today = DateTime.now();
+    final planStart = plan.startDate;
+
+    final referenceDate = planStart != null && today.isBefore(planStart)
+        ? planStart
+        : today;
+
+    refData.setReferenceDate(referenceDate);
 
     return _PlanEditInitData(plan: plan, refData: refData);
   }
@@ -264,7 +287,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
     if (!mounted || stagedEntries == null) return;
 
-    await vm.applyDailyConsumeEdit(entries: stagedEntries!);
+    vm.applyDailyConsumeEdit(entries: stagedEntries!);
   }
 
   Future<void> _openPlanNameModal(
@@ -429,11 +452,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
     required RefData refData,
   }) {
     return ChangeNotifierProvider(
-      create: (context) => PlanEditViewModel(
-        plan,
-        initialRefData: refData,
-        planCategoryRepo: context.read<PlanCategoryRepository>(),
-      ),
+      create: (_) => PlanEditViewModel(plan, initialRefData: refData),
       child: Builder(
         builder: (ctx) {
           final theme = Theme.of(ctx);

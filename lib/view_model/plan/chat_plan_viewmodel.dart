@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import '../../model/category/plan_category_item.dart';
 import '../../model/plan/chat_message.dart';
 import '../../model/refData/daily_consume.dart';
 import '../../model/refData/entry.dart';
@@ -18,12 +17,10 @@ import '../../model/refData/ref_data.dart';
 import '../../model/plan/sub_plan.dart';
 import '../../model/saving_calculation_result.dart';
 import '../../repository/auth_repository.dart';
-import '../../repository/plan_category_repository.dart';
 import '../../repository/plan_repository.dart';
 import '../../repository/ref_data_repository.dart';
 import '../../repository/plan_cache_repository.dart';
 import '../../services/app_session_reset_service.dart';
-import '../../services/category_key.dart';
 import '../../services/plan_debug_printer.dart';
 import '../../services/plan_saved_event_bus.dart';
 import '../services/ref_data_viewmodel.dart';
@@ -53,29 +50,24 @@ class ChatSection {
 class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
   final AuthRepository _authRepo;
   final PlanRepository _planRepo;
-  final RefDataRepository _refDataRepo;
-  final PlanCacheRepository _planCacheRepo;
-  final PlanCategoryRepository _planCategoryRepo;
   final PlanSavedEventBus? _planSavedBus;
+  final PlanCacheRepository _planCacheRepo;
 
   ChatPlanViewModel(
-      this._authRepo,
-      this._planRepo,
-      this._refDataRepo,
-      this._planCacheRepo,
-      this._planCategoryRepo, {
-        PlanSavedEventBus? planSavedBus,
-      })  : _planSavedBus = planSavedBus,
-        _mutationRepository = PlanMutationRepository() {
+    this._authRepo,
+    this._planRepo,
+    this._refDataRepo,
+    this._planCacheRepo, {
+    PlanSavedEventBus? planSavedBus,
+  }) : _planSavedBus = planSavedBus,
+       _mutationRepository = PlanMutationRepository() {
     _mutationService = PlanMutationService(_mutationRepository);
     _refDataVM = RefDataViewModel(_refData);
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
     _calculationVM = SavingPlanCalculator(plan: _totalPlan);
-
     debugPrint(
       '[ChatPlanViewModel] ctor: cachedHasPlan=${_authRepo.cachedHasPlan}',
     );
-
     unawaited(_initializePlanState());
   }
 
@@ -249,6 +241,7 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
   bool get buttonClicked => _buttonClicked;
 
   late RefDataViewModel _refDataVM;
+  final RefDataRepository _refDataRepo;
   bool _refDataLoaded = false;
   late TotalPlanViewModel _totalPlanVM;
   late SavingPlanCalculator _calculationVM;
@@ -696,86 +689,6 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
       final pending = List<Future<void>>.from(_pendingRefDataWrites);
       await Future.wait(pending);
     }
-  }
-  String _fallbackEmojiByName(String name, {String fallback = '💰'}) {
-    switch (name.trim()) {
-      case '급여':
-        return '💼';
-      case '식비':
-        return '🍽️';
-      case '카페':
-        return '☕';
-      case '쇼핑':
-        return '🛍️';
-      case '여가':
-        return '🎮';
-      case '주거':
-        return '🏠';
-      case '통신':
-        return '📱';
-      case '교통':
-        return '🚌';
-      case '구독':
-        return '📺';
-      default:
-        return fallback;
-    }
-  }
-
-  Future<void> _upsertInitialPlanCategoriesFromRefData() async {
-    final dailyEntries = <Entry>[];
-
-    for (final daily in _refData.dailyConsumeMap.values) {
-      for (final entry in daily.entries) {
-        if (entry.type != EntryType.daily) continue;
-
-        final key = entry.categoryKey.trim();
-        final name = entry.category.trim();
-
-        if (!CategoryKey.isValid(key)) continue;
-        if (name.isEmpty) continue;
-
-        dailyEntries.add(entry);
-      }
-    }
-
-    if (dailyEntries.isEmpty) {
-      debugPrint('[PlanCategories] no daily consume entries to register');
-      return;
-    }
-
-    final now = DateTime.now();
-
-    final items = <PlanCategoryItem>[];
-    final seenKeys = <String>{};
-
-    for (final entry in dailyEntries) {
-      final key = entry.categoryKey.trim();
-      final name = entry.category.trim();
-
-      if (seenKeys.contains(key)) continue;
-      seenKeys.add(key);
-
-      items.add(
-        PlanCategoryItem(
-          categoryKey: key,
-          name: name,
-          emoji: entry.emoji.trim().isNotEmpty
-              ? entry.emoji.trim()
-              : _fallbackEmojiByName(name),
-          createdAt: now,
-          updatedAt: now,
-          lastUsedAt: now,
-          isArchived: false,
-        ),
-      );
-    }
-
-    await _planCategoryRepo.upsertMany(items);
-
-    debugPrint(
-      '[PlanCategories] registered initial plan categories count=${items.length}',
-    );
   }
 
   Future<void> loadRemoteRefData() async {
@@ -1427,8 +1340,6 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
         _refData.planId = _totalPlan.planId;
         _refDataVM = RefDataViewModel(_refData);
       }
-
-      await _upsertInitialPlanCategoriesFromRefData();
       await _persistRefDataSnapshot(
         incomes: _refData.monthlyIncomeMap,
         consumes: _refData.monthlyConsumeMap,

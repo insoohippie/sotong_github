@@ -7,7 +7,6 @@ import '../../repository/plan_repository.dart';
 import '../../repository/ref_data_repository.dart';
 import '../../repository/plan_cache_repository.dart';
 import '../../repository/ref_category_repository.dart';
-import '../../repository/plan_category_repository.dart';
 import '../../repository/account_delete_repository.dart';
 import '../../services/app_session_reset_service.dart';
 import '../../services/plan_debug_printer.dart';
@@ -21,13 +20,11 @@ class SettingViewModel extends ChangeNotifier {
   final RefDataRepository _refDataRepository;
   final PlanCacheRepository _planCacheRepository;
   final RefCategoryRepository _refCategoryRepository;
-  final PlanCategoryRepository _planCategoryRepository;
   final AccountDeleteRepository _accountDeleteRepository;
   final AppSessionResetService _sessionResetService;
 
   bool _isDarkMode = false;
   bool get isDarkMode => _isDarkMode;
-
   bool isOnline = true;
 
   SettingViewModel(
@@ -37,7 +34,6 @@ class SettingViewModel extends ChangeNotifier {
       this._refDataRepository,
       this._planCacheRepository,
       this._refCategoryRepository,
-      this._planCategoryRepository,
       this._accountDeleteRepository,
       this._sessionResetService,
       ) {
@@ -55,11 +51,9 @@ class SettingViewModel extends ChangeNotifier {
 
   void toggleDarkMode(bool value) {
     _isDarkMode = value;
-
     try {
       Hive.box('settings').put(_kDarkModeKey, value);
     } catch (_) {}
-
     notifyListeners();
   }
 
@@ -99,19 +93,16 @@ class SettingViewModel extends ChangeNotifier {
 
   Future<void> uploadAllData() async {
     final uid = _authRepository.cachedUid ?? _authRepository.currentUserId;
-
     if (uid == null) {
       debugPrint('[SettingViewModel] upload aborted: missing uid');
       return;
     }
-
     if (!isOnline) {
       debugPrint('[SettingViewModel] upload aborted: offline');
       throw Exception('데이터 연결을 확인해 주세요');
     }
 
     _recordRepository.localMode = false;
-
     try {
       await _syncPlan(uid);
       await _syncRecords(uid);
@@ -123,7 +114,6 @@ class SettingViewModel extends ChangeNotifier {
 
   Future<void> _syncPlan(String uid) async {
     final snapshot = _planCacheRepository.loadSnapshot(uid);
-
     if (snapshot == null) {
       debugPrint('[SettingViewModel] no cached plan for upload');
       return;
@@ -133,7 +123,6 @@ class SettingViewModel extends ChangeNotifier {
       plan: snapshot.plan,
       refData: snapshot.refData,
     );
-
     debugPrint('--- Plan Tree Upload ---\n$tree');
 
     await _planRepository.replacePlan(snapshot.plan);
@@ -147,9 +136,6 @@ class SettingViewModel extends ChangeNotifier {
   Future<void> _syncCategories(String uid) async {
     debugPrint('[SettingViewModel] syncing ref categories...');
     await _refCategoryRepository.syncToRemote();
-
-    debugPrint('[SettingViewModel] syncing plan categories...');
-    await _planCategoryRepository.syncToRemote();
 
     debugPrint('[SettingViewModel] syncing ref data...');
     await _refDataRepository.syncToRemote();

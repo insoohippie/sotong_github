@@ -75,7 +75,7 @@ class _ReportCategoryBudgetChartSectionState
   String _formatAmount(int amount) {
     return amount.toString().replaceAllMapped(
       RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-      (Match m) => '${m[1]},',
+          (Match m) => '${m[1]},',
     );
   }
 
@@ -163,15 +163,15 @@ class _ReportCategoryBudgetChartSectionState
                   ReportCategoryBudgetRow? popupRow;
 
                   final selectedIndex =
-                      (_selectedSlotIndex != null &&
-                          _selectedSlotIndex! >= 0 &&
-                          _selectedSlotIndex! < slotData.length)
+                  (_selectedSlotIndex != null &&
+                      _selectedSlotIndex! >= 0 &&
+                      _selectedSlotIndex! < slotData.length)
                       ? _selectedSlotIndex!
                       : -1;
 
                   if (_showPopup && _selectedChartKey != null) {
                     final match = slotData.where(
-                      (row) => row?.categoryKey == _selectedChartKey,
+                          (row) => row?.categoryKey == _selectedChartKey,
                     );
                     if (match.isNotEmpty) {
                       popupRow = match.first;
@@ -180,35 +180,35 @@ class _ReportCategoryBudgetChartSectionState
 
                   final popupLeft = (popupRow != null && selectedIndex >= 0)
                       ? (() {
-                          const double barGap = 40;
-                          final bool placeRight = selectedIndex <= 2;
+                    const double barGap = 40;
+                    final bool placeRight = selectedIndex <= 2;
 
-                          final double chartWidth = constraints.maxWidth;
-                          final double groupCount = slotData.length.toDouble();
+                    final double chartWidth = constraints.maxWidth;
+                    final double groupCount = slotData.length.toDouble();
 
-                          // 현재 막대의 중심 x
-                          final double centerX = (groupCount <= 1)
-                              ? chartWidth / 2
-                              : (chartWidth * selectedIndex / (groupCount - 1));
+                    // 현재 막대의 중심 x
+                    final double centerX = (groupCount <= 1)
+                        ? chartWidth / 2
+                        : (chartWidth * selectedIndex / (groupCount - 1));
 
-                          // 현재 막대 너비와 비슷하게 맞춤
-                          final double barWidth = popupRow!.isTotal
-                              ? 48.0
-                              : 36.0;
-                          final double halfBarWidth = barWidth / 2;
+                    // 현재 막대 너비와 비슷하게 맞춤
+                    final double barWidth = popupRow!.isTotal
+                        ? 48.0
+                        : 36.0;
+                    final double halfBarWidth = barWidth / 2;
 
-                          final double rawLeft = placeRight
-                              // 왼쪽 3개: 막대 오른쪽에 배치
-                              ? centerX + halfBarWidth + barGap
-                              // 나머지: 막대 왼쪽에 배치
-                              : centerX - halfBarWidth - barGap - _popupWidth;
+                    final double rawLeft = placeRight
+                    // 왼쪽 3개: 막대 오른쪽에 배치
+                        ? centerX + halfBarWidth + barGap
+                    // 나머지: 막대 왼쪽에 배치
+                        : centerX - halfBarWidth - barGap - _popupWidth;
 
-                          final double maxLeft = math.max(
-                            0.0,
-                            chartWidth - _popupWidth,
-                          );
-                          return rawLeft.clamp(0.0, maxLeft);
-                        })()
+                    final double maxLeft = math.max(
+                      0.0,
+                      chartWidth - _popupWidth,
+                    );
+                    return rawLeft.clamp(0.0, maxLeft);
+                  })()
                       : 0.0;
 
                   final isEtcSelected =
@@ -220,9 +220,9 @@ class _ReportCategoryBudgetChartSectionState
 
                   final plannedDetailList = (!isEtcSelected && popupRow != null)
                       ? vm.plannedSpentDetailListForChartRange(
-                          popupRow.categoryKey,
-                          maxItems: 8,
-                        )
+                    popupRow.categoryKey,
+                    maxItems: 8,
+                  )
                       : const <({String date, int spent})>[];
 
                   return Stack(
@@ -283,10 +283,10 @@ class _ReportCategoryBudgetChartSectionState
                                   if (event is! FlTapUpEvent) return;
                                   final justDragged =
                                       _lastDragEndAt != null &&
-                                      DateTime.now()
+                                          DateTime.now()
                                               .difference(_lastDragEndAt!)
                                               .inMilliseconds <
-                                          120;
+                                              120;
                                   if (_isWindowDragging || justDragged) return;
                                   if (response == null ||
                                       response.spot == null) {
@@ -325,9 +325,9 @@ class _ReportCategoryBudgetChartSectionState
                                         }
                                         final isSelected =
                                             _showSelectionLayout &&
-                                            idx == _selectedSlotIndex &&
-                                            row.categoryKey ==
-                                                _selectedChartKey;
+                                                idx == _selectedSlotIndex &&
+                                                row.categoryKey ==
+                                                    _selectedChartKey;
                                         return Padding(
                                           padding: const EdgeInsets.only(
                                             top: 8,
@@ -340,7 +340,7 @@ class _ReportCategoryBudgetChartSectionState
                                                   ? FontWeight.w700
                                                   : FontWeight.w500,
                                               color:
-                                                  theme.colorScheme.onSurface,
+                                              theme.colorScheme.onSurface,
                                             ),
                                           ),
                                         );
@@ -482,8 +482,8 @@ class _ReportCategoryBudgetChartSectionState
   }
 
   List<ReportCategoryBudgetRow?> _buildChartSlots(
-    List<ReportCategoryBudgetRow> rows,
-  ) {
+      List<ReportCategoryBudgetRow> rows,
+      ) {
     final categories = rows.where((r) => !r.isTotal).toList(growable: false);
 
     ReportCategoryBudgetRow? totalRow;
@@ -675,10 +675,10 @@ class _ReportCategoryBudgetChartSectionState
   }
 
   List<BarChartGroupData> _buildBarGroups(
-    List<ReportCategoryBudgetRow?> data,
-    double maxY,
-    ThemeData theme,
-  ) {
+      List<ReportCategoryBudgetRow?> data,
+      double maxY,
+      ThemeData theme,
+      ) {
     return List.generate(data.length, (index) {
       final r = data[index];
 
@@ -716,8 +716,8 @@ class _ReportCategoryBudgetChartSectionState
           hasSelection && _showSelectionLayout && !_isCollapsing;
       final isSelected =
           layoutActive &&
-          index == _selectedSlotIndex &&
-          r.categoryKey == _selectedChartKey;
+              index == _selectedSlotIndex &&
+              r.categoryKey == _selectedChartKey;
 
       final baseWidth = r.isTotal ? 48.0 : 36.0;
       final rodWidth = layoutActive
@@ -799,8 +799,8 @@ class _ReportCategoryBudgetChartSectionState
           lowerColor = isOverBudget
               ? greyBar
               : (isSelected
-                    ? AppColors.primary.withOpacity(0.92)
-                    : AppColors.primary);
+              ? AppColors.primary.withOpacity(0.92)
+              : AppColors.primary);
         }
         stackItems.add(BarChartRodStackItem(0, lowerHeight, lowerColor));
       }
@@ -846,8 +846,17 @@ class _ReportCategoryBudgetChartSectionState
 
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        Navigator.of(context, rootNavigator: true).pushNamed('/category_edit');
+      onTap: () async {
+        final changed = await Navigator.of(
+          context,
+          rootNavigator: true,
+        ).pushNamed('/category_edit');
+
+        if (!context.mounted) return;
+
+        if (changed == true) {
+          await context.read<ReportViewModel>().refreshAfterPlanUpdated();
+        }
       },
       child: Container(
         height: 34,

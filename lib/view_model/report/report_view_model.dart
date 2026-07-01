@@ -8,6 +8,7 @@ import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/services/record_event_bus.dart';
 import 'package:sotong_local/services/plan_saved_event_bus.dart';
 
+import '../../model/refData/daily_consume.dart';
 import '../../repository/record_repository.dart';
 import '../../repository/ref_data_repository.dart';
 import '../../repository/plan_repository.dart';
@@ -813,6 +814,102 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     );
   }
 
+  ReportRange? _effectiveBudgetRangeForChart(ReportRange raw) {
+    final plan = _latestPlan;
+
+    DateTime start = _dateOnly(raw.start);
+    DateTime end = _dateOnly(raw.end);
+
+    if (plan != null) {
+      final rawPlanStart = plan.startDate ?? plan.creationDate;
+      final rawPlanEnd = plan.modEndDate ?? plan.endDate;
+
+      if (rawPlanStart != null) {
+        final planStart = _dateOnly(rawPlanStart);
+        if (planStart.isAfter(start)) {
+          start = planStart;
+        }
+      }
+
+      if (rawPlanEnd != null) {
+        final planEnd = _dateOnly(rawPlanEnd);
+        if (planEnd.isBefore(end)) {
+          end = planEnd;
+        }
+      }
+    }
+
+    if (end.isBefore(start)) return null;
+
+    return ReportRange(start: start, end: end);
+  }
+
+  String? _dailyConsumeIdFromMiniPlanOn(DateTime date) {
+    final plan = _latestPlan;
+    if (plan == null) return null;
+
+    final day = _dateOnly(date);
+
+    final key =
+        '${day.year.toString().padLeft(4, '0')}'
+        '${day.month.toString().padLeft(2, '0')}';
+
+    final subPlan = plan.subPlans[key];
+
+    if (subPlan != null) {
+      for (final mini in subPlan.orderedMinis()) {
+        final start = _dateOnly(mini.startDate);
+        final end = _dateOnly(mini.endDate);
+
+        if (!day.isBefore(start) && !day.isAfter(end)) {
+          final id = mini.dailyConsumeId.trim();
+          return id.isEmpty ? null : id;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  DailyConsume? _dailyConsumeFromMiniPlanOn(DateTime date) {
+    final refData = _refData;
+    if (refData == null) return null;
+
+    final dailyId = _dailyConsumeIdFromMiniPlanOn(date);
+    if (dailyId == null) return null;
+
+    return refData.dailyConsumeMap[dailyId];
+  }
+
+  /// miniPlan 연결이 없는 예외 상황에서만 쓰는 fallback.
+  /// 기존 방식처럼 날짜 범위로 찾되, 같은 날짜에 여러 개가 겹치면
+  /// startDate가 가장 늦은 것 하나만 선택한다.
+  DailyConsume? _fallbackDailyConsumeOn(DateTime date) {
+    final refData = _refData;
+    if (refData == null) return null;
+
+    final day = _dateOnly(date);
+
+    final candidates = refData.dailyConsumeMap.values.where((dc) {
+      if (!dc.isActive) return false;
+
+      final start = _dateOnly(dc.startDate);
+      final end = _dateOnly(dc.endDate);
+
+      return !day.isBefore(start) && !day.isAfter(end);
+    }).toList();
+
+    if (candidates.isEmpty) return null;
+
+    candidates.sort((a, b) {
+      final startCompare = b.startDate.compareTo(a.startDate);
+      if (startCompare != 0) return startCompare;
+      return b.id.compareTo(a.id);
+    });
+
+    return candidates.first;
+  }
+
   ReportCategoryBudgetChart _buildBudgetChart({
     required ReportRange range,
   }) {
@@ -823,37 +920,50 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     final emojiByKey = <String, String>{};
     final spentByKey = <String, int>{};
 
-    final refData = _refData;
+    // ✅ 예산은 차트 전체 기간을 그대로 쓰되,
+    // 플랜 시작일/종료일 밖은 제외한다.
+    //
+    // 예:
+    // 화면 표시: 6/29 ~ 7/5
+    // 플랜 시작: 7/1
+    // 예산 계산: 7/1 ~ 7/5
+    final budgetRange = _effectiveBudgetRangeForChart(range);
 
-    if (refData != null) {
-      for (final dc in refData.dailyConsumeMap.values) {
-        final overlap = _overlapDays(
-          rangeStart: range.start,
-          rangeEnd: range.end,
-          docStart: _dateOnly(dc.startDate),
-          docEnd: _dateOnly(dc.endDate),
-        );
+    if (budgetRange != null) {
+      DateTime cursor = _dateOnly(budgetRange.start);
+      final end = _dateOnly(budgetRange.end);
 
-        if (overlap <= 0) continue;
+      while (!cursor.isAfter(end)) {
+        // ✅ 1순위: 현재 날짜를 담당하는 miniPlan.dailyConsumeId
+        // ✅ 2순위: 예외 상황에서만 날짜 범위 fallback
+        final dc = _dailyConsumeFromMiniPlanOn(cursor) ??
+            _fallbackDailyConsumeOn(cursor);
 
-        for (final e in dc.entries) {
-          final key = e.categoryKey.trim().isEmpty
-              ? etcKey
-              : e.categoryKey.trim();
+        if (dc != null) {
+          for (final e in dc.entries) {
+            final key = e.categoryKey.trim().isEmpty
+                ? etcKey
+                : e.categoryKey.trim();
 
-          final add = (e.amount * overlap).round();
+            // ✅ 하루씩 돌기 때문에 amount를 overlap 곱하지 않고 1일치만 더함
+            final add = e.amount.round();
 
-          plannedByKey[key] = (plannedByKey[key] ?? 0) + add;
+            plannedByKey[key] = (plannedByKey[key] ?? 0) + add;
 
-          nameByKey[key] ??=
-          e.category.trim().isEmpty ? '기타' : e.category.trim();
+            nameByKey[key] ??=
+            e.category.trim().isEmpty ? '기타' : e.category.trim();
 
-          emojiByKey[key] ??=
-          e.emoji.trim().isEmpty ? '💰' : e.emoji.trim();
+            emojiByKey[key] ??=
+            e.emoji.trim().isEmpty ? '💰' : e.emoji.trim();
+          }
         }
+
+        cursor = cursor.add(const Duration(days: 1));
       }
     }
 
+    // ✅ 실제 소비는 기존처럼 오늘까지만 본다.
+    // 기존 spentChartRange가 미래 날짜를 오늘로 잘라주고 있음.
     final spentDays = _daysInRange(spentChartRange);
 
     for (final d in spentDays) {
@@ -863,6 +973,13 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
             : e.categoryKey.trim();
 
         spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
+
+        final keyTrim = e.categoryKey.trim();
+        final nameTrim = e.category.trim();
+
+        if (keyTrim.isNotEmpty && nameTrim.isNotEmpty) {
+          _lastRecordNameByKey[keyTrim] = nameTrim;
+        }
       }
     }
 
