@@ -4,15 +4,21 @@ import '../../model/category/category_edit_item.dart';
 import '../../model/category/ref_category_item.dart';
 import '../../model/refData/daily_consume.dart';
 import '../../model/refData/entry.dart';
+import '../../repository/auth_repository.dart';
+import '../../repository/plan_cache_repository.dart';
 import '../../repository/ref_data_repository.dart';
 import '../../repository/ref_category_repository.dart';
 
 class SpendingCategoryViewModel extends ChangeNotifier {
   SpendingCategoryViewModel(
+      this._authRepo,
+      this._planCacheRepo,
       this._refDataRepo,
       this._refCatRepo,
       );
 
+  final AuthRepository _authRepo;
+  final PlanCacheRepository _planCacheRepo;
   final RefDataRepository _refDataRepo;
   final RefCategoryRepository _refCatRepo;
 
@@ -125,28 +131,54 @@ class SpendingCategoryViewModel extends ChangeNotifier {
   // -------------------------
   Future<void> _loadPlanInternal() async {
     try {
-      final ref = await _refDataRepo.loadAll();
+      final uid = _authRepo.cachedUid ?? _authRepo.currentUserId;
+      final cachedSnapshot = uid == null ? null : _planCacheRepo.loadSnapshot(uid);
 
-      final daily = _findDailyConsumeForDate(
-        ref.dailyConsumeMap.values,
-        _selectedDate,
-      );
+      // ✅ 기록 바텀시트도 캐시 우선
+      final ref = cachedSnapshot?.refData ?? await _refDataRepo.loadAll();
 
-      if (daily == null) {
+      // ✅ 선택 날짜 기준으로 primaryDailyConsumeId 갱신
+      ref.setReferenceDate(_selectedDate);
+
+      // ✅ 카테고리 수정창/플랜 수정창과 기준 통일
+      final entries = ref.primaryDailyConsumeEntries;
+
+      if (entries.isEmpty) {
         _planItems = const [];
+
+        debugPrint(
+          '[SpendingCategory] primaryDailyConsumeEntries empty '
+              'selectedDate=$_selectedDate '
+              'primaryDailyConsumeId=${ref.primaryDailyConsumeId} '
+              'dailyCount=${ref.dailyConsumeMap.length}',
+        );
+
         return;
       }
 
+      debugPrint(
+        '[SpendingCategory] loaded primary daily '
+            'selectedDate=$_selectedDate '
+            'primaryDailyConsumeId=${ref.primaryDailyConsumeId} '
+            'entries=${entries.map((e) => '${e.category}:${e.amount}').join(', ')}',
+      );
+
       final items = <CategoryEditItem>[];
-      for (final e in daily.entries) {
+
+      for (final e in entries) {
         if (e.type != EntryType.daily) continue;
 
         final key = e.categoryKey.trim().isNotEmpty
             ? e.categoryKey.trim()
-            : (e.category.trim().isNotEmpty ? e.category.trim() : 'unknown_${e.idx}');
+            : (e.category.trim().isNotEmpty
+            ? e.category.trim()
+            : 'unknown_${e.idx}');
 
         final name = e.category.trim().isNotEmpty ? e.category.trim() : key;
-        final emoji = e.emoji.trim().isNotEmpty ? e.emoji : _fallbackEmojiByName(name);
+
+        final emoji = e.emoji.trim().isNotEmpty
+            ? e.emoji.trim()
+            : _fallbackEmojiByName(name);
 
         items.add(
           CategoryEditItem(
@@ -161,8 +193,10 @@ class SpendingCategoryViewModel extends ChangeNotifier {
       }
 
       items.sort((a, b) => a.order.compareTo(b.order));
+
       _planItems = [
-        for (int i = 0; i < items.length; i++) items[i].copyWith(order: i),
+        for (int i = 0; i < items.length; i++)
+          items[i].copyWith(order: i),
       ];
     } catch (e) {
       _error = e.toString();
