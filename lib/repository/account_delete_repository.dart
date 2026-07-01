@@ -39,6 +39,7 @@ class AccountDeleteRepository {
     await _deleteCollection(userRef.collection('plans'));
     await _deleteCollection(userRef.collection('records'));
     await _deleteCollection(userRef.collection('refCategories'));
+    await _deleteCollection(userRef.collection('planCategories'));
 
     final refRoot = userRef.collection('refData').doc('_root');
 
@@ -75,6 +76,7 @@ class AccountDeleteRepository {
     await _deleteKeysByPrefix('monthly_spending', '$uid:');
     await _deleteKeysByPrefix('refData', '$uid:refdata:');
     await _deleteKeysByPrefix('ref_categories', '$uid:refcat:');
+    await _deleteKeysByPrefix('plan_categories', '$uid:plancat');
     await _deleteKeysByPrefix('past_plans', '$uid:');
     await _deleteKeysByPrefix('notification_read', '$uid:');
     await _deleteKeysByPrefix('notification_cache', '$uid:');

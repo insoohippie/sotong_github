@@ -87,16 +87,16 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
             .toDouble();
         final planProgress = planPercent / 100.0;
         final userProgress = userPercent / 100.0;
-        final dailySaving = vm.currentMiniDailyNetSaving;
+        final averageDailySaving = vm.averageDailySaving;
         final savedDiff = vm.actualSavedNow - vm.plannedSavedNow;
 
         String paceText;
         Color paceColor;
-        if (dailySaving <= 0) {
+        if (averageDailySaving <= 0) {
           paceText = '플랜 대비 차이를 계산할 수 없어요';
           paceColor = theme.colorScheme.onSurfaceVariant;
         } else {
-          final dayDiff = savedDiff / dailySaving;
+          final dayDiff = savedDiff / averageDailySaving;
           final absDays = dayDiff.abs().toStringAsFixed(1);
           if (absDays == '0.0') {
             paceText = '플랜과 같은 속도로 진행 중이에요';
@@ -375,10 +375,10 @@ class _GoalPaceContainer extends StatelessWidget {
         daysText = '평균 페이스와 같아요';
         daysColor = neutralColor;
       } else if (dayDiff > 0) {
-        daysText = '평균 페이스보다 $dayDiffText일 빨라요';
+        daysText = '$dayDiffText일 빨라요';
         daysColor = aheadColor;
       } else {
-        daysText = '평균 페이스보다 $dayDiffText일 느려요';
+        daysText = '$dayDiffText일 느려요';
         daysColor = behindColor;
       }
     }
@@ -420,7 +420,12 @@ class _GoalPaceContainer extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    const Text('💰', style: TextStyle(fontSize: 16)),
+                    const _PaceIcon(
+                      child: Text(
+                        '💰',
+                        style: TextStyle(fontSize: 16, height: 1),
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       '금액',
@@ -446,10 +451,12 @@ class _GoalPaceContainer extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    const Icon(
-                      Icons.calendar_today,
-                      size: 16,
-                      color: Color(0xFFFF5F5F),
+                    const _PaceIcon(
+                      child: Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: Color(0xFFFF5F5F),
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -477,6 +484,17 @@ class _GoalPaceContainer extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _PaceIcon extends StatelessWidget {
+  const _PaceIcon({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(width: 20, height: 20, child: Center(child: child));
   }
 }
 

@@ -17,6 +17,7 @@ import '../../../component/theme/app_colors.dart';
 import '../../../model/refData/entry.dart';
 import '../../../model/plan/total_plan.dart';
 import '../../../model/refData/ref_data.dart';
+import '../../../repository/plan_category_repository.dart';
 import '../../../repository/plan_repository.dart';
 import '../../../repository/ref_data_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
@@ -263,7 +264,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
 
     if (!mounted || stagedEntries == null) return;
 
-    vm.applyDailyConsumeEdit(entries: stagedEntries!);
+    await vm.applyDailyConsumeEdit(entries: stagedEntries!);
   }
 
   Future<void> _openPlanNameModal(
@@ -428,7 +429,11 @@ class _PlanEditPageState extends State<PlanEditPage> {
     required RefData refData,
   }) {
     return ChangeNotifierProvider(
-      create: (_) => PlanEditViewModel(plan, initialRefData: refData),
+      create: (context) => PlanEditViewModel(
+        plan,
+        initialRefData: refData,
+        planCategoryRepo: context.read<PlanCategoryRepository>(),
+      ),
       child: Builder(
         builder: (ctx) {
           final theme = Theme.of(ctx);

@@ -1,10 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color, IconData, Icons;
 import 'package:intl/intl.dart';
 
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/services/record_event_bus.dart';
+import 'package:sotong_local/services/plan_saved_event_bus.dart';
 
 import '../../repository/record_repository.dart';
 import '../../repository/ref_data_repository.dart';
@@ -17,6 +19,7 @@ import '../../model/report/report_models.dart';
 import '../../model/plan/total_plan.dart';
 import '../../repository/auth_repository.dart';
 import '../../services/app_session_reset_service.dart';
+import '../services/saving_progress_service.dart';
 
 class ReportViewModel extends ChangeNotifier implements SessionResettable {
   ReportViewModel(
@@ -25,12 +28,22 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
       this._planRepo,
       this._authRepo, {
         RecordEventBus? eventBus,
+        PlanSavedEventBus? planSavedBus,
       }) {
     if (eventBus != null) {
       _eventSub = eventBus.stream.listen((_) {
         _spendingDebounce?.cancel();
         _spendingDebounce = Timer(const Duration(milliseconds: 120), () async {
           await refreshAfterSpendingUpdated();
+        });
+      });
+    }
+
+    if (planSavedBus != null) {
+      _planSavedSub = planSavedBus.stream.listen((_) {
+        _planDebounce?.cancel();
+        _planDebounce = Timer(const Duration(milliseconds: 120), () async {
+          await refreshAfterPlanUpdated();
         });
       });
     }
@@ -41,10 +54,16 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
   final PlanRepository _planRepo;
   final AuthRepository _authRepo;
 
+  final SavingProgressService _savingProgressService =
+  const SavingProgressService();
+
   String? _loadedUid;
 
   StreamSubscription<RecordUpdatedEvent>? _eventSub;
+  StreamSubscription<dynamic>? _planSavedSub;
+
   Timer? _spendingDebounce;
+  Timer? _planDebounce;
   Timer? _savingTicker;
 
   int _monthCategoryTabIndex = 3;
@@ -66,6 +85,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
   int _insightIndex = 0;
   int get insightIndex => _insightIndex;
+
   void setInsightIndex(int i) {
     _insightIndex = i;
     notifyListeners();
@@ -77,6 +97,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
   void changeMonthSection(int delta) {
     var y = monthSectionYear;
     var m = monthSectionMonth + delta;
+
     if (m < 1) {
       m = 12;
       y -= 1;
@@ -84,6 +105,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
       m = 1;
       y += 1;
     }
+
     monthSectionYear = y;
     monthSectionMonth = m;
     _rebuildAll();
@@ -120,8 +142,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
   bool _didInit = false;
 
   Future<void> loadInitial() async {
-    final currentUid =
-        _authRepo.cachedUid ?? _authRepo.currentUserId;
+    final currentUid = _authRepo.cachedUid ?? _authRepo.currentUserId;
 
     if (_loadedUid != currentUid) {
       _loadedUid = currentUid;
@@ -167,10 +188,15 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
   @override
   void resetSession() {
     _loadedUid = null;
+
     _savingTicker?.cancel();
     _savingTicker = null;
+
     _spendingDebounce?.cancel();
     _spendingDebounce = null;
+
+    _planDebounce?.cancel();
+    _planDebounce = null;
 
     _resetUserScopedState();
     notifyListeners();
@@ -182,11 +208,19 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     if (_rangeType == ReportRangeType.weekly) {
       final monday = now.subtract(Duration(days: (now.weekday + 6) % 7));
       final sunday = monday.add(const Duration(days: 6));
-      return ReportRange(start: _dateOnly(monday), end: _dateOnly(sunday));
+
+      return ReportRange(
+        start: _dateOnly(monday),
+        end: _dateOnly(sunday),
+      );
     } else {
       final start = DateTime(now.year, now.month, 1);
       final end = DateTime(now.year, now.month + 1, 0);
-      return ReportRange(start: _dateOnly(start), end: _dateOnly(end));
+
+      return ReportRange(
+        start: _dateOnly(start),
+        end: _dateOnly(end),
+      );
     }
   }
 
@@ -202,15 +236,20 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     );
   }
 
-  String get rangeLabel => (_rangeType == ReportRangeType.weekly) ? '주간' : '월간';
+  String get rangeLabel {
+    return _rangeType == ReportRangeType.weekly ? '주간' : '월간';
+  }
 
   String get chartRangeText {
     final r = chartRange;
+
     if (_rangeType == ReportRangeType.monthly) {
       return '${r.start.year}년 ${r.start.month}월';
     }
+
     final s = r.start;
     final e = r.end;
+
     return '${s.month}/${s.day}(${_dowKor(s.weekday)}) ~ ${e.month}/${e.day}(${_dowKor(e.weekday)})';
   }
 
@@ -238,7 +277,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
   List<Map<String, dynamic>> get insights => _buildReportInsights();
 
   // =====================================================
-  // 배너 인사이트 (레포트)
+  // 배너 인사이트
   // =====================================================
 
   List<Map<String, dynamic>> _buildReportInsights() {
@@ -299,21 +338,25 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     }
 
     final start = _dateOnly(planStart);
+
     return ReportRange(start: start, end: now);
   }
 
   int _daysCount(ReportRange r) {
     final s = _dateOnly(r.start);
     final e = _dateOnly(r.end);
+
     return e.difference(s).inDays + 1;
   }
 
   DayRecord? _findDayRecord(DateTime date) {
     final monthKey = _monthKey(DateTime(date.year, date.month, 1));
     final monthly = _monthCache[monthKey];
+
     if (monthly == null) return null;
 
     final dateKey = DateFormat('yyyy-MM-dd').format(_dateOnly(date));
+
     return monthly.days[dateKey];
   }
 
@@ -323,7 +366,9 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
   ({String name, int total, int avg})? _topCategoryStatsInRange(ReportRange r) {
     const etcKey = 'etc';
+
     final days = _daysInRange(r);
+
     if (days.isEmpty) return null;
 
     final spentByKey = <String, int>{};
@@ -333,12 +378,16 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
       final daySumByKey = <String, int>{};
 
       for (final e in d.spendingEntries) {
-        final key = e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
+        final key = e.categoryKey.trim().isEmpty
+            ? etcKey
+            : e.categoryKey.trim();
+
         daySumByKey[key] = (daySumByKey[key] ?? 0) + e.amount.round();
       }
 
       daySumByKey.forEach((key, amount) {
         spentByKey[key] = (spentByKey[key] ?? 0) + amount;
+
         if (amount > 0) {
           activeDaysByKey[key] = (activeDaysByKey[key] ?? 0) + 1;
         }
@@ -347,7 +396,10 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     if (spentByKey.isEmpty) return null;
 
-    final top = spentByKey.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final top = spentByKey.entries.reduce(
+          (a, b) => a.value >= b.value ? a : b,
+    );
+
     final topKey = top.key;
     final total = top.value;
     final activeDays = activeDaysByKey[topKey] ?? 1;
@@ -392,17 +444,22 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     while (!cursor.isAfter(end)) {
       final planned = _plannedDailyAmountOn(cursor);
+
       if (planned > 0) {
         eligibleDays++;
+
         final spent = _spentOnDate(cursor);
+
         if (spent <= planned) {
           successDays++;
         }
       }
+
       cursor = cursor.add(const Duration(days: 1));
     }
 
     if (eligibleDays == 0) return 0;
+
     return ((successDays / eligibleDays) * 100).round();
   }
 
@@ -412,6 +469,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     while (!cursor.isAfter(end)) {
       if (_plannedDailyAmountOn(cursor) > 0) return true;
+
       cursor = cursor.add(const Duration(days: 1));
     }
 
@@ -422,12 +480,15 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     if (ratio < 30) {
       return '목표한 일일금액 안으로 소비한 날이 $ratio%예요. 흐름을 한 번 점검해보세요.';
     }
+
     if (ratio < 60) {
       return '목표한 일일금액 안으로 소비한 날이 $ratio%예요. 조금씩 관리되고 있어요.';
     }
+
     if (ratio < 80) {
       return '목표한 일일금액 안으로 소비한 날이 $ratio%예요. 잘 관리하고 있어요.';
     }
+
     return '목표한 일일금액 안으로 소비한 날이 $ratio%예요. 아주 잘 관리하고 있어요.';
   }
 
@@ -435,29 +496,36 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     if (ratio < 30) {
       return const Color(0xFFD32F2F);
     }
+
     if (ratio < 60) {
       return const Color(0xFFF57C00);
     }
+
     if (ratio < 80) {
       return const Color(0xFF43A047);
     }
+
     return const Color(0xFF0062FF);
   }
 
   int _missingRecordDayRatioInFullPeriod() {
     final fullRange = _planFullRangeFromLatestPlan();
     final totalDays = _daysCount(fullRange);
+
     if (totalDays <= 0) return 0;
 
     int missingDays = 0;
+
     DateTime cursor = _dateOnly(fullRange.start);
     final end = _dateOnly(fullRange.end);
 
     while (!cursor.isAfter(end)) {
       final day = _findDayRecord(cursor);
+
       if (day == null) {
         missingDays++;
       }
+
       cursor = cursor.add(const Duration(days: 1));
     }
 
@@ -467,9 +535,11 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
   int _noSpendRecordedDayRatioInFullPeriod() {
     final fullRange = _planFullRangeFromLatestPlan();
     final totalDays = _daysCount(fullRange);
+
     if (totalDays <= 0) return 0;
 
     int noSpendDays = 0;
+
     DateTime cursor = _dateOnly(fullRange.start);
     final end = _dateOnly(fullRange.end);
 
@@ -492,9 +562,11 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     if (ratio == 0) {
       return '플랜 전체기간 중 기록 없는 날은 0%예요. 기록 흐름이 잘 이어지고 있어요.';
     }
+
     if (ratio < 50) {
       return '플랜 전체기간 중 기록 없는 날은 $ratio%예요. 빠진 날을 기록해보세요.';
     }
+
     return '플랜 전체기간 중 기록 없는 날은 $ratio%예요. 빈 날부터 가볍게 채워보세요.';
   }
 
@@ -502,18 +574,23 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     if (ratio == 0) {
       return '플랜 전체기간 중 무지출로 기록한 날은 0%예요.';
     }
+
     if (ratio < 20) {
       return '플랜 전체기간 중 무지출로 기록한 날은 $ratio%예요.';
     }
+
     if (ratio < 50) {
       return '플랜 전체기간 중 무지출로 기록한 날은 $ratio%예요. 무지출 흐름도 보이고 있어요.';
     }
+
     return '플랜 전체기간 중 무지출로 기록한 날은 $ratio%예요. 무지출 기록이 잘 쌓이고 있어요.';
   }
 
   int _spentOnDate(DateTime date) {
     final day = _findDayRecord(date);
+
     if (day == null) return 0;
+
     return day.spendingEntries.fold<int>(
       0,
           (sum, e) => sum + e.amount.round(),
@@ -524,7 +601,11 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     int maxItems = 8,
   }) {
     final r = chartRange;
-    return _unplannedSpentList(range: r, maxItems: maxItems);
+
+    return _unplannedSpentList(
+      range: r,
+      maxItems: maxItems,
+    );
   }
 
   List<({String date, int spent})> plannedSpentDetailListForChartRange(
@@ -575,6 +656,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     final plannedKeys = <String>{};
     final refData = _refData;
+
     if (refData != null) {
       for (final dc in refData.dailyConsumeMap.values) {
         final overlap = _overlapDays(
@@ -583,11 +665,14 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
           docStart: _dateOnly(dc.startDate),
           docEnd: _dateOnly(dc.endDate),
         );
+
         if (overlap <= 0) continue;
 
         for (final e in dc.entries) {
           final k = e.categoryKey.trim();
+
           if (k.isEmpty) continue;
+
           plannedKeys.add(k);
         }
       }
@@ -595,13 +680,18 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     final spentByKey = <String, int>{};
     final days = _daysInRange(range);
+
     for (final d in days) {
       for (final e in d.spendingEntries) {
-        final k = e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
+        final k = e.categoryKey.trim().isEmpty
+            ? etcKey
+            : e.categoryKey.trim();
+
         spentByKey[k] = (spentByKey[k] ?? 0) + e.amount.round();
 
         final keyTrim = e.categoryKey.trim();
         final nameTrim = e.category.trim();
+
         if (keyTrim.isNotEmpty && nameTrim.isNotEmpty) {
           _lastRecordNameByKey[keyTrim] = nameTrim;
         }
@@ -609,8 +699,10 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     }
 
     final unplanned = <String, int>{};
+
     spentByKey.forEach((k, v) {
       if (k == etcKey) return;
+
       if (!plannedKeys.contains(k)) {
         unplanned[k] = (unplanned[k] ?? 0) + v;
       }
@@ -630,6 +722,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     }).toList();
 
     items.sort((a, b) => b.spent.compareTo(a.spent));
+
     return items.take(maxItems).toList();
   }
 
@@ -648,7 +741,9 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
       final r = chartRange;
       await _ensureMonthsLoadedForRange(r);
 
-      await _ensureMonthLoaded(DateTime(monthSectionYear, monthSectionMonth, 1));
+      await _ensureMonthLoaded(
+        DateTime(monthSectionYear, monthSectionMonth, 1),
+      );
 
       _budgetChart = _buildBudgetChart(range: r);
 
@@ -665,6 +760,16 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
   Future<void> refreshAfterSpendingUpdated() async {
     _invalidateMonthsForRefresh();
+    await _rebuildAll();
+  }
+
+  Future<void> refreshAfterPlanUpdated() async {
+    _invalidateMonthsForRefresh();
+
+    _refData = null;
+    _latestPlan = null;
+    _budgetChart = null;
+
     await _rebuildAll();
   }
 
@@ -688,20 +793,29 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
   void _invalidateMonthsForRefresh() {
     final r = chartRange;
     final months = _monthsCovered(_dateOnly(r.start), _dateOnly(r.end));
+
     for (final m in months) {
       _monthCache.remove(_monthKey(DateTime(m.year, m.month, 1)));
     }
 
     final full = _planFullRangeFromLatestPlan();
-    final fullMonths = _monthsCovered(_dateOnly(full.start), _dateOnly(full.end));
+    final fullMonths = _monthsCovered(
+      _dateOnly(full.start),
+      _dateOnly(full.end),
+    );
+
     for (final m in fullMonths) {
       _monthCache.remove(_monthKey(DateTime(m.year, m.month, 1)));
     }
 
-    _monthCache.remove(_monthKey(DateTime(monthSectionYear, monthSectionMonth, 1)));
+    _monthCache.remove(
+      _monthKey(DateTime(monthSectionYear, monthSectionMonth, 1)),
+    );
   }
 
-  ReportCategoryBudgetChart _buildBudgetChart({required ReportRange range}) {
+  ReportCategoryBudgetChart _buildBudgetChart({
+    required ReportRange range,
+  }) {
     const etcKey = 'etc';
 
     final plannedByKey = <String, int>{};
@@ -710,6 +824,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     final spentByKey = <String, int>{};
 
     final refData = _refData;
+
     if (refData != null) {
       for (final dc in refData.dailyConsumeMap.values) {
         final overlap = _overlapDays(
@@ -718,29 +833,35 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
           docStart: _dateOnly(dc.startDate),
           docEnd: _dateOnly(dc.endDate),
         );
+
         if (overlap <= 0) continue;
 
         for (final e in dc.entries) {
-          final key =
-          (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
+          final key = e.categoryKey.trim().isEmpty
+              ? etcKey
+              : e.categoryKey.trim();
+
           final add = (e.amount * overlap).round();
 
           plannedByKey[key] = (plannedByKey[key] ?? 0) + add;
 
           nameByKey[key] ??=
-          (e.category.trim().isEmpty ? '기타' : e.category.trim());
+          e.category.trim().isEmpty ? '기타' : e.category.trim();
 
           emojiByKey[key] ??=
-          (e.emoji.trim().isEmpty ? '💰' : e.emoji.trim());
+          e.emoji.trim().isEmpty ? '💰' : e.emoji.trim();
         }
       }
     }
 
     final spentDays = _daysInRange(spentChartRange);
+
     for (final d in spentDays) {
       for (final e in d.spendingEntries) {
-        final key =
-        (e.categoryKey.trim().isEmpty) ? etcKey : e.categoryKey.trim();
+        final key = e.categoryKey.trim().isEmpty
+            ? etcKey
+            : e.categoryKey.trim();
+
         spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
       }
     }
@@ -749,16 +870,22 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     emojiByKey.putIfAbsent(etcKey, () => '🧩');
 
     int etcSpent = spentByKey[etcKey] ?? 0;
+
     spentByKey.forEach((k, v) {
       if (k == etcKey) return;
+
       if (!plannedByKey.containsKey(k)) {
         etcSpent += v;
       }
     });
+
     spentByKey[etcKey] = etcSpent;
 
     final keys = plannedByKey.keys.toSet();
-    if ((spentByKey[etcKey] ?? 0) > 0) keys.add(etcKey);
+
+    if ((spentByKey[etcKey] ?? 0) > 0) {
+      keys.add(etcKey);
+    }
 
     final rows = keys.map((k) {
       final name = nameByKey[k] ??
@@ -775,7 +902,9 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     }).toList();
 
     rows.sort((a, b) => b.spent.compareTo(a.spent));
+
     final etcIndex = rows.indexWhere((e) => e.categoryKey == etcKey);
+
     if (etcIndex >= 0) {
       final etc = rows.removeAt(etcIndex);
       rows.add(etc);
@@ -812,32 +941,73 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     final monthEnd = isCurrentMonth ? today : rawMonthEnd;
 
+    final plan = _latestPlan;
+
+    DateTime effectiveStart = monthStart;
+    DateTime effectiveEnd = monthEnd;
+
+    if (plan != null) {
+      final rawPlanStart = plan.startDate ?? plan.creationDate;
+      final rawPlanEnd = plan.modEndDate ?? plan.endDate;
+
+      if (rawPlanStart != null) {
+        final planStart = _dateOnly(rawPlanStart);
+
+        if (planStart.isAfter(effectiveStart)) {
+          effectiveStart = planStart;
+        }
+      }
+
+      if (rawPlanEnd != null) {
+        final planEnd = _dateOnly(rawPlanEnd);
+
+        if (planEnd.isBefore(effectiveEnd)) {
+          effectiveEnd = planEnd;
+        }
+      }
+    }
+
     final monthly = _monthCache[_monthKey(monthStart)];
 
     final planMonthlyIncome = _plannedMonthlyIncomeForMonth(monthStart);
     final planFixedExpense = _plannedFixedExpenseForMonth(monthStart);
 
-    final recordedIncome = _recordedIncomeForRange(
+    final recordedIncome = effectiveEnd.isBefore(effectiveStart)
+        ? 0
+        : _recordedIncomeForRange(
       monthly: monthly,
-      start: monthStart,
-      end: monthEnd,
+      start: effectiveStart,
+      end: effectiveEnd,
     );
 
-    final variableExpense = _mixedVariableExpenseForMonth(
+    final variableExpense = effectiveEnd.isBefore(effectiveStart)
+        ? 0
+        : _mixedVariableExpenseForMonth(
       monthly: monthly,
-      monthStart: monthStart,
-      monthEnd: monthEnd,
+      monthStart: effectiveStart,
+      monthEnd: effectiveEnd,
+    );
+
+    final savingProgress = effectiveEnd.isBefore(effectiveStart)
+        ? SavingProgressResult.zero()
+        : _savingProgressService.calculate(
+      plan: _latestPlan,
+      monthlyCache: _monthCache,
+      start: effectiveStart,
+      end: effectiveEnd,
+      mode: SavingProgressMode.rangeWithoutCurrentAsset,
+      now: DateTime.now(),
     );
 
     _incomeTotal = planMonthlyIncome + recordedIncome;
     _fixedExpenseTotal = planFixedExpense;
     _variableExpenseTotal = variableExpense;
 
-    _savingTotal = _actualSavedForRange(
-      start: monthStart,
-      end: monthEnd,
-    );
+    // 레포트 저축:
+    // 보유금액 제외 + 선택 월 안에서 실제 플랜 기간에 해당하는 누적 저축분.
+    _savingTotal = savingProgress.liveSavedAmount.round();
   }
+
   int _recordedIncomeForRange({
     required MonthlyRecord? monthly,
     required DateTime start,
@@ -883,12 +1053,13 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
       dayRecord == null ? 0 : _actualSpendingFromDay(dayRecord);
 
       final extraIncome = dayRecord?.totalIncomeAmount ?? 0;
-      final hasSpendingEntries =
-          dayRecord?.spendingEntries.isNotEmpty ?? false;
+      final hasSpendingEntries = dayRecord?.spendingEntries.isNotEmpty ?? false;
 
       if (cursor.isBefore(today) || hasSpendingEntries) {
-        total +=
-            plannedDailySaving + plannedBudget - actualSpending + extraIncome;
+        total += plannedDailySaving +
+            plannedBudget -
+            actualSpending +
+            extraIncome;
       }
 
       cursor = cursor.add(const Duration(days: 1));
@@ -903,13 +1074,16 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     return total.round();
   }
+
   bool _isSavingConfirmedForDate(DateTime date) {
     final record = _findDayRecord(date);
+
     return record != null && record.spendingEntries.isNotEmpty;
   }
 
   double _guideSumForToday() {
     final perSecond = _plannedDailyNetForDate(DateTime.now()) / 86400.0;
+
     if (perSecond == 0) return 0;
 
     final now = DateTime.now();
@@ -921,6 +1095,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
   double _plannedDailyNetForDate(DateTime date) {
     final plan = _latestPlan;
+
     if (plan == null) return 0;
 
     final normalized = _dateOnly(date);
@@ -930,6 +1105,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     if (subPlan == null) return 0;
 
     final minis = subPlan.orderedMinis();
+
     if (minis.isEmpty) return 0;
 
     for (final mini in minis) {
@@ -943,10 +1119,9 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
           0,
         ).day;
 
-        final monthlyNet =
-            mini.monthlyIncomeAmount -
-                mini.monthlyConsumeAmount -
-                (mini.dailyConsumeAmount * daysInMonth);
+        final monthlyNet = mini.monthlyIncomeAmount -
+            mini.monthlyConsumeAmount -
+            (mini.dailyConsumeAmount * daysInMonth);
 
         return monthlyNet / daysInMonth;
       }
@@ -955,9 +1130,9 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     return 0;
   }
 
-
   int _plannedMonthlyIncomeForMonth(DateTime monthStart) {
     final refData = _refData;
+
     if (refData == null) return 0;
 
     final targetMonth = DateTime(monthStart.year, monthStart.month, 1);
@@ -978,6 +1153,7 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
   int _plannedFixedExpenseForMonth(DateTime monthStart) {
     final refData = _refData;
+
     if (refData == null) return 0;
 
     final targetMonth = DateTime(monthStart.year, monthStart.month, 1);
@@ -1041,20 +1217,22 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     return total;
   }
 
-  DayRecord? _dayRecordInMonthly(MonthlyRecord? monthly, DateTime date) {
+  DayRecord? _dayRecordInMonthly(
+      MonthlyRecord? monthly,
+      DateTime date,
+      ) {
     if (monthly == null) return null;
 
     final dateKey = DateFormat('yyyy-MM-dd').format(_dateOnly(date));
+
     return monthly.days[dateKey];
   }
 
   bool _hasUserRecord(DayRecord? day) {
     if (day == null) return false;
 
-    // 자동 생성 데이터는 사용자가 실제로 기록한 날로 보지 않음
     if (day.isAutoGenerated) return false;
 
-    // 소비/수입 기록이 있거나, 감정/코멘트가 있으면 기록한 날로 간주
     return day.spendingEntries.isNotEmpty ||
         day.incomeEntries.isNotEmpty ||
         day.totalSpendingAmount > 0 ||
@@ -1069,10 +1247,8 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
           (sum, e) => sum + e.amount.round(),
     );
 
-    // entries가 있으면 entries 기준
     if (entrySum > 0) return entrySum;
 
-    // 구버전/예외 데이터 대응
     return day.totalSpendingAmount;
   }
 
@@ -1082,31 +1258,42 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     final out = <DayRecord>[];
     final months = _monthsCovered(start, end);
+
     for (final m in months) {
       final mm = _monthCache[_monthKey(m)];
+
       if (mm == null) continue;
 
       for (final d in mm.days.values) {
         final day = _dateOnly(d.date);
+
         if (day.isBefore(start) || day.isAfter(end)) continue;
 
         for (final e in d.spendingEntries) {
           final key = e.categoryKey.trim();
+
           if (key.isEmpty) continue;
+
           final name = e.category.trim();
-          if (name.isNotEmpty) _lastRecordNameByKey[key] = name;
+
+          if (name.isNotEmpty) {
+            _lastRecordNameByKey[key] = name;
+          }
         }
 
         out.add(d);
       }
     }
+
     out.sort((a, b) => a.date.compareTo(b.date));
+
     return out;
   }
 
   ReportRange _recent7Range() {
     final now = _dateOnly(DateTime.now());
     final start = now.subtract(const Duration(days: 6));
+
     return ReportRange(start: start, end: now);
   }
 
@@ -1114,25 +1301,31 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     final now = _dateOnly(DateTime.now());
     final end = now.subtract(const Duration(days: 7));
     final start = end.subtract(const Duration(days: 6));
+
     return ReportRange(start: start, end: end);
   }
 
   int _sumSpentInRange(ReportRange r) {
     final days = _daysInRange(r);
+
     int sum = 0;
+
     for (final d in days) {
       for (final e in d.spendingEntries) {
         sum += e.amount.round();
       }
     }
+
     return sum;
   }
 
   int _sumPlannedInRange(ReportRange r) {
     final refData = _refData;
+
     if (refData == null) return 0;
 
     int sum = 0;
+
     for (final dc in refData.dailyConsumeMap.values) {
       final overlap = _overlapDays(
         rangeStart: r.start,
@@ -1140,12 +1333,14 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
         docStart: _dateOnly(dc.startDate),
         docEnd: _dateOnly(dc.endDate),
       );
+
       if (overlap <= 0) continue;
 
       for (final e in dc.entries) {
         sum += (e.amount * overlap).round();
       }
     }
+
     return sum;
   }
 
@@ -1157,19 +1352,30 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     for (final d in days) {
       for (final e in d.spendingEntries) {
-        final key = e.categoryKey.trim().isEmpty ? etcKey : e.categoryKey.trim();
+        final key = e.categoryKey.trim().isEmpty
+            ? etcKey
+            : e.categoryKey.trim();
+
         spentByKey[key] = (spentByKey[key] ?? 0) + e.amount.round();
       }
     }
+
     if (spentByKey.isEmpty) return null;
 
-    final top = spentByKey.entries.reduce((a, b) => a.value >= b.value ? a : b);
+    final top = spentByKey.entries.reduce(
+          (a, b) => a.value >= b.value ? a : b,
+    );
+
     final topKey = top.key;
 
     final planName = _planNameForKey(topKey);
-    if (planName != null && planName.trim().isNotEmpty) return planName.trim();
+
+    if (planName != null && planName.trim().isNotEmpty) {
+      return planName.trim();
+    }
 
     final recordName = _lastRecordNameByKey[topKey];
+
     if (recordName != null && recordName.trim().isNotEmpty) {
       return recordName.trim();
     }
@@ -1179,16 +1385,19 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
   String? _planNameForKey(String key) {
     final refData = _refData;
+
     if (refData == null) return null;
 
     for (final dc in refData.dailyConsumeMap.values) {
       for (final e in dc.entries) {
         if (e.categoryKey.trim() == key.trim()) {
           final name = e.category.trim();
+
           if (name.isNotEmpty) return name;
         }
       }
     }
+
     return null;
   }
 
@@ -1205,13 +1414,18 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     final start = rs.isAfter(ds) ? rs : ds;
     final end = re.isBefore(de) ? re : de;
+
     if (end.isBefore(start)) return 0;
 
     return end.difference(start).inDays + 1;
   }
 
   Future<void> _ensureMonthsLoadedForRange(ReportRange r) async {
-    final months = _monthsCovered(_dateOnly(r.start), _dateOnly(r.end));
+    final months = _monthsCovered(
+      _dateOnly(r.start),
+      _dateOnly(r.end),
+    );
+
     for (final m in months) {
       await _ensureMonthLoaded(DateTime(m.year, m.month, 1));
     }
@@ -1219,18 +1433,29 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
   Future<void> _ensureMonthLoaded(DateTime anchorMonthFirstDay) async {
     final key = _monthKey(anchorMonthFirstDay);
+
     if (_monthCache.containsKey(key)) return;
 
     final loaded = await _recordRepo.loadMonthlyRecordByDate(anchorMonthFirstDay);
     _monthCache[key] = loaded;
 
-    final prev = DateTime(anchorMonthFirstDay.year, anchorMonthFirstDay.month - 1, 1);
-    final next = DateTime(anchorMonthFirstDay.year, anchorMonthFirstDay.month + 1, 1);
+    final prev = DateTime(
+      anchorMonthFirstDay.year,
+      anchorMonthFirstDay.month - 1,
+      1,
+    );
+
+    final next = DateTime(
+      anchorMonthFirstDay.year,
+      anchorMonthFirstDay.month + 1,
+      1,
+    );
 
     if (!_monthCache.containsKey(_monthKey(prev))) {
       final prevLoaded = await _recordRepo.loadMonthlyRecordByDate(prev);
       _monthCache[_monthKey(prev)] = prevLoaded;
     }
+
     if (!_monthCache.containsKey(_monthKey(next))) {
       final nextLoaded = await _recordRepo.loadMonthlyRecordByDate(next);
       _monthCache[_monthKey(next)] = nextLoaded;
@@ -1243,24 +1468,41 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
 
     final out = <DateTime>[];
     var cursor = s;
+
     while (!cursor.isAfter(e)) {
       out.add(cursor);
       cursor = DateTime(cursor.year, cursor.month + 1, 1);
     }
+
     return out;
   }
 
-  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-  String _monthKey(DateTime d) => DateFormat('yyyy-MM').format(d);
+  DateTime _dateOnly(DateTime d) {
+    return DateTime(d.year, d.month, d.day);
+  }
 
-  void _setLoading(bool v) => _isLoading = v;
-  void _setError(String? msg) => _error = msg;
+  String _monthKey(DateTime d) {
+    return DateFormat('yyyy-MM').format(d);
+  }
+
+  void _setLoading(bool v) {
+    _isLoading = v;
+  }
+
+  void _setError(String? msg) {
+    _error = msg;
+  }
 
   @override
   void dispose() {
     _savingTicker?.cancel();
+
     _spendingDebounce?.cancel();
+    _planDebounce?.cancel();
+
     _eventSub?.cancel();
+    _planSavedSub?.cancel();
+
     super.dispose();
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../model/category/plan_category_item.dart';
 import '../../model/commands/update_daily_command.dart';
 import '../../model/commands/update_monthly_command.dart';
 import '../../model/plan/mini_plan.dart';
@@ -9,6 +10,8 @@ import '../../model/plan/sub_plan.dart';
 import '../../model/plan/total_plan.dart';
 import '../../model/refData/ref_data.dart';
 import '../../model/refData/entry.dart';
+import '../../repository/plan_category_repository.dart';
+import '../../services/category_key.dart';
 import '../services/ref_data_viewmodel.dart';
 import '../../model/saving_calculation_result.dart';
 import '../../services/plan_debug_printer.dart';
@@ -19,6 +22,8 @@ class PlanEditViewModel extends ChangeNotifier {
   late TextEditingController planNameController;
   late TextEditingController targetAmountController;
   late TextEditingController currentAssetController;
+
+  final PlanCategoryRepository _planCategoryRepo;
 
   late TotalPlan totalPlan;
   late TotalPlanViewModel totalPlanVM;
@@ -191,7 +196,11 @@ class PlanEditViewModel extends ChangeNotifier {
   void _onFieldChanged() => notifyListeners();
 
   // Constructor that automatically initializes with TotalPlan
-  PlanEditViewModel(TotalPlan initialPlan, {RefData? initialRefData}) {
+  PlanEditViewModel(
+      TotalPlan initialPlan, {
+        RefData? initialRefData,
+        required PlanCategoryRepository planCategoryRepo,
+      }) : _planCategoryRepo = planCategoryRepo {
     _initializeWithPlan(initialPlan, initialRefData: initialRefData);
   }
 
@@ -265,11 +274,20 @@ class PlanEditViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  void applyDailyConsumeEdit({required List<Entry> entries}) {
+  Future<void> applyDailyConsumeEdit({required List<Entry> entries}) async {
     final normalized = _defaultApplyDate();
-    _pendingDailyConsumeEntries = List<Entry>.unmodifiable(entries);
+
+    final resolvedEntries = await _resolveDailyEntriesWithPlanCategoryKeys(
+      entries,
+    );
+
+    _pendingDailyConsumeEntries = resolvedEntries;
     _pendingDailyConsumeApplyDate = normalized;
-    totalPlanVM.updateMetrics(dailyConsume: _sumEntries(entries));
+
+    totalPlanVM.updateMetrics(
+      dailyConsume: _sumEntries(resolvedEntries),
+    );
+
     totalPlan = totalPlanVM.plan;
     _logPlanTree('DailyConsume Edit');
     notifyListeners();
@@ -512,6 +530,135 @@ class PlanEditViewModel extends ChangeNotifier {
     return candidates.first.isBefore(normalizedStart)
         ? normalizedStart
         : candidates.first;
+  }
+
+  String _normalizeCategoryName(String name) {
+    return name.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  }
+
+  String _fallbackEmojiByName(String name, {String fallback = '💰'}) {
+    switch (name.trim()) {
+      case '급여':
+        return '💼';
+      case '식비':
+        return '🍽️';
+      case '카페':
+        return '☕';
+      case '쇼핑':
+        return '🛍️';
+      case '여가':
+        return '🎮';
+      case '주거':
+        return '🏠';
+      case '통신':
+        return '📱';
+      case '교통':
+        return '🚌';
+      case '구독':
+        return '📺';
+      default:
+        return fallback;
+    }
+  }
+
+  Future<void> _upsertPlanCategoriesFromEntries(List<Entry> entries) async {
+    final now = DateTime.now();
+
+    final items = <PlanCategoryItem>[];
+
+    for (final e in entries) {
+      final key = e.categoryKey.trim();
+      final name = e.category.trim();
+
+      if (!CategoryKey.isValid(key)) continue;
+      if (name.isEmpty) continue;
+
+      items.add(
+        PlanCategoryItem(
+          categoryKey: key,
+          name: name,
+          emoji: e.emoji.trim().isNotEmpty
+              ? e.emoji.trim()
+              : _fallbackEmojiByName(name),
+          createdAt: now,
+          updatedAt: now,
+          lastUsedAt: now,
+          isArchived: false,
+        ),
+      );
+    }
+
+    if (items.isEmpty) return;
+
+    await _planCategoryRepo.upsertMany(items);
+  }
+
+  Future<List<Entry>> _resolveDailyEntriesWithPlanCategoryKeys(
+      List<Entry> entries,
+      ) async {
+    // 기존 daily entries를 먼저 저장소에 등록.
+    // 그래야 사용자가 기존 카페를 지웠다가 같은 이름 카페를 다시 만들었을 때
+    // 기존 categoryKey를 찾을 수 있음.
+    await _upsertPlanCategoriesFromEntries(currentDailyConsumeEntries);
+
+    final resolved = <Entry>[];
+    final nameToKey = <String, String>{};
+
+    for (int i = 0; i < entries.length; i++) {
+      final e = entries[i];
+
+      final cleanName = e.category.trim();
+
+      if (cleanName.isEmpty) {
+        resolved.add(
+          e.copyWith(
+            idx: i,
+            order: i,
+          ),
+        );
+        continue;
+      }
+
+      final cleanEmoji = e.emoji.trim().isNotEmpty
+          ? e.emoji.trim()
+          : _fallbackEmojiByName(cleanName);
+
+      final norm = _normalizeCategoryName(cleanName);
+
+      String resolvedKey;
+
+      if (nameToKey.containsKey(norm)) {
+        resolvedKey = nameToKey[norm]!;
+      } else {
+        final fallbackKey = CategoryKey.isValid(e.categoryKey)
+            ? e.categoryKey.trim()
+            : CategoryKey.newKey();
+
+        final item = await _planCategoryRepo.getOrCreate(
+          categoryKey: fallbackKey,
+          name: cleanName,
+          emoji: cleanEmoji,
+          preferExistingName: true,
+        );
+
+        resolvedKey = item.categoryKey;
+        nameToKey[norm] = resolvedKey;
+      }
+
+      resolved.add(
+        e.copyWith(
+          idx: i,
+          order: i,
+          categoryKey: resolvedKey,
+          category: cleanName,
+          emoji: cleanEmoji,
+        ),
+      );
+    }
+
+    await _upsertPlanCategoriesFromEntries(resolved);
+
+    return List<Entry>.unmodifiable(resolved);
   }
 
   double _sumEntries(List<Entry> entries) =>

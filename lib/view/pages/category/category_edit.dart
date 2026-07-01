@@ -13,6 +13,7 @@ import '../../../component/theme/app_colors.dart';
 
 import '../../../model/category/ref_category_item.dart';
 import '../../../model/category/category_edit_item.dart';
+import '../../../services/category_key.dart';
 import '../../../view_model/category/category_edit_view_model.dart';
 
 // ✅ 모달 2개는 그대로 유지
@@ -346,7 +347,8 @@ class _CategoryEditPageState extends State<CategoryEditPage>
 
     if (_editingCategoryId == null) {
       if (_editingIsPlan) {
-        final newKey = 'cat_${DateTime.now().millisecondsSinceEpoch}';
+        final newKey = CategoryKey.newKey();
+
         _editingCategoryId = newKey;
         _editingCategoryName = trimmed;
         _editingCategoryEmoji = emoji;
@@ -412,7 +414,7 @@ class _CategoryEditPageState extends State<CategoryEditPage>
       final exists = vm.draftPlan.any((e) => e.categoryKey == id);
 
       if (!exists) {
-        vm.draftAddCategory(
+        await vm.draftAddCategory(
           isPlan: true,
           categoryKey: id,
           name: name,

@@ -3,11 +3,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
 import 'package:sotong_local/repository/notification_repository.dart';
+import 'package:sotong_local/repository/plan_category_repository.dart';
 import 'package:sotong_local/repository/plan_mutation_repository.dart';
 import 'package:sotong_local/services/notification_generate_service.dart';
 import 'package:sotong_local/view_model/record/today_income_view_model.dart';
 
 import 'data_source/auth_cache_data_source.dart';
+import 'data_source/plan_category_data_source.dart';
 import 'firebase_options.dart';
 import 'route.dart';
 import 'component/theme/app_theme.dart';
@@ -61,6 +63,7 @@ Future<void> main() async {
   await Hive.openBox('auth_cache');
   await Hive.openBox('refData');
   await Hive.openBox('ref_categories');
+  // await Hive.openBox('plan_categories');
   await Hive.openBox('monthly_spending');
   await Hive.openBox('past_plans');
   await Hive.openBox('settings');
@@ -96,8 +99,6 @@ class MyApp extends StatelessWidget {
           create: (_) => RecordEventBus(),
           dispose: (_, bus) => bus.dispose(),
         ),
-
-
         // 2) DataSources
         Provider<AuthDataSource>(create: (_) => AuthDataSource()),
         Provider<AuthCacheDataSource>(create: (_) => AuthCacheDataSource()),
@@ -107,6 +108,9 @@ class MyApp extends StatelessWidget {
         Provider<RefCategoryDataSource>(
           create: (_) => RefCategoryDataSource(),
         ),
+        // Provider<PlanCategoryDataSource>(
+        //   create: (_) => PlanCategoryDataSource(),
+        // ),
 
         // 3) Repositories
         Provider<AuthRepository>(
@@ -142,6 +146,12 @@ class MyApp extends StatelessWidget {
             ctx.read<AuthDataSource>(),
           ),
         ),
+        // Provider<PlanCategoryRepository>(
+        //   create: (context) => PlanCategoryRepository(
+        //     context.read<PlanCategoryDataSource>(),
+        //     context.read<AuthDataSource>(),
+        //   ),
+        // ),
         Provider<PlanCacheRepository>(
           create: (_) => PlanCacheRepository(),
         ),
@@ -172,12 +182,13 @@ class MyApp extends StatelessWidget {
           create: (ctx) => SignupViewModel(ctx.read<AuthRepository>()),
         ),
         ChangeNotifierProvider<ChatPlanViewModel>(
-          create: (ctx) => ChatPlanViewModel(
-            ctx.read<AuthRepository>(),
-            ctx.read<PlanRepository>(),
-            ctx.read<RefDataRepository>(),
-            ctx.read<PlanCacheRepository>(),
-            planSavedBus: ctx.read<PlanSavedEventBus>(),
+          create: (context) => ChatPlanViewModel(
+            context.read<AuthRepository>(),
+            context.read<PlanRepository>(),
+            context.read<RefDataRepository>(),
+            context.read<PlanCacheRepository>(),
+            // context.read<PlanCategoryRepository>(),
+            planSavedBus: context.read<PlanSavedEventBus>(),
           ),
         ),
         ChangeNotifierProvider<HomeViewModel>(
@@ -187,7 +198,7 @@ class MyApp extends StatelessWidget {
             ctx.read<PlanSavedEventBus>(),
             ctx.read<RecordRepository>(),
               ctx.read<RecordEventBus>(),
-            ctx.read<RefDataRepository>()  // 세은님 추가 부분
+            ctx.read<RefDataRepository>()
           ),
         ),
         ChangeNotifierProvider<TodaySpendingViewModel>(
@@ -221,6 +232,7 @@ class MyApp extends StatelessWidget {
             context.read<PlanRepository>(),
             context.read<AuthRepository>(),
             eventBus: context.read<RecordEventBus>(),
+            planSavedBus: context.read<PlanSavedEventBus>(),
           ),
         ),
         ChangeNotifierProvider<CommunicationViewModel>(
@@ -246,10 +258,14 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<CategoryEditViewModel>(
           create: (context) => CategoryEditViewModel(
+            context.read<AuthRepository>(),
             context.read<PlanRepository>(),
             context.read<RefDataRepository>(),
             context.read<RefCategoryRepository>(),
             context.read<PlanMutationRepository>(),
+            context.read<PlanCacheRepository>(),
+            context.read<PlanSavedEventBus>(),
+            // context.read<PlanCategoryRepository>(),
           ),
         ),
         ChangeNotifierProvider<AlarmViewModel>(
@@ -273,15 +289,16 @@ class MyApp extends StatelessWidget {
           ),
         ),
         ChangeNotifierProvider<SettingViewModel>(
-          create: (ctx) => SettingViewModel(
-            ctx.read<AuthRepository>(),
-            ctx.read<RecordRepository>(),
-            ctx.read<PlanRepository>(),
-            ctx.read<RefDataRepository>(),
-            ctx.read<PlanCacheRepository>(),
-            ctx.read<RefCategoryRepository>(),
-            ctx.read<AccountDeleteRepository>(),
-            ctx.read<AppSessionResetService>(),
+          create: (context) => SettingViewModel(
+            context.read<AuthRepository>(),
+            context.read<RecordRepository>(),
+            context.read<PlanRepository>(),
+            context.read<RefDataRepository>(),
+            context.read<PlanCacheRepository>(),
+            context.read<RefCategoryRepository>(),
+            // context.read<PlanCategoryRepository>(),
+            context.read<AccountDeleteRepository>(),
+            context.read<AppSessionResetService>(),
           ),
         ),
 

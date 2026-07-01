@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:sotong_local/component/chart/semi_gauge_chart.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/view_model/home/home_view_model.dart';
+import 'package:sotong_local/view_model/services/saving_calculator.dart';
 
 import 'home_saving_center_button.dart';
 
@@ -149,6 +150,12 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
     }
   }
 
+  void _toggleSection(String section) {
+    setState(() {
+      _clickedSection = (_clickedSection == section) ? null : section;
+    });
+  }
+
   /// 게이지 애니메이션에 맞춰 과하지 않게 햅틱을 분산한다.
   void _playGaugeSequentialHaptic() {
     _hapticTimer?.cancel();
@@ -203,11 +210,9 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
       clicked = isUserLarger ? 'user' : 'plan';
     }
 
-    setState(() {
-      if (clicked != null) {
-        _clickedSection = (_clickedSection == clicked) ? null : clicked;
-      }
-    });
+    if (clicked != null) {
+      _toggleSection(clicked);
+    }
   }
 
   @override
@@ -290,6 +295,7 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                     Align(
                       alignment: const Alignment(0, 0.14),
                       child: _PlanGraphIntroCoachmark(
+                        dailySavingAmount: widget.vm.currentMiniDailyNetSaving,
                         onDismiss: _dismissIntroCoachmark,
                       ),
                     ),
@@ -304,12 +310,16 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                   color: planColor,
                   text: '플랜 그래프',
                   textColor: planColor,
+                  selected: _clickedSection == 'plan',
+                  onTap: () => _toggleSection('plan'),
                 ),
                 const SizedBox(width: 20),
                 _LegendDot(
                   color: userColor,
                   text: '사용자 그래프',
                   textColor: userColor,
+                  selected: _clickedSection == 'user',
+                  onTap: () => _toggleSection('user'),
                 ),
               ],
             ),
@@ -418,6 +428,7 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                   Align(
                     alignment: const Alignment(0, 0.14),
                     child: _PlanGraphIntroCoachmark(
+                      dailySavingAmount: widget.vm.currentMiniDailyNetSaving,
                       onDismiss: _dismissIntroCoachmark,
                     ),
                   ),
@@ -434,12 +445,16 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
                 color: AppColors.primary,
                 text: '플랜 그래프',
                 textColor: AppColors.primary,
+                selected: _clickedSection == 'plan',
+                onTap: () => _toggleSection('plan'),
               ),
               const SizedBox(width: 20),
               _LegendDot(
                 color: const Color(0xFF7DAFFF),
                 text: '사용자 그래프',
                 textColor: const Color(0xFF7DAFFF),
+                selected: _clickedSection == 'user',
+                onTap: () => _toggleSection('user'),
               ),
             ],
           ),
@@ -450,8 +465,12 @@ class _HomeSavingChartWidgetState extends State<HomeSavingChartWidget>
 }
 
 class _PlanGraphIntroCoachmark extends StatelessWidget {
-  const _PlanGraphIntroCoachmark({required this.onDismiss});
+  const _PlanGraphIntroCoachmark({
+    required this.dailySavingAmount,
+    required this.onDismiss,
+  });
 
+  final double dailySavingAmount;
   final VoidCallback onDismiss;
 
   @override
@@ -462,6 +481,18 @@ class _PlanGraphIntroCoachmark extends StatelessWidget {
         ? const Color(0xFF13233F)
         : const Color(0xFFEAF2FF);
     const borderColor = Color(0x473C7BFF);
+    final buttonBackgroundColor = isDark
+        ? const Color(0xFF1E4073)
+        : const Color(0xFFD8E9FF);
+    final buttonForegroundColor = isDark
+        ? const Color(0xFFEAF2FF)
+        : AppColors.primary;
+    final buttonBorderColor = isDark
+        ? const Color(0x663C7BFF)
+        : const Color(0x803C7BFF);
+    final dailySavingText = SavingPlanCalculator.formatAmount(
+      dailySavingAmount,
+    );
 
     return Material(
       color: Colors.transparent,
@@ -480,34 +511,46 @@ class _PlanGraphIntroCoachmark extends StatelessWidget {
             ),
           ],
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 2),
-              child: Icon(
-                Icons.info_outline,
-                size: 20,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '오늘 자정부터 1초마다 누적된 저축액이에요!',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: isDark ? Colors.white : AppColors.primary,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 2),
+                  child: Icon(
+                    Icons.info_outline,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '하루 $dailySavingText원씩 모이는 플랜이에요.\n오늘 자정부터 시작했어요.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: isDark ? Colors.white : AppColors.primary,
+                      fontWeight: FontWeight.w700,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 10),
             TextButton(
               onPressed: onDismiss,
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                backgroundColor: buttonBackgroundColor,
+                foregroundColor: buttonForegroundColor,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 minimumSize: const Size(0, 32),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                side: BorderSide(color: buttonBorderColor),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
               child: const Text('확인'),
             ),
@@ -523,25 +566,58 @@ class _LegendDot extends StatelessWidget {
     required this.color,
     required this.text,
     required this.textColor,
+    this.selected = false,
+    this.onTap,
   });
 
   final Color color;
   final String text;
   final Color textColor;
+  final bool selected;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 12,
-          height: 12,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    final legend = AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: selected ? color.withValues(alpha: 0.12) : Colors.transparent,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: selected ? color.withValues(alpha: 0.45) : Colors.transparent,
         ),
-        const SizedBox(width: 6),
-        Text(text, style: TextStyle(fontSize: 12, color: textColor)),
-      ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: textColor,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (onTap == null) return legend;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: legend,
+      ),
     );
   }
 }
