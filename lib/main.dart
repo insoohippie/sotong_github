@@ -221,6 +221,7 @@ class MyApp extends StatelessWidget {
             context.read<PlanRepository>(),
             context.read<AuthRepository>(),
             eventBus: context.read<RecordEventBus>(),
+            planSavedBus: context.read<PlanSavedEventBus>(),
           ),
         ),
         ChangeNotifierProvider<CommunicationViewModel>(
@@ -235,6 +236,8 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<SpendingCategoryViewModel>(
           create: (ctx) => SpendingCategoryViewModel(
+            ctx.read<AuthRepository>(),
+            ctx.read<PlanCacheRepository>(),
             ctx.read<RefDataRepository>(),
             ctx.read<RefCategoryRepository>(),
           ),
@@ -246,10 +249,13 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<CategoryEditViewModel>(
           create: (context) => CategoryEditViewModel(
+            context.read<AuthRepository>(),
             context.read<PlanRepository>(),
             context.read<RefDataRepository>(),
             context.read<RefCategoryRepository>(),
             context.read<PlanMutationRepository>(),
+            context.read<PlanCacheRepository>(),
+            context.read<PlanSavedEventBus>(),
           ),
         ),
         ChangeNotifierProvider<AlarmViewModel>(

@@ -45,8 +45,15 @@ class RefData {
 
   void setReferenceDate(DateTime date) {
     final normalized = _normalizeDay(date);
-    if (_referenceDate.isAtSameMomentAs(normalized)) return;
+
+    // 날짜가 같아도 dailyConsumeMap/monthlyMap이 바뀐 직후에는
+    // primary id를 다시 잡아야 할 수 있음.
     _referenceDate = normalized;
+    _refreshPrimaryIds();
+  }
+
+  /// 같은 날짜 기준으로 primary id만 강제로 다시 계산하고 싶을 때 사용.
+  void refreshPrimaryIds() {
     _refreshPrimaryIds();
   }
 
@@ -401,23 +408,40 @@ RefData(
       DateTime date,
       Map<String, DailyConsume> source,
       ) {
-    String? candidate;
-    DateTime? candidateEnd;
-    for (final entry in source.entries) {
+    final target = _normalizeDay(date);
+
+    final candidates = source.entries.where((entry) {
       final daily = entry.value;
-      if (!daily.isActive) continue;
-      if (date.isBefore(daily.startDate) || date.isAfter(daily.endDate)) {
-        continue;
-      }
-      final end = daily.endDate;
-      if (candidate == null ||
-          candidateEnd == null ||
-          end.isAfter(candidateEnd)) {
-        candidate = entry.key;
-        candidateEnd = end;
-      }
-    }
-    return candidate;
+      if (!daily.isActive) return false;
+
+      final start = _normalizeDay(daily.startDate);
+      final end = _normalizeDay(daily.endDate);
+
+      return !target.isBefore(start) && !target.isAfter(end);
+    }).toList();
+
+    if (candidates.isEmpty) return null;
+
+    candidates.sort((a, b) {
+      final aStart = _normalizeDay(a.value.startDate);
+      final bStart = _normalizeDay(b.value.startDate);
+
+      // 최신 적용일 우선
+      final startCompare = bStart.compareTo(aStart);
+      if (startCompare != 0) return startCompare;
+
+      final aEnd = _normalizeDay(a.value.endDate);
+      final bEnd = _normalizeDay(b.value.endDate);
+
+      // endDate도 최신인 것 우선
+      final endCompare = bEnd.compareTo(aEnd);
+      if (endCompare != 0) return endCompare;
+
+      // 마지막 fallback: id가 큰 것 우선
+      return b.key.compareTo(a.key);
+    });
+
+    return candidates.first.key;
   }
 
   String? _monthlyIdCovering<T>(
