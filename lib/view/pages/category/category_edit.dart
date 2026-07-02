@@ -13,7 +13,6 @@ import '../../../component/theme/app_colors.dart';
 
 import '../../../model/category/ref_category_item.dart';
 import '../../../model/category/category_edit_item.dart';
-import '../../../services/category_key.dart';
 import '../../../view_model/category/category_edit_view_model.dart';
 
 // ✅ 모달 2개는 그대로 유지
@@ -50,7 +49,7 @@ class _CategoryEditPageState extends State<CategoryEditPage>
   bool _editingIsPlan = false;
   int _editingAmount = 1;
 
-  CategoryEditItem? _pendingMoveRefItem;
+  RefCategoryItem? _pendingMoveRefItem;
   int? _pendingMoveTargetIndex;
 
   @override
@@ -171,6 +170,114 @@ class _CategoryEditPageState extends State<CategoryEditPage>
       },
     );
     return res ?? false;
+  }
+
+
+  Future<bool> _confirmMoveRefToPlan(RefCategoryItem item) async {
+    final res = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dCtx) {
+        return AlertDialog(
+          title: const Text(
+            '참고 카테고리에 있는 항목이에요',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            "'${item.name}' 카테고리를 플랜 카테고리로 이동할까요?\n"
+                '이동하면 참고 카테고리에서는 사라지고, 플랜 카테고리로 추가됩니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx, true),
+              child: const Text(
+                '이동',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    return res ?? false;
+  }
+
+  Future<bool> _confirmMovePlanToRef(CategoryEditItem item) async {
+    final res = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dCtx) {
+        return AlertDialog(
+          title: const Text(
+            '플랜 카테고리를 이동할까요?',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            "'${item.name}' 카테고리를 참고 카테고리로 이동할까요?\n"
+                '이동하면 현재 플랜 카테고리에서는 사라지고, 참고 카테고리로 추가됩니다.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx, false),
+              child: const Text('취소'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(dCtx, true),
+              child: const Text(
+                '이동',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    return res ?? false;
+  }
+
+  Future<void> _movePlanToRefByDrag(
+      CategoryEditViewModel vm,
+      CategoryEditItem item,
+      ) async {
+    final confirmed = await _confirmMovePlanToRef(item);
+    if (!mounted) return;
+
+    if (!confirmed) return;
+
+    vm.draftMovePlanToRef(planItem: item);
+  }
+
+  Future<void> _moveRefToPlanByDrag(
+      CategoryEditViewModel vm,
+      RefCategoryItem item,
+      ) async {
+    final confirmed = await _confirmMoveRefToPlan(item);
+    if (!mounted) return;
+
+    if (!confirmed) return;
+
+    _pendingMoveRefItem = item;
+    _pendingMoveTargetIndex = null;
+
+    _editingCategoryId = item.categoryKey;
+    _editingCategoryName = item.name;
+    _editingCategoryEmoji = item.emoji;
+    _editingIsPlan = true;
+    _editingAmount = 1;
+
+    await _openAmountSheet();
   }
 
   Future<bool> _handleBack(CategoryEditViewModel vm) async {
@@ -355,67 +462,140 @@ class _CategoryEditPageState extends State<CategoryEditPage>
       }) async {
     final trimmed = name.trim();
 
-    // ✅ 1) 이름 입력 단계에서 바로 검사
-    // - 추가 모드: validateNewCategoryName()으로 중복 검사
-    // - 수정 모드: 기존 이름 그대로면 통과
-    // - 수정 모드에서 다른 이름으로 바꾸면 VM의 draftUpdateMeta / draftUpdateRefMeta가 최종 방어
+    // =========================================================
+    // 새 카테고리 추가 모드
+    // =========================================================
     if (_editingCategoryId == null) {
-      final message = vm.validateNewCategoryName(
-        isPlan: _editingIsPlan,
-        name: trimmed,
-      );
-
-      if (message != null) {
-        _showCategoryToast(message);
-        return;
-      }
-    } else {
-      if (trimmed.isEmpty) {
-        _showCategoryToast('카테고리 이름을 입력해주세요.');
-        return;
-      }
-    }
-
-    // ✅ 2) 검사 통과 후에만 이름 시트 닫기
-    await _closeNameSheet(setFalse: true);
-    if (!mounted) return;
-
-    // ✅ 3) 새 카테고리 추가
-    if (_editingCategoryId == null) {
-      // 플랜 카테고리 추가:
-      // 이름 검사를 통과했을 때만 금액 입력창을 연다.
+      // -----------------------------
+      // 플랜 카테고리 추가
+      // -----------------------------
       if (_editingIsPlan) {
-        final newKey = CategoryKey.newKey();
+        final action = vm.resolvePlanCategoryAddAction(
+          name: trimmed,
+          emoji: emoji,
+        );
 
-        _editingCategoryId = newKey;
-        _editingCategoryName = trimmed;
-        _editingCategoryEmoji = emoji;
-        _editingAmount = 1;
+        switch (action.type) {
+          case PlanCategoryAddActionType.blocked:
+            _showCategoryToast(action.message ?? '카테고리를 추가할 수 없어요.');
+            return;
 
-        await _openAmountSheet();
-        return;
+          case PlanCategoryAddActionType.moveFromRef:
+            final refItem = action.refItem;
+
+            if (refItem == null || action.categoryKey == null) {
+              _showCategoryToast('카테고리를 이동할 수 없어요.');
+              return;
+            }
+
+            final confirmed = await _confirmMoveRefToPlan(refItem);
+            if (!mounted) return;
+
+            if (!confirmed) {
+              return;
+            }
+
+            await _closeNameSheet(setFalse: true);
+            if (!mounted) return;
+
+            _pendingMoveRefItem = refItem;
+            _pendingMoveTargetIndex = null;
+
+            _editingCategoryId = action.categoryKey;
+            _editingCategoryName = action.name;
+            _editingCategoryEmoji = action.emoji;
+            _editingAmount = 1;
+
+            await _openAmountSheet();
+            return;
+
+          case PlanCategoryAddActionType.reuseFromRegistry:
+            if (action.categoryKey == null) {
+              _showCategoryToast('카테고리를 추가할 수 없어요.');
+              return;
+            }
+
+            _showCategoryToast(
+              action.message ?? '예전에 사용했던 카테고리를 다시 연결했어요.',
+            );
+
+            await _closeNameSheet(setFalse: true);
+            if (!mounted) return;
+
+            _editingCategoryId = action.categoryKey;
+            _editingCategoryName = action.name;
+            _editingCategoryEmoji = action.emoji;
+            _editingAmount = 1;
+
+            await _openAmountSheet();
+            return;
+
+          case PlanCategoryAddActionType.createNew:
+            if (action.categoryKey == null) {
+              _showCategoryToast('카테고리를 추가할 수 없어요.');
+              return;
+            }
+
+            await _closeNameSheet(setFalse: true);
+            if (!mounted) return;
+
+            _editingCategoryId = action.categoryKey;
+            _editingCategoryName = action.name;
+            _editingCategoryEmoji = action.emoji;
+            _editingAmount = 1;
+
+            await _openAmountSheet();
+            return;
+        }
       }
 
-      // 참고 카테고리 추가:
-      // 이름 검사를 통과했으므로 바로 추가한다.
-      final added = vm.draftAddRef(
+      // -----------------------------
+      // 참고 카테고리 추가
+      // -----------------------------
+      final action = vm.resolveRefCategoryAddAction(
         name: trimmed,
         emoji: emoji,
       );
 
-      if (added == null) {
-        // 혹시 UI 사전검사를 통과했는데 VM에서 막힌 경우 최종 안내
-        final notice = vm.noticeMessage;
-        _showCategoryToast(notice ?? '카테고리를 추가하지 못했어요.');
-        vm.consumeNoticeMessage();
-        return;
-      }
+      switch (action.type) {
+        case RefCategoryAddActionType.blocked:
+          _showCategoryToast(action.message ?? '카테고리를 추가할 수 없어요.');
+          return;
 
-      _clearEditingState();
+        case RefCategoryAddActionType.reuseFromRegistry:
+        case RefCategoryAddActionType.createNew:
+          await _closeNameSheet(setFalse: true);
+          if (!mounted) return;
+
+          final added = vm.draftAddRef(
+            name: action.name,
+            emoji: action.emoji,
+            categoryKey: action.categoryKey,
+          );
+
+          if (added == null) {
+            final notice = vm.noticeMessage;
+            _showCategoryToast(notice ?? '카테고리를 추가하지 못했어요.');
+            vm.consumeNoticeMessage();
+            return;
+          }
+
+          _clearEditingState();
+          return;
+      }
+    }
+
+    // =========================================================
+    // 기존 카테고리 수정 모드
+    // =========================================================
+    if (trimmed.isEmpty) {
+      _showCategoryToast('카테고리 이름을 입력해주세요.');
       return;
     }
 
-    // ✅ 4) 기존 카테고리 이름/이모지 수정
+    await _closeNameSheet(setFalse: true);
+    if (!mounted) return;
+
     if (_editingIsPlan) {
       vm.draftUpdateMeta(
         categoryKey: _editingCategoryId!,
@@ -452,16 +632,29 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     await _closeAmountSheet(setFalse: true);
     if (!mounted) return;
 
-    if (_pendingMoveRefItem != null && _pendingMoveTargetIndex != null) {
-      _pendingMoveRefItem = null;
-      _pendingMoveTargetIndex = null;
-      _clearEditingState();
-      return;
-    }
-
     final id = _editingCategoryId;
     final name = _editingCategoryName;
     final emoji = (_editingCategoryEmoji ?? '💰');
+
+    // ✅ 참고 카테고리 → 플랜 카테고리 이동 케이스
+    if (_pendingMoveRefItem != null) {
+      final movingRefItem = _pendingMoveRefItem!;
+
+      final movingName = name ?? movingRefItem.name;
+      final movingEmoji = emoji.trim().isNotEmpty
+          ? emoji
+          : movingRefItem.emoji;
+
+      vm.draftMoveRefToPlan(
+        refItem: movingRefItem,
+        name: movingName,
+        emoji: movingEmoji,
+        dailyAmount: amount,
+      );
+
+      _clearEditingState();
+      return;
+    }
 
     if (id != null && name != null && _editingIsPlan) {
       final exists = vm.draftPlan.any((e) => e.categoryKey == id);

@@ -6,6 +6,7 @@ import 'package:sotong_local/repository/notification_repository.dart';
 import 'package:sotong_local/repository/plan_mutation_repository.dart';
 import 'package:sotong_local/services/notification_generate_service.dart';
 import 'package:sotong_local/view_model/record/today_income_view_model.dart';
+import 'package:sotong_local/view_model/services/category_bootstrap_service.dart';
 
 import 'data_source/auth_cache_data_source.dart';
 import 'firebase_options.dart';
@@ -163,6 +164,11 @@ class MyApp extends StatelessWidget {
             ctx.read<PlanRepository>(),
           ),
         ),
+        Provider<CategoryBootstrapService>(
+          create: (ctx) => CategoryBootstrapService(
+            ctx.read<RefCategoryRepository>(),
+          ),
+        ),
 
         // 4) ViewModels
         ChangeNotifierProvider<LoginViewModel>(
@@ -177,6 +183,7 @@ class MyApp extends StatelessWidget {
             ctx.read<PlanRepository>(),
             ctx.read<RefDataRepository>(),
             ctx.read<PlanCacheRepository>(),
+            ctx.read<CategoryBootstrapService>(),
             planSavedBus: ctx.read<PlanSavedEventBus>(),
           ),
         ),

@@ -22,6 +22,53 @@ import '../../services/plan_saved_event_bus.dart';
 
 import '../services/plan_preview_service.dart';
 
+enum PlanCategoryAddActionType {
+  blocked,
+  moveFromRef,
+  reuseFromRegistry,
+  createNew,
+}
+
+class PlanCategoryAddAction {
+  final PlanCategoryAddActionType type;
+  final String name;
+  final String emoji;
+  final String? categoryKey;
+  final String? message;
+  final RefCategoryItem? refItem;
+
+  const PlanCategoryAddAction({
+    required this.type,
+    required this.name,
+    required this.emoji,
+    this.categoryKey,
+    this.message,
+    this.refItem,
+  });
+}
+
+enum RefCategoryAddActionType {
+  blocked,
+  reuseFromRegistry,
+  createNew,
+}
+
+class RefCategoryAddAction {
+  final RefCategoryAddActionType type;
+  final String name;
+  final String emoji;
+  final String? categoryKey;
+  final String? message;
+
+  const RefCategoryAddAction({
+    required this.type,
+    required this.name,
+    required this.emoji,
+    this.categoryKey,
+    this.message,
+  });
+}
+
 class CategoryEditViewModel extends ChangeNotifier {
   CategoryEditViewModel(
       this._authRepo,
@@ -42,6 +89,10 @@ class CategoryEditViewModel extends ChangeNotifier {
   final PlanSavedEventBus _planSavedBus;
 
   final String _refDocId = 'recordSpending';
+
+  // users/{uid}/refCategories/planSpendingRegistry
+  // 플랜에서 한 번이라도 사용한 카테고리 key 보관소.
+  final String _planRegistryDocId = 'planSpendingRegistry';
 
   final PlanPreviewService _previewService = const PlanPreviewService();
 
@@ -96,6 +147,11 @@ class CategoryEditViewModel extends ChangeNotifier {
 
   List<CategoryEditItem> _basePlan = [];
   List<RefCategoryItem> _baseRef = [];
+
+  // 삭제된 플랜 카테고리도 key를 기억하는 보관소.
+  // 화면에 직접 보여주는 리스트가 아니라 이름 -> 기존 categoryKey 복구용.
+  List<RefCategoryItem> _planRegistry = const [];
+  List<RefCategoryItem> _basePlanRegistry = const [];
 
   bool _dirty = false;
   bool get hasUnsavedChanges => _dirty;
@@ -154,7 +210,305 @@ class CategoryEditViewModel extends ChangeNotifier {
       return '같은 이름의 참고 카테고리가 이미 있어요.';
     }
 
+    final existsInCurrentPlan = _draftPlan.any(
+          (e) => _normalizeName(e.name) == norm,
+    );
+
+    if (existsInCurrentPlan) {
+      return '플랜 카테고리는 참고 카테고리로 중복 추가할 수 없어요.';
+    }
+
     return null;
+  }
+
+  RefCategoryItem? _findRefByName(String name) {
+    final norm = _normalizeName(name);
+
+    for (final item in _draftRef) {
+      if (_normalizeName(item.name) == norm) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  CategoryEditItem? _findPlanByName(String name) {
+    final norm = _normalizeName(name);
+
+    for (final item in _draftPlan) {
+      if (_normalizeName(item.name) == norm) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  RefCategoryItem? _findPlanRegistryByName(String name) {
+    final norm = _normalizeName(name);
+
+    for (final item in _planRegistry) {
+      if (_normalizeName(item.name) == norm) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  RefCategoryItem? _findPlanRegistryByKey(String key) {
+    final k = key.trim();
+
+    for (final item in _planRegistry) {
+      if (item.categoryKey == k) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _loadPlanRegistryInternal() async {
+    final items = await _refCatRepo.fetchRefCategories(
+      docId: _planRegistryDocId,
+    );
+
+    _planRegistry = List<RefCategoryItem>.from(items)
+      ..sort((a, b) => a.order.compareTo(b.order));
+  }
+
+  PlanCategoryAddAction resolvePlanCategoryAddAction({
+    required String name,
+    required String emoji,
+  }) {
+    final trimmed = name.trim();
+
+    if (trimmed.isEmpty) {
+      return PlanCategoryAddAction(
+        type: PlanCategoryAddActionType.blocked,
+        name: trimmed,
+        emoji: emoji,
+        message: '카테고리 이름을 입력해주세요.',
+      );
+    }
+
+    final currentPlan = _findPlanByName(trimmed);
+    if (currentPlan != null) {
+      return PlanCategoryAddAction(
+        type: PlanCategoryAddActionType.blocked,
+        name: trimmed,
+        emoji: emoji,
+        categoryKey: currentPlan.categoryKey,
+        message: '같은 이름의 플랜 카테고리가 이미 있어요.',
+      );
+    }
+
+    // ✅ 수정된 정책:
+    // 플랜 카테고리 추가 시 참고 카테고리에 같은 이름이 있으면
+    // 이동 다이얼로그가 아니라 추가 차단.
+    final refItem = _findRefByName(trimmed);
+    if (refItem != null) {
+      return PlanCategoryAddAction(
+        type: PlanCategoryAddActionType.blocked,
+        name: trimmed,
+        emoji: emoji.trim().isNotEmpty ? emoji.trim() : refItem.emoji,
+        categoryKey: refItem.categoryKey,
+        refItem: refItem,
+        message: '이미 참고 카테고리로 쓰고 있어요.',
+      );
+    }
+
+    final oldPlanItem = _findPlanRegistryByName(trimmed);
+    if (oldPlanItem != null && CategoryKey.isValid(oldPlanItem.categoryKey)) {
+      return PlanCategoryAddAction(
+        type: PlanCategoryAddActionType.reuseFromRegistry,
+        name: trimmed,
+        emoji: emoji.trim().isNotEmpty ? emoji.trim() : oldPlanItem.emoji,
+        categoryKey: oldPlanItem.categoryKey,
+        message: '예전에 사용했던 카테고리를 다시 연결했어요.',
+      );
+    }
+
+    return PlanCategoryAddAction(
+      type: PlanCategoryAddActionType.createNew,
+      name: trimmed,
+      emoji: emoji,
+      categoryKey: CategoryKey.newKey(),
+    );
+  }
+
+  RefCategoryAddAction resolveRefCategoryAddAction({
+    required String name,
+    required String emoji,
+  }) {
+    final trimmed = name.trim();
+
+    if (trimmed.isEmpty) {
+      return RefCategoryAddAction(
+        type: RefCategoryAddActionType.blocked,
+        name: trimmed,
+        emoji: emoji,
+        message: '카테고리 이름을 입력해주세요.',
+      );
+    }
+
+    final refItem = _findRefByName(trimmed);
+    if (refItem != null) {
+      return RefCategoryAddAction(
+        type: RefCategoryAddActionType.blocked,
+        name: trimmed,
+        emoji: emoji,
+        categoryKey: refItem.categoryKey,
+        message: '같은 이름의 참고 카테고리가 이미 있어요.',
+      );
+    }
+
+    final planItem = _findPlanByName(trimmed);
+    if (planItem != null) {
+      return RefCategoryAddAction(
+        type: RefCategoryAddActionType.blocked,
+        name: trimmed,
+        emoji: emoji,
+        categoryKey: planItem.categoryKey,
+        message: '플랜 카테고리는 참고 카테고리로 중복 추가할 수 없어요.',
+      );
+    }
+
+    final oldPlanItem = _findPlanRegistryByName(trimmed);
+    if (oldPlanItem != null && CategoryKey.isValid(oldPlanItem.categoryKey)) {
+      return RefCategoryAddAction(
+        type: RefCategoryAddActionType.reuseFromRegistry,
+        name: trimmed,
+        emoji: emoji.trim().isNotEmpty ? emoji.trim() : oldPlanItem.emoji,
+        categoryKey: oldPlanItem.categoryKey,
+      );
+    }
+
+    return RefCategoryAddAction(
+      type: RefCategoryAddActionType.createNew,
+      name: trimmed,
+      emoji: emoji,
+      categoryKey: CategoryKey.newKey(),
+    );
+  }
+
+  void _upsertPlanRegistryItem({
+    required String categoryKey,
+    required String name,
+    required String emoji,
+  }) {
+    final key = categoryKey.trim();
+    final trimmedName = name.trim();
+
+    if (!CategoryKey.isValid(key) || trimmedName.isEmpty) return;
+
+    final resolvedEmoji = emoji.trim().isNotEmpty
+        ? emoji.trim()
+        : _fallbackEmojiByName(trimmedName);
+
+    final byKeyIndex = _planRegistry.indexWhere(
+          (e) => e.categoryKey == key,
+    );
+
+    if (byKeyIndex >= 0) {
+      final old = _planRegistry[byKeyIndex];
+
+      _planRegistry = [
+        for (int i = 0; i < _planRegistry.length; i++)
+          if (i == byKeyIndex)
+            old.copyWith(
+              name: trimmedName,
+              emoji: resolvedEmoji,
+              hidden: false,
+            )
+          else
+            _planRegistry[i],
+      ];
+
+      return;
+    }
+
+    final byNameIndex = _planRegistry.indexWhere(
+          (e) => _normalizeName(e.name) == _normalizeName(trimmedName),
+    );
+
+    if (byNameIndex >= 0) {
+      final old = _planRegistry[byNameIndex];
+
+      _planRegistry = [
+        for (int i = 0; i < _planRegistry.length; i++)
+          if (i == byNameIndex)
+            old.copyWith(
+              name: trimmedName,
+              emoji: resolvedEmoji,
+              hidden: false,
+            )
+          else
+            _planRegistry[i],
+      ];
+
+      return;
+    }
+
+    _planRegistry = [
+      ..._planRegistry,
+      RefCategoryItem(
+        categoryKey: key,
+        name: trimmedName,
+        emoji: resolvedEmoji,
+        order: _planRegistry.length,
+        hidden: false,
+      ),
+    ];
+  }
+
+  void _backfillPlanRegistryFromRefData(RefData ref) {
+    for (final daily in ref.dailyConsumeMap.values) {
+      for (final e in daily.entries) {
+        if (e.type != EntryType.daily) continue;
+
+        final key = e.categoryKey.trim();
+        final name = e.category.trim();
+
+        if (!CategoryKey.isValid(key) || name.isEmpty) continue;
+
+        final emoji = e.emoji.trim().isNotEmpty
+            ? e.emoji.trim()
+            : _fallbackEmojiByName(name);
+
+        _upsertPlanRegistryItem(
+          categoryKey: key,
+          name: name,
+          emoji: emoji,
+        );
+      }
+    }
+  }
+
+  void _syncDraftPlanIntoRegistry() {
+    for (final item in _draftPlan) {
+      _upsertPlanRegistryItem(
+        categoryKey: item.categoryKey,
+        name: item.name,
+        emoji: item.emoji,
+      );
+    }
+  }
+
+  Future<void> _savePlanRegistry() async {
+    final normalized = [
+      for (int i = 0; i < _planRegistry.length; i++)
+        _planRegistry[i].copyWith(order: i),
+    ];
+
+    _planRegistry = normalized;
+
+    await _refCatRepo.saveRefCategories(
+      docId: _planRegistryDocId,
+      items: normalized,
+      markDirty: true,
+    );
   }
 
   String _fallbackEmojiByName(String name, {String fallback = '💰'}) {
@@ -182,6 +536,66 @@ class CategoryEditViewModel extends ChangeNotifier {
     }
   }
 
+  List<RefCategoryItem> _defaultSpendingRefSeedUniqueKeys() {
+    return [
+      RefCategoryItem(
+        categoryKey: CategoryKey.newKey(),
+        name: '선물',
+        emoji: '🎁',
+        order: 0,
+        hidden: false,
+      ),
+      RefCategoryItem(
+        categoryKey: CategoryKey.newKey(),
+        name: '반려동물',
+        emoji: '🐕',
+        order: 1,
+        hidden: false,
+      ),
+      RefCategoryItem(
+        categoryKey: CategoryKey.newKey(),
+        name: '건강',
+        emoji: '💊',
+        order: 2,
+        hidden: false,
+      ),
+      RefCategoryItem(
+        categoryKey: CategoryKey.newKey(),
+        name: '기타',
+        emoji: '🧾',
+        order: 3,
+        hidden: false,
+      ),
+    ];
+  }
+
+  Future<List<RefCategoryItem>> _loadOrSeedRefCategories({
+    required String docId,
+    required List<RefCategoryItem> Function() seedBuilder,
+  }) async {
+    final items = await _refCatRepo.fetchRefCategories(docId: docId);
+
+    if (items.isNotEmpty) {
+      final sorted = List<RefCategoryItem>.from(items)
+        ..sort((a, b) => a.order.compareTo(b.order));
+
+      return [
+        for (int i = 0; i < sorted.length; i++)
+          sorted[i].copyWith(order: i),
+      ];
+    }
+
+    final seeded = seedBuilder();
+
+    await _refCatRepo.saveRefCategories(
+      docId: docId,
+      items: seeded,
+      markDirty: true,
+    );
+
+    return seeded;
+  }
+
   void _normalizeOrdersPlanOnly() {
     _draftPlan = [
       for (int i = 0; i < _draftPlan.length; i++)
@@ -202,11 +616,15 @@ class CategoryEditViewModel extends ChangeNotifier {
   void _snapshotBase() {
     _basePlan = _draftPlan.map((e) => e.copyWith()).toList(growable: false);
     _baseRef = _draftRef.map((e) => e.copyWith()).toList(growable: false);
+    _basePlanRegistry =
+        _planRegistry.map((e) => e.copyWith()).toList(growable: false);
   }
 
   void discardDraft() {
     _draftPlan = _basePlan.map((e) => e.copyWith()).toList();
     _draftRef = _baseRef.map((e) => e.copyWith()).toList();
+    _planRegistry =
+        _basePlanRegistry.map((e) => e.copyWith()).toList(growable: false);
 
     _normalizeOrdersPlanOnly();
     _normalizeOrdersRefOnly();
@@ -304,7 +722,9 @@ class CategoryEditViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // ✅ 플랜 draft와 ref category를 둘 다 최신화
+      // planSpendingRegistry를 먼저 로드해야 삭제된 플랜 카테고리 key를 재사용할 수 있음.
+      await _loadPlanRegistryInternal();
+
       await Future.wait([
         _loadPlanDraftInternal(),
         _loadRefDraftInternal(),
@@ -347,6 +767,10 @@ class CategoryEditViewModel extends ChangeNotifier {
     // ref_data.dart에서 같은 날짜여도 refresh 되게 수정했으므로,
     // 여기서 매번 호출해도 최신 primary가 잡힘.
     ref.setReferenceDate(_selectedDate);
+
+    // 과거/현재 dailyConsume 전체를 훑어서 planSpendingRegistry 백필.
+    // 플랜에서 삭제했던 카테고리도 old dailyConsume에 남아 있으면 key 복구 가능.
+    _backfillPlanRegistryFromRefData(ref);
 
     _refData = ref;
 
@@ -415,9 +839,13 @@ class CategoryEditViewModel extends ChangeNotifier {
   }
 
   Future<void> _loadRefDraftInternal() async {
-    final items = await _refCatRepo.fetchRefCategories(docId: _refDocId);
+    // 카테고리 에딧 페이지 진입 시에도 참고 소비 기본 4개 생성 트리거
+    final spendingItems = await _loadOrSeedRefCategories(
+      docId: _refDocId,
+      seedBuilder: _defaultSpendingRefSeedUniqueKeys,
+    );
 
-    _draftRef = List<RefCategoryItem>.from(items)
+    _draftRef = List<RefCategoryItem>.from(spendingItems)
       ..sort((a, b) => a.order.compareTo(b.order));
 
     _normalizeOrdersRefOnly();
@@ -455,10 +883,27 @@ class CategoryEditViewModel extends ChangeNotifier {
       _showNotice('같은 이름의 플랜 카테고리가 이미 있어요.');
       return;
     }
+    // ✅ 다른 경로에서 직접 draftAddCategory가 호출되어도
+    // 참고 카테고리와 같은 이름으로 플랜 카테고리가 생기지 않게 방어.
+    final existsInRef = _draftRef.any(
+          (e) => _normalizeName(e.name) == norm,
+    );
+
+    if (existsInRef) {
+      _showNotice('이미 참고 카테고리로 쓰고 있어요.');
+      return;
+    }
 
     final resolvedEmoji = emoji.trim().isNotEmpty
         ? emoji.trim()
         : _fallbackEmojiByName(trimmed);
+
+    // 플랜 카테고리는 삭제되어도 registry에서는 유지되어야 함.
+    _upsertPlanRegistryItem(
+      categoryKey: resolvedKey,
+      name: trimmed,
+      emoji: resolvedEmoji,
+    );
 
     _draftPlan = [
       ..._draftPlan,
@@ -506,9 +951,18 @@ class CategoryEditViewModel extends ChangeNotifier {
       final it = _draftPlan[i];
 
       if (it.categoryKey == categoryKey) {
+        final nextName = trimmedName ?? it.name;
+        final nextEmoji = emoji ?? it.emoji;
+
         _draftPlan[i] = it.copyWith(
-          name: trimmedName ?? it.name,
-          emoji: emoji ?? it.emoji,
+          name: nextName,
+          emoji: nextEmoji,
+        );
+
+        _upsertPlanRegistryItem(
+          categoryKey: categoryKey,
+          name: nextName,
+          emoji: nextEmoji,
         );
 
         _markDirty();
@@ -590,6 +1044,7 @@ class CategoryEditViewModel extends ChangeNotifier {
   RefCategoryItem? draftAddRef({
     required String name,
     required String emoji,
+    String? categoryKey,
   }) {
     final n = name.trim();
 
@@ -603,7 +1058,18 @@ class CategoryEditViewModel extends ChangeNotifier {
       return null;
     }
 
-    final key = CategoryKey.newKey();
+    final existsInCurrentPlan = _draftPlan.any(
+          (e) => _normalizeName(e.name) == _normalizeName(n),
+    );
+
+    if (existsInCurrentPlan) {
+      _showNotice('플랜 카테고리는 참고 카테고리로 중복 추가할 수 없어요.');
+      return null;
+    }
+
+    final key = CategoryKey.isValid(categoryKey)
+        ? categoryKey!.trim()
+        : CategoryKey.newKey();
 
     final resolvedEmoji = emoji.trim().isNotEmpty
         ? emoji.trim()
@@ -623,6 +1089,123 @@ class CategoryEditViewModel extends ChangeNotifier {
     _markDirty();
 
     return item;
+  }
+
+  void draftMoveRefToPlan({
+    required RefCategoryItem refItem,
+    required String name,
+    required String emoji,
+    required int dailyAmount,
+  }) {
+    final trimmed = name.trim().isNotEmpty ? name.trim() : refItem.name.trim();
+
+    if (trimmed.isEmpty) {
+      _showNotice('카테고리 이름을 입력해주세요.');
+      return;
+    }
+
+    final key = CategoryKey.isValid(refItem.categoryKey)
+        ? refItem.categoryKey.trim()
+        : CategoryKey.newKey();
+
+    final existsInPlan = _draftPlan.any(
+          (e) =>
+      e.categoryKey == key ||
+          _normalizeName(e.name) == _normalizeName(trimmed),
+    );
+
+    if (existsInPlan) {
+      _showNotice('같은 이름의 플랜 카테고리가 이미 있어요.');
+      return;
+    }
+
+    final resolvedEmoji = emoji.trim().isNotEmpty
+        ? emoji.trim()
+        : (refItem.emoji.trim().isNotEmpty
+        ? refItem.emoji.trim()
+        : _fallbackEmojiByName(trimmed));
+
+    // 참고 카테고리에서는 제거.
+    _draftRef = _draftRef
+        .where((e) => e.categoryKey != refItem.categoryKey)
+        .toList();
+
+    _normalizeOrdersRefOnly();
+
+    // 플랜 registry에는 같은 key로 저장/갱신.
+    _upsertPlanRegistryItem(
+      categoryKey: key,
+      name: trimmed,
+      emoji: resolvedEmoji,
+    );
+
+    // 현재 플랜 카테고리에 추가.
+    _draftPlan = [
+      ..._draftPlan,
+      CategoryEditItem(
+        categoryKey: key,
+        name: trimmed,
+        emoji: resolvedEmoji,
+        order: _draftPlan.length,
+        kind: CategoryKind.plan,
+        dailyAmount: max(1, dailyAmount),
+      ),
+    ];
+
+    _normalizeOrdersPlanOnly();
+    _markDirty();
+  }
+
+  void draftMovePlanToRef({
+    required CategoryEditItem planItem,
+  }) {
+    final name = planItem.name.trim();
+
+    if (name.isEmpty) {
+      _showNotice('카테고리 이름이 비어 있어요.');
+      return;
+    }
+
+    final norm = _normalizeName(name);
+
+    final existsInRef = _draftRef.any(
+          (e) => _normalizeName(e.name) == norm,
+    );
+
+    if (existsInRef) {
+      _showNotice('같은 이름의 참고 카테고리가 이미 있어요.');
+      return;
+    }
+
+    // 현재 플랜 카테고리에서 제거.
+    _draftPlan = _draftPlan
+        .where((e) => e.categoryKey != planItem.categoryKey)
+        .toList();
+
+    _normalizeOrdersPlanOnly();
+
+    // registry에는 유지/갱신.
+    // 플랜에서 삭제되어도 나중에 같은 이름을 다시 쓰면 key 복구 가능해야 함.
+    _upsertPlanRegistryItem(
+      categoryKey: planItem.categoryKey,
+      name: planItem.name,
+      emoji: planItem.emoji,
+    );
+
+    // 참고 카테고리에 같은 key로 추가.
+    _draftRef = [
+      ..._draftRef,
+      RefCategoryItem(
+        categoryKey: planItem.categoryKey,
+        name: planItem.name,
+        emoji: planItem.emoji,
+        order: _draftRef.length,
+        hidden: false,
+      ),
+    ];
+
+    _normalizeOrdersRefOnly();
+    _markDirty();
   }
 
   void draftRemoveRefByKey(String categoryKey) {
@@ -850,6 +1433,11 @@ class CategoryEditViewModel extends ChangeNotifier {
         items: normalizedRef,
         markDirty: true,
       );
+
+      // 현재 플랜 카테고리는 registry에 반영하되,
+      // 삭제된 플랜 카테고리는 registry에서 제거하지 않는다.
+      _syncDraftPlanIntoRegistry();
+      await _savePlanRegistry();
 
       await _cacheUpdatedPlanSnapshot(
         plan: updatedPlan,

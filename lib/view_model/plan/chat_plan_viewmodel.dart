@@ -23,6 +23,7 @@ import '../../repository/plan_cache_repository.dart';
 import '../../services/app_session_reset_service.dart';
 import '../../services/plan_debug_printer.dart';
 import '../../services/plan_saved_event_bus.dart';
+import '../services/category_bootstrap_service.dart';
 import '../services/ref_data_viewmodel.dart';
 import '../services/plan_preview_service.dart';
 import '../services/saving_calculator.dart';
@@ -52,15 +53,17 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
   final PlanRepository _planRepo;
   final PlanSavedEventBus? _planSavedBus;
   final PlanCacheRepository _planCacheRepo;
+  final CategoryBootstrapService _categoryBootstrapService;
 
   ChatPlanViewModel(
-    this._authRepo,
-    this._planRepo,
-    this._refDataRepo,
-    this._planCacheRepo, {
-    PlanSavedEventBus? planSavedBus,
-  }) : _planSavedBus = planSavedBus,
-       _mutationRepository = PlanMutationRepository() {
+      this._authRepo,
+      this._planRepo,
+      this._refDataRepo,
+      this._planCacheRepo,
+      this._categoryBootstrapService, {
+        PlanSavedEventBus? planSavedBus,
+      }) : _planSavedBus = planSavedBus,
+        _mutationRepository = PlanMutationRepository() {
     _mutationService = PlanMutationService(_mutationRepository);
     _refDataVM = RefDataViewModel(_refData);
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
@@ -1345,6 +1348,12 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
         consumes: _refData.monthlyConsumeMap,
         dailyConsumes: _refData.dailyConsumeMap,
       );
+
+      // ✅ 최초 플랜/기존 플랜 저장 후 refCategories 문서 보장
+      // - recordSpending: 빈 참고 소비 카테고리 문서
+      // - recordAddIncome: 빈 참고 수입 카테고리 문서
+      // - planSpendingRegistry: 하루소비한도 entries 기반 플랜 카테고리 registry
+      await _categoryBootstrapService.bootstrapFromInitialPlanRefData(_refData);
 
       _logPlanTree('After Save');
       _needsInitialUpload = false;
