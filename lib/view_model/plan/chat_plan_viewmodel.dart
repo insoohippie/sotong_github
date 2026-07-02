@@ -1064,7 +1064,6 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
           );
 
           await addSectionMessages(autoServiceSection);
-          await nextStep();
         } else {
           // 에러 메시지 (1개)
           final errorSection = ChatSection(
@@ -1080,11 +1079,18 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
         if (response == '네, 좋아요!') {
           updatePlanInfo(autoService: true);
           addMessage(response, MessageType.user);
+          final goalDate = calculationResult?.goalDateTime;
+          final journeyDays = goalDate == null
+              ? 0
+              : max(0, goalDate.difference(DateTime.now()).inDays);
 
           // complete 섹터 (메시지 1개)
           final completeSection = ChatSection(
             step: ChatStep.complete,
-            messages: ['완료되었습니다!\n이제 본격적으로 저와 소통해볼까요?'],
+            messages: [
+              '네! 그럼 저와 함께 총 ${journeyDays}일간의 여정을\n시작해볼까요? 🚀\n\n'
+                  '소통은 $_userName님이 목표를 이루는 그날까지,\n함께할게요 👏',
+            ],
             delayBetweenMessages: 500,
           );
 

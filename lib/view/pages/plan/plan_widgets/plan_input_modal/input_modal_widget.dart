@@ -490,7 +490,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
   Widget buildDetailBox() {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    String titleText = '일 변동소비 예산을\n입력해주세요';
+    String titleText = '하루에 사용할 예산을\n입력해주세요';
     String captionText = '하루 지출을 입력하면 월(30일) 변동예산을 자동으로 계산해요.';
     final kind = _resolveKind();
     if (kind == ItemKind.income) {
@@ -593,7 +593,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
                 alignment: Alignment.bottomCenter,
                 child: FractionallySizedBox(
                   widthFactor: 1.0,
-                  heightFactor: 0.96,
+                  heightFactor: 1.0,
                   child: TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0.98, end: 1.0),
                     duration: const Duration(milliseconds: 220),
@@ -610,13 +610,17 @@ class _InputModalWidgetState extends State<InputModalWidget>
                       ),
                       child: Container(
                         color: theme.colorScheme.surface,
-                        child: Column(
-                          children: [
-                            buildDetailBox(),
-                            if (!_isKeyboardVisible) const SizedBox(height: 8),
-                            Expanded(child: buildContent()),
-                            buildFooter(),
-                          ],
+                        child: SafeArea(
+                          top: true,
+                          bottom: false,
+                          child: Column(
+                            children: [
+                              buildDetailBox(),
+                              if (!_isKeyboardVisible) const SizedBox(height: 8),
+                              Expanded(child: buildContent()),
+                              buildFooter(),
+                            ],
+                          ),
                         ),
                       ),
                     ),
