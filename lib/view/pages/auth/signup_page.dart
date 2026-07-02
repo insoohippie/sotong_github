@@ -50,27 +50,33 @@ class _SignUpPageState extends State<SignUpPage> {
         },
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: horizontalPadding,
-                ).copyWith(bottom: 120),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (vm.currentStep == SignupStep.email)
-                      _buildIdField(vm),
-                    if (vm.currentStep == SignupStep.password)
-                      _buildPasswordField(vm),
-                    if (vm.currentStep == SignupStep.userInfo)
-                      _buildNicknameField(vm),
-                  ],
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalPadding,
+                  ).copyWith(bottom: 120),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (vm.currentStep == SignupStep.email)
+                        _buildIdField(vm),
+                      if (vm.currentStep == SignupStep.password)
+                        _buildPasswordField(vm),
+                      if (vm.currentStep == SignupStep.userInfo)
+                        _buildNicknameField(vm),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: SafeArea(
