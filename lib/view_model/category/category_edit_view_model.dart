@@ -1156,8 +1156,9 @@ class CategoryEditViewModel extends ChangeNotifier {
     _markDirty();
   }
 
-  void draftMovePlanToRef({
+  void draftMovePlanToRefAtIndex({
     required CategoryEditItem planItem,
+    required int targetIndex,
   }) {
     final name = planItem.name.trim();
 
@@ -1177,34 +1178,100 @@ class CategoryEditViewModel extends ChangeNotifier {
       return;
     }
 
-    // 현재 플랜 카테고리에서 제거.
+    // 현재 플랜 카테고리에서 제거
     _draftPlan = _draftPlan
         .where((e) => e.categoryKey != planItem.categoryKey)
         .toList();
 
     _normalizeOrdersPlanOnly();
 
-    // registry에는 유지/갱신.
-    // 플랜에서 삭제되어도 나중에 같은 이름을 다시 쓰면 key 복구 가능해야 함.
+    // registry에는 유지/갱신
     _upsertPlanRegistryItem(
       categoryKey: planItem.categoryKey,
       name: planItem.name,
       emoji: planItem.emoji,
     );
 
-    // 참고 카테고리에 같은 key로 추가.
-    _draftRef = [
-      ..._draftRef,
-      RefCategoryItem(
-        categoryKey: planItem.categoryKey,
-        name: planItem.name,
-        emoji: planItem.emoji,
-        order: _draftRef.length,
-        hidden: false,
-      ),
-    ];
+    final safeIndex = targetIndex.clamp(0, _draftRef.length);
+
+    final newRefItem = RefCategoryItem(
+      categoryKey: planItem.categoryKey,
+      name: planItem.name,
+      emoji: planItem.emoji,
+      order: safeIndex,
+      hidden: false,
+    );
+
+    final nextRef = List<RefCategoryItem>.from(_draftRef);
+    nextRef.insert(safeIndex, newRefItem);
+
+    _draftRef = nextRef;
+    _normalizeOrdersRefOnly();
+
+    _markDirty();
+  }
+
+  void draftMoveRefToPlanPendingAtIndex({
+    required RefCategoryItem refItem,
+    required int targetIndex,
+  }) {
+    final name = refItem.name.trim();
+
+    if (name.isEmpty) {
+      _showNotice('카테고리 이름이 비어 있어요.');
+      return;
+    }
+
+    final key = CategoryKey.isValid(refItem.categoryKey)
+        ? refItem.categoryKey.trim()
+        : CategoryKey.newKey();
+
+    final existsInPlan = _draftPlan.any(
+          (e) =>
+      e.categoryKey == key ||
+          _normalizeName(e.name) == _normalizeName(name),
+    );
+
+    if (existsInPlan) {
+      _showNotice('같은 이름의 플랜 카테고리가 이미 있어요.');
+      return;
+    }
+
+    final resolvedEmoji = refItem.emoji.trim().isNotEmpty
+        ? refItem.emoji.trim()
+        : _fallbackEmojiByName(name);
+
+    // 참고 카테고리에서 제거
+    _draftRef = _draftRef
+        .where((e) => e.categoryKey != refItem.categoryKey)
+        .toList();
 
     _normalizeOrdersRefOnly();
+
+    // registry에는 같은 key로 저장/갱신
+    _upsertPlanRegistryItem(
+      categoryKey: key,
+      name: name,
+      emoji: resolvedEmoji,
+    );
+
+    final safeIndex = targetIndex.clamp(0, _draftPlan.length);
+
+    final newPlanItem = CategoryEditItem(
+      categoryKey: key,
+      name: name,
+      emoji: resolvedEmoji,
+      order: safeIndex,
+      kind: CategoryKind.plan,
+      dailyAmount: null, // ✅ 금액 입력 전 상태: 화면에서 -원 표시
+    );
+
+    final nextPlan = List<CategoryEditItem>.from(_draftPlan);
+    nextPlan.insert(safeIndex, newPlanItem);
+
+    _draftPlan = nextPlan;
+    _normalizeOrdersPlanOnly();
+
     _markDirty();
   }
 
@@ -1328,6 +1395,11 @@ class CategoryEditViewModel extends ChangeNotifier {
       for (int i = 0; i < _draftPlan.length; i++) {
         final c = _draftPlan[i];
 
+        if (c.dailyAmount == null || c.dailyAmount! < 1) {
+          _error = '${c.name} 카테고리의 하루 금액을 입력해주세요.';
+          return false;
+        }
+
         final resolvedKey = CategoryKey.isValid(c.categoryKey)
             ? c.categoryKey.trim()
             : CategoryKey.newKey();
@@ -1343,7 +1415,7 @@ class CategoryEditViewModel extends ChangeNotifier {
           Entry(
             idx: i,
             order: i,
-            amount: (normalizedItem.dailyAmount ?? 1).toDouble(),
+            amount: normalizedItem.dailyAmount!.toDouble(),
             categoryKey: normalizedItem.categoryKey,
             category: normalizedItem.name,
             emoji: normalizedItem.emoji,
