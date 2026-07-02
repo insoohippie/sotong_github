@@ -329,9 +329,11 @@ class _ChatPlanPageState extends State<ChatPlanPage>
     final mediaQuery = MediaQuery.of(context);
     final statusBarHeight = mediaQuery.padding.top;
     const double bottomBarHeight = 250.0;
+    final isAmountInputModalOpen =
+        _showIncomeModal || _showFixedCostModal || _showDailySpendingModal;
 
     return Scaffold(
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: !isAmountInputModalOpen,
 
       body: Consumer3<ChatPlanViewModel, CategoryEditViewModel, PlanCategoryViewModel>(
         builder: (context, viewModel, categoryVM, localCategoryVM, child) {
