@@ -97,6 +97,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
   }
 
   Future<void> _openIdModal(String email) async {
+    final displayId = _displayIdFromEmail(email);
     await showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -122,7 +123,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
                   ),
                   alignment: Alignment.centerLeft,
                   child: Text(
-                    email.isEmpty ? '-' : email,
+                    displayId.isEmpty ? '-' : displayId,
                     style: TextStyle(
                       fontSize: 15,
                       fontFamily: 'Pretendard Variable',
@@ -144,6 +145,14 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
         ),
       ),
     );
+  }
+
+  String _displayIdFromEmail(String email) {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) return '';
+    final atIndex = trimmed.indexOf('@');
+    if (atIndex <= 0) return trimmed;
+    return trimmed.substring(0, atIndex);
   }
 
   Widget _buildInfoModal({
@@ -379,6 +388,7 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
   Widget build(BuildContext context) {
     final authRepo = context.read<AuthRepository>();
     final email = authRepo.currentUserEmail;
+    final displayId = _displayIdFromEmail(email);
 
     if (_isLoading) {
       return Scaffold(
@@ -432,9 +442,8 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
             _buildLabel('아이디'),
             const SizedBox(height: 8),
             _buildTappableField(
-              value: email.isEmpty ? '-' : email,
-              hintStyle: email.isEmpty,
-              readOnly: true,
+              value: displayId.isEmpty ? '-' : displayId,
+              hintStyle: displayId.isEmpty,
               onTap: () => _openIdModal(email),
             ),
 
@@ -479,7 +488,6 @@ class _PersonalInfoPageState extends State<PersonalInfoPage> {
     required String value,
     required bool hintStyle,
     required VoidCallback onTap,
-    bool readOnly = false,
     Widget? trailing,
   }) {
     final theme = Theme.of(context);

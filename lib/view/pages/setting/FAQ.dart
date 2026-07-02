@@ -63,8 +63,8 @@ class _FAQPageState extends State<FAQPage> {
         ? (Colors.grey[900] ?? Colors.black)
         : Colors.white;
     final Color borderColor = isDark
-        ? (Colors.white12 ?? Colors.white)
-        : (Colors.black12 ?? Colors.black);
+        ? Colors.white12
+        : Colors.black12;
     final Color iconColor = isDark ? Colors.white : Colors.black87;
 
     return Scaffold(
@@ -112,17 +112,41 @@ class _FAQPageState extends State<FAQPage> {
     );
   }
 
-  static const _questionStyle = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w700,
-    fontFamily: 'Pretendard Variable',
-  );
-  static const _answerStyle = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w400,
-    fontFamily: 'Pretendard Variable',
-    height: 1.55,
-  );
+  TextStyle _responsiveQuestionStyle(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final fontSize = width <= 380
+        ? 11.0
+        : width <= 410
+            ? 12.0
+            : 13.0;
+    return TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w700,
+      fontFamily: 'Pretendard Variable',
+    );
+  }
+
+  TextStyle _responsiveAnswerStyle(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final fontSize = width <= 380
+        ? 10.0
+        : width <= 410
+            ? 11.0
+            : 12.0;
+    return TextStyle(
+      fontSize: fontSize,
+      fontWeight: FontWeight.w400,
+      fontFamily: 'Pretendard Variable',
+      height: 1.55,
+    );
+  }
+
+  double _responsiveArrowSize(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    if (width <= 380) return 17.0;
+    if (width <= 410) return 18.0;
+    return 19.0;
+  }
 
   /// B: 최대 높이 애니메이션 (AnimatedSize로 부드럽게 채워짐)
   Widget _buildVariantB(
@@ -131,6 +155,10 @@ class _FAQPageState extends State<FAQPage> {
       Color cardColor,
       Color borderColor,
       ) {
+    final questionStyleBase = _responsiveQuestionStyle(context);
+    final answerStyleBase = _responsiveAnswerStyle(context);
+    final arrowSize = _responsiveArrowSize(context);
+
     return ListView.builder(
       itemCount: _faqItems.length,
       itemBuilder: (context, index) {
@@ -141,12 +169,13 @@ class _FAQPageState extends State<FAQPage> {
           borderColor,
           _FaqExpandableCardB(
             item: item,
-            questionStyle: _questionStyle.copyWith(
+            questionStyle: questionStyleBase.copyWith(
               color: theme.textTheme.titleMedium?.color,
             ),
-            answerStyle: _answerStyle.copyWith(
+            answerStyle: answerStyleBase.copyWith(
               color: theme.textTheme.bodyMedium?.color?.withOpacity(0.9),
             ),
+            arrowSize: arrowSize,
             onToggle: () => setState(() {}),
           ),
         );
@@ -160,12 +189,14 @@ class _FaqExpandableCardB extends StatelessWidget {
   final FAQItem item;
   final TextStyle questionStyle;
   final TextStyle answerStyle;
+  final double arrowSize;
   final VoidCallback onToggle;
 
   const _FaqExpandableCardB({
     required this.item,
     required this.questionStyle,
     required this.answerStyle,
+    required this.arrowSize,
     required this.onToggle,
   });
 
@@ -191,7 +222,7 @@ class _FaqExpandableCardB extends StatelessWidget {
                   child: Icon(
                     Icons.keyboard_arrow_down,
                     color: AppColors.primary,
-                    size: 18,
+                    size: arrowSize,
                   ),
                 ),
               ],
