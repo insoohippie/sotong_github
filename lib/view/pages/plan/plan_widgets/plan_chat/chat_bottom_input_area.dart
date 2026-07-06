@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../../view_model/plan/enums/chat_step.dart';
@@ -183,7 +184,7 @@ class ChatBottomInputArea extends StatelessWidget {
 
           if (currentStep == ChatStep.complete && animDone)
             CustomButton(
-              text: '다음으로 이동',
+              text: '네, 좋아요!',
               onPressed: () {
                 Navigator.of(context).pushNamedAndRemoveUntil(
                   '/plan_success',
@@ -323,6 +324,7 @@ class SignedAmountTextField extends StatefulWidget {
 class _SignedAmountTextFieldState extends State<SignedAmountTextField> {
   String _sign = '+';
   late final TextEditingController _amountController;
+  bool _isFormattingAmount = false;
 
   @override
   void initState() {
@@ -360,6 +362,37 @@ class _SignedAmountTextFieldState extends State<SignedAmountTextField> {
     widget.onChanged?.call(signedValue);
   }
 
+  void _toggleSign() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _sign = _sign == '+' ? '-' : '+';
+    });
+    _syncParentController();
+  }
+
+  String _formatWithThousands(String raw) {
+    final digitsOnly = raw.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digitsOnly.isEmpty) return '';
+    final number = int.tryParse(digitsOnly);
+    if (number == null) return '';
+    return NumberFormat('#,###').format(number);
+  }
+
+  void _onAmountChanged(String value) {
+    if (_isFormattingAmount) return;
+
+    _isFormattingAmount = true;
+    final formatted = _formatWithThousands(value);
+    if (formatted != _amountController.text) {
+      _amountController.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+    }
+    _isFormattingAmount = false;
+    _syncParentController();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -367,38 +400,21 @@ class _SignedAmountTextFieldState extends State<SignedAmountTextField> {
         SizedBox(
           width: 72,
           height: 60,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
+          child: Material(
+            color: const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
               borderRadius: BorderRadius.circular(12),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _sign,
-                isExpanded: true,
-                borderRadius: BorderRadius.circular(12),
-                alignment: Alignment.center,
-                icon: const Icon(Icons.keyboard_arrow_down_rounded),
-                items: const [
-                  DropdownMenuItem(
-                    value: '+',
-                    child: Center(child: Text('+')),
+              onTap: _toggleSign,
+              child: Center(
+                child: Text(
+                  _sign,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF111827),
                   ),
-                  DropdownMenuItem(
-                    value: '-',
-                    child: Center(child: Text('-')),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-
-                  setState(() {
-                    _sign = value;
-                  });
-
-                  _syncParentController();
-                },
+                ),
               ),
             ),
           ),
@@ -412,9 +428,7 @@ class _SignedAmountTextFieldState extends State<SignedAmountTextField> {
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
             ],
-            onChanged: (_) {
-              _syncParentController();
-            },
+            onChanged: _onAmountChanged,
           ),
         ),
       ],
