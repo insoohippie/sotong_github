@@ -11,12 +11,13 @@ import '../../../component/theme/app_colors.dart';
 // import '../../../component/theme/app_text_styles.dart';
 // import '../../../component/buttons/small_rounded_button.dart';
 
+import '../../../model/category/category_edit_row.dart';
 import '../../../model/category/ref_category_item.dart';
 import '../../../model/category/category_edit_item.dart';
-import '../../../services/category_key.dart';
 import '../../../view_model/category/category_edit_view_model.dart';
 
 // ✅ 모달 2개는 그대로 유지
+import 'category_widgets/category_edit_tiles.dart';
 import 'category_widgets/category_name_modal.dart';
 import 'category_widgets/category_amount_modal.dart';
 
@@ -50,7 +51,7 @@ class _CategoryEditPageState extends State<CategoryEditPage>
   bool _editingIsPlan = false;
   int _editingAmount = 1;
 
-  CategoryEditItem? _pendingMoveRefItem;
+  RefCategoryItem? _pendingMoveRefItem;
   int? _pendingMoveTargetIndex;
 
   @override
@@ -139,6 +140,206 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     list.insert(newIndex, moved);
     return list;
   }
+  List<CategoryEditRow> _buildRows(CategoryEditViewModel vm) {
+    return [
+      const CategoryEditRow.planHeader(),
+      ...vm.draftPlan.map(CategoryEditRow.planItem),
+      const CategoryEditRow.planAddButton(),
+      const CategoryEditRow.refHeader(),
+      ...vm.draftRef.map(CategoryEditRow.refItem),
+      const CategoryEditRow.refAddButton(),
+    ];
+  }
+
+  int _refHeaderIndex(List<CategoryEditRow> rows) {
+    return rows.indexWhere((e) => e.type == CategoryEditRowType.refHeader);
+  }
+
+  int _countPlanItemsBefore(
+      List<CategoryEditRow> rows,
+      int insertIndex,
+      ) {
+    final safeIndex = insertIndex.clamp(0, rows.length);
+
+    return rows
+        .take(safeIndex)
+        .where((e) => e.type == CategoryEditRowType.planItem)
+        .length;
+  }
+
+  int _countRefItemsBefore(
+      List<CategoryEditRow> rows,
+      int insertIndex,
+      ) {
+    final safeIndex = insertIndex.clamp(0, rows.length);
+
+    return rows
+        .take(safeIndex)
+        .where((e) => e.type == CategoryEditRowType.refItem)
+        .length;
+  }
+
+  List<String> _planKeysAfterUnifiedInsert({
+    required List<CategoryEditRow> withoutMoving,
+    required CategoryEditRow moving,
+    required int insertIndex,
+  }) {
+    final copied = List<CategoryEditRow>.from(withoutMoving);
+    final safeIndex = insertIndex.clamp(0, copied.length);
+
+    copied.insert(safeIndex, moving);
+
+    return copied
+        .where((e) => e.type == CategoryEditRowType.planItem)
+        .map((e) => e.planItem!.categoryKey)
+        .toList(growable: false);
+  }
+
+  List<String> _refKeysAfterUnifiedInsert({
+    required List<CategoryEditRow> withoutMoving,
+    required CategoryEditRow moving,
+    required int insertIndex,
+  }) {
+    final copied = List<CategoryEditRow>.from(withoutMoving);
+    final safeIndex = insertIndex.clamp(0, copied.length);
+
+    copied.insert(safeIndex, moving);
+
+    return copied
+        .where((e) => e.type == CategoryEditRowType.refItem)
+        .map((e) => e.refItem!.categoryKey)
+        .toList(growable: false);
+  }
+
+
+
+  Future<void> _handleUnifiedReorder(
+      CategoryEditViewModel vm, {
+        required List<CategoryEditRow> rows,
+        required int oldIndex,
+        required int newIndex,
+      }) async {
+    if (oldIndex < 0 || oldIndex >= rows.length) return;
+
+    final moving = rows[oldIndex];
+
+    // 헤더/추가 버튼은 이동 금지
+    if (moving.isFixed) return;
+
+    var insertIndex = newIndex;
+
+    if (oldIndex < insertIndex) {
+      insertIndex -= 1;
+    }
+
+    final withoutMoving = List<CategoryEditRow>.from(rows)
+      ..removeAt(oldIndex);
+
+    insertIndex = insertIndex.clamp(0, withoutMoving.length);
+
+    final refHeader = _refHeaderIndex(withoutMoving);
+    if (refHeader < 0) return;
+
+    final isMovingPlan = moving.type == CategoryEditRowType.planItem;
+    final isMovingRef = moving.type == CategoryEditRowType.refItem;
+
+    // 플랜 영역:
+    // planHeader 아래 ~ refHeader 위
+    // planAddButton 위치에 놓아도 플랜 맨 아래로 인정
+    final movingIntoPlan = isMovingRef
+        ? insertIndex <= refHeader
+        : insertIndex < refHeader;
+
+    // 참고 영역:
+    // refHeader 아래 ~ refAddButton 위/아래
+    final movingIntoRef = isMovingPlan
+        ? insertIndex >= refHeader
+        : insertIndex > refHeader;
+
+    // 플랜 내부 정렬
+    if (isMovingPlan && movingIntoPlan) {
+      final newKeys = _planKeysAfterUnifiedInsert(
+        withoutMoving: withoutMoving,
+        moving: moving,
+        insertIndex: insertIndex,
+      );
+
+      vm.draftReorderPlanByKeys(newKeys);
+      return;
+    }
+
+    // 참고 내부 정렬
+    if (isMovingRef && movingIntoRef) {
+      final newKeys = _refKeysAfterUnifiedInsert(
+        withoutMoving: withoutMoving,
+        moving: moving,
+        insertIndex: insertIndex,
+      );
+
+      vm.draftReorderRefByKeys(newKeys);
+      return;
+    }
+
+    // 참고 → 플랜 이동
+    if (isMovingRef && movingIntoPlan) {
+      final item = moving.refItem;
+      if (item == null) return;
+
+      final targetPlanIndex = _countPlanItemsBefore(
+        withoutMoving,
+        insertIndex,
+      );
+
+      // ✅ 먼저 화면에서 해당 위치로 이동시킴. 금액은 임시로 -원 표시.
+      vm.draftMoveRefToPlanPendingAtIndex(
+        refItem: item,
+        targetIndex: targetPlanIndex,
+      );
+
+      if (mounted) setState(() {});
+
+      // 금액 입력 완료 시 이 categoryKey의 금액만 업데이트할 예정
+      _pendingMoveRefItem = item;
+      _pendingMoveTargetIndex = null;
+
+      _editingCategoryId = item.categoryKey;
+      _editingCategoryName = item.name;
+      _editingCategoryEmoji = item.emoji;
+      _editingIsPlan = true;
+      _editingAmount = 1;
+
+      _showCategoryToast('금액을 입력하면 플랜 카테고리 이동이 완료돼요.');
+
+      await _openAmountSheet();
+      return;
+    }
+
+    // 플랜 → 참고 이동
+    if (isMovingPlan && movingIntoRef) {
+      final item = moving.planItem;
+      if (item == null) return;
+
+      final targetRefIndex = _countRefItemsBefore(
+        withoutMoving,
+        insertIndex,
+      );
+
+      vm.draftMovePlanToRefAtIndex(
+        planItem: item,
+        targetIndex: targetRefIndex,
+      );
+
+      if (mounted) setState(() {});
+
+      _showCategoryToast('참고 카테고리로 이동했어요. 저장 버튼을 눌러야 반영돼요.');
+      return;
+    }
+  }
+
+
+
+
+
 
   // =========================================================
   // ✅ 뒤로가기 확인 다이얼로그
@@ -172,6 +373,11 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     );
     return res ?? false;
   }
+
+
+
+
+
 
   Future<bool> _handleBack(CategoryEditViewModel vm) async {
     if (_showNameSheet) {
@@ -355,67 +561,115 @@ class _CategoryEditPageState extends State<CategoryEditPage>
       }) async {
     final trimmed = name.trim();
 
-    // ✅ 1) 이름 입력 단계에서 바로 검사
-    // - 추가 모드: validateNewCategoryName()으로 중복 검사
-    // - 수정 모드: 기존 이름 그대로면 통과
-    // - 수정 모드에서 다른 이름으로 바꾸면 VM의 draftUpdateMeta / draftUpdateRefMeta가 최종 방어
+    // =========================================================
+    // 새 카테고리 추가 모드
+    // =========================================================
     if (_editingCategoryId == null) {
-      final message = vm.validateNewCategoryName(
-        isPlan: _editingIsPlan,
-        name: trimmed,
-      );
-
-      if (message != null) {
-        _showCategoryToast(message);
-        return;
-      }
-    } else {
-      if (trimmed.isEmpty) {
-        _showCategoryToast('카테고리 이름을 입력해주세요.');
-        return;
-      }
-    }
-
-    // ✅ 2) 검사 통과 후에만 이름 시트 닫기
-    await _closeNameSheet(setFalse: true);
-    if (!mounted) return;
-
-    // ✅ 3) 새 카테고리 추가
-    if (_editingCategoryId == null) {
-      // 플랜 카테고리 추가:
-      // 이름 검사를 통과했을 때만 금액 입력창을 연다.
+      // -----------------------------
+      // 플랜 카테고리 추가
+      // -----------------------------
       if (_editingIsPlan) {
-        final newKey = CategoryKey.newKey();
+        final action = vm.resolvePlanCategoryAddAction(
+          name: trimmed,
+          emoji: emoji,
+        );
 
-        _editingCategoryId = newKey;
-        _editingCategoryName = trimmed;
-        _editingCategoryEmoji = emoji;
-        _editingAmount = 1;
+        switch (action.type) {
+          case PlanCategoryAddActionType.blocked:
+            _showCategoryToast(action.message ?? '카테고리를 추가할 수 없어요.');
+            return;
 
-        await _openAmountSheet();
-        return;
+          case PlanCategoryAddActionType.moveFromRef:
+            _showCategoryToast('이미 참고 카테고리로 쓰고 있어요.');
+            return;
+
+          case PlanCategoryAddActionType.reuseFromRegistry:
+            if (action.categoryKey == null) {
+              _showCategoryToast('카테고리를 추가할 수 없어요.');
+              return;
+            }
+
+            _showCategoryToast(
+              action.message ?? '예전에 사용했던 카테고리를 다시 연결했어요.',
+            );
+
+            await _closeNameSheet(setFalse: true);
+            if (!mounted) return;
+
+            _editingCategoryId = action.categoryKey;
+            _editingCategoryName = action.name;
+            _editingCategoryEmoji = action.emoji;
+            _editingAmount = 1;
+
+            await _openAmountSheet();
+            return;
+
+          case PlanCategoryAddActionType.createNew:
+            if (action.categoryKey == null) {
+              _showCategoryToast('카테고리를 추가할 수 없어요.');
+              return;
+            }
+
+            await _closeNameSheet(setFalse: true);
+            if (!mounted) return;
+
+            _editingCategoryId = action.categoryKey;
+            _editingCategoryName = action.name;
+            _editingCategoryEmoji = action.emoji;
+            _editingAmount = 1;
+
+            await _openAmountSheet();
+            return;
+        }
       }
 
-      // 참고 카테고리 추가:
-      // 이름 검사를 통과했으므로 바로 추가한다.
-      final added = vm.draftAddRef(
+      // -----------------------------
+      // 참고 카테고리 추가
+      // -----------------------------
+      final action = vm.resolveRefCategoryAddAction(
         name: trimmed,
         emoji: emoji,
       );
 
-      if (added == null) {
-        // 혹시 UI 사전검사를 통과했는데 VM에서 막힌 경우 최종 안내
-        final notice = vm.noticeMessage;
-        _showCategoryToast(notice ?? '카테고리를 추가하지 못했어요.');
-        vm.consumeNoticeMessage();
-        return;
-      }
+      switch (action.type) {
+        case RefCategoryAddActionType.blocked:
+          _showCategoryToast(action.message ?? '카테고리를 추가할 수 없어요.');
+          return;
 
-      _clearEditingState();
+        case RefCategoryAddActionType.reuseFromRegistry:
+        case RefCategoryAddActionType.createNew:
+          await _closeNameSheet(setFalse: true);
+          if (!mounted) return;
+
+          final added = vm.draftAddRef(
+            name: action.name,
+            emoji: action.emoji,
+            categoryKey: action.categoryKey,
+          );
+
+          if (added == null) {
+            final notice = vm.noticeMessage;
+            _showCategoryToast(notice ?? '카테고리를 추가하지 못했어요.');
+            vm.consumeNoticeMessage();
+            return;
+          }
+
+          _clearEditingState();
+          return;
+      }
+    }
+
+    // =========================================================
+    // 기존 카테고리 수정 모드
+    // =========================================================
+    if (trimmed.isEmpty) {
+      _showCategoryToast('카테고리 이름을 입력해주세요.');
       return;
     }
 
-    // ✅ 4) 기존 카테고리 이름/이모지 수정
+    await _closeNameSheet(setFalse: true);
+    if (!mounted) return;
+
     if (_editingIsPlan) {
       vm.draftUpdateMeta(
         categoryKey: _editingCategoryId!,
@@ -452,16 +706,27 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     await _closeAmountSheet(setFalse: true);
     if (!mounted) return;
 
-    if (_pendingMoveRefItem != null && _pendingMoveTargetIndex != null) {
-      _pendingMoveRefItem = null;
-      _pendingMoveTargetIndex = null;
-      _clearEditingState();
-      return;
-    }
-
     final id = _editingCategoryId;
     final name = _editingCategoryName;
     final emoji = (_editingCategoryEmoji ?? '💰');
+
+    // ✅ 참고 카테고리 → 플랜 카테고리 이동 케이스
+    if (_pendingMoveRefItem != null) {
+      final movingRefItem = _pendingMoveRefItem!;
+
+      // ✅ 이미 플랜 목록으로 이동된 상태이므로 금액만 업데이트
+      vm.draftUpdateDailyAmount(
+        categoryKey: movingRefItem.categoryKey,
+        dailyAmount: amount,
+      );
+
+      if (mounted) setState(() {});
+
+      _showCategoryToast('플랜 카테고리로 이동했어요. 저장 버튼을 눌러야 반영돼요.');
+
+      _clearEditingState();
+      return;
+    }
 
     if (id != null && name != null && _editingIsPlan) {
       final exists = vm.draftPlan.any((e) => e.categoryKey == id);
@@ -699,155 +964,6 @@ class _CategoryEditPageState extends State<CategoryEditPage>
     );
   }
 
-  Widget _planSliverTile({
-    required Key key,
-    required CategoryEditItem item,
-    required int index,
-    required VoidCallback onDelete,
-    required VoidCallback onTapEditName,
-    required VoidCallback onTapEditAmount,
-  }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final tileBg = isDark ? theme.colorScheme.surface : Colors.white;
-    final tileBorder = isDark ? theme.dividerColor : Colors.grey.shade200;
-    final dragColor = theme.colorScheme.onSurfaceVariant;
-
-    return Container(
-      key: key, // ✅ sliver reorderable이 추적할 key
-      child: Dismissible(
-        key: ValueKey('plan-dismiss-${item.categoryKey}'),
-        direction: DismissDirection.endToStart,
-        onDismissed: (_) => onDelete(),
-        background: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 20),
-          child: const Icon(Icons.delete, color: Colors.white),
-        ),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-          decoration: BoxDecoration(
-            color: tileBg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: tileBorder),
-          ),
-          child: Material(
-            type: MaterialType.transparency, // ✅ 핵심: Material ancestor 제공
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: ReorderableDragStartListener(
-                index: index,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.drag_handle, color: dragColor),
-                    const SizedBox(width: 8),
-                    Text(item.emoji, style: const TextStyle(fontSize: 20)),
-                  ],
-                ),
-              ),
-              title: Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: onTapEditName,
-                      child: Text(
-                        item.name,
-                        style: TextStyle(color: theme.colorScheme.onSurface),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  GestureDetector(
-                    onTap: onTapEditAmount,
-                    child: Text(
-                      _formatAmount(item.dailyAmount ?? 0),
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                        fontFeatures: [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _refSliverTile({
-    required Key key,
-    required RefCategoryItem item,
-    required int index,
-    required VoidCallback onDelete,
-    required VoidCallback onTapEditName,
-  }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final tileBg = isDark ? theme.colorScheme.surface : Colors.white;
-    final tileBorder = isDark ? theme.dividerColor : Colors.grey.shade200;
-    final dragColor = theme.colorScheme.onSurfaceVariant;
-
-    return Container(
-      key: key,
-      child: Dismissible(
-        key: ValueKey('ref-dismiss-${item.categoryKey}'),
-        direction: DismissDirection.endToStart,
-        onDismissed: (_) => onDelete(),
-        background: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.red,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 20),
-          child: const Icon(Icons.delete, color: Colors.white),
-        ),
-        child: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
-          decoration: BoxDecoration(
-            color: tileBg,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: tileBorder),
-          ),
-          child: Material(
-            type: MaterialType.transparency,
-            child: ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: ReorderableDragStartListener(
-                index: index,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.drag_handle, color: dragColor),
-                    const SizedBox(width: 8),
-                    Text(item.emoji, style: const TextStyle(fontSize: 20)),
-                  ],
-                ),
-              ),
-              title: GestureDetector(
-                onTap: onTapEditName,
-                child: Text(
-                  item.name,
-                  style: TextStyle(color: theme.colorScheme.onSurface),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   // =========================================================
   // Build
   // =========================================================
@@ -859,6 +975,7 @@ class _CategoryEditPageState extends State<CategoryEditPage>
         final reachDate = vm.projectedGoalDate;
         final theme = Theme.of(context);
         final notice = vm.noticeMessage;
+        final rows = _buildRows(vm);
 
         if (notice != null) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -891,87 +1008,117 @@ class _CategoryEditPageState extends State<CategoryEditPage>
                       ),
                     ),
 
-                    // PLAN
-                    SliverToBoxAdapter(child: _planHeader()),
-                    if (vm.draftPlan.isEmpty)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                          child: Text(
-                            '카테고리가 없습니다. 아래에서 추가해보세요.',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      SliverReorderableList(
-                        itemCount: vm.draftPlan.length,
-                        onReorder: (oldIndex, newIndex) {
-                          final items = vm.draftPlan;
-                          final keys = items.map((e) => e.categoryKey).toList();
-                          final newKeys = _reorderKeys(keys: keys, oldIndex: oldIndex, newIndex: newIndex);
-                          vm.draftReorderPlanByKeys(newKeys);
-                        },
-                        itemBuilder: (context, index) {
-                          final item = vm.draftPlan[index];
-                          return _planSliverTile(
-                            key: ValueKey('plan-${item.categoryKey}'),
-                            item: item,
-                            index: index,
-                            onDelete: () => vm.draftDeletePlan(item.categoryKey),
-                            onTapEditName: () => _openNameForEditPlan(item),
-                            onTapEditAmount: () => _openAmountForEdit(item),
-                          );
-                        },
-                      ),
-                    SliverToBoxAdapter(child: _addButton(onAdd: () => _openNameForAdd(isPlan: true))),
+                    SliverReorderableList(
+                      itemCount: rows.length,
+                      onReorder: (oldIndex, newIndex) {
+                        _handleUnifiedReorder(
+                          vm,
+                          rows: rows,
+                          oldIndex: oldIndex,
+                          newIndex: newIndex,
+                        );
+                      },
+                      itemBuilder: (context, index) {
+                        final row = rows[index];
 
-                    SliverToBoxAdapter(
-                      child: Divider(
-                        height: 1,
-                        thickness: 1,
-                        color: theme.dividerColor,
-                      ),
+                        switch (row.type) {
+                          case CategoryEditRowType.planHeader:
+                            return Container(
+                              key: ValueKey(row.key),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _planHeader(),
+                                  if (vm.draftPlan.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 14,
+                                      ),
+                                      child: Text(
+                                        '카테고리가 없습니다. 아래에서 추가해보세요.',
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+
+                          case CategoryEditRowType.planItem:
+                            final item = row.planItem!;
+
+                            return PlanCategoryEditTile(
+                              key: ValueKey(row.key),
+                              item: item,
+                              index: index,
+                              formatAmount: _formatAmount,
+                              onDelete: () =>
+                                  vm.draftDeletePlan(item.categoryKey),
+                              onTapEditName: () => _openNameForEditPlan(item),
+                              onTapEditAmount: () => _openAmountForEdit(item),
+                            );
+
+                          case CategoryEditRowType.planAddButton:
+                            return Container(
+                              key: ValueKey(row.key),
+                              child: _addButton(
+                                onAdd: () => _openNameForAdd(isPlan: true),
+                              ),
+                            );
+
+                          case CategoryEditRowType.refHeader:
+                            return Container(
+                              key: ValueKey(row.key),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Divider(
+                                    height: 1,
+                                    thickness: 1,
+                                    color: theme.dividerColor,
+                                  ),
+                                  _refHeader(),
+                                  if (vm.draftRef.isEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24,
+                                        vertical: 14,
+                                      ),
+                                      child: Text(
+                                        '참고 카테고리가 없습니다.',
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            );
+
+                          case CategoryEditRowType.refItem:
+                            final item = row.refItem!;
+
+                            return RefCategoryEditTile(
+                              key: ValueKey(row.key),
+                              item: item,
+                              index: index,
+                              onDelete: () =>
+                                  vm.draftRemoveRefByKey(item.categoryKey),
+                              onTapEditName: () => _openNameForEditRef(item),
+                            );
+
+                          case CategoryEditRowType.refAddButton:
+                            return Container(
+                              key: ValueKey(row.key),
+                              child: _addButton(
+                                onAdd: () => _openNameForAdd(isPlan: false),
+                              ),
+                            );
+                        }
+                      },
                     ),
-
-                    // REF
-                    SliverToBoxAdapter(child: _refHeader()),
-                    if (vm.draftRef.isEmpty)
-                      SliverToBoxAdapter(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                          child: Text(
-                            '참고 카테고리가 없습니다.',
-                            style: TextStyle(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      )
-                    else
-                      SliverReorderableList(
-                        itemCount: vm.draftRef.length,
-                        onReorder: (oldIndex, newIndex) {
-                          final items = vm.draftRef;
-                          final keys = items.map((e) => e.categoryKey).toList();
-                          final newKeys = _reorderKeys(keys: keys, oldIndex: oldIndex, newIndex: newIndex);
-                          vm.draftReorderRefByKeys(newKeys);
-                        },
-                        itemBuilder: (context, index) {
-                          final item = vm.draftRef[index];
-                          return _refSliverTile(
-                            key: ValueKey('ref-${item.categoryKey}'),
-                            item: item,
-                            index: index,
-                            onDelete: () => vm.draftRemoveRefByKey(item.categoryKey),
-                            onTapEditName: () => _openNameForEditRef(item),
-                          );
-                        },
-                      ),
-                    SliverToBoxAdapter(child: _addButton(onAdd: () => _openNameForAdd(isPlan: false))),
-
                     const SliverToBoxAdapter(child: SizedBox(height: 140)),
                   ],
                 ),

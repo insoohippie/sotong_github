@@ -67,9 +67,13 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: false,
       body: SafeArea(
-        child: Stack(
-          children: [
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Stack(
+            children: [
             AnimatedPositioned(
               duration: const Duration(milliseconds: 700),
               curve: Curves.easeOutCubic,
@@ -104,197 +108,198 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
               child: AnimatedOpacity(
                 duration: const Duration(milliseconds: 500),
                 opacity: _start ? 1 : 0,
-                child: Column(
+                child: Stack(
                   children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const SizedBox(height: AppSpacing.fieldSpacing),
-                            CustomTextField(
-                              controller: vm.emailController,
-                              hintText: '아이디 입력',
-                              keyboardType: TextInputType.text,
-                            ),
-                            const SizedBox(height: 20),
-                            CustomTextField(
-                              controller: vm.passwordController,
-                              hintText: '비밀번호 입력',
-                              obscureText: true,
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                if (vm.errorMessage != null)
-                                  Text(
-                                    '• ${vm.errorMessage}',
-                                    style: AppTextStyles.errorText,
-                                  )
-                                else
-                                  const SizedBox(),
-                                TextButton(
-                                  onPressed: () {
-                                    HapticFeedback.selectionClick();
-                                    Navigator.pushNamed(context, '/signup');
-                                  },
-                                  style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: const Size(0, 0),
-                                    tapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  child: const Text(
-                                    '회원가입',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF0062FF),
-                                      decoration: TextDecoration.underline,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                    SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: AppSpacing.fieldSpacing),
+                          CustomTextField(
+                            controller: vm.emailController,
+                            hintText: '아이디 입력',
+                            keyboardType: TextInputType.text,
+                          ),
+                          const SizedBox(height: 20),
+                          CustomTextField(
+                            controller: vm.passwordController,
+                            hintText: '비밀번호 입력',
+                            obscureText: true,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              if (vm.errorMessage != null)
+                                Text(
+                                  '• ${vm.errorMessage}',
+                                  style: AppTextStyles.errorText,
+                                )
+                              else
+                                const SizedBox(),
+                              TextButton(
+                                onPressed: () {
+                                  HapticFeedback.selectionClick();
+                                  Navigator.pushNamed(context, '/signup');
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: const Size(0, 0),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: const Text(
+                                  '회원가입',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF0062FF),
+                                    decoration: TextDecoration.underline,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 30),
-                          ],
-                        ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 120),
+                        ],
                       ),
                     ),
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: SafeArea(
+                        top: false,
+                        minimum: const EdgeInsets.only(bottom: 16),
+                        child: vm.isLoading
+                            ? const SizedBox(
+                                height: 48,
+                                child: Center(child: CircularProgressIndicator()),
+                              )
+                            : CustomButton(
+                                padding: EdgeInsets.zero,
+                                text: '로그인',
+                                onPressed: () async {
+                                  final success = await vm.login();
 
-                    vm.isLoading
-                        ? const SizedBox(
-                      height: 48,
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                        : CustomButton(
-                      padding: EdgeInsets.zero,
-                      text: '로그인',
-                      onPressed: () async {
-                        final success = await vm.login();
+                                  if (!context.mounted) return;
 
-                        if (!context.mounted) return;
+                                  if (success) {
+                                    final hydrated =
+                                        await _hydrateCachesIfNeeded(context);
+                                    if (!hydrated) return;
 
-                        if (success) {
-                          final hydrated =
-                          await _hydrateCachesIfNeeded(context);
-                          if (!hydrated) return;
+                                    final authRepo = context.read<AuthRepository>();
+                                    var next = authRepo.nextRouteBySession();
 
-                          final authRepo =
-                          context.read<AuthRepository>();
-                          var next = authRepo.nextRouteBySession();
+                                    final shouldProbeExistingPlan =
+                                        next == '/unsuccess_plan_quit' ||
+                                            !authRepo.cachedHasPlan;
 
-                          final shouldProbeExistingPlan =
-                              next == '/unsuccess_plan_quit' ||
-                                  !authRepo.cachedHasPlan;
+                                    if (shouldProbeExistingPlan) {
+                                      try {
+                                        final planRepo =
+                                            context.read<PlanRepository>();
+                                        final existingPlan = await planRepo
+                                            .getLatestPlanForCurrentUser();
 
-                          if (shouldProbeExistingPlan) {
-                            try {
-                              final planRepo =
-                              context.read<PlanRepository>();
-                              final existingPlan = await planRepo
-                                  .getLatestPlanForCurrentUser();
+                                        if (existingPlan != null) {
+                                          final refDataRepo =
+                                              context.read<RefDataRepository>();
+                                          final refData =
+                                              await refDataRepo.loadAll();
+                                          refData.planId = existingPlan.planId;
 
-                              if (existingPlan != null) {
-                                final refDataRepo =
-                                context.read<RefDataRepository>();
-                                final refData =
-                                await refDataRepo.loadAll();
-                                refData.planId = existingPlan.planId;
+                                          final tree = PlanDebugPrinter.describe(
+                                            plan: existingPlan,
+                                            refData: refData,
+                                          );
 
-                                final tree = PlanDebugPrinter.describe(
-                                  plan: existingPlan,
-                                  refData: refData,
-                                );
+                                          debugPrint(
+                                            '--- Plan Tree Loaded (Login) ---\n$tree',
+                                          );
 
-                                debugPrint(
-                                  '--- Plan Tree Loaded (Login) ---\n$tree',
-                                );
+                                          final cacheRepo =
+                                              context.read<PlanCacheRepository>();
+                                          final uid = authRepo.cachedUid ??
+                                              authRepo.currentUserId;
 
-                                final cacheRepo =
-                                context.read<PlanCacheRepository>();
-                                final uid = authRepo.cachedUid ??
-                                    authRepo.currentUserId;
+                                          if (uid != null) {
+                                            await cacheRepo.saveSnapshot(
+                                              uid: uid,
+                                              snapshot: PlanCacheSnapshot(
+                                                plan: existingPlan,
+                                                refData: refData,
+                                                needsInitialUpload: false,
+                                              ),
+                                            );
 
-                                if (uid != null) {
-                                  await cacheRepo.saveSnapshot(
-                                    uid: uid,
-                                    snapshot: PlanCacheSnapshot(
-                                      plan: existingPlan,
-                                      refData: refData,
-                                      needsInitialUpload: false,
-                                    ),
-                                  );
+                                            debugPrint(
+                                              '[EmailLoginPage] plan snapshot cached for uid=$uid',
+                                            );
+                                          } else {
+                                            debugPrint(
+                                              '[EmailLoginPage] skipping plan cache save: uid missing',
+                                            );
+                                          }
 
-                                  debugPrint(
-                                    '[EmailLoginPage] plan snapshot cached for uid=$uid',
-                                  );
-                                } else {
-                                  debugPrint(
-                                    '[EmailLoginPage] skipping plan cache save: uid missing',
-                                  );
-                                }
+                                          await authRepo.setHasPlan(true);
+                                          next = authRepo.nextRouteBySession(
+                                            skipHasPlanCheck: true,
+                                          );
+                                        }
+                                      } catch (e) {
+                                        debugPrint(
+                                          '[EmailLoginPage] failed to probe existing plan: $e',
+                                        );
+                                      }
+                                    }
 
-                                await authRepo.setHasPlan(true);
-                                next = authRepo.nextRouteBySession(
-                                  skipHasPlanCheck: true,
-                                );
-                              }
-                            } catch (e) {
-                              debugPrint(
-                                '[EmailLoginPage] failed to probe existing plan: $e',
-                              );
-                            }
-                          }
+                                    if (authRepo.cachedHasPlan) {
+                                      final cacheRepo =
+                                          context.read<PlanCacheRepository>();
+                                      final uid = authRepo.cachedUid ??
+                                          authRepo.currentUserId;
+                                      final snapshot = uid != null
+                                          ? cacheRepo.loadSnapshot(uid)
+                                          : null;
 
-                          if (authRepo.cachedHasPlan) {
-                            final cacheRepo =
-                            context.read<PlanCacheRepository>();
-                            final uid = authRepo.cachedUid ??
-                                authRepo.currentUserId;
-                            final snapshot = uid != null
-                                ? cacheRepo.loadSnapshot(uid)
-                                : null;
+                                      if (snapshot != null) {
+                                        final tree = PlanDebugPrinter.describe(
+                                          plan: snapshot.plan,
+                                          refData: snapshot.refData,
+                                        );
 
-                            if (snapshot != null) {
-                              final tree = PlanDebugPrinter.describe(
-                                plan: snapshot.plan,
-                                refData: snapshot.refData,
-                              );
+                                        debugPrint(
+                                          '--- Plan Cache Snapshot (Login) ---\n$tree',
+                                        );
+                                      } else {
+                                        debugPrint(
+                                          '[EmailLoginPage] hasPlan=true but cache snapshot missing',
+                                        );
+                                      }
+                                    }
 
-                              debugPrint(
-                                '--- Plan Cache Snapshot (Login) ---\n$tree',
-                              );
-                            } else {
-                              debugPrint(
-                                '[EmailLoginPage] hasPlan=true but cache snapshot missing',
-                              );
-                            }
-                          }
+                                    debugPrint(
+                                      '🧩 [EmailLoginPage] login success -> nextRoute=$next',
+                                    );
 
-                          debugPrint(
-                            '🧩 [EmailLoginPage] login success -> nextRoute=$next',
-                          );
+                                    if (next == '/home_tab_navigator') {
+                                      await context.read<HomeViewModel>().refresh();
+                                    }
 
-                          if (next == '/home_tab_navigator') {
-                            await context
-                                .read<HomeViewModel>()
-                                .refresh();
-                          }
+                                    if (!context.mounted) return;
 
-                          if (!context.mounted) return;
-
-                          Navigator.of(context).pushNamedAndRemoveUntil(
-                            next,
-                                (route) => false,
-                          );
-                        }
-                      },
+                                    Navigator.of(context).pushNamedAndRemoveUntil(
+                                      next,
+                                      (route) => false,
+                                    );
+                                  }
+                                },
+                              ),
+                      ),
                     ),
-
-                    const SizedBox(height: 40),
                   ],
                 ),
               ),
@@ -315,7 +320,8 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
                 ),
               ),
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );
