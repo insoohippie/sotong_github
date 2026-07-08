@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../repository/auth_repository.dart';
 import '../../../view_model/home/home_view_model.dart';
+import 'auth/login_page.dart';
 
 enum LogoIntroStyle { slide, pop }
 
@@ -45,6 +46,19 @@ class _LogoSplashPageState extends State<LogoSplashPage>
     if (next == '/home_tab_navigator') {
       await context.read<HomeViewModel>().refresh();
       if (!mounted) return;
+    }
+
+    if (next == '/login') {
+      Navigator.of(context).pushAndRemoveUntil(
+        PageRouteBuilder(
+          settings: const RouteSettings(name: '/login'),
+          pageBuilder: (_, __, ___) => const EmailLoginPage(),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ),
+            (_) => false,
+      );
+      return;
     }
 
     Navigator.of(context).pushNamedAndRemoveUntil(
