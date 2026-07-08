@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:sotong_local/view/pages/setting/setting_widgets/settings_dialogs.dart';
 
 import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
@@ -103,7 +104,7 @@ class SettingsPage extends StatelessWidget {
                       '지난 플랜 돌아보기',
                       isDark: isDark,
                       onTap: () {
-                        showComingSoonDialog(
+                        showSettingsComingSoonDialog(
                           context,
                           title: '준비 중인 기능',
                           message: '지난 플랜 돌아보기 기능은\n추후 업데이트 예정입니다.',
@@ -157,29 +158,38 @@ class SettingsPage extends StatelessWidget {
                         final vm = context.read<SettingViewModel>();
 
                         if (!vm.isOnline) {
-                          showOfflineUploadBlockedDialog(
+                          await showSettingsOfflineUploadDialog(
                             context,
                             isDark: isDark,
                           );
                           return;
                         }
 
+                        final confirmed = await showSettingsUploadConfirmDialog(
+                          context,
+                          isDark: isDark,
+                        );
+
+                        if (!confirmed || !context.mounted) return;
+
                         try {
                           await vm.uploadAllData();
 
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('플랜과 데이터가 업로드되었습니다.'),
-                              ),
-                            );
-                          }
+                          if (!context.mounted) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('플랜과 데이터가 업로드되었습니다.'),
+                            ),
+                          );
                         } catch (e) {
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text(e.toString())),
-                            );
-                          }
+                          if (!context.mounted) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(e.toString()),
+                            ),
+                          );
                         }
                       },
                     ),
@@ -190,7 +200,7 @@ class SettingsPage extends StatelessWidget {
                       isDark: isDark,
                       textColor: AppColors.redText,
                       onTap: () {
-                        showDeleteAccountDialog(
+                        showSettingsDeleteAccountDialog(
                           context,
                               (password) async {
                             try {
@@ -226,7 +236,7 @@ class SettingsPage extends StatelessWidget {
                       isDark: isDark,
                       textColor: AppColors.primary,
                       onTap: () {
-                        showLogoutDialog(
+                        showSettingsLogoutDialog(
                           context,
                               () async {
                             await context.read<SettingViewModel>().logout();
@@ -431,500 +441,3 @@ class _ProfileSection extends StatelessWidget {
   }
 }
 
-class _AnimatedCenterPopup extends StatefulWidget {
-  final Widget child;
-
-  const _AnimatedCenterPopup({required this.child});
-
-  @override
-  State<_AnimatedCenterPopup> createState() => _AnimatedCenterPopupState();
-}
-
-class _AnimatedCenterPopupState extends State<_AnimatedCenterPopup>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 280),
-    );
-
-    _scaleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutBack,
-      ),
-    );
-
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      alignment: Alignment.center,
-      child: widget.child,
-    );
-  }
-}
-
-void showLogoutDialog(
-    BuildContext context,
-    Future<void> Function() onConfirm, {
-      bool isDark = false,
-    }) {
-  final bgColor = isDark ? AppColors.darkSurface : Colors.white;
-  final textColor = isDark ? AppColors.darkText : Colors.black87;
-
-  showDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierColor: Colors.black54,
-    builder: (context) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 56),
-        child: _AnimatedCenterPopup(
-          child: Transform.scale(
-            scale: 0.7,
-            alignment: Alignment.center,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '로그아웃',
-                    style: TextStyle(
-                      fontFamily: 'Pretendard Variable',
-                      fontSize: 25,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '정말 로그아웃 하시겠어요?',
-                    style: TextStyle(
-                      fontFamily: 'Pretendard Variable',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w400,
-                      color: textColor,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  CustomButton(
-                    text: '로그아웃',
-                    height: 50,
-                    padding: EdgeInsets.zero,
-                    onPressed: () async {
-                      Navigator.pop(context);
-                      await onConfirm();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  CustomButton(
-                    text: '닫기',
-                    height: 50,
-                    padding: EdgeInsets.zero,
-                    backgroundColor: AppColors.disabled,
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
-
-void showDeleteDataDialog(
-    BuildContext context,
-    String planName,
-    VoidCallback onConfirm, {
-      bool isDark = false,
-    }) {
-  final bgColor = isDark ? AppColors.darkSurface : Colors.white;
-  final textColor = isDark ? AppColors.darkText : Colors.black87;
-
-  showDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierColor: Colors.black54,
-    builder: (context) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 56),
-        child: _AnimatedCenterPopup(
-          child: Transform.scale(
-            scale: 0.7,
-            alignment: Alignment.center,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '플랜 지우기',
-                    style: TextStyle(
-                      fontFamily: 'Pretendard Variable',
-                      fontSize: 25,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    planName == '플랜'
-                        ? '플랜을 지우시겠습니까?'
-                        : '$planName 플랜을 지우시겠습니까?',
-                    style: TextStyle(
-                      fontFamily: 'Pretendard Variable',
-                      fontSize: 20,
-                      fontWeight: FontWeight.w400,
-                      color: textColor,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  CustomButton(
-                    text: '플랜 지우기',
-                    height: 50,
-                    padding: EdgeInsets.zero,
-                    onPressed: () {
-                      Navigator.pop(context);
-                      onConfirm();
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  CustomButton(
-                    text: '닫기',
-                    height: 50,
-                    padding: EdgeInsets.zero,
-                    backgroundColor: AppColors.disabled,
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
-
-void showDeleteAccountDialog(
-    BuildContext context,
-    Future<void> Function(String password) onConfirm, {
-      bool isDark = false,
-    }) {
-  final bgColor = isDark ? AppColors.darkSurface : Colors.white;
-  final textColor = isDark ? AppColors.darkText : Colors.black87;
-  final controller = TextEditingController();
-
-  showDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierColor: Colors.black54,
-    builder: (dialogContext) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 56),
-        child: _AnimatedCenterPopup(
-          child: Transform.scale(
-            scale: 0.7,
-            alignment: Alignment.center,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 24),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    '계정 삭제',
-                    style: TextStyle(
-                      fontFamily: 'Pretendard Variable',
-                      fontSize: 25,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '계정을 삭제하면 프로필, 플랜, 소비 기록, 카테고리, 알림 설정 등 모든 데이터가 삭제되며 복구할 수 없습니다.\n\n계정 삭제를 위해 비밀번호를 다시 입력해 주세요.',
-                    style: TextStyle(
-                      fontFamily: 'Pretendard Variable',
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
-                      color: textColor,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  TextField(
-                    controller: controller,
-                    obscureText: true,
-                    style: TextStyle(
-                      color: textColor,
-                      fontFamily: 'Pretendard Variable',
-                    ),
-                    decoration: InputDecoration(
-                      hintText: '비밀번호 입력',
-                      hintStyle: TextStyle(
-                        color: isDark ? AppColors.darkSubText : Colors.grey,
-                        fontFamily: 'Pretendard Variable',
-                      ),
-                      filled: true,
-                      fillColor: isDark
-                          ? AppColors.darkBackground
-                          : const Color(0xFFF3F4F6),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 14,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  CustomButton(
-                    text: '계정 삭제',
-                    height: 50,
-                    padding: EdgeInsets.zero,
-                    backgroundColor: AppColors.redText,
-                    onPressed: () async {
-                      final password = controller.text.trim();
-
-                      Navigator.pop(dialogContext);
-                      await onConfirm(password);
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  CustomButton(
-                    text: '닫기',
-                    height: 50,
-                    padding: EdgeInsets.zero,
-                    backgroundColor: AppColors.disabled,
-                    onPressed: () => Navigator.pop(dialogContext),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
-
-void showOfflineDeleteBlockedDialog(
-    BuildContext context, {
-      bool isDark = false,
-    }) {
-  final bgColor = isDark ? AppColors.darkSurface : Colors.white;
-  final textColor = isDark ? AppColors.darkText : Colors.black87;
-
-  showDialog(
-    context: context,
-    barrierDismissible: true,
-    builder: (context) {
-      return Dialog(
-        backgroundColor: bgColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              HeaderText(
-                text: '인터넷 연결 필요',
-                fontWeight: FontWeight.w700,
-                color: textColor,
-              ),
-              const SizedBox(height: 12),
-              ParagraphText(
-                text: '데이터 삭제는 서버와 동기화가 필요해요.\n인터넷에 연결한 후 다시 시도해주세요.',
-                color: textColor,
-              ),
-              const SizedBox(height: 28),
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('확인'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
-
-void showOfflineUploadBlockedDialog(
-    BuildContext context, {
-      bool isDark = false,
-    }) {
-  final bgColor = isDark ? AppColors.darkSurface : Colors.white;
-  final textColor = isDark ? AppColors.darkText : Colors.black87;
-
-  showDialog(
-    context: context,
-    barrierDismissible: true,
-    builder: (context) {
-      return Dialog(
-        backgroundColor: bgColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              HeaderText(
-                text: '인터넷 연결 필요',
-                fontWeight: FontWeight.w700,
-                color: textColor,
-              ),
-              const SizedBox(height: 12),
-              ParagraphText(
-                text: '플랜 업로드는 서버와 동기화가 필요해요.\n인터넷에 연결한 후 다시 시도해주세요.',
-                color: textColor,
-              ),
-              const SizedBox(height: 28),
-              SizedBox(
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text('확인'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    },
-  );
-}
-
-void showComingSoonDialog(
-    BuildContext context, {
-      required String title,
-      required String message,
-      bool isDark = false,
-    }) {
-  final bgColor = isDark ? AppColors.darkSurface : Colors.white;
-  final textColor = isDark ? AppColors.darkText : Colors.black87;
-
-  showDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierColor: Colors.black54,
-    builder: (context) {
-      return Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 56),
-        child: _AnimatedCenterPopup(
-          child: Transform.scale(
-            scale: 0.7,
-            alignment: Alignment.center,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                vertical: 28,
-                horizontal: 24,
-              ),
-              decoration: BoxDecoration(
-                color: bgColor,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontFamily: 'Pretendard Variable',
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: textColor,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    message,
-                    style: TextStyle(
-                      fontFamily: 'Pretendard Variable',
-                      fontSize: 16,
-                      fontWeight: FontWeight.w400,
-                      color: textColor,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  CustomButton(
-                    text: '확인',
-                    height: 50,
-                    padding: EdgeInsets.zero,
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-    },
-  );
-}
