@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../../component/buttons/custom_button.dart';
 import '../../../../../component/inputs/custom_text_field.dart';
+import '../../../../../component/inputs/signed_amount_text_field.dart';
 
 /// 플랜챗 입력창 스타일의 단일값 입력 모달 (플랜 이름, 목표 금액, 보유 자산용)
 /// ChatBottomInputArea와 동일한 UI 스타일 사용
@@ -60,24 +61,13 @@ class _SingleValueInputModalState extends State<SingleValueInputModal> {
   }
 
   void _onChanged(String value) {
+    if (widget.isNumber && widget.allowNegative) return;
+
     if (widget.isNumber) {
-      if (widget.allowNegative) {
-        final hasMinus = value.startsWith('-');
-        final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
-        final combined = digits.isEmpty
-            ? (hasMinus ? '-' : '')
-            : (hasMinus ? '-$digits' : digits);
-        final f = _formatNum(combined, allowNegative: true);
-        if (f != _controller.text) {
-          _controller.text = f;
-          _controller.selection = TextSelection.collapsed(offset: f.length);
-        }
-      } else {
-        final f = _formatNum(value);
-        if (f != _controller.text) {
-          _controller.text = f;
-          _controller.selection = TextSelection.collapsed(offset: f.length);
-        }
+      final f = _formatNum(value);
+      if (f != _controller.text) {
+        _controller.text = f;
+        _controller.selection = TextSelection.collapsed(offset: f.length);
       }
     }
   }
@@ -89,7 +79,10 @@ class _SingleValueInputModalState extends State<SingleValueInputModal> {
       final amountStr = trimmed.replaceAll(',', '');
       final amount = double.tryParse(amountStr);
       if (amount == null) return false;
-      if (!widget.allowNegative && amount <= 0) return false;
+      if (widget.allowNegative) {
+        return amount >= -1000000000 && amount <= 1000000000;
+      }
+      if (amount <= 0) return false;
       return true;
     }
     return trimmed.length >= 2;
@@ -137,16 +130,20 @@ class _SingleValueInputModalState extends State<SingleValueInputModal> {
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: CustomTextField(
-                controller: _controller,
-                hintText: widget.hintText,
-                keyboardType: widget.isNumber
-                    ? (widget.allowNegative
-                    ? const TextInputType.numberWithOptions(signed: true)
-                    : TextInputType.number)
-                    : TextInputType.text,
-                onChanged: _onChanged,
-              ),
+              child: widget.isNumber && widget.allowNegative
+                  ? SignedAmountTextField(
+                      controller: _controller,
+                      hintText: widget.hintText,
+                      onChanged: (_) => setState(() {}),
+                    )
+                  : CustomTextField(
+                      controller: _controller,
+                      hintText: widget.hintText,
+                      keyboardType: widget.isNumber
+                          ? TextInputType.number
+                          : TextInputType.text,
+                      onChanged: _onChanged,
+                    ),
             ),
             const SizedBox(height: 12),
             CustomButton(

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:sotong_local/component/wrappers/keyboard_dismiss_scope.dart';
 import 'package:sotong_local/component/buttons/custom_button.dart';
 import 'package:sotong_local/component/inputs/custom_text_area.dart';
 import 'package:sotong_local/component/inputs/selectable_emoji_selector.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
 import '../../../../../view_model/record/today_spending_view_model.dart';
 
 const _diarySheetDismissDelay = Duration(milliseconds: 320);
@@ -48,6 +48,9 @@ showTodayRecordEditDiaryBottomSheet({
 
               final screenWidth = MediaQuery.of(context).size.width;
               final itemWidth = (screenWidth - 48 - 24) / 3;
+              final isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
+              final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+              final theme = Theme.of(context);
 
               return PopScope(
                 canPop: true,
@@ -55,135 +58,145 @@ showTodayRecordEditDiaryBottomSheet({
                   isClosing = true;
                   FocusManager.instance.primaryFocus?.unfocus();
                 },
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
-                  ),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(24),
+                child: Transform.translate(
+                  offset: Offset(0, keyboardInset),
+                  child: KeyboardDismissScope(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: theme.scaffoldBackgroundColor,
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
                       ),
-                    ),
-                    child: SafeArea(
-                      top: false,
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                      child: SafeArea(
+                        top: false,
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Center(
-                              child: Text(
-                                '감정 및 소비일지 수정',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.text,
+                            Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                24,
+                                20,
+                                24,
+                                isKeyboardVisible ? keyboardInset : 0,
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Center(
+                                    child: Text(
+                                      '감정 및 소비일지 수정',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    '오늘의 기분은 어떠셨나요?',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Wrap(
+                                    spacing: 12,
+                                    runSpacing: 12,
+                                    children: emotionOptions.map((emotion) {
+                                      final selected =
+                                          (selectedEmotion ?? '') == emotion;
+
+                                      return SizedBox(
+                                        width: itemWidth,
+                                        child: SelectableEmojiSelector(
+                                          label: emotion,
+                                          emojiWidget: Builder(
+                                            builder: (context) {
+                                              final path = _lottiePathForEmotion(
+                                                emotion,
+                                              );
+                                              return Lottie.asset(
+                                                path,
+                                                key: ValueKey(path),
+                                                width: 40,
+                                                height: 40,
+                                                fit: BoxFit.contain,
+                                                errorBuilder:
+                                                    (context, error, stackTrace) {
+                                                  debugPrint(
+                                                    'Lottie load failed: $path — $error',
+                                                  );
+                                                  return const Icon(
+                                                    Icons.sentiment_neutral,
+                                                    size: 40,
+                                                  );
+                                                },
+                                              );
+                                            },
+                                          ),
+                                          selected: selected,
+                                          onTap: () {
+                                            safeSetModalState(() {
+                                              if (selected) {
+                                                selectedEmotion = null;
+                                              } else {
+                                                selectedEmotion = emotion;
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                  const SizedBox(height: 24),
+                                  Text(
+                                    '오늘의 소비에 대해 어떻게 생각하시나요?',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  CustomTextArea(
+                                    controller: diaryController,
+                                    hintText:
+                                        '오늘 소비한 것들에 대한 생각이나 느낌을 자유롭게 적어보세요...',
+                                  ),
+                                  if (isKeyboardVisible) const SizedBox(height: 8),
+                                ],
+                              ),
+                            ),
+                            if (!isKeyboardVisible) ...[
+                              const SizedBox(height: 24),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                                child: CustomButton(
+                                  text: '확인',
+                                  height: 56,
+                                  enabled: canSubmit(),
+                                  onPressed: () async {
+                                    if (!canSubmit()) return;
+
+                                    isClosing = true;
+                                    FocusManager.instance.primaryFocus?.unfocus();
+
+                                    if (context.mounted) {
+                                      Navigator.of(context).pop((
+                                        emotion: (selectedEmotion ?? '').trim(),
+                                        comment: diaryController.text.trim(),
+                                      ));
+                                    }
+                                  },
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-
-                            Text(
-                              '오늘의 기분은 어떠셨나요?',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.text,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-
-                            Wrap(
-                              spacing: 12,
-                              runSpacing: 12,
-                              children: emotionOptions.map((emotion) {
-                                final selected =
-                                    (selectedEmotion ?? '') == emotion;
-
-                                return SizedBox(
-                                  width: itemWidth,
-                                  child: SelectableEmojiSelector(
-                                    label: emotion,
-                                    emojiWidget: Builder(
-                                      builder: (context) {
-                                        final path = _lottiePathForEmotion(
-                                          emotion,
-                                        );
-                                        return Lottie.asset(
-                                          path,
-                                          key: ValueKey(path),
-                                          width: 40,
-                                          height: 40,
-                                          fit: BoxFit.contain,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
-                                                debugPrint(
-                                                  'Lottie load failed: $path — $error',
-                                                );
-                                                return const Icon(
-                                                  Icons.sentiment_neutral,
-                                                  size: 40,
-                                                );
-                                              },
-                                        );
-                                      },
-                                    ),
-                                    selected: selected,
-                                    onTap: () {
-                                      safeSetModalState(() {
-                                        if (selected) {
-                                          selectedEmotion = null;
-                                        } else {
-                                          selectedEmotion = emotion;
-                                        }
-                                      });
-                                    },
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            Text(
-                              '오늘의 소비에 대해 어떻게 생각하시나요?',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.text,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-
-                            CustomTextArea(
-                              controller: diaryController,
-                              hintText: '오늘 소비한 것들에 대한 생각이나 느낌을 자유롭게 적어보세요...',
-                            ),
-
-                            const SizedBox(height: 24),
-
-                            CustomButton(
-                              text: '확인',
-                              height: 56,
-                              enabled: canSubmit(),
-                              onPressed: () async {
-                                if (!canSubmit()) return;
-
-                                isClosing = true;
-                                FocusManager.instance.primaryFocus?.unfocus();
-
-                                if (context.mounted) {
-                                  Navigator.of(context).pop((
-                                    emotion: (selectedEmotion ?? '').trim(),
-                                    comment: diaryController.text.trim(),
-                                  ));
-                                }
-                              },
-                            ),
+                            ],
                           ],
                         ),
                       ),

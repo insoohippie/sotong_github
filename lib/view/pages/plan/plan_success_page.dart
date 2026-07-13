@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../component/appbars/back_only_app_bar.dart';
 import 'package:sotong_local/view/pages/home/home_widgets/home_saving_chart_widget.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/containers/rounded_info_container.dart';
@@ -18,6 +17,15 @@ import '../../../services/local_notification_service.dart';
 import '../../../services/notification_settings_storage.dart';
 
 const _kSuccessSectionGaps = <double>[24, 24, 12];
+
+PreferredSizeWidget _emptyTopAppBar() {
+  return AppBar(
+    backgroundColor: Colors.white,
+    elevation: 0,
+    automaticallyImplyLeading: false,
+    toolbarHeight: kToolbarHeight,
+  );
+}
 
 class PlanSuccessPage extends StatefulWidget {
   const PlanSuccessPage({super.key});
@@ -80,7 +88,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
     if (isLoading) {
       return Scaffold(
         backgroundColor: Colors.white,
-        appBar: const BackOnlyAppBar(),
+        appBar: _emptyTopAppBar(),
         body: SafeArea(
           child: Column(
             children: [
@@ -109,7 +117,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
     if (!_saveOk) {
       return Scaffold(
         backgroundColor: Colors.white,
-        appBar: const BackOnlyAppBar(),
+        appBar: _emptyTopAppBar(),
         body: SafeArea(
           child: Column(
             children: [
@@ -205,7 +213,7 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const BackOnlyAppBar(),
+      appBar: _emptyTopAppBar(),
       body: SafeArea(
         child: Column(
           children: [

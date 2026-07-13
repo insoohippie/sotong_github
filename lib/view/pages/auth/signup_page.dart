@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../component/appbars/back_only_app_bar.dart';
+import '../../../component/wrappers/keyboard_dismiss_scope.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/texts/header_text.dart';
@@ -50,9 +51,7 @@ class _SignUpPageState extends State<SignUpPage> {
         },
       ),
       body: SafeArea(
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusScope.of(context).unfocus(),
+        child: KeyboardDismissScope(
           child: Column(
             children: [
               Expanded(

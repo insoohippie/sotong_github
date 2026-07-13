@@ -274,116 +274,146 @@ Future<void> showSettingsDeleteAccountDialog(
     Future<void> Function(String password) onConfirm, {
       bool isDark = false,
     }) async {
-  final bgColor = isDark
-      ? AppColors.darkSurface
-      : Colors.white;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: true,
+    barrierColor: Colors.black54,
+    builder: (dialogContext) {
+      return _SettingsDeleteAccountDialog(
+        isDark: isDark,
+        onConfirm: onConfirm,
+      );
+    },
+  );
+}
 
-  final textColor = isDark
-      ? AppColors.darkText
-      : Colors.black87;
+class _SettingsDeleteAccountDialog extends StatefulWidget {
+  const _SettingsDeleteAccountDialog({
+    required this.isDark,
+    required this.onConfirm,
+  });
 
-  final controller = TextEditingController();
+  final bool isDark;
+  final Future<void> Function(String password) onConfirm;
 
-  try {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierColor: Colors.black54,
-      builder: (dialogContext) {
-        return _SettingsDialogFrame(
-          backgroundColor: bgColor,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '계정 삭제',
-                style: _titleStyle(textColor),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                '계정을 삭제하면 프로필, 플랜, 소비 기록, 카테고리, '
-                    '알림 설정 등 모든 데이터가 삭제되며 복구할 수 없습니다.'
-                    '\n\n계정 삭제를 위해 비밀번호를 다시 입력해 주세요.',
-                style: _bodyStyle(
-                  textColor,
-                  fontSize: 15,
-                ),
-              ),
-              const SizedBox(height: 18),
-              TextField(
-                controller: controller,
-                obscureText: true,
-                style: TextStyle(
-                  color: textColor,
-                  fontFamily: 'Pretendard Variable',
-                  fontSize: 16,
-                ),
-                decoration: InputDecoration(
-                  hintText: '비밀번호 입력',
-                  hintStyle: TextStyle(
-                    color: isDark
-                        ? AppColors.darkSubText
-                        : Colors.grey,
-                    fontFamily: 'Pretendard Variable',
-                    fontSize: 15,
-                  ),
-                  filled: true,
-                  fillColor: isDark
-                      ? AppColors.darkBackground
-                      : const Color(0xFFF3F4F6),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: AppColors.primary,
-                      width: 1.2,
-                    ),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 14,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 28),
-              CustomButton(
-                text: '계정 삭제',
-                height: 50,
-                padding: EdgeInsets.zero,
-                backgroundColor: AppColors.redText,
-                onPressed: () async {
-                  final password = controller.text.trim();
+  @override
+  State<_SettingsDeleteAccountDialog> createState() =>
+      _SettingsDeleteAccountDialogState();
+}
 
-                  Navigator.pop(dialogContext);
-                  await onConfirm(password);
-                },
-              ),
-              const SizedBox(height: 12),
-              CustomButton(
-                text: '닫기',
-                height: 50,
-                padding: EdgeInsets.zero,
-                backgroundColor: AppColors.disabled,
-                onPressed: () {
-                  FocusScope.of(dialogContext).unfocus();
-                  Navigator.pop(dialogContext);
-                },
-              ),
-            ],
+class _SettingsDeleteAccountDialogState
+    extends State<_SettingsDeleteAccountDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = widget.isDark
+        ? AppColors.darkSurface
+        : Colors.white;
+
+    final textColor = widget.isDark
+        ? AppColors.darkText
+        : Colors.black87;
+
+    return _SettingsDialogFrame(
+      backgroundColor: bgColor,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            '계정 삭제',
+            style: _titleStyle(textColor),
           ),
-        );
-      },
+          const SizedBox(height: 12),
+          Text(
+            '계정을 삭제하면 프로필, 플랜, 소비 기록, 카테고리, '
+                '알림 설정 등 모든 데이터가 삭제되며 복구할 수 없습니다.'
+                '\n\n계정 삭제를 위해 비밀번호를 다시 입력해 주세요.',
+            style: _bodyStyle(
+              textColor,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 18),
+          TextField(
+            controller: _controller,
+            obscureText: true,
+            style: TextStyle(
+              color: textColor,
+              fontFamily: 'Pretendard Variable',
+              fontSize: 16,
+            ),
+            decoration: InputDecoration(
+              hintText: '비밀번호 입력',
+              hintStyle: TextStyle(
+                color: widget.isDark
+                    ? AppColors.darkSubText
+                    : Colors.grey,
+                fontFamily: 'Pretendard Variable',
+                fontSize: 15,
+              ),
+              filled: true,
+              fillColor: widget.isDark
+                  ? AppColors.darkBackground
+                  : const Color(0xFFF3F4F6),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: AppColors.primary,
+                  width: 1.2,
+                ),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 14,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
+          CustomButton(
+            text: '계정 삭제',
+            height: 50,
+            padding: EdgeInsets.zero,
+            backgroundColor: AppColors.redText,
+            onPressed: () async {
+              final password = _controller.text.trim();
+
+              Navigator.of(context).pop();
+              await widget.onConfirm(password);
+            },
+          ),
+          const SizedBox(height: 12),
+          CustomButton(
+            text: '닫기',
+            height: 50,
+            padding: EdgeInsets.zero,
+            backgroundColor: AppColors.disabled,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+        ],
+      ),
     );
-  } finally {
-    controller.dispose();
   }
 }
 

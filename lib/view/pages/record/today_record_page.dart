@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import 'package:sotong_local/component/appbars/back_only_app_bar.dart';
+import 'package:sotong_local/component/wrappers/keyboard_dismiss_scope.dart';
 import 'package:sotong_local/component/buttons/period_toggle.dart';
 import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_diary_bottom_sheet.dart';
 import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_diary_section.dart';
@@ -262,6 +263,7 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        resizeToAvoidBottomInset: false,
         appBar: BackOnlyAppBar(
           title: DateFormat('yyyy년 M월 d일').format(_selectedDate),
           centerTitle: true,
@@ -269,10 +271,11 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
             _handleBackPressed(incomeVM: incomeVM, spendingVM: spendingVM);
           },
         ),
-        body: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 12),
+        body: KeyboardDismissScope(
+          child: SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
 
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -423,6 +426,7 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );

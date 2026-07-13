@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../component/appbars/back_only_app_bar.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 import '../../../component/buttons/custom_button.dart';
@@ -53,14 +52,11 @@ class SignupSuccessPage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: BackOnlyAppBar(
-        onBack: () {
-          if (vm.currentStep == SignupStep.email) {
-            Navigator.pop(context);
-          } else {
-            vm.previousStep();
-          }
-        },
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        toolbarHeight: kToolbarHeight,
       ),
       body: SafeArea(
         child: Column(

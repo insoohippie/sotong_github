@@ -7,6 +7,7 @@ import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_area.dart';
 import '../../../component/inputs/selectable_emoji_selector.dart';
 import '../../../component/theme/app_spacing.dart';
+import '../../../component/wrappers/keyboard_dismiss_scope.dart';
 import '../../../view_model/home/home_view_model.dart';
 import '../../../view_model/record/record_add_income_view_model.dart';
 import '../../../view_model/record/record_spending_view_model.dart';
@@ -94,23 +95,28 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
   @override
   Widget build(BuildContext context) {
     final viewModel = context.watch<RecordSpendingViewModel>();
+    final isKeyboardVisible = MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return Stack(
       children: [
         Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          resizeToAvoidBottomInset: false,
           appBar: BackOnlyAppBar(
             title: '${viewModel.formattedTotal}원 소비',
             centerTitle: true,
           ),
-          body: SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.screenPadding,
-                    ),
+          body: KeyboardDismissScope(
+            child: SafeArea(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.screenPadding,
+                      ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -215,17 +221,20 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
                     ),
                   ),
                 ),
-                CustomButton(
-                  text: '저장하기',
-                  enabled: (viewModel.selectedEmotion ?? '').isNotEmpty,
-                  onPressed: () {
-                    if ((viewModel.selectedEmotion ?? '').isNotEmpty) {
-                      _onSave(context);
-                    }
-                  },
-                ),
-                const SizedBox(height: AppSpacing.bottomSpacing),
-              ],
+                  if (!isKeyboardVisible) ...[
+                    CustomButton(
+                      text: '저장하기',
+                      enabled: (viewModel.selectedEmotion ?? '').isNotEmpty,
+                      onPressed: () {
+                        if ((viewModel.selectedEmotion ?? '').isNotEmpty) {
+                          _onSave(context);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.bottomSpacing),
+                  ],
+                ],
+              ),
             ),
           ),
         ),

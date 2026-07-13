@@ -347,7 +347,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SingleValueInputModal(
-          hintText: '보유 자산을 입력하세요 (빚은 -로)',
+          hintText: '보유 자산을 입력하세요',
           buttonTextEmpty: '보유 자산을 입력해주세요!',
           buttonTextFilled: '제 보유 자산이에요!',
           initialValue: vm.currentAssetController.text,
@@ -458,6 +458,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
           final theme = Theme.of(ctx);
 
           return Scaffold(
+            resizeToAvoidBottomInset: false,
             appBar: const BackOnlyAppBar(),
             backgroundColor: theme.scaffoldBackgroundColor,
             body: SafeArea(
@@ -941,7 +942,7 @@ class _UserInfoTab extends StatelessWidget {
                 labelColor: labelColor,
               ),
               EditSummaryTile(
-                label: '하루 소비 한도 금액',
+                label: '하루에 쓸 소비',
                 total: vm.dailySpendingLimit,
                 unit: '원',
                 onEdit: () => page._openDailyModal(context, vm, refData),

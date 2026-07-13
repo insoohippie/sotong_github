@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:flutter_keyboard_visibility/flutter_keyboard_visibility.dart';
 import 'package:intl/intl.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
 import 'package:sotong_local/component/theme/padding/horizontal_padding_clamped_fraction.dart';
@@ -8,6 +7,7 @@ import 'package:sotong_local/model/refData/entry.dart';
 import 'package:sotong_local/model/saving_calculation_result.dart';
 
 import '../../../../../component/buttons/small_rounded_button.dart';
+import '../../../../../component/wrappers/keyboard_dismiss_scope.dart';
 import '../../../../../component/texts/caption_with_dot.dart';
 import '../../../../../component/texts/header_text.dart';
 import '../../../../../component/theme/app_spacing.dart';
@@ -93,9 +93,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
   final Map<int, TextEditingController> _amountControllers = {};
   final Map<int, TextEditingController> _categoryControllers = {};
 
-  late KeyboardVisibilityController _keyboardVisibilityController;
-  bool _isKeyboardVisible = false;
-
   @override
   void initState() {
     super.initState();
@@ -116,13 +113,18 @@ class _InputModalWidgetState extends State<InputModalWidget>
       curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
     );
 
+    _ctrl.addStatusListener((_) {
+      if (mounted) setState(() {});
+    });
+
     _logicalOpen = widget.isOpen;
     if (_logicalOpen) {
-      SchedulerBinding.instance.addPostFrameCallback((_) => _ctrl.forward());
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _ctrl.forward();
+      });
     }
 
-    _keyboardVisibilityController = KeyboardVisibilityController();
-    _initKeyboardVisibility();
     _initItems(widget.initialEntries);
     _dailyPreviewResult = _computeDailyPreviewResult();
   }
@@ -161,14 +163,6 @@ class _InputModalWidgetState extends State<InputModalWidget>
     for (final c in _amountControllers.values) c.dispose();
     for (final c in _categoryControllers.values) c.dispose();
     super.dispose();
-  }
-
-  Future<void> _initKeyboardVisibility() async {
-    _isKeyboardVisible = await _keyboardVisibilityController.isVisible;
-    if (mounted) setState(() {});
-    _keyboardVisibilityController.onChange.listen((visible) {
-      if (mounted) setState(() => _isKeyboardVisible = visible);
-    });
   }
 
   ItemKind _resolveKind() {
@@ -362,7 +356,7 @@ class _InputModalWidgetState extends State<InputModalWidget>
   }
 
   void _dismissKeyboard() {
-    FocusManager.instance.primaryFocus?.unfocus();
+    KeyboardDismissScope.dismiss(context);
   }
 
   Future<void> handleComplete() async {
@@ -501,39 +495,36 @@ class _InputModalWidgetState extends State<InputModalWidget>
       captionText = '매달 고정적으로 지출되는 비용만 입력해요.';
     }
 
-    return Visibility(
-      visible: !_isKeyboardVisible,
-      child: Column(
-        children: [
-          const SizedBox(height: 40),
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: PaddingResponsive16_40Vw.horizontal(
-                context,
-                PaddingResponsive16_40Vw.fractionModal06,
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                HeaderText(text: titleText),
-                const SizedBox(height: 10),
-                CaptionWithDot(
-                  text: captionText,
-                  dotColor: isDark
-                      ? theme.colorScheme.surfaceContainerHighest
-                      : const Color(0xFFDADADA),
-                  textStyle: TextStyle(
-                    fontFamily: 'Pretendard Variable',
-                    fontSize: 13,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
+    return Column(
+      children: [
+        const SizedBox(height: 40),
+        Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: PaddingResponsive16_40Vw.horizontal(
+              context,
+              PaddingResponsive16_40Vw.fractionModal06,
             ),
           ),
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              HeaderText(text: titleText),
+              const SizedBox(height: 10),
+              CaptionWithDot(
+                text: captionText,
+                dotColor: isDark
+                    ? theme.colorScheme.surfaceContainerHighest
+                    : const Color(0xFFDADADA),
+                textStyle: TextStyle(
+                  fontFamily: 'Pretendard Variable',
+                  fontSize: 13,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -575,51 +566,65 @@ class _InputModalWidgetState extends State<InputModalWidget>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     return IgnorePointer(
       ignoring: _ctrl.status == AnimationStatus.dismissed,
       child: Stack(
         children: [
           FadeTransition(
             opacity: _scrimFade,
-            child: AbsorbPointer(
-              absorbing: true,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _dismissKeyboard,
               child: Container(color: Colors.black54),
             ),
           ),
-          Positioned.fill(
+          Positioned(
+            left: 0,
+            top: 0,
+            right: 0,
+            bottom: -keyboardInset,
             child: SlideTransition(
               position: _slide,
               child: Align(
                 alignment: Alignment.bottomCenter,
-                child: FractionallySizedBox(
-                  widthFactor: 1.0,
-                  heightFactor: 1.0,
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.98, end: 1.0),
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOut,
-                    builder: (context, scale, child) => Transform.scale(
-                      scale: scale,
-                      alignment: Alignment.bottomCenter,
-                      child: child,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(24),
-                        bottom: Radius.zero,
+                child: MediaQuery.removeViewInsets(
+                  removeBottom: true,
+                  context: context,
+                  child: FractionallySizedBox(
+                    widthFactor: 1.0,
+                    heightFactor: 1.0,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.98, end: 1.0),
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOut,
+                      builder: (context, scale, child) => Transform.scale(
+                        scale: scale,
+                        alignment: Alignment.bottomCenter,
+                        child: child,
                       ),
                       child: Container(
                         color: theme.colorScheme.surface,
-                        child: SafeArea(
-                          top: true,
-                          bottom: false,
-                          child: Column(
-                            children: [
-                              buildDetailBox(),
-                              if (!_isKeyboardVisible) const SizedBox(height: 8),
-                              Expanded(child: buildContent()),
-                              buildFooter(),
-                            ],
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.translucent,
+                          onTap: _dismissKeyboard,
+                          child: SafeArea(
+                            top: true,
+                            bottom: false,
+                            child: Column(
+                              children: [
+                                buildDetailBox(),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onTap: _dismissKeyboard,
+                                    child: buildContent(),
+                                  ),
+                                ),
+                                buildFooter(),
+                              ],
+                            ),
                           ),
                         ),
                       ),
