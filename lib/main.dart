@@ -12,6 +12,7 @@ import 'data_source/auth_cache_data_source.dart';
 import 'firebase_options.dart';
 import 'route.dart';
 import 'component/theme/app_theme.dart';
+import 'component/wrappers/keyboard_dismiss_scope.dart';
 
 // DataSources
 import 'data_source/auth_data_source.dart';
@@ -306,6 +307,12 @@ class MyApp extends StatelessWidget {
             theme: lightTheme,
             darkTheme: darkTheme,
             themeMode: settingVM.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+            scrollBehavior: const AppScrollBehavior(),
+            builder: (context, child) {
+              return KeyboardDismissScope(
+                child: child ?? const SizedBox.shrink(),
+              );
+            },
             initialRoute: '/logo_splash',
             routes: appRoutes,
           );

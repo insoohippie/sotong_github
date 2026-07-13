@@ -4,6 +4,7 @@ import 'package:sotong_local/component/buttons/custom_button.dart';
 import 'package:sotong_local/component/buttons/period_toggle.dart';
 import 'package:sotong_local/component/inputs/custom_text_field.dart';
 import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:sotong_local/component/wrappers/keyboard_dismiss_scope.dart';
 
 import '../../../../../model/category/ref_category_item.dart';
 import '../../../../../model/record/record_entry.dart';
@@ -837,114 +838,152 @@ Future<RecordEntry?> _showSpendingEntryBottomSheet({
                 );
               }
 
-              return PopScope(
-                canPop: !hasUnsavedEditChanges(),
-                onPopInvokedWithResult: (didPop, _) async {
-                  if (didPop) {
-                    isClosing = true;
-                    FocusManager.instance.primaryFocus?.unfocus();
-                    return;
-                  }
+              return KeyboardVisibilityBuilder(
+                builder: (context, isKeyboardVisible) {
+                  final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
 
-                  if (!hasUnsavedEditChanges()) return;
-
-                  final discard = await confirmDiscardDialog(context);
-                  if (!discard || !context.mounted) return;
-
-                  safeSetModalState(() => cancelEditChanges());
-                  isClosing = true;
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  Navigator.of(context).pop();
-                },
-                child: Padding(
-                  padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).viewInsets.bottom,
-                  ),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: sheetColor,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(24),
-                      ),
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: keyboardInset > 0 ? keyboardInset : 0,
                     ),
-                    child: SafeArea(
-                      top: false,
-                      child: SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              title,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.onSurface,
+                    child: PopScope(
+                    canPop: !hasUnsavedEditChanges(),
+                    onPopInvokedWithResult: (didPop, _) async {
+                      if (didPop) {
+                        isClosing = true;
+                        FocusManager.instance.primaryFocus?.unfocus();
+                        return;
+                      }
+
+                      if (!hasUnsavedEditChanges()) return;
+
+                      final discard = await confirmDiscardDialog(context);
+                      if (!discard || !context.mounted) return;
+
+                      safeSetModalState(() => cancelEditChanges());
+                      isClosing = true;
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      Navigator.of(context).pop();
+                    },
+                    child: KeyboardDismissScope(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: sheetColor,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(24),
+                          ),
+                        ),
+                        child: SafeArea(
+                          top: false,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.fromLTRB(
+                                  24,
+                                  20,
+                                  24,
+                                  isKeyboardVisible ? keyboardSheetInnerPadding : 0,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      title,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.onSurface,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 20),
+                                    SpendingInputEntry(
+                                      entry: entry,
+                                      onDelete: () {},
+                                      enableDismissible: false,
+                                      showBottomDivider: !isKeyboardVisible,
+                                      onChanged: () => safeSetModalState(() {}),
+                                      onCategoryTapOverride: () {
+                                        safeSetModalState(() {
+                                          showCategoryPicker =
+                                              !showCategoryPicker;
+                                          if (!showCategoryPicker) {
+                                            if (hasUnsavedEditChanges()) {
+                                              cancelEditChanges();
+                                            } else {
+                                              editMode = false;
+                                              closeAddUI();
+                                            }
+                                          }
+                                        });
+                                      },
+                                      inlineCategoryPicker: showCategoryPicker
+                                          ? buildInlineCategoryPicker()
+                                          : null,
+                                      planItemsOverride: planItemsLive,
+                                      refItemsOverride: localRef,
+                                      categoryLoadingOverride:
+                                          categoryVM.loading,
+                                    ),
+                                    if (isKeyboardVisible &&
+                                        showCategoryPicker)
+                                      const SizedBox(height: 8),
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 20),
-                            SpendingInputEntry(
-                              entry: entry,
-                              onDelete: () {},
-                              enableDismissible: false,
-                              showBottomDivider: true,
-                              onChanged: () => safeSetModalState(() {}),
-                              onCategoryTapOverride: () {
-                                safeSetModalState(() {
-                                  showCategoryPicker = !showCategoryPicker;
-                                  if (!showCategoryPicker) {
-                                    if (hasUnsavedEditChanges()) {
-                                      cancelEditChanges();
-                                    } else {
-                                      editMode = false;
-                                      closeAddUI();
-                                    }
-                                  }
-                                });
-                              },
-                              inlineCategoryPicker: showCategoryPicker
-                                  ? buildInlineCategoryPicker()
-                                  : null,
-                              planItemsOverride: planItemsLive,
-                              refItemsOverride: localRef,
-                              categoryLoadingOverride: categoryVM.loading,
-                            ),
-                            const SizedBox(height: 24),
-                            CustomButton(
-                              text: buttonText,
-                              height: 56,
-                              enabled: canSubmit(),
-                              onPressed: () {
-                                if (!canSubmit()) return;
+                              if (!isKeyboardVisible) ...[
+                                const SizedBox(height: 24),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    24,
+                                    0,
+                                    24,
+                                    24,
+                                  ),
+                                  child: CustomButton(
+                                    text: buttonText,
+                                    height: 56,
+                                    enabled: canSubmit(),
+                                    onPressed: () {
+                                      if (!canSubmit()) return;
 
-                                isClosing = true;
-                                FocusManager.instance.primaryFocus?.unfocus();
+                                      isClosing = true;
+                                      FocusManager.instance.primaryFocus
+                                          ?.unfocus();
 
-                                final result = RecordEntry(
-                                  id: originEntryId,
-                                  categoryKey:
-                                      ((entry['categoryKey'] as String?) ?? '')
-                                          .trim(),
-                                  category:
-                                      ((entry['category'] as String?) ?? '')
-                                          .trim(),
-                                  amount:
-                                      ((entry['amount'] as num?)?.toDouble() ??
-                                      0.0),
-                                  note: ((entry['note'] as String?) ?? '')
-                                      .trim(),
-                                );
+                                      final result = RecordEntry(
+                                        id: originEntryId,
+                                        categoryKey:
+                                            ((entry['categoryKey']
+                                                        as String?) ??
+                                                    '')
+                                                .trim(),
+                                        category:
+                                            ((entry['category'] as String?) ??
+                                                    '')
+                                                .trim(),
+                                        amount:
+                                            ((entry['amount'] as num?)
+                                                    ?.toDouble() ??
+                                                0.0),
+                                        note:
+                                            ((entry['note'] as String?) ?? '')
+                                                .trim(),
+                                      );
 
-                                Navigator.of(context).pop(result);
-                              },
-                            ),
-                          ],
+                                      Navigator.of(context).pop(result);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                  );
+                },
               );
             },
           );

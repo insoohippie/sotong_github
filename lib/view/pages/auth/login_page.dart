@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../component/buttons/custom_button.dart';
+import '../../../component/wrappers/keyboard_dismiss_scope.dart';
 import '../../../component/inputs/custom_text_field.dart';
 import '../../../component/texts/multi_color_text.dart';
 import '../../../component/theme/app_colors.dart';
@@ -69,9 +70,7 @@ class _EmailLoginPageState extends State<EmailLoginPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       resizeToAvoidBottomInset: false,
       body: SafeArea(
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusScope.of(context).unfocus(),
+        child: KeyboardDismissScope(
           child: Stack(
             children: [
             AnimatedPositioned(

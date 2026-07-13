@@ -17,8 +17,6 @@ import '../../../component/theme/app_colors.dart';
 import '../../../model/refData/entry.dart';
 import '../../../model/plan/total_plan.dart';
 import '../../../model/refData/ref_data.dart';
-import '../../../repository/auth_repository.dart';
-import '../../../repository/plan_cache_repository.dart';
 import '../../../repository/plan_repository.dart';
 import '../../../repository/ref_data_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
@@ -69,40 +67,18 @@ class _PlanEditPageState extends State<PlanEditPage> {
       double.tryParse(c.text.replaceAll(',', '')) ?? 0.0;
 
   Future<_PlanEditInitData> _loadInitialData() async {
-    final authRepo = context.read<AuthRepository>();
-    final cacheRepo = context.read<PlanCacheRepository>();
     final planRepo = context.read<PlanRepository>();
     final refRepo = context.read<RefDataRepository>();
 
-    final uid = authRepo.cachedUid ?? authRepo.currentUserId;
-    final cachedSnapshot = uid == null ? null : cacheRepo.loadSnapshot(uid);
 
-    // ✅ 일반 플랜 수정 진입에서는 캐시 우선
-    // widget.initialPlan은 캐시가 없을 때만 fallback
     TotalPlan? plan =
-        cachedSnapshot?.plan ??
-            widget.initialPlan ??
-            await planRepo.getLatestPlanForCurrentUser();
-
+        widget.initialPlan ?? await planRepo.getLatestPlanForCurrentUser();
     if (plan == null) {
       throw StateError('편집할 플랜이 없습니다.');
     }
 
-    final refData =
-        cachedSnapshot?.refData ??
-            widget.initialRefData ??
-            await refRepo.loadAll();
-
+    final refData = widget.initialRefData ?? await refRepo.loadAll();
     refData.planId = plan.planId;
-
-    final today = DateTime.now();
-    final planStart = plan.startDate;
-
-    final referenceDate = planStart != null && today.isBefore(planStart)
-        ? planStart
-        : today;
-
-    refData.setReferenceDate(referenceDate);
 
     return _PlanEditInitData(plan: plan, refData: refData);
   }
@@ -347,7 +323,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: SingleValueInputModal(
-          hintText: '보유 자산을 입력하세요 (빚은 -로)',
+          hintText: '보유 자산을 입력하세요',
           buttonTextEmpty: '보유 자산을 입력해주세요!',
           buttonTextFilled: '제 보유 자산이에요!',
           initialValue: vm.currentAssetController.text,
@@ -458,6 +434,7 @@ class _PlanEditPageState extends State<PlanEditPage> {
           final theme = Theme.of(ctx);
 
           return Scaffold(
+            resizeToAvoidBottomInset: false,
             appBar: const BackOnlyAppBar(),
             backgroundColor: theme.scaffoldBackgroundColor,
             body: SafeArea(
@@ -941,7 +918,7 @@ class _UserInfoTab extends StatelessWidget {
                 labelColor: labelColor,
               ),
               EditSummaryTile(
-                label: '하루 소비 한도 금액',
+                label: '하루에 쓸 소비',
                 total: vm.dailySpendingLimit,
                 unit: '원',
                 onEdit: () => page._openDailyModal(context, vm, refData),

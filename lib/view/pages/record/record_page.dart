@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:sotong_local/view/pages/record/record_widgets/addIncome_widget/add_income_input_entry.dart';
 import 'package:sotong_local/view/pages/record/record_widgets/spending_widget/spending_input_entry.dart';
 
+import '../../../component/wrappers/keyboard_dismiss_scope.dart';
 import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/buttons/period_toggle.dart';
@@ -16,7 +17,6 @@ import '../../../view_model/category/spending_category_view_model.dart';
 import '../../../view_model/category/add_income_category_view_model.dart';
 import '../../../view_model/record/record_add_income_view_model.dart';
 import '../../../view_model/record/record_spending_view_model.dart';
-import '../../../view_model/home/home_view_model.dart';
 
 class RecordPage extends StatefulWidget {
   const RecordPage({super.key});
@@ -72,13 +72,15 @@ class _RecordPageState extends State<RecordPage> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      resizeToAvoidBottomInset: false,
       appBar: BackOnlyAppBar(
         title: DateFormat('yyyy년 M월 d일').format(_selectedDate),
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
+      body: KeyboardDismissScope(
+        child: SafeArea(
+          child: Column(
+            children: [
             const SizedBox(height: 12),
 
             Padding(
@@ -141,9 +143,9 @@ class _RecordPageState extends State<RecordPage> {
 
             const SizedBox(height: 16),
 
-            Expanded(
-              child: Stack(
-                children: [
+              Expanded(
+                child: Stack(
+                  children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.screenPadding,
@@ -171,99 +173,100 @@ class _RecordPageState extends State<RecordPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       ),
                     ),
-                ],
-              ),
-            ),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.screenPadding,
-              ),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    const SizedBox(height: AppSpacing.fieldSpacing),
-                    ParagraphText(text: _isSpending ? '총 소비 금액' : '총 수입 금액'),
-                    const SizedBox(height: AppSpacing.itemSpacing),
-                    _isSpending
-                        ? Selector<RecordSpendingViewModel, String>(
-                      selector: (_, vm) => vm.formattedTotal,
-                      builder: (_, formattedTotal, __) {
-                        return ParagraphText(
-                          text: '$formattedTotal원',
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        );
-                      },
-                    )
-                        : Selector<RecordAddIncomeViewModel, String>(
-                      selector: (_, vm) => vm.formattedTotal,
-                      builder: (_, formattedTotal, __) {
-                        return ParagraphText(
-                          text: '$formattedTotal원',
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
-                        );
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.fieldSpacing),
                   ],
                 ),
               ),
-            ),
 
-            CustomButton(
-              text: '다음 단계',
-              enabled: _isSpending
-                  ? (_noSpendingChecked || spendingVM.canProceedToNextStep)
-                  : incomeVM.canProceedToNextStep,
-              onPressed: () async {
-                try {
-                  final hasSpendingOrNoSpending =
-                      _noSpendingChecked || spendingVM.canProceedToNextStep;
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const SizedBox(height: AppSpacing.fieldSpacing),
+                      ParagraphText(text: _isSpending ? '총 소비 금액' : '총 수입 금액'),
+                      const SizedBox(height: AppSpacing.itemSpacing),
+                      _isSpending
+                          ? Selector<RecordSpendingViewModel, String>(
+                              selector: (_, vm) => vm.formattedTotal,
+                              builder: (_, formattedTotal, __) {
+                                return ParagraphText(
+                                  text: '$formattedTotal원',
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                );
+                              },
+                            )
+                          : Selector<RecordAddIncomeViewModel, String>(
+                              selector: (_, vm) => vm.formattedTotal,
+                              builder: (_, formattedTotal, __) {
+                                return ParagraphText(
+                                  text: '$formattedTotal원',
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                );
+                              },
+                            ),
+                      const SizedBox(height: AppSpacing.fieldSpacing),
+                    ],
+                  ),
+                ),
+              ),
 
-                  if (!hasSpendingOrNoSpending) {
+              CustomButton(
+                text: '다음 단계',
+                enabled: _isSpending
+                    ? (_noSpendingChecked || spendingVM.canProceedToNextStep)
+                    : incomeVM.canProceedToNextStep,
+                onPressed: () async {
+                  try {
+                    final hasSpendingOrNoSpending =
+                        _noSpendingChecked || spendingVM.canProceedToNextStep;
+
+                    if (!hasSpendingOrNoSpending) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('소비를 입력하거나 무지출을 체크해주세요.'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (incomeVM.buildEntriesJson().isNotEmpty &&
+                        incomeVM.hasInvalidCategorySelection) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('카테고리가 선택되지 않은 수입 항목이 있습니다.'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (!mounted) return;
+
+                    Navigator.pushNamed(
+                      context,
+                      '/record_diary',
+                      arguments: _selectedDate,
+                    );
+                  } catch (e) {
+                    if (!mounted) return;
+
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('소비를 입력하거나 무지출을 체크해주세요.'),
+                      SnackBar(
+                        content: Text('다음 단계로 이동 중 문제가 발생했어요: $e'),
                       ),
                     );
-                    return;
                   }
+                },
+              ),
 
-                  if (incomeVM.buildEntriesJson().isNotEmpty &&
-                      incomeVM.hasInvalidCategorySelection) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('카테고리가 선택되지 않은 수입 항목이 있습니다.'),
-                      ),
-                    );
-                    return;
-                  }
-
-                  if (!mounted) return;
-
-                  Navigator.pushNamed(
-                    context,
-                    '/record_diary',
-                    arguments: _selectedDate,
-                  );
-                } catch (e) {
-                  if (!mounted) return;
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('다음 단계로 이동 중 문제가 발생했어요: $e'),
-                    ),
-                  );
-                }
-              },
-            ),
-
-            const SizedBox(height: AppSpacing.bottomSpacing),
-          ],
+              const SizedBox(height: AppSpacing.bottomSpacing),
+            ],
+          ),
         ),
       ),
     );
@@ -271,6 +274,7 @@ class _RecordPageState extends State<RecordPage> {
 
   Widget _buildSpendingContent(RecordSpendingViewModel vm) {
     return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         children: [
           ...vm.spendingEntries.map((entry) {
@@ -298,6 +302,7 @@ class _RecordPageState extends State<RecordPage> {
 
   Widget _buildIncomeContent(RecordAddIncomeViewModel vm) {
     return SingleChildScrollView(
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
         children: [
           ...vm.incomeEntries.map((entry) {
