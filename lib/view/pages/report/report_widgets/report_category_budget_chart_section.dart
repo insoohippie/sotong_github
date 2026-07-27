@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:sotong/component/theme/app_colors.dart';
 import '../../../../component/buttons/period_toggle.dart';
 
+import '../../../../services/chart_animation_haptic.dart';
+import '../../../../services/tab_chart_animation_notifier.dart';
 import '../../../../view_model/report/report_view_model.dart';
 import '../../../../model/report/report_models.dart';
 
@@ -21,7 +23,11 @@ class ReportCategoryBudgetChartSection extends StatefulWidget {
 }
 
 class _ReportCategoryBudgetChartSectionState
-    extends State<ReportCategoryBudgetChartSection> {
+    extends State<ReportCategoryBudgetChartSection>
+    with SingleTickerProviderStateMixin {
+  static const _entryAnimationDuration = Duration(milliseconds: 1000);
+  static const _entryHapticInterval = Duration(milliseconds: 110);
+
   String? _selectedChartKey;
   int? _selectedSlotIndex;
   bool _isCollapsing = false;
@@ -30,6 +36,12 @@ class _ReportCategoryBudgetChartSectionState
   Timer? _selectionTimer;
   Timer? _popupTimer;
   Timer? _hapticTimer;
+
+  late final AnimationController _entryController;
+  late final Animation<double> _entryAnim;
+  final ChartAnimationHapticPlayer _chartHaptic = ChartAnimationHapticPlayer();
+  int? _syncedReportTick;
+  ReportRangeType? _syncedRangeType;
 
   int _categoryWindowStart = 0;
   double _windowItemExtent = 56;
@@ -45,7 +57,43 @@ class _ReportCategoryBudgetChartSectionState
   static const String _etcKey = 'etc';
 
   @override
+  void initState() {
+    super.initState();
+    _entryController = AnimationController(
+      vsync: this,
+      duration: _entryAnimationDuration,
+    );
+    _entryAnim = CurvedAnimation(
+      parent: _entryController,
+      curve: Curves.easeOutCubic,
+    );
+    _startEntryAnimation();
+  }
+
+  void _startEntryAnimation() {
+    _entryController.forward(from: 0);
+    _playEntrySequentialHaptic();
+  }
+
+  void _playEntrySequentialHaptic() {
+    _chartHaptic.play(
+      duration: _entryAnimationDuration,
+      interval: _entryHapticInterval,
+    );
+  }
+
+  void _replayEntryAnimation() {
+    _resetSelectionState();
+    _entryController
+      ..stop()
+      ..reset();
+    _startEntryAnimation();
+  }
+
+  @override
   void dispose() {
+    _chartHaptic.cancel();
+    _entryController.dispose();
     _selectionTimer?.cancel();
     _popupTimer?.cancel();
     _hapticTimer?.cancel();
@@ -96,6 +144,25 @@ class _ReportCategoryBudgetChartSectionState
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<ReportViewModel>();
+    final reportTick = context.reportChartAnimationTick;
+    if (_syncedReportTick == null) {
+      _syncedReportTick = reportTick;
+    } else if (reportTick != _syncedReportTick) {
+      _syncedReportTick = reportTick;
+      _replayEntryAnimation();
+    }
+
+    if (_syncedRangeType == null) {
+      _syncedRangeType = vm.rangeType;
+    } else if (_syncedRangeType != vm.rangeType &&
+        !vm.isLoading &&
+        vm.budgetChart != null) {
+      _syncedRangeType = vm.rangeType;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _replayEntryAnimation();
+      });
+    }
+
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
@@ -265,116 +332,128 @@ class _ReportCategoryBudgetChartSectionState
                             _isWindowDragging = false;
                             _lastDragHapticIndex = null;
                           },
-                          child: BarChart(
-                            BarChartData(
-                              alignment: BarChartAlignment.spaceBetween,
-                              maxY: maxY,
-                              minY: 0,
-                              barTouchData: BarTouchData(
-                                enabled: true,
-                                touchTooltipData: BarTouchTooltipData(
-                                  tooltipPadding: EdgeInsets.zero,
-                                  tooltipMargin: 0,
-                                  tooltipBorder: BorderSide.none,
-                                  getTooltipColor: (_) => Colors.transparent,
-                                  getTooltipItem: (a, b, c, d) => null,
-                                ),
-                                touchCallback: (event, response) {
-                                  if (event is! FlTapUpEvent) return;
-                                  final justDragged =
-                                      _lastDragEndAt != null &&
-                                          DateTime.now()
-                                              .difference(_lastDragEndAt!)
-                                              .inMilliseconds <
-                                              120;
-                                  if (_isWindowDragging || justDragged) return;
-                                  if (response == null ||
-                                      response.spot == null) {
-                                    _resetSelectionState();
-                                    return;
-                                  }
-                                  final index =
-                                      response.spot!.touchedBarGroupIndex;
-                                  if (index < 0 || index >= slotData.length) {
-                                    _resetSelectionState();
-                                    return;
-                                  }
-                                  final row = slotData[index];
-                                  if (row == null) {
-                                    _resetSelectionState();
-                                    return;
-                                  }
-                                  _startSelectionTransition(
-                                    row.categoryKey,
-                                    index,
-                                  );
-                                },
-                              ),
-                              titlesData: FlTitlesData(
-                                show: true,
-                                bottomTitles: AxisTitles(
-                                  sideTitles: SideTitles(
-                                    showTitles: true,
-                                    reservedSize: 36,
-                                    getTitlesWidget: (value, meta) {
-                                      final idx = value.toInt();
-                                      if (idx >= 0 && idx < slotData.length) {
-                                        final row = slotData[idx];
-                                        if (row == null) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        final isSelected =
-                                            _showSelectionLayout &&
-                                                idx == _selectedSlotIndex &&
-                                                row.categoryKey ==
-                                                    _selectedChartKey;
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 8,
-                                          ),
-                                          child: Text(
-                                            row.name,
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: isSelected
-                                                  ? FontWeight.w700
-                                                  : FontWeight.w500,
-                                              color:
-                                              theme.colorScheme.onSurface,
-                                            ),
-                                          ),
-                                        );
+                          child: AnimatedBuilder(
+                            animation: _entryAnim,
+                            builder: (context, _) {
+                              return BarChart(
+                                BarChartData(
+                                  alignment: BarChartAlignment.spaceBetween,
+                                  maxY: maxY,
+                                  minY: 0,
+                                  barTouchData: BarTouchData(
+                                    enabled: true,
+                                    touchTooltipData: BarTouchTooltipData(
+                                      tooltipPadding: EdgeInsets.zero,
+                                      tooltipMargin: 0,
+                                      tooltipBorder: BorderSide.none,
+                                      getTooltipColor: (_) => Colors.transparent,
+                                      getTooltipItem: (a, b, c, d) => null,
+                                    ),
+                                    touchCallback: (event, response) {
+                                      if (event is! FlTapUpEvent) return;
+                                      final justDragged =
+                                          _lastDragEndAt != null &&
+                                              DateTime.now()
+                                                  .difference(_lastDragEndAt!)
+                                                  .inMilliseconds <
+                                                  120;
+                                      if (_isWindowDragging || justDragged) {
+                                        return;
                                       }
-                                      return const SizedBox.shrink();
+                                      if (response == null ||
+                                          response.spot == null) {
+                                        _resetSelectionState();
+                                        return;
+                                      }
+                                      final index =
+                                          response.spot!.touchedBarGroupIndex;
+                                      if (index < 0 || index >= slotData.length) {
+                                        _resetSelectionState();
+                                        return;
+                                      }
+                                      final row = slotData[index];
+                                      if (row == null) {
+                                        _resetSelectionState();
+                                        return;
+                                      }
+                                      _startSelectionTransition(
+                                        row.categoryKey,
+                                        index,
+                                      );
                                     },
                                   ),
+                                  titlesData: FlTitlesData(
+                                    show: true,
+                                    bottomTitles: AxisTitles(
+                                      sideTitles: SideTitles(
+                                        showTitles: true,
+                                        reservedSize: 36,
+                                        getTitlesWidget: (value, meta) {
+                                          final idx = value.toInt();
+                                          if (idx >= 0 && idx < slotData.length) {
+                                            final row = slotData[idx];
+                                            if (row == null) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            final isSelected =
+                                                _showSelectionLayout &&
+                                                    idx == _selectedSlotIndex &&
+                                                    row.categoryKey ==
+                                                        _selectedChartKey;
+                                            return Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 8,
+                                              ),
+                                              child: Text(
+                                                row.name,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: isSelected
+                                                      ? FontWeight.w700
+                                                      : FontWeight.w500,
+                                                  color:
+                                                  theme.colorScheme.onSurface,
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                          return const SizedBox.shrink();
+                                        },
+                                      ),
+                                    ),
+                                    leftTitles: AxisTitles(
+                                      sideTitles: SideTitles(showTitles: false),
+                                    ),
+                                    topTitles: AxisTitles(
+                                      sideTitles: SideTitles(showTitles: false),
+                                    ),
+                                    rightTitles: AxisTitles(
+                                      sideTitles: SideTitles(showTitles: false),
+                                    ),
+                                  ),
+                                  gridData: FlGridData(
+                                    show: true,
+                                    drawVerticalLine: false,
+                                    horizontalInterval: maxY == 0 ? 1 : maxY / 4,
+                                    getDrawingHorizontalLine: (value) => FlLine(
+                                      color: theme.dividerColor,
+                                      strokeWidth: 1,
+                                    ),
+                                  ),
+                                  borderData: FlBorderData(show: false),
+                                  barGroups: _buildBarGroups(
+                                    slotData,
+                                    maxY,
+                                    theme,
+                                    entryFactor: _entryAnim.value,
+                                  ),
                                 ),
-                                leftTitles: AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false),
+                                swapAnimationDuration: const Duration(
+                                  milliseconds: 260,
                                 ),
-                                topTitles: AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false),
-                                ),
-                                rightTitles: AxisTitles(
-                                  sideTitles: SideTitles(showTitles: false),
-                                ),
-                              ),
-                              gridData: FlGridData(
-                                show: true,
-                                drawVerticalLine: false,
-                                horizontalInterval: maxY == 0 ? 1 : maxY / 4,
-                                getDrawingHorizontalLine: (value) => FlLine(
-                                  color: theme.dividerColor,
-                                  strokeWidth: 1,
-                                ),
-                              ),
-                              borderData: FlBorderData(show: false),
-                              barGroups: _buildBarGroups(slotData, maxY, theme),
-                            ),
-                            swapAnimationDuration: const Duration(
-                              milliseconds: 260,
-                            ),
-                            swapAnimationCurve: Curves.easeOutCubic,
+                                swapAnimationCurve: Curves.easeOutCubic,
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -677,8 +756,10 @@ class _ReportCategoryBudgetChartSectionState
   List<BarChartGroupData> _buildBarGroups(
       List<ReportCategoryBudgetRow?> data,
       double maxY,
-      ThemeData theme,
-      ) {
+      ThemeData theme, {
+      double entryFactor = 1.0,
+      }) {
+    final anim = entryFactor.clamp(0.0, 1.0);
     return List.generate(data.length, (index) {
       final r = data[index];
 
@@ -770,8 +851,8 @@ class _ReportCategoryBudgetChartSectionState
         }
       }
 
-      final effectiveSpent = scaledSpent.clamp(0.0, maxY);
-      final effectivePlanned = scaledPlanned.clamp(0.0, maxY);
+      final effectiveSpent = (scaledSpent.clamp(0.0, maxY)) * anim;
+      final effectivePlanned = (scaledPlanned.clamp(0.0, maxY)) * anim;
 
       final lowerHeight = math.min(effectiveSpent, effectivePlanned);
       final upperHeight = math.max(effectiveSpent, effectivePlanned);
@@ -917,6 +998,10 @@ class _ReportCategoryBudgetChartSectionState
 
         if (vm.rangeType != next) {
           _resetSelectionState();
+          setState(() => _categoryWindowStart = 0);
+          if (_windowScrollController.hasClients) {
+            _windowScrollController.jumpTo(0);
+          }
           vm.setRangeType(next);
         }
       },

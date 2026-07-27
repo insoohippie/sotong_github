@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/view_model/home/home_view_model.dart';
-import 'package:sotong_local/view_model/services/saving_calculator.dart';
+import 'package:sotong/component/theme/app_colors.dart';
+import 'package:sotong/view_model/home/home_view_model.dart';
+import 'package:sotong/view_model/services/saving_calculator.dart';
 
 class HomeSavingCenterButton extends StatelessWidget {
   const HomeSavingCenterButton({

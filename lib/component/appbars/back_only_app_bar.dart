@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/chart_animation_haptic.dart';
 
 /// 설정창 등에서 쓰는 '뒤로가기' 앱바.
 /// 흰 배경, 왼쪽 뒤로가기 버튼. [title] 있으면 제목 표시.
@@ -52,7 +53,14 @@ class BackOnlyAppBar extends StatelessWidget implements PreferredSizeWidget {
           color: iconColor ?? theme.colorScheme.onSurface,
           size: 24,
         ),
-        onPressed: onBack ?? () => Navigator.pop(context),
+        onPressed: () {
+          AppHaptics.buttonTap();
+          if (onBack != null) {
+            onBack!();
+          } else {
+            Navigator.pop(context);
+          }
+        },
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
         hoverColor: Colors.transparent,

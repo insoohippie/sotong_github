@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
+import '../../services/chart_animation_haptic.dart';
 import '../theme/app_spacing.dart';
 
 class CustomButton extends StatelessWidget {
@@ -37,7 +37,7 @@ class CustomButton extends StatelessWidget {
         child: ElevatedButton(
           onPressed: enabled
               ? () {
-            HapticFeedback.selectionClick();
+            AppHaptics.buttonTap();
             onPressed();
           }
               : null,

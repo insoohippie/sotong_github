@@ -2,8 +2,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:sotong_local/component/inputs/custom_text_field.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:sotong/component/inputs/custom_text_field.dart';
+import 'package:sotong/component/theme/app_colors.dart';
 
 final List<String> expenseEmojis = [
   // 음식

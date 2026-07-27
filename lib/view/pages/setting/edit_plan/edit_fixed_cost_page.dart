@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../../component/appbars/back_only_app_bar.dart';
 import 'package:flutter/services.dart';
-import 'package:sotong_local/component/inputs/custom_text_field.dart';
-import 'package:sotong_local/component/inputs/custom_dropdown.dart';
+import 'package:sotong/component/inputs/custom_text_field.dart';
+import 'package:sotong/component/inputs/custom_dropdown.dart';
 
 import '../../../../component/inputs/custom_number_field.dart';
 

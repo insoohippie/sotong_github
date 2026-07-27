@@ -33,11 +33,25 @@ class CustomTextArea extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color bgColor =
-        backgroundColor ??
-        (controller.text.isEmpty
-            ? AppColors.greyBackground
-            : AppColors.lightBlue);
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final Color bgColor = backgroundColor ??
+        (isDark
+            ? AppColors.darkSurface
+            : (controller.text.isEmpty
+                ? AppColors.greyBackground
+                : AppColors.lightBlue));
+
+    final textStyle = isDark
+        ? AppTextStyles.paragraph.copyWith(color: AppColors.darkText)
+        : AppTextStyles.paragraph;
+
+    final hintStyle = AppTextStyles.paragraph.copyWith(
+      fontSize: 13,
+      color: isDark ? AppColors.darkSubText : Colors.grey,
+      fontFamily: 'Pretendard Variable',
+    );
 
     return Container(
       height: height,
@@ -49,7 +63,8 @@ class CustomTextArea extends StatelessWidget {
       alignment: Alignment.topLeft,
       child: TextFormField(
         controller: controller,
-        style: AppTextStyles.paragraph,
+        style: textStyle,
+        cursorColor: isDark ? AppColors.darkText : null,
         textAlignVertical: TextAlignVertical.top,
         minLines: minLines,
         maxLines: maxLines,
@@ -57,11 +72,7 @@ class CustomTextArea extends StatelessWidget {
           isCollapsed: false,
           isDense: true,
           hintText: hintText,
-          hintStyle: AppTextStyles.paragraph.copyWith(
-            fontSize: 13,
-            color: Colors.grey,
-            fontFamily: 'Pretendard Variable',
-          ),
+          hintStyle: hintStyle,
           border: InputBorder.none,
           suffixIcon: suffix,
         ),

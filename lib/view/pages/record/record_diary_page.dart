@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/inputs/custom_text_area.dart';
+import '../../../component/theme/app_colors.dart';
 import '../../../component/inputs/selectable_emoji_selector.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../component/wrappers/keyboard_dismiss_scope.dart';
@@ -241,7 +242,9 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
 
         if (_isLoading || _isDone)
           Container(
-            color: Colors.white.withOpacity(0.9),
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.darkBackground.withValues(alpha: 0.92)
+                : Colors.white.withValues(alpha: 0.9),
             child: Center(
               child: Lottie.asset(
                 _isLoading

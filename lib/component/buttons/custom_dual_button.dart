@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../texts/paragraph_text.dart';
 import '../theme/app_colors.dart';
+import '../../services/chart_animation_haptic.dart';
 
 class CustomDualButton extends StatelessWidget {
   final String leftLabel;
@@ -36,7 +36,7 @@ class CustomDualButton extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: leftEnabled
                     ? () {
-                  HapticFeedback.selectionClick();
+                  AppHaptics.buttonTap();
                   onLeftPressed?.call();
                 }
                     : null,
@@ -83,7 +83,7 @@ class CustomDualButton extends StatelessWidget {
                   child: ElevatedButton(
                     onPressed: rightEnabled
                         ? () {
-                      HapticFeedback.selectionClick();
+                      AppHaptics.buttonTap();
                       onRightPressed?.call();
                     }
                         : null,

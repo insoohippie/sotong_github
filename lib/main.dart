@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/repository/notification_repository.dart';
-import 'package:sotong_local/repository/plan_mutation_repository.dart';
-import 'package:sotong_local/services/notification_generate_service.dart';
-import 'package:sotong_local/view_model/record/today_income_view_model.dart';
-import 'package:sotong_local/view_model/services/category_bootstrap_service.dart';
+import 'package:sotong/repository/notification_repository.dart';
+import 'package:sotong/repository/plan_mutation_repository.dart';
+import 'package:sotong/services/notification_generate_service.dart';
+import 'package:sotong/view_model/record/today_income_view_model.dart';
+import 'package:sotong/view_model/services/category_bootstrap_service.dart';
 
 import 'data_source/auth_cache_data_source.dart';
 import 'firebase_options.dart';
@@ -31,9 +31,12 @@ import 'repository/plan_cache_repository.dart';
 import 'repository/account_delete_repository.dart';
 
 // EventBus
+import 'services/local_notification_service.dart';
 import 'services/plan_saved_event_bus.dart';
 import 'services/record_event_bus.dart';
 import 'services/app_session_reset_service.dart';
+import 'services/home_widget_sync_service.dart';
+import 'services/home_widget_launch_handler.dart';
 
 // ViewModels
 import 'view_model/auth/login_view_model.dart';
@@ -45,8 +48,8 @@ import 'view_model/category/plan_category_view_model.dart';
 import 'view_model/category/category_edit_view_model.dart';
 import 'view_model/category/spending_category_view_model.dart';
 import 'view_model/category/add_income_category_view_model.dart';
-import 'package:sotong_local/view_model/record/today_spending_view_model.dart';
-import 'package:sotong_local/view_model/record/record_add_income_view_model.dart';
+import 'package:sotong/view_model/record/today_spending_view_model.dart';
+import 'package:sotong/view_model/record/record_add_income_view_model.dart';
 
 import 'view_model/record/record_spending_view_model.dart';
 import 'view_model/report/report_view_model.dart';
@@ -79,11 +82,34 @@ Future<void> main() async {
     if (e.code != 'duplicate-app') rethrow;
   }
 
+  await LocalNotificationService.instance.initialize();
+  await LocalNotificationService.instance.requestPermission();
+  await HomeWidgetSyncService.configure();
+
   runApp(const MyApp());
 }
 
-class MyApp extends StatelessWidget {
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    HomeWidgetLaunchHandler.initialize(rootNavigatorKey);
+  }
+
+  @override
+  void dispose() {
+    HomeWidgetLaunchHandler.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -303,6 +329,7 @@ class MyApp extends StatelessWidget {
       child: Consumer<SettingViewModel>(
         builder: (context, settingVM, _) {
           return MaterialApp(
+            navigatorKey: rootNavigatorKey,
             title: 'Sotong App',
             theme: lightTheme,
             darkTheme: darkTheme,

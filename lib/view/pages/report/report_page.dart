@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sotong_local/component/banner/sliding_banner.dart';
-import 'package:sotong_local/view/pages/report/report_widgets/report_category_budget_chart_section.dart';
-import 'package:sotong_local/view/pages/report/report_widgets/report_month_category_section.dart';
+import 'package:sotong/component/banner/sliding_banner.dart';
+import 'package:sotong/view/pages/report/report_widgets/report_category_budget_chart_section.dart';
+import 'package:sotong/view/pages/report/report_widgets/report_month_category_section.dart';
 import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 import '../../../view_model/report/report_view_model.dart';
 

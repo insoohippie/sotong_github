@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/view/pages/home/home_widgets/home_saving_chart_widget.dart';
+import 'package:sotong/view/pages/home/home_widgets/home_saving_chart_widget.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/containers/rounded_info_container.dart';
 import '../../../component/texts/multi_color_text.dart';

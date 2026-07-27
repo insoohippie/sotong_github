@@ -5,11 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sotong_local/view/pages/home/home_widgets/home_record_calendar_panel.dart';
+import 'package:sotong/view/pages/home/home_widgets/home_record_calendar_panel.dart';
 
 import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
+import '../../../services/chart_animation_haptic.dart';
 import '../../../repository/auth_repository.dart';
 import '../../../repository/plan_repository.dart';
 import '../../../repository/record_repository.dart';
@@ -148,13 +149,17 @@ class _PendingSpendingPageBodyState extends State<_PendingSpendingPageBody> {
                   child: ElevatedButton(
                     onPressed: isAllDone
                         ? () {
+                      AppHaptics.buttonTap();
                       Navigator.of(context)
                           .pushNamedAndRemoveUntil(
                         '/home_tab_navigator',
                             (_) => false,
                       );
                     }
-                        : _goNext,
+                        : () {
+                      AppHaptics.buttonTap();
+                      _goNext();
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
@@ -215,6 +220,7 @@ class _PendingSpendingPageBodyState extends State<_PendingSpendingPageBody> {
                   child: ElevatedButton(
                     onPressed: vm.selectedPendingDate != null
                         ? () {
+                      AppHaptics.buttonTap();
                       final selectedDate =
                       vm.selectedPendingDate!;
                       Navigator.of(
@@ -229,7 +235,10 @@ class _PendingSpendingPageBodyState extends State<_PendingSpendingPageBody> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      disabledBackgroundColor: AppColors.disabled,
+                      disabledBackgroundColor:
+                          AppColors.primary.withValues(alpha: 0.35),
+                      disabledForegroundColor:
+                          Colors.white.withValues(alpha: 0.65),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

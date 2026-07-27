@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/addIncome_widget/record_add_income_category_sheet.dart';
+import 'package:sotong/view/pages/record/record_widgets/addIncome_widget/record_add_income_category_sheet.dart';
 
 import '../../../../../component/theme/app_colors.dart';
 import '../../../../../component/theme/app_spacing.dart';

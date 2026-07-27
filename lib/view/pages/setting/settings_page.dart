@@ -12,6 +12,7 @@ import '../../../model/plan/plan_edit_result.dart';
 import '../../../repository/auth_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/setting/setting_view_model.dart';
+import '../../../services/local_notification_service.dart';
 import '../notification/notification_setting.dart';
 import '../plan/plan_edit_page.dart';
 
@@ -44,17 +45,7 @@ class SettingsPage extends StatelessWidget {
                     const SizedBox(height: 16),
 
                     _sectionHeader('알림 설정', isDark: isDark),
-                    _settingsRow(
-                      context,
-                      '알림 수신 설정',
-                      isDark: isDark,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const NotificationSettingPage(),
-                        ),
-                      ),
-                    ),
+                    _NotificationSettingsRow(isDark: isDark),
 
                     _sectionDivider(isDark: isDark),
 
@@ -119,19 +110,12 @@ class SettingsPage extends StatelessWidget {
                       context,
                       '다크모드',
                       isDark: isDark,
-                      trailing: Switch(
+                      trailing: _settingsSwitch(
                         value: settingsVM.isDarkMode,
                         onChanged: (value) {
                           HapticFeedback.selectionClick();
                           settingsVM.toggleDarkMode(value);
                         },
-                        activeColor: Colors.white,
-                        activeTrackColor: Colors.white.withOpacity(0.5),
-                        inactiveThumbColor: Colors.grey.shade400,
-                        inactiveTrackColor: Colors.grey.shade300,
-                        trackOutlineColor: WidgetStateProperty.all(
-                          Colors.transparent,
-                        ),
                       ),
                     ),
                     _settingsRow(
@@ -304,6 +288,127 @@ Widget _settingsRow(
   }
 
   return child;
+}
+
+Widget _settingsSwitch({
+  required bool value,
+  required ValueChanged<bool>? onChanged,
+}) {
+  return Switch(
+    value: value,
+    onChanged: onChanged,
+    thumbColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return Colors.grey.shade400;
+      }
+      return Colors.grey.shade400;
+    }),
+    trackColor: WidgetStateProperty.resolveWith((states) {
+      if (states.contains(WidgetState.selected)) {
+        return Colors.grey.shade400.withValues(alpha: 0.45);
+      }
+      return Colors.grey.shade300;
+    }),
+    trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+  );
+}
+
+class _NotificationSettingsRow extends StatefulWidget {
+  const _NotificationSettingsRow({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  State<_NotificationSettingsRow> createState() => _NotificationSettingsRowState();
+}
+
+class _NotificationSettingsRowState extends State<_NotificationSettingsRow>
+    with WidgetsBindingObserver {
+  bool? _notificationsEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _refreshPermission();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshPermission();
+    }
+  }
+
+  Future<void> _refreshPermission() async {
+    final granted =
+        await LocalNotificationService.instance.isPermissionGranted();
+
+    if (!granted) {
+      await LocalNotificationService.instance.cancelAllScheduled();
+    }
+
+    if (!mounted) return;
+    setState(() => _notificationsEnabled = granted);
+  }
+
+  Future<void> _openSystemNotificationSettings() async {
+    HapticFeedback.selectionClick();
+    await LocalNotificationService.instance.openSystemNotificationSettings();
+  }
+
+  void _openNotificationSettingPage() {
+    if (_notificationsEnabled != true) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const NotificationSettingPage(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = _notificationsEnabled == true;
+    final textColor = widget.isDark ? AppColors.darkText : Colors.black;
+    final labelColor = enabled ? textColor : textColor.withValues(alpha: 0.35);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              onTap: enabled ? _openNotificationSettingPage : null,
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              child: Text(
+                '알림 수신 설정',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: 'Pretendard Variable',
+                  color: labelColor,
+                ),
+              ),
+            ),
+          ),
+          _settingsSwitch(
+            value: _notificationsEnabled ?? false,
+            onChanged: (_) => _openSystemNotificationSettings(),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ProfileSection extends StatelessWidget {

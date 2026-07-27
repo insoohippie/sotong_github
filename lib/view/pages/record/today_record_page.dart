@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sotong_local/component/appbars/back_only_app_bar.dart';
-import 'package:sotong_local/component/wrappers/keyboard_dismiss_scope.dart';
-import 'package:sotong_local/component/buttons/period_toggle.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_diary_bottom_sheet.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_diary_section.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_income_bottom_sheets.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_income_section.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_spending_bottom_sheets.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_spending_section.dart';
-import 'package:sotong_local/view_model/category/add_income_category_view_model.dart';
-import 'package:sotong_local/view_model/category/spending_category_view_model.dart';
-import 'package:sotong_local/view_model/record/today_income_view_model.dart';
-import 'package:sotong_local/view_model/record/today_spending_view_model.dart';
+import 'package:sotong/component/appbars/back_only_app_bar.dart';
+import 'package:sotong/component/wrappers/keyboard_dismiss_scope.dart';
+import 'package:sotong/component/buttons/period_toggle.dart';
+import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_diary_bottom_sheet.dart';
+import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_diary_section.dart';
+import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_income_bottom_sheets.dart';
+import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_income_section.dart';
+import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_spending_bottom_sheets.dart';
+import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_spending_section.dart';
+import 'package:sotong/view_model/category/add_income_category_view_model.dart';
+import 'package:sotong/view_model/category/spending_category_view_model.dart';
+import 'package:sotong/view_model/record/today_income_view_model.dart';
+import 'package:sotong/view_model/record/today_spending_view_model.dart';
 
 class TodayRecordPage extends StatefulWidget {
   const TodayRecordPage({super.key});
@@ -437,18 +437,18 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
 // import 'package:intl/intl.dart';
 // import 'package:provider/provider.dart';
 //
-// import 'package:sotong_local/component/appbars/back_only_app_bar.dart';
-// import 'package:sotong_local/component/buttons/period_toggle.dart';
-// import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_diary_bottom_sheet.dart';
-// import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_diary_section.dart';
-// import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_income_bottom_sheets.dart';
-// import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_income_section.dart';
-// import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_spending_bottom_sheets.dart';
-// import 'package:sotong_local/view/pages/record/record_widgets/today_record_widget/today_record_spending_section.dart';
-// import 'package:sotong_local/view_model/category/add_income_category_view_model.dart';
-// import 'package:sotong_local/view_model/category/spending_category_view_model.dart';
-// import 'package:sotong_local/view_model/record/today_income_view_model.dart';
-// import 'package:sotong_local/view_model/record/today_spending_view_model.dart';
+// import 'package:sotong/component/appbars/back_only_app_bar.dart';
+// import 'package:sotong/component/buttons/period_toggle.dart';
+// import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_diary_bottom_sheet.dart';
+// import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_diary_section.dart';
+// import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_income_bottom_sheets.dart';
+// import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_income_section.dart';
+// import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_spending_bottom_sheets.dart';
+// import 'package:sotong/view/pages/record/record_widgets/today_record_widget/today_record_spending_section.dart';
+// import 'package:sotong/view_model/category/add_income_category_view_model.dart';
+// import 'package:sotong/view_model/category/spending_category_view_model.dart';
+// import 'package:sotong/view_model/record/today_income_view_model.dart';
+// import 'package:sotong/view_model/record/today_spending_view_model.dart';
 //
 // class TodayRecordPage extends StatefulWidget {
 //   const TodayRecordPage({super.key});

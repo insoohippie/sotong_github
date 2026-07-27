@@ -15,11 +15,13 @@ import '../../repository/auth_repository.dart';
 import '../../repository/plan_repository.dart';
 import '../../repository/record_repository.dart';
 import '../../repository/ref_data_repository.dart'; //세은님 추가부분
+import '../../model/refData/entry.dart';
 import '../../model/refData/ref_data.dart'; //세은님 추가부분
 import '../../services/record_event_bus.dart'; //하경 수정 부분 - spending_event_bus -> record_event_bus로 바뀜(수입, 지출 이벤트 전부 관리)
 import '../services/saving_calculator.dart';
 import '../../services/plan_saved_event_bus.dart';
 import '../../services/home_graph_intro_storage.dart';
+import '../../services/home_widget_sync_service.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final AuthRepository _authRepo;
@@ -60,6 +62,7 @@ class HomeViewModel extends ChangeNotifier {
           savedDate,
           ensureMonthlyLoaded: false,
         ); // 세은 추가 후 하경 수정 loadDailySpending -> loadDailySummary
+        unawaited(_syncHomeWidget());
       } finally {
         _handlingRecordEvent = false;
       }
@@ -245,7 +248,18 @@ class HomeViewModel extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+      unawaited(_syncHomeWidget());
     }
+  }
+
+  Future<void> _syncHomeWidget() async {
+    final hasPlan = _latestPlan != null;
+    await HomeWidgetSyncService.syncPlanData(
+      planName: planTitle,
+      planPercent: planProgressPercentValue,
+      dDayText: HomeWidgetSyncService.formatDDayText(liveRemaining),
+      hasPlan: hasPlan,
+    );
   }
 
   // ---------- 플랜 이름 변경 ----------
@@ -450,6 +464,106 @@ class HomeViewModel extends ChangeNotifier {
 
   String get planTitle => _latestPlan?.planName ?? '플랜 없음';
 
+  String get planDailyNetIncomeText {
+    final metrics = _latestPlan?.result.totalMetrics;
+    if (metrics == null) return '—';
+    final daysInMonth =
+        DateTime(metrics.startDate.year, metrics.startDate.month + 1, 0).day;
+    if (daysInMonth <= 0) return '—';
+    final dailyIncome = metrics.monthlyIncomeAmount / daysInMonth;
+    return '${SavingPlanCalculator.formatAmount(dailyIncome)}원';
+  }
+
+  String get planDailyNetConsumeText {
+    final metrics = _latestPlan?.result.totalMetrics;
+    if (metrics == null) return '—';
+    return '${SavingPlanCalculator.formatAmount(metrics.dailyConsumeAmount.toDouble())}원';
+  }
+
+  String get planDailyNetSavingText {
+    final metrics = _latestPlan?.result.totalMetrics;
+    if (metrics == null) return '—';
+    return '${SavingPlanCalculator.formatAmount(metrics.dailyNetSaving.toDouble())}원';
+  }
+
+  String get planMonthlyIncomeText {
+    final metrics = _latestPlan?.result.totalMetrics;
+    if (metrics == null) return '—';
+    return '${SavingPlanCalculator.formatAmount(metrics.monthlyIncomeAmount.toDouble())}원';
+  }
+
+  String get planMonthlyFixedConsumeText {
+    final metrics = _latestPlan?.result.totalMetrics;
+    if (metrics == null) return '—';
+    return '${SavingPlanCalculator.formatAmount(metrics.monthlyConsumeAmount.toDouble())}원';
+  }
+
+  String get planDailyVariableConsumeText {
+    final metrics = _latestPlan?.result.totalMetrics;
+    if (metrics == null) return '—';
+    return '${SavingPlanCalculator.formatAmount(metrics.dailyConsumeAmount.toDouble())}원';
+  }
+
+  String get planGoalPeriodText {
+    final goalDate =
+        _calc?.goalDateTime ?? _latestPlan?.modEndDate ?? _latestPlan?.endDate;
+    if (goalDate == null) return '목표기간';
+    return '${DateFormat('yyyy년 M월 d일').format(goalDate)}까지';
+  }
+
+  /// 플랜 생성 시 입력한 일 소비(변동소비) 카테고리·금액 목록.
+  List<Entry> get planDailyConsumeEntries {
+    final refData = _refData;
+    if (refData != null) {
+      final primaryEntries = List<Entry>.from(refData.primaryDailyConsumeEntries);
+      if (primaryEntries.isNotEmpty) {
+        primaryEntries.sort((a, b) => a.order.compareTo(b.order));
+        return primaryEntries;
+      }
+    }
+
+    final plan = _latestPlan;
+    if (plan == null || refData == null) return const [];
+
+    final today = _normalizeDay(DateTime.now());
+    final key = DateFormat('yyyyMM').format(today);
+    final subPlan = plan.subPlans[key];
+    if (subPlan == null) return const [];
+
+    final mini = _miniForDate(subPlan, today);
+    if (mini == null) return const [];
+
+    final refEntries = mini.dailyConsumeRef?.entries;
+    if (refEntries != null && refEntries.isNotEmpty) {
+      final entries = List<Entry>.from(refEntries);
+      entries.sort((a, b) => a.order.compareTo(b.order));
+      return entries;
+    }
+
+    final daily = refData.dailyConsumeById(mini.dailyConsumeId);
+    if (daily == null || daily.entries.isEmpty) return const [];
+
+    final entries = List<Entry>.from(daily.entries);
+    entries.sort((a, b) => a.order.compareTo(b.order));
+    return entries;
+  }
+
+  String get planTargetAmountText {
+    final plan = _latestPlan;
+    if (plan == null) return '—';
+    return '${SavingPlanCalculator.formatAmount((plan.targetAmount ?? 0).toDouble())}원';
+  }
+
+  String get planCurrentAssetText {
+    final plan = _latestPlan;
+    if (plan == null) return '—';
+    return '${SavingPlanCalculator.formatAmount(plan.currentAsset.toDouble())}원';
+  }
+
+  String get planRemainingTargetText {
+    return '${SavingPlanCalculator.formatAmount(effectiveTargetAmount)}원';
+  }
+
   String get dailyLimitText {
     final metrics = _latestPlan?.result.totalMetrics;
     if (metrics == null) return '—';
@@ -483,19 +597,34 @@ class HomeViewModel extends ChangeNotifier {
   String get selectedDateSpendingText => todaySpendingText;
 
   // 하경 추가 내용
-  bool get isTodayRecorded {
-    // 소비 엔트리가 있는지 없는지 여부
-    final monthKey = DateFormat('yyyy-MM').format(_selectedDate);
-    final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
-
-    final day = _monthlyCache[monthKey]?.days[dateKey];
-    if (day == null) return false;
-    if (day.isAutoGenerated) return false;
-
-    return day.spendingEntries.isNotEmpty;
-  }
+  bool get isTodayRecorded => _isManuallyRecordedDay(selectedDayRecord);
 
   bool get isSelectedDateRecorded => isTodayRecorded;
+
+  /// 선택 날짜가 사용자 직접 기록이 아닌 경우 (미기록·자동입력·빈 날)
+  bool get isSelectedDateUnrecorded => !isSelectedDateRecorded;
+
+  /// 플랜 시작~오늘 중 미기록 날이 하나라도 있으면 true
+  bool get hasUnrecordedSpendingDays {
+    final plan = _latestPlan;
+    if (plan == null) return false;
+
+    final rawStart = plan.startDate ?? plan.creationDate;
+    if (rawStart == null) return false;
+
+    final start = _normalizeDay(rawStart);
+    final today = _normalizeDay(DateTime.now());
+    if (start.isAfter(today)) return false;
+
+    var cursor = start;
+    while (!cursor.isAfter(today)) {
+      if (!_isManuallyRecordedDay(_recordForDate(cursor))) {
+        return true;
+      }
+      cursor = _nextDay(cursor);
+    }
+    return false;
+  }
 
   DayRecord? get selectedDayRecord {
     //선택된 날짜의 DayRecord
@@ -802,6 +931,13 @@ class HomeViewModel extends ChangeNotifier {
     final monthKey = DateFormat('yyyy-MM').format(normalized);
     final dateKey = DateFormat('yyyy-MM-dd').format(normalized);
     return _monthlyCache[monthKey]?.days[dateKey];
+  }
+
+  bool _isManuallyRecordedDay(DayRecord? day) {
+    if (day == null) return false;
+    if (day.isAutoGenerated) return false;
+
+    return day.totalSpendingAmount > 0 || day.spendingEntries.isNotEmpty;
   }
 
   bool _isSavingConfirmedForDate(DateTime date) {

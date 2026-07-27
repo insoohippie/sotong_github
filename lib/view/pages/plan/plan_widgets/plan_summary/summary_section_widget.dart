@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_summary/plan_summary_donut_chart_widget.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_summary/plan_summary_donut_chart_widget.dart';
 import '../../../../../model/plan/plan_edit_result.dart';
 import '../../../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../../../view_model/plan/enums/chat_step.dart';

@@ -5,7 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color, Icons;
 import 'package:intl/intl.dart';
 
-import 'package:sotong_local/services/record_event_bus.dart';
+import 'package:sotong/services/record_event_bus.dart';
+import 'package:sotong/services/home_widget_sync_service.dart';
 
 import '../../model/record/monthly_record.dart';
 import '../../model/record/day_record.dart';
@@ -72,6 +73,9 @@ class CommunicationViewModel extends ChangeNotifier {
     } finally {
       _setLoading(false);
       notifyListeners();
+      unawaited(
+        HomeWidgetSyncService.syncCommunicationBannerItems(bannerInsights),
+      );
     }
   }
 

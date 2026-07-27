@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../texts/subtext.dart';
 import '../theme/app_colors.dart';
+import '../../services/chart_animation_haptic.dart';
 
 class SmallRoundedButton extends StatelessWidget {
   final String text;
@@ -25,7 +26,10 @@ class SmallRoundedButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ElevatedButton.icon(
-      onPressed: onPressed,
+      onPressed: () {
+        AppHaptics.buttonTap();
+        onPressed();
+      },
       icon: Icon(icon, size: 16, color: textColor),
       label: SubText(text: text, color: textColor, fontWeight: FontWeight.bold,),
       style: ElevatedButton.styleFrom(

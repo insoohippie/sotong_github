@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/addIncome_widget/add_income_input_entry.dart';
-import 'package:sotong_local/view/pages/record/record_widgets/spending_widget/spending_input_entry.dart';
+import 'package:sotong/view/pages/record/record_widgets/addIncome_widget/add_income_input_entry.dart';
+import 'package:sotong/view/pages/record/record_widgets/spending_widget/spending_input_entry.dart';
 
 import '../../../component/wrappers/keyboard_dismiss_scope.dart';
 import '../../../component/appbars/back_only_app_bar.dart';

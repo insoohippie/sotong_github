@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:sotong_local/component/chart/semi_gauge_chart.dart';
+import 'package:sotong/component/chart/semi_gauge_chart.dart';
 
 /// TotalPlan 페이지용 독립적인 차트 위젯
 /// HomeViewModel 없이 필요한 데이터만 파라미터로 받음
