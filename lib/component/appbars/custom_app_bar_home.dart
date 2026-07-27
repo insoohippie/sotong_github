@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sotong_local/component/texts/header_text.dart';
+import 'package:sotong/component/texts/header_text.dart';
 
 import '../theme/app_spacing.dart';
 

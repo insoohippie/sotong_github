@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:sotong_local/view/pages/plan/plan_edit_page.dart';
+import 'package:sotong/view/pages/plan/plan_edit_page.dart';
 
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/amount_guide_widget.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/chat_bottom_input_area.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_chat/chat_message_widget.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_chat/amount_guide_widget.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_chat/chat_bottom_input_area.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_chat/chat_message_widget.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
 
 import '../../../view_model/category/plan_category_view_model.dart';
 import '../../../view_model/plan/enums/chat_step.dart';

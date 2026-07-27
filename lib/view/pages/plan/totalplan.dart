@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_celebration/sequential_chart_widget.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_celebration/sequential_chart_widget.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';

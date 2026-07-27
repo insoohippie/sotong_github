@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/model/record/emotion_spending_diary.dart';
+import 'package:sotong/model/record/emotion_spending_diary.dart';
 import 'package:lottie/lottie.dart';
 
 import '../../../../component/theme/app_colors.dart';

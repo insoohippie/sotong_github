@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:sotong_local/component/wrappers/keyboard_dismiss_scope.dart';
-import 'package:sotong_local/component/buttons/custom_button.dart';
-import 'package:sotong_local/component/inputs/custom_text_area.dart';
-import 'package:sotong_local/component/inputs/selectable_emoji_selector.dart';
+import 'package:sotong/component/wrappers/keyboard_dismiss_scope.dart';
+import 'package:sotong/component/buttons/custom_button.dart';
+import 'package:sotong/component/inputs/custom_text_area.dart';
+import 'package:sotong/component/inputs/selectable_emoji_selector.dart';
 import '../../../../../view_model/record/today_spending_view_model.dart';
 
 const _diarySheetDismissDelay = Duration(milliseconds: 320);

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:sotong_local/component/buttons/custom_button.dart';
-import 'package:sotong_local/component/texts/paragraph_text.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/component/theme/app_spacing.dart';
-import 'package:sotong_local/component/theme/padding/horizontal_padding_clamped_fraction.dart';
+import 'package:sotong/component/buttons/custom_button.dart';
+import 'package:sotong/component/texts/paragraph_text.dart';
+import 'package:sotong/component/theme/app_colors.dart';
+import 'package:sotong/component/theme/app_spacing.dart';
+import 'package:sotong/component/theme/padding/horizontal_padding_clamped_fraction.dart';
 
 class FooterDefault extends StatefulWidget {
   final double total; // 고정소비/수입 합계 (수입일 땐 isOverBudget=false로 들어옴)

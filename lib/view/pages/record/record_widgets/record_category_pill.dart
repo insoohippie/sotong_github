@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:sotong/component/theme/app_colors.dart';
 
 class RecordCategoryPill extends StatelessWidget {
   final String text;

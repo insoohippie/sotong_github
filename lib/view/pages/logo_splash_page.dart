@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../repository/auth_repository.dart';
+import '../../../services/home_widget_launch_handler.dart';
 import '../../../view_model/home/home_view_model.dart';
 import 'auth/login_page.dart';
 
@@ -61,10 +62,13 @@ class _LogoSplashPageState extends State<LogoSplashPage>
       return;
     }
 
-    Navigator.of(context).pushNamedAndRemoveUntil(
+    await Navigator.of(context).pushNamedAndRemoveUntil(
       next,
           (_) => false,
     );
+
+    if (!mounted) return;
+    HomeWidgetLaunchHandler.consumePendingAfterNavigation();
   }
 
   @override

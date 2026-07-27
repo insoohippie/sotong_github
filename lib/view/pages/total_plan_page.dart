@@ -5,7 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
 import 'dart:async';
 import '../../component/theme/app_colors.dart';
 import '../../model/plan/plan_metrics.dart';

@@ -1,6 +1,6 @@
 // plan_category_pill.dart
 import 'package:flutter/material.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:sotong/component/theme/app_colors.dart';
 
 class PlanCategoryPill extends StatelessWidget {
   final String text;

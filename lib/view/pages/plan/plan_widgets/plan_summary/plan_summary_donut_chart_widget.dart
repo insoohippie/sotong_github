@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:sotong_local/component/texts/paragraph_text.dart';
-import 'package:sotong_local/model/plan/plan_metrics.dart';
-import 'package:sotong_local/model/plan/total_plan.dart';
-import 'package:sotong_local/model/saving_calculation_result.dart';
+import 'package:sotong/component/texts/paragraph_text.dart';
+import 'package:sotong/model/plan/plan_metrics.dart';
+import 'package:sotong/model/plan/total_plan.dart';
+import 'package:sotong/model/saving_calculation_result.dart';
 
 import '../../../../../component/chart/fl_donut_budget_chart.dart';
 import '../../../../../component/chart/fl_donut_colored_budget.dart';

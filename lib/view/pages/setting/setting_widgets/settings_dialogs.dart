@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:sotong_local/component/buttons/custom_button.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
+import 'package:sotong/component/buttons/custom_button.dart';
+import 'package:sotong/component/theme/app_colors.dart';
 
 class _AnimatedCenterPopup extends StatefulWidget {
   const _AnimatedCenterPopup({

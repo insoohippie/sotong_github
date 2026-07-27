@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/component/texts/paragraph_text.dart';
+import 'package:sotong/component/texts/paragraph_text.dart';
 import '../../../component/texts/header_text.dart';
 import '../theme/app_colors.dart';
 

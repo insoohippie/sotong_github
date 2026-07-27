@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 // UI
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_edit/edit_summary_tile.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_edit/edit_summary_tile.dart';
 import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/buttons/period_toggle.dart';
@@ -25,8 +25,8 @@ import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/plan/plan_edit_viewmodel.dart';
 
 // Modals
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/single_value_input_modal.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_input_modal/input_modal_widget.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_input_modal/single_value_input_modal.dart';
 
 class PlanEditPage extends StatefulWidget {
   final TotalPlan? initialPlan;

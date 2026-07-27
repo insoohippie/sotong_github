@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:sotong_local/component/buttons/custom_button.dart';
-import 'package:sotong_local/component/buttons/period_toggle.dart';
-import 'package:sotong_local/component/inputs/custom_text_field.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/component/wrappers/keyboard_dismiss_scope.dart';
+import 'package:sotong/component/buttons/custom_button.dart';
+import 'package:sotong/component/buttons/period_toggle.dart';
+import 'package:sotong/component/inputs/custom_text_field.dart';
+import 'package:sotong/component/theme/app_colors.dart';
+import 'package:sotong/component/wrappers/keyboard_dismiss_scope.dart';
 
 import '../../../../../model/category/ref_category_item.dart';
 import '../../../../../model/record/record_entry.dart';

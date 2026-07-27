@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'plan_summary_chart_painter.dart';
-import 'package:sotong_local/component/buttons/multi_option_toggle.dart';
+import 'package:sotong/component/buttons/multi_option_toggle.dart';
 
 /// totalplan.dart에서 사용:
 /// SequentialChartWidget(charts: charts)

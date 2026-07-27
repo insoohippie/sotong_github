@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/component/inputs/custom_text_field.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/model/refData/entry.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/plan_category_pill.dart';
-import 'package:sotong_local/view/pages/plan/plan_widgets/plan_input_modal/plan_category_sheet.dart';
+import 'package:sotong/component/inputs/custom_text_field.dart';
+import 'package:sotong/component/theme/app_colors.dart';
+import 'package:sotong/model/refData/entry.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_input_modal/plan_category_pill.dart';
+import 'package:sotong/view/pages/plan/plan_widgets/plan_input_modal/plan_category_sheet.dart';
 
 enum ItemKind { daily, income, fixed }
 

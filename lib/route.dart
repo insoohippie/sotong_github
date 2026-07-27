@@ -1,43 +1,43 @@
 import 'package:flutter/material.dart';
 
-import 'package:sotong_local/view/pages/auth/signup_page.dart';
-import 'package:sotong_local/view/pages/auth/signup_success_page.dart';
-import 'package:sotong_local/view/pages/auth/unsuccess_plan_quit.dart';
-import 'package:sotong_local/view/pages/category/category_edit.dart';
-import 'package:sotong_local/view/pages/home/pending_spending_page.dart';
+import 'package:sotong/view/pages/auth/signup_page.dart';
+import 'package:sotong/view/pages/auth/signup_success_page.dart';
+import 'package:sotong/view/pages/auth/unsuccess_plan_quit.dart';
+import 'package:sotong/view/pages/category/category_edit.dart';
+import 'package:sotong/view/pages/home/pending_spending_page.dart';
 
-import 'package:sotong_local/view/pages/logo_splash_page.dart';
+import 'package:sotong/view/pages/logo_splash_page.dart';
 
-import 'package:sotong_local/view/pages/communication/communication_page.dart';
+import 'package:sotong/view/pages/communication/communication_page.dart';
 
-import 'package:sotong_local/view/pages/home/home_page.dart';
-import 'package:sotong_local/view/pages/home/home_tab_navigator.dart';
-import 'package:sotong_local/view/pages/record/addIncome/period_apply_page.dart';
-import 'package:sotong_local/view/pages/record/today_record_page.dart';
+import 'package:sotong/view/pages/home/home_page.dart';
+import 'package:sotong/view/pages/home/home_tab_navigator.dart';
+import 'package:sotong/view/pages/record/addIncome/period_apply_page.dart';
+import 'package:sotong/view/pages/record/today_record_page.dart';
 
-import 'package:sotong_local/view/pages/plan/chat_plan_page.dart';
-import 'package:sotong_local/view/pages/plan/plan_edit_page.dart';
-import 'package:sotong_local/view/pages/plan/plan_success_page.dart';
-import 'package:sotong_local/view/pages/plan/totalplan.dart';
-import 'package:sotong_local/view/pages/plan/celebration_plan_success.dart';
+import 'package:sotong/view/pages/plan/chat_plan_page.dart';
+import 'package:sotong/view/pages/plan/plan_edit_page.dart';
+import 'package:sotong/view/pages/plan/plan_success_page.dart';
+import 'package:sotong/view/pages/plan/totalplan.dart';
+import 'package:sotong/view/pages/plan/celebration_plan_success.dart';
 
-import 'package:sotong_local/view/pages/record/record_diary_page.dart';
-import 'package:sotong_local/view/pages/record/record_page.dart';
-import 'package:sotong_local/view/pages/report/report_page.dart';
+import 'package:sotong/view/pages/record/record_diary_page.dart';
+import 'package:sotong/view/pages/record/record_page.dart';
+import 'package:sotong/view/pages/report/report_page.dart';
 
-import 'package:sotong_local/view/pages/notification/notification_page.dart';
+import 'package:sotong/view/pages/notification/notification_page.dart';
 
-import 'package:sotong_local/view/pages/setting/settings_page.dart';
-import 'package:sotong_local/view/pages/setting/personal_info_page.dart';
-import 'package:sotong_local/view/pages/setting/FAQ.dart';
-import 'package:sotong_local/view/pages/setting/version.dart';
+import 'package:sotong/view/pages/setting/settings_page.dart';
+import 'package:sotong/view/pages/setting/personal_info_page.dart';
+import 'package:sotong/view/pages/setting/FAQ.dart';
+import 'package:sotong/view/pages/setting/version.dart';
 
-import 'package:sotong_local/view/pages/setting/edit_plan/edit_daily_limit_page.dart';
-import 'package:sotong_local/view/pages/setting/edit_plan/edit_fixed_cost_page.dart';
-import 'package:sotong_local/view/pages/setting/edit_plan/edit_income_page.dart';
-import 'package:sotong_local/view/pages/setting/edit_plan/edit_saving_target_page.dart';
+import 'package:sotong/view/pages/setting/edit_plan/edit_daily_limit_page.dart';
+import 'package:sotong/view/pages/setting/edit_plan/edit_fixed_cost_page.dart';
+import 'package:sotong/view/pages/setting/edit_plan/edit_income_page.dart';
+import 'package:sotong/view/pages/setting/edit_plan/edit_saving_target_page.dart';
 
-import 'package:sotong_local/view/pages/setting/past_plan/past_plans_list_page.dart';
+import 'package:sotong/view/pages/setting/past_plan/past_plans_list_page.dart';
 
 import 'view/pages/auth/login_page.dart';
 

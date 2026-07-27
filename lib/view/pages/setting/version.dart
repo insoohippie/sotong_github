@@ -2,12 +2,54 @@ import 'package:flutter/material.dart';
 
 import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/theme/app_colors.dart';
+import '../../../services/store_update_service.dart';
 
-/// 버전관리 화면: 앱 아이콘 + 소통 / 1.0.0 + 업데이트 버튼 (카톡 앱관리 스타일)
-class VersionPage extends StatelessWidget {
+/// 버전관리 화면: 앱 아이콘 + 소통 + 현재 버전 + 업데이트 버튼
+class VersionPage extends StatefulWidget {
   const VersionPage({Key? key}) : super(key: key);
 
-  static const String appVersion = '1.0.0';
+  @override
+  State<VersionPage> createState() => _VersionPageState();
+}
+
+class _VersionPageState extends State<VersionPage> {
+  String _appVersion = '—';
+  bool _openingStore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final version = await StoreUpdateService.currentVersionLabel();
+    if (!mounted) return;
+    setState(() => _appVersion = version);
+  }
+
+  Future<void> _openStore() async {
+    if (_openingStore) return;
+
+    setState(() => _openingStore = true);
+    try {
+      await StoreUpdateService.openStoreListing();
+    } on StoreListingUnavailableException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('스토어를 열지 못했습니다. 잠시 후 다시 시도해주세요.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _openingStore = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +84,6 @@ class VersionPage extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    // 앱 아이콘 (소통 로고/이미지)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
                       child: Image.asset(
@@ -54,7 +95,7 @@ class VersionPage extends StatelessWidget {
                           width: 52,
                           height: 52,
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.15),
+                            color: AppColors.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,
@@ -71,7 +112,6 @@ class VersionPage extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 14),
-                    // 앱 이름 + 버전
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -88,7 +128,7 @@ class VersionPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            appVersion,
+                            _appVersion,
                             style: TextStyle(
                               fontSize: 13,
                               fontFamily: 'Pretendard Variable',
@@ -100,32 +140,38 @@ class VersionPage extends StatelessWidget {
                         ],
                       ),
                     ),
-                    // 업데이트 버튼
                     Material(
                       color: AppColors.primary,
                       borderRadius: BorderRadius.circular(8),
                       child: InkWell(
-                        onTap: () {
-                          // TODO: 업데이트 로직 (스토어 이동 등)
-                        },
+                        onTap: _openingStore ? null : _openStore,
                         borderRadius: BorderRadius.circular(8),
                         splashColor: Colors.transparent,
                         highlightColor: Colors.transparent,
                         hoverColor: Colors.transparent,
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
                             horizontal: 14,
                             vertical: 10,
                           ),
-                          child: Text(
-                            '업데이트',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              fontFamily: 'Pretendard Variable',
-                              color: Colors.white,
-                            ),
-                          ),
+                          child: _openingStore
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  '업데이트',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    fontFamily: 'Pretendard Variable',
+                                    color: Colors.white,
+                                  ),
+                                ),
                         ),
                       ),
                     ),

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:intl/intl.dart';
-import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/component/theme/padding/horizontal_padding_clamped_fraction.dart';
-import 'package:sotong_local/model/refData/entry.dart';
-import 'package:sotong_local/model/saving_calculation_result.dart';
+import 'package:sotong/component/theme/app_colors.dart';
+import 'package:sotong/component/theme/padding/horizontal_padding_clamped_fraction.dart';
+import 'package:sotong/model/refData/entry.dart';
+import 'package:sotong/model/saving_calculation_result.dart';
 
 import '../../../../../component/buttons/small_rounded_button.dart';
 import '../../../../../component/wrappers/keyboard_dismiss_scope.dart';

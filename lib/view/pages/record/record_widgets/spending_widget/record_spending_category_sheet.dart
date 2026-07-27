@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/component/buttons/period_toggle.dart';
-import 'package:sotong_local/component/inputs/custom_text_field.dart';
+import 'package:sotong/component/theme/app_colors.dart';
+import 'package:sotong/component/buttons/period_toggle.dart';
+import 'package:sotong/component/inputs/custom_text_field.dart';
 
 import '../../../../../model/category/category_edit_item.dart';
 import '../../../../../model/category/ref_category_item.dart';

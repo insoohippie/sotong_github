@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:sotong_local/view_model/home/home_view_model.dart';
-import 'package:sotong_local/view_model/services/saving_calculator.dart';
+import 'package:sotong/view_model/home/home_view_model.dart';
+import 'package:sotong/view_model/services/saving_calculator.dart';
 
 class HomeSavingCountdownSheet extends StatefulWidget {
   const HomeSavingCountdownSheet({super.key, required this.vm});

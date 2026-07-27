@@ -4,9 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show Color, IconData, Icons;
 import 'package:intl/intl.dart';
 
-import 'package:sotong_local/component/theme/app_colors.dart';
-import 'package:sotong_local/services/record_event_bus.dart';
-import 'package:sotong_local/services/plan_saved_event_bus.dart';
+import 'package:sotong/component/theme/app_colors.dart';
+import 'package:sotong/services/record_event_bus.dart';
+import 'package:sotong/services/plan_saved_event_bus.dart';
+import 'package:sotong/services/home_widget_sync_service.dart';
 
 import '../../model/refData/daily_consume.dart';
 import '../../repository/record_repository.dart';
@@ -756,6 +757,9 @@ class ReportViewModel extends ChangeNotifier implements SessionResettable {
     } finally {
       _setLoading(false);
       notifyListeners();
+      unawaited(
+        HomeWidgetSyncService.syncReportBannerItems(insights),
+      );
     }
   }
 
