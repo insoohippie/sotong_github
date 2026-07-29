@@ -42,20 +42,33 @@ class _RecordDiaryPageState extends State<RecordDiaryPage> {
     setState(() => _isLoading = true);
 
     try {
-      final hasIncomeInput = incomeVM.buildEntriesJson().isNotEmpty;
+      final hasIncomeInput =
+          incomeVM.buildEntriesJson().isNotEmpty;
 
       if (hasIncomeInput) {
         if (incomeVM.hasInvalidCategorySelection) {
-          throw Exception('카테고리가 선택되지 않은 수입 항목이 있습니다.');
+          throw Exception(
+            '카테고리가 선택되지 않은 수입 항목이 있습니다.',
+          );
         }
+
+        /*
+   * 기존 수입과 현재 수입의 차액을
+   * 저장 전에 미리 계산
+   */
+        final incomeDifference =
+            incomeVM.incomeAmountDifference;
 
         await incomeVM.saveAllForDate(selectedDate);
 
-        final totalIncome = incomeVM.totalIncome;
-        if (totalIncome > 0 && mounted) {
+        /*
+   * 기존 수입을 그대로 둔 채 소비만 저장했다면
+   * difference가 0이므로 수입을 중복 반영하지 않음
+   */
+        if (incomeDifference > 0 && mounted) {
           context.read<HomeViewModel>().registerExtraIncome(
             selectedDate,
-            totalIncome,
+            incomeDifference,
           );
         }
 

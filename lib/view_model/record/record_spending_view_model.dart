@@ -108,28 +108,39 @@ class RecordSpendingViewModel extends ChangeNotifier {
 
   String get formattedTotal => NumberFormat('#,###').format(totalSpending);
 
+  /// 소비 금액이 입력됐거나 무지출이 선택됐는지 확인
+  bool get hasSpendingInput {
+    if (_isNoSpending) {
+      return true;
+    }
+
+    return spendingEntries.any((entry) {
+      final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
+
+      return amount > 0;
+    });
+  }
+
   bool get hasInvalidCategorySelection {
-    if (_isNoSpending) return false;
+    if (_isNoSpending) {
+      return false;
+    }
 
     for (final entry in spendingEntries) {
       final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
-      final categoryKey = (entry['categoryKey'] as String?)?.trim() ?? '';
+      final categoryKey =
+          (entry['categoryKey'] as String?)?.trim() ?? '';
 
       if (amount > 0 && categoryKey.isEmpty) {
         return true;
       }
     }
+
     return false;
   }
 
   bool get canProceedToNextStep {
-    if (_isNoSpending) return true;
-
-    final hasAmount = spendingEntries.any(
-          (e) => ((e['amount'] as num?)?.toDouble() ?? 0) > 0,
-    );
-
-    return hasAmount && !hasInvalidCategorySelection;
+    return hasSpendingInput && !hasInvalidCategorySelection;
   }
 
   void updateTotal() => notifyListeners();
