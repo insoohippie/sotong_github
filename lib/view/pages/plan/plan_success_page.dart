@@ -63,8 +63,13 @@ class _PlanSuccessPageState extends State<PlanSuccessPage> {
       if (!applied) {
         final defaults = defaultSignupNotificationSettings;
         await storage.save(uid, defaults);
-        await storage.markSignupDefaultsApplied(uid);
-        await LocalNotificationService.instance.updateSchedules(defaults);
+        try {
+          await LocalNotificationService.instance.updateSchedules(defaults);
+          // 예약이 성공했을 때만 적용 완료로 마킹해, 실패 시 재시도 여지를 남긴다.
+          await storage.markSignupDefaultsApplied(uid);
+        } catch (e) {
+          debugPrint('[PlanSuccessPage] 기본 알림 예약 실패: $e');
+        }
       }
     }
 

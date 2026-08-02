@@ -23,10 +23,17 @@ class PastPlanRepository {
             (e) =>
                 PastPlanSnapshot.fromJson(Map<String, dynamic>.from(e as Map)),
           )
+          // 과거 데모 버튼/시딩이 저장한 가짜 스냅샷은 노출하지 않는다.
+          .where((s) => !_isDemoSnapshot(s))
           .toList();
     } catch (_) {
       return [];
     }
+  }
+
+  static bool _isDemoSnapshot(PastPlanSnapshot snapshot) {
+    return snapshot.id == 'demo_world_travel' ||
+        snapshot.id.startsWith('demo_plan');
   }
 
   Future<void> save(List<PastPlanSnapshot> list) async {

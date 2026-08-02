@@ -223,6 +223,23 @@ class LocalNotificationService {
     }
   }
 
+  /// Android 정확 알람 권한이 허용된 기기에서는 exact,
+  /// 거부된 기기(Android 14+ 기본값)에서는 inexact로 예약한다.
+  /// inexact는 권한 없이 동작하며 발화 시각이 몇 분 내외로 유연해진다.
+  Future<AndroidScheduleMode> _androidScheduleMode() async {
+    if (!Platform.isAndroid) {
+      return AndroidScheduleMode.exactAllowWhileIdle;
+    }
+    final canExact = await _plugin
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.canScheduleExactNotifications() ??
+        false;
+    return canExact
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+  }
+
   /// 매일 반복 알림
   Future<void> _scheduleDaily({
     required int id,
@@ -254,7 +271,7 @@ class LocalNotificationService {
         android: androidDetails,
         iOS: _iosDetails,
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: await _androidScheduleMode(),
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.time,
@@ -295,7 +312,7 @@ class LocalNotificationService {
         android: androidDetails,
         iOS: _iosDetails,
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: await _androidScheduleMode(),
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
       matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
@@ -318,7 +335,7 @@ class LocalNotificationService {
         android: _androidDetailsTest,
         iOS: _iosDetails,
       ),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      androidScheduleMode: await _androidScheduleMode(),
       uiLocalNotificationDateInterpretation:
           UILocalNotificationDateInterpretation.absoluteTime,
     );

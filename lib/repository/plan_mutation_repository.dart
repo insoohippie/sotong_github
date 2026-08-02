@@ -311,7 +311,8 @@ class PlanMutationRepository {
       }
       current = current.copyWith(
         prevDocId: previous?.docId,
-        nextDocId: null,
+        clearPrevDocId: previous == null,
+        clearNextDocId: true,
       ).recalculateNetAmounts();
       if (previous != null) {
         updated[previous.docId] = updated[previous.docId]!

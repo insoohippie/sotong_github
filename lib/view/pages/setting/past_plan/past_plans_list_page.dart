@@ -26,11 +26,7 @@ class _PastPlansListPageState extends State<PastPlansListPage> {
   }
 
   Future<void> _load() async {
-    var list = _repo.load();
-    if (list.isEmpty) {
-      await _repo.add(PastPlanSnapshot.demoWorldTravel());
-      list = _repo.load();
-    }
+    final list = _repo.load();
     if (mounted) {
       setState(() {
         _list = list;

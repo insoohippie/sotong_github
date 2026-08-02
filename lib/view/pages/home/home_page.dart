@@ -26,6 +26,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _planIntroDialogScheduled = false;
+  bool _celebrationScheduled = false;
   final GlobalKey<HomeSavingChartWidgetState> _chartKey = GlobalKey();
 
   @override
@@ -90,6 +91,41 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  void _scheduleCelebrationIfNeeded(HomeViewModel vm) {
+    if (_celebrationScheduled || !vm.shouldShowPlanCelebration) return;
+    _celebrationScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _celebrationScheduled = false;
+        return;
+      }
+      // 홈이 최상단이 아닐 때(기록 화면·다이얼로그 등이 덮은 상태) 전환하면
+      // 다른 화면의 pop과 충돌하므로 보류한다. 티커 재통지가 재시도를 이끈다.
+      final route = ModalRoute.of(context);
+      if (route == null || !route.isCurrent) {
+        _celebrationScheduled = false;
+        return;
+      }
+      final homeVM = context.read<HomeViewModel>();
+      if (!homeVM.shouldShowPlanCelebration) {
+        _celebrationScheduled = false;
+        return;
+      }
+
+      // 스냅샷은 완료 감지 시점에 이미 저장됐으므로 전달하지 않는다(중복 저장 방지).
+      final info = homeVM.planCompletionInfo;
+      Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+        '/celebration_plan_success',
+        (_) => false,
+        arguments: {
+          'planName': info?['planName'] as String?,
+          'daysTaken': (info?['daysTaken'] as num?)?.toInt(),
+        },
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<HomeViewModel>();
@@ -119,6 +155,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     _schedulePlanIntroDialog(vm);
+    _scheduleCelebrationIfNeeded(vm);
 
     final userName = vm.name;
     final planName = vm.planTitle;

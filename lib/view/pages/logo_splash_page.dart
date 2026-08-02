@@ -45,8 +45,23 @@ class _LogoSplashPageState extends State<LogoSplashPage>
     if (!mounted) return;
 
     if (next == '/home_tab_navigator') {
-      await context.read<HomeViewModel>().refresh();
+      final homeVM = context.read<HomeViewModel>();
+      await homeVM.refresh();
       if (!mounted) return;
+
+      // 완료된 플랜은 홈 대신 축하 화면으로 (플랜 완료 잠금)
+      if (homeVM.shouldShowPlanCelebration) {
+        final info = homeVM.planCompletionInfo;
+        await Navigator.of(context).pushNamedAndRemoveUntil(
+          '/celebration_plan_success',
+          (_) => false,
+          arguments: {
+            'planName': info?['planName'] as String?,
+            'daysTaken': (info?['daysTaken'] as num?)?.toInt(),
+          },
+        );
+        return;
+      }
     }
 
     if (next == '/login') {

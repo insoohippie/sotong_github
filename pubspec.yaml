@@ -1,8 +1,8 @@
-name: sotong_local
-description: "A new Flutter project."
+name: sotong
+description: "소통 - 대화형 가계부 & 저축 플랜"
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.4+2
 
 environment:
   sdk: ^3.8.1
@@ -38,12 +38,25 @@ dependencies:
   flutter_reorderable_grid_view: ^5.5.2
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
+  home_widget: ^0.9.2
+  app_settings: ^5.1.1
+  url_launcher: ^6.3.1
+  package_info_plus: 8.3.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
+  remove_alpha_ios: true
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png
 
 flutter:
 

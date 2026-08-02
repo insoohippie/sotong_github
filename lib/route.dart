@@ -20,6 +20,7 @@ import 'package:sotong/view/pages/plan/plan_edit_page.dart';
 import 'package:sotong/view/pages/plan/plan_success_page.dart';
 import 'package:sotong/view/pages/plan/totalplan.dart';
 import 'package:sotong/view/pages/plan/celebration_plan_success.dart';
+import 'package:sotong/model/setting/past_plan_snapshot.dart';
 
 import 'package:sotong/view/pages/record/record_diary_page.dart';
 import 'package:sotong/view/pages/record/record_page.dart';
@@ -58,7 +59,26 @@ final Map<String, WidgetBuilder> appRoutes = {
   '/plan_edit': (_) => const PlanEditPage(),
   '/plan_success': (_) => const PlanSuccessPage(),
   // 플랜 도달, 분석 페이지
-  '/celebration_plan_success': (_) => const CelebrationPlanSuccessPage(),
+  // arguments: {'planName': String?, 'daysTaken': int?, 'snapshot': PastPlanSnapshot?}
+  '/celebration_plan_success': (context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    String? planName;
+    int? daysTaken;
+    PastPlanSnapshot? snapshot;
+    if (args is Map) {
+      planName = args['planName'] as String?;
+      daysTaken = args['daysTaken'] as int?;
+      final rawSnapshot = args['snapshot'];
+      if (rawSnapshot is PastPlanSnapshot) {
+        snapshot = rawSnapshot;
+      }
+    }
+    return CelebrationPlanSuccessPage(
+      planName: planName,
+      daysTaken: daysTaken,
+      snapshot: snapshot,
+    );
+  },
   '/total_plan': (_) => const TotalPlanPage(),
 
   // 카테고리 편집 페이지

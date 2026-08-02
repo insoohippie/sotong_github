@@ -1,14 +1,31 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sotong_local/model/commands/update_daily_command.dart';
-import 'package:sotong_local/model/plan/mini_plan.dart';
-import 'package:sotong_local/model/plan/plan_metrics.dart';
-import 'package:sotong_local/model/plan/sub_plan.dart';
-import 'package:sotong_local/model/plan/total_plan.dart';
-import 'package:sotong_local/model/refData/daily_consume.dart';
-import 'package:sotong_local/model/refData/entry.dart';
-import 'package:sotong_local/model/refData/monthly_consume.dart';
-import 'package:sotong_local/model/refData/monthly_income.dart';
-import 'package:sotong_local/repository/plan_mutation_repository.dart';
+import 'package:sotong/model/commands/update_daily_command.dart';
+import 'package:sotong/model/plan/mini_plan.dart';
+import 'package:sotong/model/plan/plan_metrics.dart';
+import 'package:sotong/model/plan/sub_plan.dart';
+import 'package:sotong/model/plan/total_plan.dart';
+import 'package:sotong/model/refData/daily_consume.dart';
+import 'package:sotong/model/refData/entry.dart';
+import 'package:sotong/model/refData/monthly_consume.dart';
+import 'package:sotong/model/refData/monthly_income.dart';
+import 'package:sotong/repository/plan_mutation_repository.dart';
+
+Entry _entry({
+  required int idx,
+  required double amount,
+  required String category,
+  required EntryType type,
+}) {
+  return Entry(
+    idx: idx,
+    order: idx,
+    amount: amount,
+    categoryKey: category,
+    category: category,
+    emoji: '💰',
+    type: type,
+  );
+}
 
 MiniPlan _buildMini({
   required String docId,
@@ -16,6 +33,8 @@ MiniPlan _buildMini({
   required DateTime start,
   required DateTime end,
   required String dailyId,
+  String? prevDocId,
+  String? nextDocId,
 }) {
   return MiniPlan(
     docId: docId,
@@ -25,21 +44,21 @@ MiniPlan _buildMini({
     monthlyIncomeId: 'inc-001',
     monthlyConsumeId: 'con-001',
     dailyConsumeId: dailyId,
-    sumMonthlyIncome: 0,
-    sumMonthlyConsume: 0,
-    sumDailyConsume: 0,
+    prevDocId: prevDocId,
+    nextDocId: nextDocId,
   );
 }
 
-SubPlan _buildSubPlan(String key, MiniPlan mini) {
+SubPlan _buildSubPlan(List<MiniPlan> minis) {
+  final head = minis.first;
   return SubPlan(
-    yearMonth: DateTime(mini.yearMonth.year, mini.yearMonth.month),
-    headDocId: mini.docId,
-    miniPlans: {mini.docId: mini},
+    yearMonth: DateTime(head.yearMonth.year, head.yearMonth.month),
+    headDocId: head.docId,
+    miniPlans: {for (final mini in minis) mini.docId: mini},
     miniResult: MiniPlanResult(
-      headDocId: mini.docId,
+      headDocId: head.docId,
       miniMetrics: const [],
-      headMiniPlan: mini,
+      miniPlanHead: head,
     ),
   );
 }
@@ -50,9 +69,9 @@ TotalPlan _buildTotalPlan({
   final metrics = PlanMetrics.fromRange(
     startDate: DateTime(2025, 9, 1),
     endDate: DateTime(2025, 10, 31),
-    sumMonthlyIncome: 0,
-    sumMonthlyConsume: 0,
-    sumDailyConsume: 0,
+    monthlyIncomeAmount: 0,
+    monthlyConsumeAmount: 0,
+    dailyConsumeAmount: 0,
   );
   return TotalPlan(
     planId: 'plan',
@@ -68,7 +87,10 @@ TotalPlan _buildTotalPlan({
     subPlans: subPlans,
     result: TotalResult(
       totalMetrics: metrics,
-      subResult: SubPlanResult(subMetrics: const [], subPlanList: subPlans.values.toList()),
+      subResult: SubPlanResult(
+        subMetrics: const [],
+        subPlanList: subPlans.values.toList(),
+      ),
     ),
   );
 }
@@ -80,24 +102,14 @@ void main() {
         id: 'inc-001',
         yearMonthList: [DateTime(2025, 9), DateTime(2025, 10)],
         entries: [
-          Entry(
-            idx: 0,
-            amount: 1500000.0,
-            category: 'Salary',
-            type: EntryType.fixed,
-          ),
+          _entry(idx: 0, amount: 1500000.0, category: 'Salary', type: EntryType.fixed),
         ],
       );
       final monthlyConsume = MonthlyConsume.newForMonths(
         id: 'con-001',
         yearMonthList: [DateTime(2025, 9), DateTime(2025, 10)],
         entries: [
-          Entry(
-            idx: 0,
-            amount: 500000.0,
-            category: 'Rent',
-            type: EntryType.fixed,
-          ),
+          _entry(idx: 0, amount: 500000.0, category: 'Rent', type: EntryType.fixed),
         ],
       );
       final baseDaily = DailyConsume.newRange(
@@ -105,12 +117,7 @@ void main() {
         startDate: DateTime(2025, 9, 1),
         endDate: DateTime(2025, 10, 31),
         entries: [
-          Entry(
-            idx: 0,
-            amount: 20000.0,
-            category: 'Baseline',
-            type: EntryType.daily,
-          ),
+          _entry(idx: 0, amount: 20000.0, category: 'Baseline', type: EntryType.daily),
         ],
       );
 
@@ -131,8 +138,8 @@ void main() {
 
       final totalPlan = _buildTotalPlan(
         subPlans: {
-          '202509': _buildSubPlan('202509', septemberMini),
-          '202510': _buildSubPlan('202510', octoberMini),
+          '202509': _buildSubPlan([septemberMini]),
+          '202510': _buildSubPlan([octoberMini]),
         },
       );
 
@@ -146,12 +153,7 @@ void main() {
           applyDate: DateTime(2025, 9, 15),
           modEndDate: DateTime(2025, 10, 31),
           entries: [
-            Entry(
-              idx: 1,
-              amount: 25000.0,
-              category: 'Updated Daily',
-              type: EntryType.daily,
-            ),
+            _entry(idx: 1, amount: 25000.0, category: 'Updated Daily', type: EntryType.daily),
           ],
           newDailyId: 'day-202509-002',
           newMiniDocId: '202509-002',
@@ -190,24 +192,14 @@ void main() {
         id: 'inc-001',
         yearMonthList: [DateTime(2025, 9)],
         entries: [
-          Entry(
-            idx: 0,
-            amount: 1500000.0,
-            category: 'Salary',
-            type: EntryType.fixed,
-          ),
+          _entry(idx: 0, amount: 1500000.0, category: 'Salary', type: EntryType.fixed),
         ],
       );
       final monthlyConsume = MonthlyConsume.newForMonths(
         id: 'con-001',
         yearMonthList: [DateTime(2025, 9)],
         entries: [
-          Entry(
-            idx: 0,
-            amount: 500000.0,
-            category: 'Rent',
-            type: EntryType.fixed,
-          ),
+          _entry(idx: 0, amount: 500000.0, category: 'Rent', type: EntryType.fixed),
         ],
       );
       final daily = DailyConsume.newRange(
@@ -215,12 +207,7 @@ void main() {
         startDate: DateTime(2025, 9, 15),
         endDate: DateTime(2025, 9, 30),
         entries: [
-          Entry(
-            idx: 0,
-            amount: 20000.0,
-            category: 'Baseline',
-            type: EntryType.daily,
-          ),
+          _entry(idx: 0, amount: 20000.0, category: 'Baseline', type: EntryType.daily),
         ],
       );
 
@@ -231,7 +218,8 @@ void main() {
         end: DateTime(2025, 9, 30),
         dailyId: daily.id,
       );
-      final totalPlan = _buildTotalPlan(subPlans: {'202509': _buildSubPlan('202509', mini)});
+      final totalPlan =
+          _buildTotalPlan(subPlans: {'202509': _buildSubPlan([mini])});
 
       final repository = PlanMutationRepository();
       final result = repository.applyDaily(
@@ -243,12 +231,7 @@ void main() {
           applyDate: DateTime(2025, 9, 15),
           modEndDate: DateTime(2025, 9, 30),
           entries: [
-            Entry(
-              idx: 1,
-              amount: 18000.0,
-              category: 'Revised',
-              type: EntryType.daily,
-            ),
+            _entry(idx: 1, amount: 18000.0, category: 'Revised', type: EntryType.daily),
           ],
           newDailyId: 'day-202509-002',
           newMiniDocId: '202509-002',
@@ -264,6 +247,103 @@ void main() {
       final updatedMini = updatedSubPlan.miniPlans['202509-001']!;
       expect(updatedMini.dailyConsumeId, equals('day-202509-002'));
       expect(updatedMini.startDate, equals(DateTime(2025, 9, 15)));
+    });
+
+    test('truncating a multi-mini month drops trailing minis without breaking the chain', () {
+      // 재현 조건: 종료일(modEndDate)이 미니 2개로 쪼개진 달의 중간에 떨어져,
+      // 뒤쪽 미니가 통째로 잘려나가는 경우.
+      // 수정 전에는 copyWith(nextDocId: null)이 무시되어 잘려나간 미니를 가리키는
+      // 포인터가 남았고, orderedMinis()가 'Broken mini plan chain' StateError를 던졌다.
+      final monthlyIncome = MonthlyIncome.newForMonths(
+        id: 'inc-001',
+        yearMonthList: [DateTime(2025, 9), DateTime(2025, 10)],
+        entries: [
+          _entry(idx: 0, amount: 1500000.0, category: 'Salary', type: EntryType.fixed),
+        ],
+      );
+      final monthlyConsume = MonthlyConsume.newForMonths(
+        id: 'con-001',
+        yearMonthList: [DateTime(2025, 9), DateTime(2025, 10)],
+        entries: [
+          _entry(idx: 0, amount: 500000.0, category: 'Rent', type: EntryType.fixed),
+        ],
+      );
+      final baseDaily = DailyConsume.newRange(
+        id: 'day-202509-001',
+        startDate: DateTime(2025, 9, 1),
+        endDate: DateTime(2025, 10, 15),
+        entries: [
+          _entry(idx: 0, amount: 20000.0, category: 'Baseline', type: EntryType.daily),
+        ],
+      );
+      final octDaily = DailyConsume.newRange(
+        id: 'day-202510-001',
+        startDate: DateTime(2025, 10, 16),
+        endDate: DateTime(2025, 10, 31),
+        entries: [
+          _entry(idx: 0, amount: 30000.0, category: 'October', type: EntryType.daily),
+        ],
+      );
+
+      final septemberMini = _buildMini(
+        docId: '202509-001',
+        month: DateTime(2025, 9),
+        start: DateTime(2025, 9, 1),
+        end: DateTime(2025, 9, 30),
+        dailyId: baseDaily.id,
+      );
+      // 10월은 과거 플랜 수정으로 미니가 둘로 쪼개진 상태.
+      final octoberFirst = _buildMini(
+        docId: '202510-001',
+        month: DateTime(2025, 10),
+        start: DateTime(2025, 10, 1),
+        end: DateTime(2025, 10, 15),
+        dailyId: baseDaily.id,
+        nextDocId: '202510-002',
+      );
+      final octoberSecond = _buildMini(
+        docId: '202510-002',
+        month: DateTime(2025, 10),
+        start: DateTime(2025, 10, 16),
+        end: DateTime(2025, 10, 31),
+        dailyId: octDaily.id,
+        prevDocId: '202510-001',
+      );
+
+      final totalPlan = _buildTotalPlan(
+        subPlans: {
+          '202509': _buildSubPlan([septemberMini]),
+          '202510': _buildSubPlan([octoberFirst, octoberSecond]),
+        },
+      );
+
+      final repository = PlanMutationRepository();
+      // 하루소비한도 변경으로 목표 달성일이 10/10로 앞당겨진 상황.
+      final result = repository.applyDaily(
+        totalPlan: totalPlan,
+        monthlyIncomes: {monthlyIncome.id: monthlyIncome},
+        monthlyConsumes: {monthlyConsume.id: monthlyConsume},
+        dailyConsumes: {baseDaily.id: baseDaily, octDaily.id: octDaily},
+        command: UpdateDailyCommand(
+          applyDate: DateTime(2025, 9, 10),
+          modEndDate: DateTime(2025, 10, 10),
+          entries: [
+            _entry(idx: 1, amount: 15000.0, category: 'Tightened', type: EntryType.daily),
+          ],
+          newDailyId: 'day-202509-002',
+          newMiniDocId: '202509-002',
+          previousDailyId: baseDaily.id,
+        ),
+      );
+
+      final updatedOct = result.totalPlan.subPlans['202510']!;
+      final orderedMinis = updatedOct.orderedMinis();
+      expect(orderedMinis, hasLength(1));
+      expect(orderedMinis.single.docId, equals('202510-001'));
+      expect(orderedMinis.single.endDate, equals(DateTime(2025, 10, 10)));
+      expect(orderedMinis.single.nextDocId, isNull);
+      expect(updatedOct.miniPlans.containsKey('202510-002'), isFalse);
+      expect(result.totalPlan.modEndDate, equals(DateTime(2025, 10, 10)));
     });
   });
 }

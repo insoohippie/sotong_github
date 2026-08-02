@@ -9,15 +9,10 @@ import 'package:sotong/view/pages/plan/plan_widgets/plan_celebration/sequential_
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
-import '../../../model/plan/total_plan.dart';
-import '../../../model/record/record_entry.dart';
 import '../../../view_model/communication/communication_view_model.dart';
 import '../communication/comm_widgets/date_detail_modal.dart';
-import '../../../model/plan/plan_metrics.dart';
-import '../../../model/plan/sub_plan.dart';
-import '../../../model/record/day_record.dart';
 import '../../../model/setting/past_plan_snapshot.dart';
-import 'celebration_plan_success.dart';
+import '../../../repository/past_plan_repository.dart';
 
 /// ===========================================================================
 /// 플랜 종합 대시보드 페이지
@@ -59,11 +54,10 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   late AnimationController _categoryListController;
   Timer? _hapticTimer;
 
-  // 하드코딩된 데이터
-  late final TotalPlan _plan;
-  late final Map<String, int> _emotionCounts;
-  late final Map<String, double> _categorySpending;
-  late final List<DayRecord> _recentDiaries;
+  // 지난 플랜 스냅샷 데이터 (플랜 완료 시 저장된 실데이터)
+  PastPlanSnapshot? _snapshot;
+  Map<String, int> _emotionCounts = const {};
+  Map<String, double> _categorySpending = const {};
 
   // 달력 상태
   int _selectedYear = DateTime.now().year;
@@ -72,7 +66,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   @override
   void initState() {
     super.initState();
-    _initializeHardcodedData();
+    _loadSnapshotData();
     // 감정 포디움 바 애니메이션 컨트롤러 (밑에서 올라오기)
     _emotionBarThirdController = AnimationController(
       duration: const Duration(milliseconds: 600),
@@ -228,160 +222,13 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     super.dispose();
   }
 
-  void _initializeHardcodedData() {
-    // 플랜 데이터
-    final now = DateTime.now();
-    final metrics = PlanMetrics.fromRange(
-      startDate: now,
-      endDate: now.add(const Duration(days: 29)),
-      monthlyIncomeAmount: 3500000,
-      monthlyConsumeAmount: 980000,
-      dailyConsumeAmount: 20000,
-    );
-
-    _plan = TotalPlan(
-      planId: 'demo_plan',
-      planName: '세계여행 플랜',
-      targetAmount: 10000000, // 1,000만원
-      currentAmount: 3500000, // 350만원
-      currentAsset: 2000000, // 200만원
-      startDate: now.subtract(const Duration(days: 30)),
-      endDate: now.add(const Duration(days: 180)),
-      modEndDate: null,
-      creationDate: now.subtract(const Duration(days: 30)),
-      autoService: true,
-      subPlans: const {},
-      result: TotalResult(
-        totalMetrics: metrics,
-        subResult: const SubPlanResult(subMetrics: [], subPlanList: []),
-      ),
-    );
-
-    // 감정 통계 (JSON 파일에 맞게 수정)
-    _emotionCounts = {'좋음': 15, '평온': 12, '슬픔': 5, '스트레스': 3, '동기부여': 2};
-
-    // 카테고리별 소비
-    _categorySpending = {
-      '식비': 450000,
-      '교통비': 120000,
-      '카페': 80000,
-      '쇼핑': 200000,
-      '여가': 150000,
-    };
-
-    // 최근 일지
-    _recentDiaries = [
-      DayRecord(
-        date: now.subtract(const Duration(days: 1)),
-        totalSpendingAmount: 35000,
-        totalIncomeAmount: 0,
-        emotion: '좋음',
-        comment: '오늘은 친구들과 맛있는 식사를 했다. 기분이 좋았다!',
-        spendingEntries: [
-          RecordEntry(
-            id: '1',
-            categoryKey: '식비',
-            category: '식비',
-            amount: 25000,
-            note: '저녁 식사',
-          ),
-          RecordEntry(
-            id: '2',
-            categoryKey: '카페',
-            category: '카페',
-            amount: 10000,
-            note: '커피',
-          ),
-        ],
-        incomeEntries: const [],
-      ),
-
-      DayRecord(
-        date: now.subtract(const Duration(days: 2)),
-        totalSpendingAmount: 28000,
-        totalIncomeAmount: 0,
-        emotion: '평온',
-        comment: '평범하지만 만족스러운 하루였다.',
-        spendingEntries: [
-          RecordEntry(
-            id: '3',
-            categoryKey: '식비',
-            category: '식비',
-            amount: 15000,
-            note: '점심',
-          ),
-          RecordEntry(
-            id: '4',
-            categoryKey: '교통비',
-            category: '교통비',
-            amount: 13000,
-            note: '지하철',
-          ),
-        ],
-        incomeEntries: const [],
-      ),
-
-      DayRecord(
-        date: now.subtract(const Duration(days: 3)),
-        totalSpendingAmount: 45000,
-        totalIncomeAmount: 0,
-        emotion: '좋음',
-        comment: '새로운 옷을 샀다. 스타일이 마음에 든다!',
-        spendingEntries: [
-          RecordEntry(
-            id: '5',
-            categoryKey: '쇼핑',
-            category: '쇼핑',
-            amount: 45000,
-            note: '옷 구매',
-          ),
-        ],
-        incomeEntries: const [],
-      ),
-
-      DayRecord(
-        date: now.subtract(const Duration(days: 5)),
-        totalSpendingAmount: 32000,
-        totalIncomeAmount: 0,
-        emotion: '슬픔',
-        comment: '오늘은 조금 우울했다. 하지만 내일은 더 나아질 거야.',
-        spendingEntries: [
-          RecordEntry(
-            id: '6',
-            categoryKey: '식비',
-            category: '식비',
-            amount: 20000,
-            note: '저녁',
-          ),
-          RecordEntry(
-            id: '7',
-            categoryKey: '여가',
-            category: '여가',
-            amount: 12000,
-            note: '영화',
-          ),
-        ],
-        incomeEntries: const [],
-      ),
-
-      DayRecord(
-        date: now.subtract(const Duration(days: 7)),
-        totalSpendingAmount: 25000,
-        totalIncomeAmount: 0,
-        emotion: '평온',
-        comment: '집에서 푹 쉬는 하루였다.',
-        spendingEntries: [
-          RecordEntry(
-            id: '8',
-            categoryKey: '식비',
-            category: '식비',
-            amount: 25000,
-            note: '배달음식',
-          ),
-        ],
-        incomeEntries: const [],
-      ),
-    ];
+  /// 완료된 플랜 스냅샷 중 가장 최근 것을 불러와 카드 데이터를 채운다.
+  void _loadSnapshotData() {
+    final snapshots = PastPlanRepository().load();
+    _snapshot = snapshots.isNotEmpty ? snapshots.last : null;
+    _emotionCounts = Map<String, int>.from(_snapshot?.emotionCounts ?? {});
+    _categorySpending =
+        Map<String, double>.from(_snapshot?.categorySpending ?? {});
   }
 
   @override
@@ -413,7 +260,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _plan.planName ?? '플랜 종합 대시보드',
+                        _snapshot?.planName ?? '플랜 종합 대시보드',
                         style: TextStyle(
                           fontSize: 16,
                           color: AppColors.subText,
@@ -583,89 +430,10 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                 // PDF 저장 기능 구현
               },
             ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () {
-                final snapshot = _createCurrentSnapshot();
-                if (snapshot == null) return;
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => CelebrationPlanSuccessPage(
-                      planName: _plan.planName,
-                      daysTaken: snapshot.daysTaken,
-                      snapshot: snapshot,
-                    ),
-                  ),
-                );
-              },
-              child: Text(
-                '플랜 완료하고 축하 보기',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
             const SizedBox(height: 20),
           ],
         ),
       ),
-    );
-  }
-
-  /// 현재 4개 카드 기준으로 지난 플랜 스냅샷 생성 (celebration 저장용)
-  PastPlanSnapshot? _createCurrentSnapshot() {
-    final now = DateTime.now();
-    final startDate = _plan.startDate ?? now;
-    final endDate = _plan.endDate ?? now.add(const Duration(days: 180));
-    final totalDays = endDate.difference(startDate).inDays;
-    final daysElapsed = now.difference(startDate).inDays;
-    final targetAmount = _plan.targetAmount ?? 0;
-    final currentAmount = _plan.currentAmount + _plan.currentAsset;
-    final progressRate = targetAmount > 0
-        ? (currentAmount / targetAmount * 100).clamp(0.0, 100.0)
-        : 0.0;
-    final averagePace = daysElapsed > 0
-        ? (progressRate / daysElapsed).toStringAsFixed(2)
-        : '0.00';
-    final averageDailySaving = daysElapsed > 0
-        ? (currentAmount / daysElapsed).round()
-        : 0;
-
-    final restraintDays = (totalDays * 0.76).round();
-    final restraintProgress = totalDays > 0
-        ? (restraintDays / totalDays * 100).round()
-        : 0;
-    const targetProgress = 23;
-    const savingProgress = 68;
-
-    final diaries = _recentDiaries
-        .map(
-          (d) => {
-        'date': d.date.toIso8601String(),
-        'totalAmount': d.totalSpendingAmount,
-        'emotion': d.emotion,
-        'comment': d.comment,
-      },
-    )
-        .toList();
-
-    return PastPlanSnapshot(
-      id: '${_plan.planId}_${now.millisecondsSinceEpoch}',
-      planName: _plan.planName ?? '플랜',
-      completedAt: now,
-      daysTaken: totalDays,
-      startDate: startDate,
-      endDate: endDate,
-      restraintProgress: restraintProgress.clamp(0, 100),
-      targetProgress: targetProgress,
-      savingProgress: savingProgress,
-      emotionCounts: Map<String, int>.from(_emotionCounts),
-      categorySpending: Map<String, double>.from(_categorySpending),
-      diaries: diaries,
-      averagePace: averagePace,
-      averageDailySaving: averageDailySaving,
     );
   }
 
@@ -686,30 +454,12 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     );
   }
 
-  // 플랜 요약 카드
+  // 플랜 요약 카드 (완료 스냅샷 실데이터)
   Widget _buildPlanSummaryCard() {
-    final targetAmount = _plan.targetAmount ?? 0;
-    final currentAmount = _plan.currentAmount + _plan.currentAsset;
-    final progressRate = targetAmount > 0
-        ? (currentAmount / targetAmount * 100).clamp(0.0, 100.0)
-        : 0.0;
-
-    // 평균 페이스 계산 (플랜 시작일부터 현재까지의 일수)
-    final now = DateTime.now();
-    final startDate = _plan.startDate ?? now;
-    final daysElapsed = now.difference(startDate).inDays;
-    final averagePace = daysElapsed > 0
-        ? (progressRate / daysElapsed).toStringAsFixed(2)
-        : '0.00';
-
-    // 평균 하루 저축 금액 계산
-    final averageDailySaving = daysElapsed > 0
-        ? (currentAmount / daysElapsed).round()
-        : 0;
-
-    // 목표 페이스 계산 (목표 달성까지 남은 일수 기준)
-    final endDate = _plan.endDate ?? now.add(const Duration(days: 180));
-    final totalDays = endDate.difference(startDate).inDays;
+    final snapshot = _snapshot;
+    final totalDays = snapshot?.daysTaken ?? 0;
+    final averagePace = snapshot?.averagePace ?? '0.00';
+    final averageDailySaving = snapshot?.averageDailySaving ?? 0;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -718,12 +468,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 순차적 차트 영역 (중간)
-          _buildSequentialCharts(
-            startDate: startDate,
-            endDate: endDate,
-            totalDays: totalDays,
-            daysElapsed: daysElapsed,
-          ),
+          _buildSequentialCharts(totalDays: totalDays),
           const SizedBox(height: 50), // 차트와 하단 정보 사이 패딩
           // 하단 정보: 평균 페이스와 평균 하루 저축 금액
           Row(
@@ -776,27 +521,19 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     );
   }
 
-  // 순차적 차트 빌드
-  Widget _buildSequentialCharts({
-    required DateTime startDate,
-    required DateTime endDate,
-    required int totalDays,
-    required int daysElapsed,
-  }) {
-    // 하드코딩된 데이터 (나중에 실제 데이터로 교체 가능)
+  // 순차적 차트 빌드 (완료 스냅샷 실데이터)
+  Widget _buildSequentialCharts({required int totalDays}) {
     // 1. 매일 일일소비 절제 달성률
-    final restraintDays = (totalDays * 0.76).round(); // 76% 달성
-    final restraintProgress = totalDays > 0
-        ? (restraintDays / totalDays * 100).round()
-        : 0;
+    final restraintProgress = (_snapshot?.restraintProgress ?? 0).clamp(0, 100);
+    final restraintDays = (totalDays * restraintProgress / 100).round();
 
-    // 2. 두 번째 차트 (예: 목표 달성률)
-    final targetProgress = 23; // 예시
-    final targetDescription = '목표 금액의 ${targetProgress}%를 달성했어요!';
+    // 2. 목표 달성률 (조기 달성 시 100%를 넘을 수 있어 게이지만 100으로 클램프)
+    final targetProgress = _snapshot?.targetProgress ?? 0;
+    final targetDescription = '목표 금액의 $targetProgress%를 달성했어요!';
 
-    // 3. 세 번째 차트 (예: 평균 저축률)
-    final savingProgress = 68; // 예시
-    final savingDescription = '평균 저축률 ${savingProgress}%를 유지하고 있어요!';
+    // 3. 평균 저축률
+    final savingProgress = (_snapshot?.savingProgress ?? 0).clamp(0, 100);
+    final savingDescription = '평균 저축률 $savingProgress%를 유지했어요!';
 
     final charts = [
       ChartData(
@@ -807,7 +544,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
       ),
       ChartData(
         title: '목표 달성률',
-        progress: targetProgress / 100.0,
+        progress: targetProgress.clamp(0, 100) / 100.0,
         color: const Color(0xFF0062FF),
         description: targetDescription,
       ),
@@ -857,55 +594,61 @@ class _TotalPlanPageState extends State<TotalPlanPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (sortedEmotions.length >= 3)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                // 2위 (왼쪽)
-                _buildAnimatedPodiumWithItem(
-                  barController: _emotionBarSecondController,
-                  itemController: _emotionItemSecondController,
-                  title: _buildEmotionPodiumItem(
-                    sortedEmotions[1],
-                    2,
-                    totalCount,
-                  ),
-                  height: 175 / 1.5, // 2위 높이
-                  width: 77,
-                  backgroundColor: const Color(0xFFC0C0C0), // 은색 (2위)
-                  rank: 2, // 포디움 바에 숫자 표시
+            // 좁은 화면(가용 폭 < 237px)에서 포디움이 넘치지 않도록 축소
+            Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // 2위 (왼쪽)
+                    _buildAnimatedPodiumWithItem(
+                      barController: _emotionBarSecondController,
+                      itemController: _emotionItemSecondController,
+                      title: _buildEmotionPodiumItem(
+                        sortedEmotions[1],
+                        2,
+                        totalCount,
+                      ),
+                      height: 175 / 1.5, // 2위 높이
+                      width: 77,
+                      backgroundColor: const Color(0xFFC0C0C0), // 은색 (2위)
+                      rank: 2, // 포디움 바에 숫자 표시
+                    ),
+                    const SizedBox(width: 3),
+                    // 1위 (중앙)
+                    _buildAnimatedPodiumWithItem(
+                      barController: _emotionBarFirstController,
+                      itemController: _emotionItemFirstController,
+                      title: _buildEmotionPodiumItem(
+                        sortedEmotions[0],
+                        1,
+                        totalCount,
+                      ),
+                      height: 175, // 1위 높이
+                      width: 77,
+                      backgroundColor: const Color(0xFFFFD700), // 금색 (1위)
+                      rank: 1, // 포디움 바에 숫자 표시
+                    ),
+                    const SizedBox(width: 3),
+                    // 3위 (오른쪽)
+                    _buildAnimatedPodiumWithItem(
+                      barController: _emotionBarThirdController,
+                      itemController: _emotionItemThirdController,
+                      title: _buildEmotionPodiumItem(
+                        sortedEmotions[2],
+                        3,
+                        totalCount,
+                      ),
+                      height: 175 / 2.5, // 3위 높이
+                      width: 77,
+                      backgroundColor: const Color(0xFFCD7F32), // 동색 (3위)
+                      rank: 3, // 포디움 바에 숫자 표시
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 3),
-                // 1위 (중앙)
-                _buildAnimatedPodiumWithItem(
-                  barController: _emotionBarFirstController,
-                  itemController: _emotionItemFirstController,
-                  title: _buildEmotionPodiumItem(
-                    sortedEmotions[0],
-                    1,
-                    totalCount,
-                  ),
-                  height: 175, // 1위 높이
-                  width: 77,
-                  backgroundColor: const Color(0xFFFFD700), // 금색 (1위)
-                  rank: 1, // 포디움 바에 숫자 표시
-                ),
-                const SizedBox(width: 3),
-                // 3위 (오른쪽)
-                _buildAnimatedPodiumWithItem(
-                  barController: _emotionBarThirdController,
-                  itemController: _emotionItemThirdController,
-                  title: _buildEmotionPodiumItem(
-                    sortedEmotions[2],
-                    3,
-                    totalCount,
-                  ),
-                  height: 175 / 2.5, // 3위 높이
-                  width: 77,
-                  backgroundColor: const Color(0xFFCD7F32), // 동색 (3위)
-                  rank: 3, // 포디움 바에 숫자 표시
-                ),
-              ],
+              ),
             ),
           // 나머지 리스트 (4위부터) - 마지막에 나타남
           if (sortedEmotions.length > 3) ...[
@@ -1030,52 +773,61 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                   return Column(
                     children: [
                       // 포디움: 상위 3개 (3위 -> 2위 -> 1위 순서로 애니메이션)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // 2위 (왼쪽)
-                          _buildAnimatedPodiumWithItem(
-                            barController: _categoryBarSecondController,
-                            itemController: _categoryItemSecondController,
-                            title: _buildCategoryPodiumItem(
-                              sortedCategories[1],
-                              2,
-                            ),
-                            height: 175 / 1.5, // 2위 높이
-                            width: 77,
-                            backgroundColor: const Color(0xFFC0C0C0), // 은색 (2위)
-                            rank: 2, // 포디움 바에 숫자 표시
+                      // 좁은 화면(가용 폭 < 237px)에서 포디움이 넘치지 않도록 축소
+                      Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              // 2위 (왼쪽)
+                              _buildAnimatedPodiumWithItem(
+                                barController: _categoryBarSecondController,
+                                itemController: _categoryItemSecondController,
+                                title: _buildCategoryPodiumItem(
+                                  sortedCategories[1],
+                                  2,
+                                ),
+                                height: 175 / 1.5, // 2위 높이
+                                width: 77,
+                                backgroundColor:
+                                    const Color(0xFFC0C0C0), // 은색 (2위)
+                                rank: 2, // 포디움 바에 숫자 표시
+                              ),
+                              const SizedBox(width: 3),
+                              // 1위 (중앙)
+                              _buildAnimatedPodiumWithItem(
+                                barController: _categoryBarFirstController,
+                                itemController: _categoryItemFirstController,
+                                title: _buildCategoryPodiumItem(
+                                  sortedCategories[0],
+                                  1,
+                                ),
+                                height: 175, // 1위 높이
+                                width: 77,
+                                backgroundColor:
+                                    const Color(0xFFFFD700), // 금색 (1위)
+                                rank: 1, // 포디움 바에 숫자 표시
+                              ),
+                              const SizedBox(width: 3),
+                              // 3위 (오른쪽)
+                              _buildAnimatedPodiumWithItem(
+                                barController: _categoryBarThirdController,
+                                itemController: _categoryItemThirdController,
+                                title: _buildCategoryPodiumItem(
+                                  sortedCategories[2],
+                                  3,
+                                ),
+                                height: 175 / 2.5, // 3위 높이
+                                width: 77,
+                                backgroundColor:
+                                    const Color(0xFFCD7F32), // 동색 (3위)
+                                rank: 3, // 포디움 바에 숫자 표시
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 3),
-                          // 1위 (중앙)
-                          _buildAnimatedPodiumWithItem(
-                            barController: _categoryBarFirstController,
-                            itemController: _categoryItemFirstController,
-                            title: _buildCategoryPodiumItem(
-                              sortedCategories[0],
-                              1,
-                            ),
-                            height: 175, // 1위 높이
-                            width: 77,
-                            backgroundColor: const Color(0xFFFFD700), // 금색 (1위)
-                            rank: 1, // 포디움 바에 숫자 표시
-                          ),
-                          const SizedBox(width: 3),
-                          // 3위 (오른쪽)
-                          _buildAnimatedPodiumWithItem(
-                            barController: _categoryBarThirdController,
-                            itemController: _categoryItemThirdController,
-                            title: _buildCategoryPodiumItem(
-                              sortedCategories[2],
-                              3,
-                            ),
-                            height: 175 / 2.5, // 3위 높이
-                            width: 77,
-                            backgroundColor: const Color(0xFFCD7F32), // 동색 (3위)
-                            rank: 3, // 포디움 바에 숫자 표시
-                          ),
-                        ],
+                        ),
                       ),
                       // 나머지 리스트 (4위부터) - 마지막에 나타남
                       if (sortedCategories.length > 3) ...[

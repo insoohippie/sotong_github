@@ -12,6 +12,7 @@ import '../../model/record/monthly_record.dart';
 import '../../model/record/record_entry.dart';
 import '../../model/saving_calculation_result.dart';
 import '../../repository/auth_repository.dart';
+import '../../repository/past_plan_repository.dart';
 import '../../repository/plan_repository.dart';
 import '../../repository/record_repository.dart';
 import '../../repository/ref_data_repository.dart'; //세은님 추가부분
@@ -19,9 +20,11 @@ import '../../model/refData/entry.dart';
 import '../../model/refData/ref_data.dart'; //세은님 추가부분
 import '../../services/record_event_bus.dart'; //하경 수정 부분 - spending_event_bus -> record_event_bus로 바뀜(수입, 지출 이벤트 전부 관리)
 import '../services/saving_calculator.dart';
+import '../../model/setting/past_plan_snapshot.dart';
 import '../../services/plan_saved_event_bus.dart';
 import '../../services/home_graph_intro_storage.dart';
 import '../../services/home_widget_sync_service.dart';
+import '../../services/plan_celebration_storage.dart';
 
 class HomeViewModel extends ChangeNotifier {
   final AuthRepository _authRepo;
@@ -79,6 +82,11 @@ class HomeViewModel extends ChangeNotifier {
   bool _initialized = false;
   bool _shouldShowPlanGraphIntro = false;
   bool get shouldShowPlanGraphIntro => _shouldShowPlanGraphIntro;
+
+  // 플랜 완료(목표 금액 달성) 상태 — true인 동안 홈 대신 celebration으로 잠금
+  bool _shouldShowPlanCelebration = false;
+  bool get shouldShowPlanCelebration => _shouldShowPlanCelebration;
+  bool _completionPersistStarted = false;
 
   // 프로필
   String _name = '회원';
@@ -227,6 +235,7 @@ class HomeViewModel extends ChangeNotifier {
       _refData = await _refDataRepo.loadAll(); //세은님 추가 부분
       _refreshPlanForToday();
       _refreshPlanGraphIntroState();
+      _refreshPlanCelebrationState();
 
       _selectedDate = _clampDateToAllowedRange(_selectedDate);
 
@@ -315,12 +324,157 @@ class HomeViewModel extends ChangeNotifier {
     await HomeGraphIntroStorage.instance.markSeen(uid: uid, planId: planId);
   }
 
+  // ---------- 플랜 완료(목표 금액 달성) 감지 ----------
+  void _refreshPlanCelebrationState() {
+    // 플랜이 바뀌었을 수 있으므로(새 플랜 생성 등) 완료 상태를 다시 계산한다.
+    _shouldShowPlanCelebration = false;
+    _completionPersistStarted = false;
+    _checkPlanCelebration();
+  }
+
+  void _checkPlanCelebration({bool notify = false}) {
+    if (_shouldShowPlanCelebration) {
+      // 표시가 보류될 수 있으므로(홈이 최상단이 아닐 때) 재통지로 재시도를 유도한다.
+      if (notify) notifyListeners();
+      return;
+    }
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final planId = _latestPlan?.planId;
+    if (uid == null || planId == null || planId.isEmpty) return;
+
+    // 이미 완료 처리된 플랜: 재접속·재빌드 시에도 celebration 잠금 유지
+    if (PlanCelebrationStorage.instance
+        .isPlanCompleted(uid: uid, planId: planId)) {
+      _shouldShowPlanCelebration = true;
+      if (notify) notifyListeners();
+      return;
+    }
+
+    if (!hasReachedSavingTarget) return;
+
+    _shouldShowPlanCelebration = true;
+    unawaited(_persistPlanCompletion(uid: uid, planId: planId));
+    if (notify) notifyListeners();
+  }
+
+  /// 완료 감지 시점에 스냅샷과 완료 상태를 즉시 영속화한다.
+  /// 표시 여부와 무관하게 기록되므로, 표시 전에 앱이 종료돼도
+  /// 재접속 시 celebration으로 라우팅된다.
+  Future<void> _persistPlanCompletion({
+    required String uid,
+    required String planId,
+  }) async {
+    if (_completionPersistStarted) return;
+    _completionPersistStarted = true;
+
+    final snapshot = buildCompletionSnapshot();
+    if (snapshot != null) {
+      await PastPlanRepository().add(snapshot);
+    }
+    await PlanCelebrationStorage.instance.markCompleted(
+      uid: uid,
+      planId: planId,
+      planName: snapshot?.planName ?? planTitle,
+      daysTaken: snapshot?.daysTaken ?? 0,
+      completedAt: DateTime.now(),
+    );
+  }
+
+  /// 저장된 완료 정보 {planId, planName, daysTaken, completedAt} (없으면 null)
+  Map<String, dynamic>? get planCompletionInfo {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return null;
+    return PlanCelebrationStorage.instance.completedInfo(uid: uid);
+  }
+
+  /// 목표 달성 시점의 실데이터로 지난 플랜 스냅샷을 생성.
+  /// (_persistPlanCompletion이 완료 감지 시 1회 저장해 '지난 플랜 돌아보기'에서 사용)
+  PastPlanSnapshot? buildCompletionSnapshot() {
+    final plan = _latestPlan;
+    if (plan == null) return null;
+
+    final now = DateTime.now();
+    final today = _normalizeDay(now);
+    final rawStart = plan.startDate ?? plan.creationDate;
+    final start = rawStart != null ? _normalizeDay(rawStart) : today;
+    final daysTaken = max(1, today.difference(start).inDays + 1);
+
+    // 절제 달성률: 소비를 기록한 날 중 하루 예산을 지킨 날의 비율
+    var recordedDays = 0;
+    var withinBudgetDays = 0;
+    _dailyNet.forEach((_, net) {
+      if (net.date.isAfter(today)) return;
+      if (!net.hasSpendingEntries) return;
+      recordedDays++;
+      if (net.actualSpending <= net.plannedBudget) withinBudgetDays++;
+    });
+    final restraintProgress = recordedDays > 0
+        ? ((withinBudgetDays / recordedDays) * 100).round()
+        : 0;
+
+    final target = effectiveTargetAmount;
+    final targetProgress = target > 0
+        ? ((actualSavedNow / target) * 100).clamp(0, 999).round()
+        : 0;
+    final savingProgress = ((_calc?.savingRatio ?? 0) * 100).round();
+
+    // 감정/카테고리/일지: 로드된 월 기록에서 플랜 기간(시작일~오늘)만 집계
+    final emotionCounts = <String, int>{};
+    final categorySpending = <String, double>{};
+    final dayRecords = <DayRecord>[];
+    _monthlyCache.forEach((_, monthly) {
+      monthly.days.forEach((_, day) {
+        final date = _normalizeDay(day.date);
+        if (date.isBefore(start) || date.isAfter(today)) return;
+        dayRecords.add(day);
+      });
+    });
+    dayRecords.sort((a, b) => b.date.compareTo(a.date));
+
+    final diaries = <Map<String, dynamic>>[];
+    for (final day in dayRecords) {
+      if (day.emotion.isNotEmpty) {
+        emotionCounts[day.emotion] = (emotionCounts[day.emotion] ?? 0) + 1;
+      }
+      for (final entry in day.spendingEntries) {
+        final key = entry.category.isNotEmpty ? entry.category : '기타';
+        categorySpending[key] = (categorySpending[key] ?? 0) + entry.amount;
+      }
+      if (_isManuallyRecordedDay(day) && diaries.length < 30) {
+        diaries.add({
+          'date': day.date.toIso8601String(),
+          'totalAmount': day.totalSpendingAmount,
+          'emotion': day.emotion,
+          'comment': day.comment,
+        });
+      }
+    }
+
+    return PastPlanSnapshot(
+      id: '${plan.planId}_${now.millisecondsSinceEpoch}',
+      planName: planTitle,
+      completedAt: now,
+      daysTaken: daysTaken,
+      startDate: start,
+      endDate: today,
+      restraintProgress: restraintProgress,
+      targetProgress: targetProgress,
+      savingProgress: savingProgress,
+      emotionCounts: emotionCounts,
+      categorySpending: categorySpending,
+      diaries: diaries,
+      averagePace: (_calc?.savingRatio ?? 0).toStringAsFixed(2),
+      averageDailySaving: averageDailySaving.round(),
+    );
+  }
+
   // ---------- 타이머 ----------
   void _startTicker() {
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       secondTick.value++;
       _scheduleDayBoundaryRefreshIfNeeded();
+      _checkPlanCelebration(notify: true);
     });
   }
 
@@ -1040,6 +1194,7 @@ class HomeViewModel extends ChangeNotifier {
       _guideLockUntil = null;
       _refreshGuideAnchors();
     }
+    _checkPlanCelebration();
   }
 
   Future<void> _rebuildDailyNetThroughToday() async {
