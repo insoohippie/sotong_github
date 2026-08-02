@@ -69,9 +69,8 @@ class LocalNotificationService {
     tz_data.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Seoul'));
 
-    const androidSettings = AndroidInitializationSettings(
-      '@drawable/ic_notification',
-    );
+    const AndroidInitializationSettings androidSettings =
+    AndroidInitializationSettings('ic_notification');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,

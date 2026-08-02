@@ -24,8 +24,11 @@ class _SignUpPageState extends State<SignUpPage> {
     super.initState();
 
     Future.microtask(() {
-      final vm = context.read<SignupViewModel>();
-      vm.reset();
+      if (!mounted) {
+        return;
+      }
+
+      context.read<SignupViewModel>().reset();
     });
   }
 
@@ -57,7 +60,7 @@ class _SignUpPageState extends State<SignUpPage> {
               Expanded(
                 child: SingleChildScrollView(
                   keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: EdgeInsets.symmetric(
                     horizontal: horizontalPadding,
                   ).copyWith(bottom: 120),
@@ -66,8 +69,10 @@ class _SignUpPageState extends State<SignUpPage> {
                     children: [
                       if (vm.currentStep == SignupStep.email)
                         _buildIdField(vm),
+
                       if (vm.currentStep == SignupStep.password)
                         _buildPasswordField(vm),
+
                       if (vm.currentStep == SignupStep.userInfo)
                         _buildNicknameField(vm),
                     ],
@@ -87,40 +92,83 @@ class _SignUpPageState extends State<SignUpPage> {
             horizontalPadding,
             AppSpacing.bottomSpacing,
           ),
-          child: CustomButton(
-            padding: EdgeInsets.zero,
-            text: vm.currentStep == SignupStep.userInfo ? '회원가입 완료' : '다음',
-            enabled: vm.isCurrentStepValid && !vm.isLoading,
-            onPressed: () async {
-              if (vm.currentStep == SignupStep.userInfo && vm.canSubmit) {
-                final success = await vm.submit();
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (vm.submitError != null) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '• ${vm.submitError}',
+                    style: AppTextStyles.errorText,
+                  ),
+                ),
+                SizedBox(height: AppSpacing.itemSpacing),
+              ],
+              CustomButton(
+                padding: EdgeInsets.zero,
+                text: _getButtonText(vm),
 
-                if (success && context.mounted) {
-                  Navigator.pushNamed(context, '/signup_success');
-                }
-              } else {
-                await vm.nextStep();
-              }
-            },
+                /// 입력이 잘못됐어도 버튼은 누를 수 있게 하고
+                /// 누른 뒤 화면에 오류 이유를 표시
+                enabled: !vm.isBusy,
+                onPressed: () async {
+                  if (vm.currentStep == SignupStep.userInfo) {
+                    final success = await vm.submit();
+
+                    if (success && context.mounted) {
+                      Navigator.pushNamed(
+                        context,
+                        '/signup_success',
+                      );
+                    }
+                  } else {
+                    await vm.nextStep();
+                  }
+                },
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
+  String _getButtonText(SignupViewModel vm) {
+    if (vm.isCheckingId) {
+      return '확인 중...';
+    }
+
+    if (vm.isLoading) {
+      return '처리 중...';
+    }
+
+    if (vm.currentStep == SignupStep.userInfo) {
+      return '회원가입 완료';
+    }
+
+    return '다음';
+  }
+
   Widget _buildIdField(SignupViewModel vm) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        HeaderText(text: '아이디를 입력하세요'),
-        SizedBox(height: AppSpacing.fieldSpacing),
+        HeaderText(
+          text: '아이디를 입력하세요',
+        ),
+        SizedBox(
+          height: AppSpacing.fieldSpacing,
+        ),
         CustomTextField(
           controller: vm.emailController,
           hintText: 'ex. sotong_123',
           keyboardType: TextInputType.text,
-          onChanged: (_) => vm.notifyListeners(),
+          onChanged: vm.onIdChanged,
         ),
-        SizedBox(height: AppSpacing.itemSpacing),
+        SizedBox(
+          height: AppSpacing.itemSpacing,
+        ),
         if (vm.emailError != null)
           Align(
             alignment: Alignment.centerLeft,
@@ -133,7 +181,7 @@ class _SignUpPageState extends State<SignUpPage> {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              '• 사용 가능한 아이디입니다',
+              '• 사용 가능한 아이디입니다.',
               style: AppTextStyles.infoText,
             ),
           ),
@@ -145,35 +193,50 @@ class _SignUpPageState extends State<SignUpPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        HeaderText(text: '비밀번호를 설정해주세요'),
-        SizedBox(height: AppSpacing.fieldSpacing),
+        HeaderText(
+          text: '비밀번호를 설정해주세요',
+        ),
+        SizedBox(
+          height: AppSpacing.fieldSpacing,
+        ),
         CustomTextField(
           controller: vm.passwordController,
           hintText: '6자 이상 입력',
           obscureText: !vm.isPasswordVisible,
-          onChanged: (_) => vm.notifyListeners(),
+          onChanged: vm.onFieldChanged,
           suffix: IconButton(
             icon: Icon(
-              vm.isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+              vm.isPasswordVisible
+                  ? Icons.visibility
+                  : Icons.visibility_off,
               color: Colors.grey,
             ),
             onPressed: vm.togglePasswordVisibility,
           ),
         ),
-        SizedBox(height: AppSpacing.itemSpacing),
-        if (!vm.isPasswordValid && vm.passwordController.text.isNotEmpty)
+        SizedBox(
+          height: AppSpacing.itemSpacing,
+        ),
+
+        /// 입력 중이거나 다음 버튼을 눌렀을 때 비밀번호 오류 표시
+        if (!vm.isPasswordValid &&
+            (vm.showCurrentStepErrors ||
+                vm.passwordController.text.isNotEmpty))
           ...vm.passwordErrors.map(
-                (msg) => Text(
-              '• $msg',
+                (message) => Text(
+              '• $message',
               style: AppTextStyles.errorText,
             ),
           ),
-        SizedBox(height: AppSpacing.fieldSpacing),
+
+        SizedBox(
+          height: AppSpacing.fieldSpacing,
+        ),
         CustomTextField(
           controller: vm.passwordConfirmController,
           hintText: '비밀번호 다시 입력',
           obscureText: !vm.isPasswordConfirmVisible,
-          onChanged: (_) => vm.notifyListeners(),
+          onChanged: vm.onFieldChanged,
           suffix: IconButton(
             icon: Icon(
               vm.isPasswordConfirmVisible
@@ -184,38 +247,57 @@ class _SignUpPageState extends State<SignUpPage> {
             onPressed: vm.togglePasswordConfirmVisibility,
           ),
         ),
-        SizedBox(height: AppSpacing.itemSpacing),
-        if (vm.passwordConfirmError != null)
+        SizedBox(
+          height: AppSpacing.itemSpacing,
+        ),
+
+        if (vm.showCurrentStepErrors &&
+            vm.passwordConfirmController.text.isEmpty)
+          Text(
+            '• 비밀번호를 다시 입력해주세요.',
+            style: AppTextStyles.errorText,
+          )
+        else if (vm.passwordConfirmError != null)
           Text(
             '• ${vm.passwordConfirmError}',
             style: AppTextStyles.errorText,
           )
         else if (vm.passwordConfirmController.text.isNotEmpty &&
-            vm.isPasswordConfirmValid)
-          Text(
-            '• 비밀번호가 일치합니다',
-            style: AppTextStyles.infoText,
-          ),
+              vm.isPasswordConfirmValid)
+            Text(
+              '• 비밀번호가 일치합니다.',
+              style: AppTextStyles.infoText,
+            ),
       ],
     );
   }
 
   Widget _buildNicknameField(SignupViewModel vm) {
-    final nicknameError = vm.validateNickname(vm.nicknameController.text);
+    final nicknameError = vm.validateNickname(
+      vm.nicknameController.text,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        HeaderText(text: '닉네임을 입력하세요'),
-        SizedBox(height: AppSpacing.fieldSpacing),
+        HeaderText(
+          text: '닉네임을 입력하세요',
+        ),
+        SizedBox(
+          height: AppSpacing.fieldSpacing,
+        ),
         CustomTextField(
           controller: vm.nicknameController,
           hintText: 'ex. 소통이',
           keyboardType: TextInputType.text,
-          onChanged: (_) => vm.notifyListeners(),
+          onChanged: vm.onFieldChanged,
         ),
-        SizedBox(height: AppSpacing.itemSpacing),
-        if (nicknameError != null && vm.nicknameController.text.isNotEmpty)
+        SizedBox(
+          height: AppSpacing.itemSpacing,
+        ),
+        if (nicknameError != null &&
+            (vm.showCurrentStepErrors ||
+                vm.nicknameController.text.isNotEmpty))
           Align(
             alignment: Alignment.centerLeft,
             child: Text(

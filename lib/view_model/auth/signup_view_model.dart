@@ -21,18 +21,34 @@ class SignupViewModel extends ChangeNotifier {
   SignUpInfo? signUpInfo;
 
   String? emailError;
+  String? submitError;
+
   bool isLoading = false;
+  bool isCheckingId = false;
   bool isEmailChecked = false;
+  bool showCurrentStepErrors = false;
+
   bool isPasswordVisible = false;
   bool isPasswordConfirmVisible = false;
 
-  // ---------------- 아이디 검증 ----------------
+  /// 아이디 중복 확인 또는 회원가입 진행 중
+  bool get isBusy => isLoading || isCheckingId;
+
+  // =========================================================
+  // 아이디 검증
+  // =========================================================
 
   String? validateId(String raw) {
     final id = raw.trim();
 
-    if (id.isEmpty) return '아이디를 입력해주세요.';
-    if (id.length < 4 || id.length > 20) return '아이디는 4~20자여야 해요.';
+    if (id.isEmpty) {
+      return '아이디를 입력해주세요.';
+    }
+
+    if (id.length < 4 || id.length > 20) {
+      return '아이디는 4~20자여야 해요.';
+    }
+
     if (!RegExp(r'^[a-zA-Z0-9._]+$').hasMatch(id)) {
       return '아이디는 영문, 숫자, 점(.), 밑줄(_)만 사용할 수 있어요.';
     }
@@ -40,11 +56,37 @@ class SignupViewModel extends ChangeNotifier {
     return null;
   }
 
-  bool get isEmailFormatValid => validateId(emailController.text) == null;
+  bool get isEmailFormatValid {
+    return validateId(emailController.text) == null;
+  }
 
-  String? get emailFormatError => validateId(emailController.text);
+  String? get emailFormatError {
+    return validateId(emailController.text);
+  }
 
-  // ---------------- 단계 이동 ----------------
+  /// 아이디 입력값이 변경되면 기존 중복 확인 결과를 초기화
+  void onIdChanged(String value) {
+    isEmailChecked = false;
+    submitError = null;
+
+    if (showCurrentStepErrors) {
+      emailError = validateId(value);
+    } else {
+      emailError = null;
+    }
+
+    notifyListeners();
+  }
+
+  /// 비밀번호, 비밀번호 확인, 닉네임 입력 변경
+  void onFieldChanged(String value) {
+    submitError = null;
+    notifyListeners();
+  }
+
+  // =========================================================
+  // 단계 이동
+  // =========================================================
 
   void previousStep() {
     if (currentStep == SignupStep.password) {
@@ -53,60 +95,105 @@ class SignupViewModel extends ChangeNotifier {
       currentStep = SignupStep.password;
     }
 
+    showCurrentStepErrors = false;
+    submitError = null;
+
     notifyListeners();
   }
 
   Future<void> nextStep() async {
+    if (isBusy) {
+      return;
+    }
+
+    showCurrentStepErrors = true;
+    submitError = null;
+    notifyListeners();
+
     if (currentStep == SignupStep.email) {
       await checkEmailDuplication();
 
-      if (isEmailChecked) {
-        currentStep = SignupStep.password;
+      if (!isEmailChecked) {
+        return;
       }
+
+      currentStep = SignupStep.password;
+      showCurrentStepErrors = false;
     } else if (currentStep == SignupStep.password) {
-      if (isPasswordStepValid) {
-        currentStep = SignupStep.userInfo;
+      if (!isPasswordStepValid) {
+        notifyListeners();
+        return;
       }
+
+      currentStep = SignupStep.userInfo;
+      showCurrentStepErrors = false;
     }
 
     notifyListeners();
   }
 
-  // ---------------- 아이디 중복 확인 ----------------
+  // =========================================================
+  // 아이디 중복 확인
+  // =========================================================
 
   Future<void> checkEmailDuplication() async {
     final id = emailController.text.trim();
 
-    final fmtErr = validateId(id);
-    if (fmtErr != null) {
-      emailError = fmtErr;
+    final formatError = validateId(id);
+
+    if (formatError != null) {
+      emailError = formatError;
       isEmailChecked = false;
       notifyListeners();
       return;
     }
 
-    final exists = await _repo.isIdAlreadyExists(id);
-
-    if (exists) {
-      emailError = '이미 사용 중인 아이디입니다';
-      isEmailChecked = false;
-    } else {
-      emailError = null;
-      isEmailChecked = true;
-    }
-
+    isCheckingId = true;
+    emailError = null;
+    isEmailChecked = false;
     notifyListeners();
+
+    try {
+      final exists = await _repo.isIdAlreadyExists(id);
+
+      /// 확인 요청 중 사용자가 아이디를 변경했다면
+      /// 이전 아이디의 확인 결과를 적용하지 않음
+      if (emailController.text.trim() != id) {
+        return;
+      }
+
+      if (exists) {
+        emailError = '이미 사용 중인 아이디입니다.';
+        isEmailChecked = false;
+      } else {
+        emailError = null;
+        isEmailChecked = true;
+      }
+    } catch (e) {
+      if (emailController.text.trim() == id) {
+        emailError = '아이디 확인 중 오류가 발생했습니다. 다시 시도해주세요.';
+        isEmailChecked = false;
+      }
+
+      debugPrint('아이디 중복 확인 실패: $e');
+    } finally {
+      isCheckingId = false;
+      notifyListeners();
+    }
   }
 
-  // ---------------- 비밀번호 검증 ----------------
+  // =========================================================
+  // 비밀번호 검증
+  // =========================================================
 
   bool get isPasswordValid {
-    final password = passwordController.text.trim();
+    final password = passwordController.text;
+
     return password.length >= 6 && password.length <= 20;
   }
 
   List<String> get passwordErrors {
-    final password = passwordController.text.trim();
+    final password = passwordController.text;
     final errors = <String>[];
 
     if (password.length < 6) {
@@ -130,7 +217,9 @@ class SignupViewModel extends ChangeNotifier {
   }
 
   String? get passwordConfirmError {
-    if (passwordConfirmController.text.isEmpty) return null;
+    if (passwordConfirmController.text.isEmpty) {
+      return null;
+    }
 
     if (passwordConfirmController.text != passwordController.text) {
       return '비밀번호가 일치하지 않습니다.';
@@ -149,7 +238,9 @@ class SignupViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ---------------- 닉네임 검증 ----------------
+  // =========================================================
+  // 닉네임 검증
+  // =========================================================
 
   String? validateNickname(String raw) {
     final nickname = raw.trim();
@@ -165,7 +256,9 @@ class SignupViewModel extends ChangeNotifier {
     return null;
   }
 
-  // ---------------- reset / submit ----------------
+  // =========================================================
+  // 초기화
+  // =========================================================
 
   void reset() {
     currentStep = SignupStep.email;
@@ -176,14 +269,24 @@ class SignupViewModel extends ChangeNotifier {
     nicknameController.clear();
 
     signUpInfo = null;
+
     emailError = null;
+    submitError = null;
+
     isLoading = false;
+    isCheckingId = false;
     isEmailChecked = false;
+    showCurrentStepErrors = false;
+
     isPasswordVisible = false;
     isPasswordConfirmVisible = false;
 
     notifyListeners();
   }
+
+  // =========================================================
+  // 현재 단계 검증
+  // =========================================================
 
   bool get isCurrentStepValid {
     switch (currentStep) {
@@ -202,21 +305,69 @@ class SignupViewModel extends ChangeNotifier {
     return currentStep == SignupStep.userInfo && isCurrentStepValid;
   }
 
+  // =========================================================
+  // 오류 메시지 변환
+  // =========================================================
+
+  String _getErrorMessage(Object error) {
+    final message = error
+        .toString()
+        .replaceFirst(RegExp(r'^Exception:\s*'), '')
+        .trim();
+
+    if (message.contains('email-already-in-use')) {
+      return '이미 사용 중인 아이디입니다.';
+    }
+
+    if (message.contains('network-request-failed') ||
+        message.contains('unavailable')) {
+      return '인터넷 연결을 확인해주세요.';
+    }
+
+    if (message.isEmpty || message.startsWith('[')) {
+      return '회원가입 중 오류가 발생했습니다.';
+    }
+
+    return message;
+  }
+
+  // =========================================================
+  // 회원가입
+  // =========================================================
+
   Future<bool> submit() async {
+    if (isBusy) {
+      return false;
+    }
+
+    showCurrentStepErrors = true;
+    submitError = null;
+
+    if (!canSubmit) {
+      notifyListeners();
+      return false;
+    }
+
     isLoading = true;
     notifyListeners();
 
     try {
       signUpInfo = SignUpInfo(
         id: emailController.text.trim(),
-        password: passwordController.text.trim(),
+
+        /// 비밀번호 앞뒤 공백도 입력값에 포함되도록 trim 사용하지 않음
+        password: passwordController.text,
         nickname: nicknameController.text.trim(),
       );
 
       await _repo.signUp(signUpInfo!);
+
       return true;
     } catch (e) {
-      print('회원가입 실패: $e');
+      submitError = _getErrorMessage(e);
+
+      debugPrint('회원가입 실패: $e');
+
       return false;
     } finally {
       isLoading = false;
@@ -230,6 +381,7 @@ class SignupViewModel extends ChangeNotifier {
     passwordController.dispose();
     passwordConfirmController.dispose();
     nicknameController.dispose();
+
     super.dispose();
   }
 }

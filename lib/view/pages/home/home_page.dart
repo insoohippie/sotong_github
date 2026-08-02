@@ -168,8 +168,13 @@ class _HomePageState extends State<HomePage> {
     final todaySpending = vm.selectedDateSpending;
     final day = vm.selectedDayRecord;
 
-    final hasIncome = day?.incomeEntries.isNotEmpty ?? todayIncome > 0;
-    final hasSpending = day?.spendingEntries.isNotEmpty ?? todaySpending > 0;
+    final hasIncome =
+        (day?.incomeEntries.isNotEmpty ?? false) ||
+            todayIncome > 0;
+
+    final hasSpending =
+        (day?.spendingEntries.isNotEmpty ?? false) ||
+            todaySpending > 0;
     final todaySpendingText = vm.selectedDateSpendingText;
     final isUnrecorded = vm.isSelectedDateUnrecorded;
     final showPendingCalendarBadge = vm.hasUnrecordedSpendingDays;
@@ -305,24 +310,30 @@ class _HomePageState extends State<HomePage> {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            displayDate,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                              color:
-                                              theme.colorScheme.onSurface,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      displayDate,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: theme.colorScheme.onSurface,
+                                      ),
                                     ),
                                   ),
+
+                                  /*
+       * 소비 기록 여부와 상관없이
+       * 수입이 있으면 날짜 옆에 +5만 형태로 표시
+       */
+                                  if (hasIncome) ...[
+                                    const SizedBox(width: 8),
+                                    _IncomeChip(
+                                      text: _compactIncomeText(todayIncome),
+                                    ),
+                                  ],
+
                                   const SizedBox(width: 8),
+
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -359,10 +370,14 @@ class _HomePageState extends State<HomePage> {
                                 ],
                               ),
                             ),
+
                             const SizedBox(height: 12),
+
                             if (!hasSpending)
                               SmallRoundedButton(
-                                text: '수입/소비 기록하러 가기',
+                                text: hasIncome
+                                    ? '소비 기록하기'
+                                    : '수입/소비 기록하러 가기',
                                 onPressed: () {
                                   Navigator.of(
                                     context,
@@ -403,8 +418,7 @@ class _HomePageState extends State<HomePage> {
                                           Text(
                                             ' / ',
                                             style: TextStyle(
-                                              color:
-                                              theme.colorScheme.onSurface,
+                                              color: theme.colorScheme.onSurface,
                                               fontWeight: FontWeight.bold,
                                             ),
                                           ),
@@ -414,8 +428,7 @@ class _HomePageState extends State<HomePage> {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
-                                                color:
-                                                theme.colorScheme.onSurface,
+                                                color: theme.colorScheme.onSurface,
                                                 fontWeight: FontWeight.bold,
                                               ),
                                             ),
@@ -423,12 +436,6 @@ class _HomePageState extends State<HomePage> {
                                         ],
                                       ),
                                     ),
-                                    if (hasIncome) ...[
-                                      const SizedBox(width: 8),
-                                      _IncomeChip(
-                                        text: _compactIncomeText(todayIncome),
-                                      ),
-                                    ],
                                   ],
                                 ),
                               ),

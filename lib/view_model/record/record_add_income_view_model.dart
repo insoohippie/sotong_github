@@ -15,13 +15,38 @@ class RecordAddIncomeViewModel extends ChangeNotifier {
 
   int _entryCounter = 0;
 
+  /// 입력 화면을 열었을 때 저장돼 있던 기존 수입 총액
+  int _originalTotalIncome = 0;
+
+  int get originalTotalIncome => _originalTotalIncome;
+
+  /// 기존 수입에 비해 이번에 실제로 늘어난 금액
+  int get incomeAmountDifference {
+    return totalIncome - _originalTotalIncome;
+  }
+
   String _newEntryId() {
     final us = DateTime.now().microsecondsSinceEpoch;
     _entryCounter = (_entryCounter + 1) % 1000000;
     return 'income_entry_${us}_$_entryCounter';
   }
 
-  void addEntry() {
+  void _disposeIncomeEntries() {
+    for (final entry in incomeEntries) {
+      final amountController =
+      entry['amountController'] as TextEditingController?;
+
+      final noteController =
+      entry['noteController'] as TextEditingController?;
+
+      amountController?.dispose();
+      noteController?.dispose();
+    }
+
+    incomeEntries.clear();
+  }
+
+  void _addBlankIncomeEntry() {
     final amountController = TextEditingController();
     final noteController = TextEditingController();
 
@@ -38,48 +63,102 @@ class RecordAddIncomeViewModel extends ChangeNotifier {
       'amount': 0.0,
       'note': '',
     });
+  }
 
+  void addEntry() {
+    _addBlankIncomeEntry();
     notifyListeners();
   }
 
   void removeEntryByRef(Map<String, dynamic> entry) {
-    final amountCtrl = entry['amountController'] as TextEditingController?;
-    final noteCtrl = entry['noteController'] as TextEditingController?;
+    final amountController =
+    entry['amountController'] as TextEditingController?;
 
-    amountCtrl?.dispose();
-    noteCtrl?.dispose();
+    final noteController =
+    entry['noteController'] as TextEditingController?;
+
+    amountController?.dispose();
+    noteController?.dispose();
 
     incomeEntries.remove(entry);
+
+    /*
+   * 모든 수입 행을 삭제해도
+   * 입력창이 최소 한 줄은 남도록 처리
+   */
+    if (incomeEntries.isEmpty) {
+      _addBlankIncomeEntry();
+    }
+
+    notifyListeners();
+  }
+
+  /// 선택 날짜에 기존 수입이 있으면 입력창에 불러오기
+  Future<void> loadIncomeForDate(DateTime date) async {
+    _disposeIncomeEntries();
+
+    final monthlyRecord =
+    await _recordRepo.loadMonthlyRecordByDate(date);
+
+    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+
+    final existingEntries =
+        monthlyRecord.days[dateKey]?.incomeEntries ??
+            <RecordEntry>[];
+
+    if (existingEntries.isEmpty) {
+      _originalTotalIncome = 0;
+      _addBlankIncomeEntry();
+    } else {
+      for (final recordEntry in existingEntries) {
+        final amountController = TextEditingController(
+          text: recordEntry.amount > 0
+              ? NumberFormat('#,###').format(
+            recordEntry.amount.toInt(),
+          )
+              : '',
+        );
+
+        final noteController = TextEditingController(
+          text: recordEntry.note,
+        );
+
+        amountController.addListener(updateTotal);
+
+        incomeEntries.add({
+          /*
+         * 기존 ID를 그대로 사용해야
+         * 저장 시 기존 항목이 정상적으로 유지됨
+         */
+          'id': recordEntry.id,
+          'categoryKey': recordEntry.categoryKey,
+          'category': recordEntry.category,
+          'categorySource': null,
+          'categoryEmoji': null,
+          'amountController': amountController,
+          'noteController': noteController,
+          'amount': recordEntry.amount,
+          'note': recordEntry.note,
+        });
+      }
+
+      _originalTotalIncome = existingEntries.fold<int>(
+        0,
+            (sum, entry) => sum + entry.amount.toInt(),
+      );
+    }
+
+    resetApplyStates(notify: false);
     notifyListeners();
   }
 
   /// 수입 / 카테고리 / 금액 / 노트 전부 초기화
   void resetIncome() {
-    for (final entry in incomeEntries) {
-      final amountCtrl = entry['amountController'] as TextEditingController?;
-      final noteCtrl = entry['noteController'] as TextEditingController?;
-      amountCtrl?.dispose();
-      noteCtrl?.dispose();
-    }
+    _disposeIncomeEntries();
 
-    incomeEntries.clear();
+    _originalTotalIncome = 0;
 
-    final amountController = TextEditingController();
-    final noteController = TextEditingController();
-
-    amountController.addListener(updateTotal);
-
-    incomeEntries.add({
-      'id': _newEntryId(),
-      'categoryKey': '',
-      'category': '',
-      'categorySource': null,
-      'categoryEmoji': null,
-      'amountController': amountController,
-      'noteController': noteController,
-      'amount': 0.0,
-      'note': '',
-    });
+    _addBlankIncomeEntry();
 
     resetApplyStates(notify: false);
     notifyListeners();
@@ -96,26 +175,33 @@ class RecordAddIncomeViewModel extends ChangeNotifier {
 
   String get totalFormattedWithWon => '${formattedTotal}원';
 
+  /// 금액이 입력된 수입 항목이 하나라도 있는지 확인
+  bool get hasIncomeInput {
+    return incomeEntries.any((entry) {
+      final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
+
+      return amount > 0;
+    });
+  }
+
   /// 금액이 있는 항목 중 카테고리 미선택 항목이 하나라도 있으면 true
   bool get hasInvalidCategorySelection {
     for (final entry in incomeEntries) {
       final amount = (entry['amount'] as num?)?.toDouble() ?? 0.0;
-      final categoryKey = (entry['categoryKey'] as String?)?.trim() ?? '';
+      final categoryKey =
+          (entry['categoryKey'] as String?)?.trim() ?? '';
 
       if (amount > 0 && categoryKey.isEmpty) {
         return true;
       }
     }
+
     return false;
   }
 
-  /// 수입 입력 페이지에서 다음 단계/저장 활성화 조건에 사용
+  /// 수입 입력 페이지에서 저장 활성화 조건에 사용
   bool get canProceedToNextStep {
-    final hasAmount = incomeEntries.any(
-          (e) => ((e['amount'] as num?)?.toDouble() ?? 0) > 0,
-    );
-
-    return hasAmount && !hasInvalidCategorySelection;
+    return hasIncomeInput && !hasInvalidCategorySelection;
   }
 
   void updateTotal() => notifyListeners();
@@ -177,6 +263,9 @@ class RecordAddIncomeViewModel extends ChangeNotifier {
       incomeEntries: entries,
       totalIncomeAmount: totalIncome,
     );
+
+    /// 저장이 끝난 현재 값을 새로운 기준값으로 설정
+    _originalTotalIncome = totalIncome;
   }
 
   // =========================================================
