@@ -22,6 +22,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
   final void Function(RecordEntry entry) onEdit;
   final void Function(RecordEntry entry) onDelete;
   final VoidCallback onAdd;
+  final bool readOnly;
 
   const TodayRecordSpendingSection({
     super.key,
@@ -32,6 +33,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onAdd,
+    this.readOnly = false,
   });
 
   String _formatAmount(int amount) {
@@ -68,8 +70,16 @@ class TodayRecordSpendingSection extends StatelessWidget {
     final diffAmount = vm.diffAmount;
     final minutes = vm.diffTimeMinutes;
     final isOverLimit = (dailyLimit > 0 && totalAmount > dailyLimit);
-    final saveButtonHeight = hasUnsavedChanges ? 96.0 : 72.0;
-    final idleSummaryGap = hasEntryChanges ? 0.0 : 96.0;
+    final saveButtonHeight = readOnly
+        ? 0.0
+        : hasUnsavedChanges
+        ? 96.0
+        : 72.0;
+    final idleSummaryGap = readOnly
+        ? 0.0
+        : hasEntryChanges
+        ? 0.0
+        : 96.0;
     final saveButtonReservedHeight =
         MediaQuery.paddingOf(context).bottom +
         saveButtonHeight +
@@ -99,7 +109,7 @@ class TodayRecordSpendingSection extends StatelessWidget {
           child: SafeArea(
             top: false,
             minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: _buildSaveButton(context),
+            child: readOnly ? const SizedBox.shrink() : _buildSaveButton(context),
           ),
         ),
       ],
@@ -234,6 +244,8 @@ class TodayRecordSpendingSection extends StatelessWidget {
   }
 
   Widget _buildAddButton(BuildContext context) {
+    if (readOnly) return const SizedBox.shrink();
+
     final theme = Theme.of(context);
     final isDark = _isDark(context);
 
@@ -467,50 +479,34 @@ class TodayRecordSpendingSection extends StatelessWidget {
         ? theme.colorScheme.onSurfaceVariant
         : const Color(0xFF999999);
 
-    return Dismissible(
-      key: ValueKey('spending_${entry.id}'),
-      direction: DismissDirection.endToStart,
-      confirmDismiss: (_) => _confirmDeleteEntry(context),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: const BoxDecoration(
-          color: Colors.red,
-          borderRadius: BorderRadius.only(
-            topRight: Radius.circular(12),
-            bottomRight: Radius.circular(12),
-          ),
-        ),
-        child: const Icon(Icons.delete, color: Colors.white, size: 24),
-      ),
-      onDismissed: (_) => onDelete(),
-      child: Container(
-        color: theme.colorScheme.surface,
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: chipBackground,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    entry.category,
-                    style: TextStyle(
-                      color: chipTextColor,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
+    final entryBody = Container(
+      color: theme.colorScheme.surface,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: chipBackground,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  entry.category,
+                  style: TextStyle(
+                    color: chipTextColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const Spacer(),
+              ),
+              const Spacer(),
+              if (!readOnly)
                 GestureDetector(
                   onTap: onEdit,
                   child: Container(
@@ -529,33 +525,54 @@ class TodayRecordSpendingSection extends StatelessWidget {
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  entry.note.isEmpty ? entry.category : entry.note,
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                entry.note.isEmpty ? entry.category : entry.note,
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-                Text(
-                  '${_formatAmount(entry.amount.round())}원',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isOverLimit ? _dangerAmountColor : _amountBlue,
-                  ),
+              ),
+              Text(
+                '${_formatAmount(entry.amount.round())}원',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isOverLimit ? _dangerAmountColor : _amountBlue,
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
+    );
+
+    if (readOnly) return entryBody;
+
+    return Dismissible(
+      key: ValueKey('spending_${entry.id}'),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) => _confirmDeleteEntry(context),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: const BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(12),
+            bottomRight: Radius.circular(12),
+          ),
+        ),
+        child: const Icon(Icons.delete, color: Colors.white, size: 24),
+      ),
+      onDismissed: (_) => onDelete(),
+      child: entryBody,
     );
   }
 

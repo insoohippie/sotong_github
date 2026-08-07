@@ -79,10 +79,10 @@ class _HomeSavingCountdownSheetState extends State<HomeSavingCountdownSheet> {
     return ValueListenableBuilder<int>(
       valueListenable: vm.secondTick,
       builder: (_, __, ___) {
-        final planPercent = (vm.graphPlanPercent * 100)
+        final planPercent = (vm.displayGraphPlanPercent * 100)
             .clamp(0.0, 100.0)
             .toDouble();
-        final userPercent = (vm.graphUserPercent * 100)
+        final userPercent = (vm.displayGraphUserPercent * 100)
             .clamp(0.0, 100.0)
             .toDouble();
         final planProgress = planPercent / 100.0;
@@ -251,6 +251,33 @@ class _CountdownHeader extends StatelessWidget {
     return ValueListenableBuilder<int>(
       valueListenable: vm.secondTick,
       builder: (_, __, ___) {
+        if (vm.isActivePlanCompleted) {
+          final reachedDateText = vm.planReachedDateText;
+          return Column(
+            children: [
+              Text(
+                vm.homeDDayLabel,
+                style: TextStyle(
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                reachedDateText.isNotEmpty
+                    ? '$reachedDateText에 목표를 달성했어요'
+                    : '목표를 달성했어요',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          );
+        }
+
         final remain = vm.liveRemaining;
         if (remain == null) {
           return Column(

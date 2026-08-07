@@ -12,6 +12,7 @@ import '../../../../component/buttons/period_toggle.dart';
 import '../../../../services/chart_animation_haptic.dart';
 import '../../../../services/tab_chart_animation_notifier.dart';
 import '../../../../view_model/report/report_view_model.dart';
+import '../../../../view_model/home/home_view_model.dart';
 import '../../../../model/report/report_models.dart';
 
 class ReportCategoryBudgetChartSection extends StatefulWidget {
@@ -920,46 +921,56 @@ class _ReportCategoryBudgetChartSectionState
   Widget _buildCategoryEditButton(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final isPlanCompleted =
+        context.watch<HomeViewModel>().isActivePlanCompleted;
     final btnBg = isDark
         ? theme.colorScheme.surfaceContainerHighest
         : Colors.grey.shade100;
     final btnBorder = isDark ? theme.dividerColor : Colors.grey.shade300;
+    final contentColor = isPlanCompleted
+        ? theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.45)
+        : theme.colorScheme.onSurface;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () async {
-        final changed = await Navigator.of(
-          context,
-          rootNavigator: true,
-        ).pushNamed('/category_edit');
+    return Opacity(
+      opacity: isPlanCompleted ? 0.45 : 1,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: isPlanCompleted
+            ? null
+            : () async {
+                final changed = await Navigator.of(
+                  context,
+                  rootNavigator: true,
+                ).pushNamed('/category_edit');
 
-        if (!context.mounted) return;
+                if (!context.mounted) return;
 
-        if (changed == true) {
-          await context.read<ReportViewModel>().refreshAfterPlanUpdated();
-        }
-      },
-      child: Container(
-        height: 34,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: btnBg,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: btnBorder, width: 1),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.tune, size: 16, color: theme.colorScheme.onSurface),
-            const SizedBox(width: 6),
-            Text(
-              '카테고리 편집',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface,
+                if (changed == true) {
+                  await context.read<ReportViewModel>().refreshAfterPlanUpdated();
+                }
+              },
+        child: Container(
+          height: 34,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: btnBg,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: btnBorder, width: 1),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.tune, size: 16, color: contentColor),
+              const SizedBox(width: 6),
+              Text(
+                '카테고리 편집',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: contentColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

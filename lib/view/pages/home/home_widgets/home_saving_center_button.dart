@@ -78,11 +78,8 @@ class HomeSavingCenterButton extends StatelessWidget {
 
     // 기본 상태: D-Day + 모인 금액 (클릭 시 상세 모달 오픈)
     if (!isUser && !isPlan) {
-      final remain = vm.liveRemaining;
-      String dDayText = '목표일 없음';
-      if (remain != null) {
-        dDayText = remain.isNegative ? 'D-Day 달성' : 'D-${remain.inDays}';
-      }
+      final isCompleted = vm.isActivePlanCompleted;
+      final reachedDateText = vm.planReachedDateText;
 
       return InkWell(
         key: const ValueKey('center-default'),
@@ -97,13 +94,24 @@ class HomeSavingCenterButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                dDayText,
+                vm.homeDDayLabel,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                   color: textColor,
                 ),
               ),
+              if (isCompleted && reachedDateText.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  '$reachedDateText 도달',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: textColor.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               Text(
                 '모인 금액',
@@ -113,7 +121,10 @@ class HomeSavingCenterButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              _AnimatedAmount(textColor: textColor, amount: vm.graphUserAmount),
+              _AnimatedAmount(
+                textColor: textColor,
+                amount: vm.displayGraphUserAmount,
+              ),
             ],
           ),
         ),

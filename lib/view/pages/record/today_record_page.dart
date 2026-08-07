@@ -15,6 +15,7 @@ import 'package:sotong/view_model/category/add_income_category_view_model.dart';
 import 'package:sotong/view_model/category/spending_category_view_model.dart';
 import 'package:sotong/view_model/record/today_income_view_model.dart';
 import 'package:sotong/view_model/record/today_spending_view_model.dart';
+import 'package:sotong/view_model/home/home_view_model.dart';
 
 class TodayRecordPage extends StatefulWidget {
   const TodayRecordPage({super.key});
@@ -238,6 +239,7 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
     final error = spendingVM.error ?? incomeVM.error;
     final hasUnsavedRecordChanges =
         incomeVM.hasUnsavedChanges || spendingVM.hasUnsavedChanges;
+    final readOnly = context.watch<HomeViewModel>().isActivePlanCompleted;
 
     if (isLoading) {
       return const Scaffold(
@@ -308,6 +310,7 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
                 child: _isIncome
                     ? TodayRecordIncomeSection(
                         vm: incomeVM,
+                        readOnly: readOnly,
                         hasUnsavedChanges: hasUnsavedRecordChanges,
                         hasEntryChanges: incomeVM.hasEntryChanges,
                         onSave: () => _saveAllDrafts(
@@ -353,6 +356,7 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
                     : (_isList
                           ? TodayRecordSpendingSection(
                               vm: spendingVM,
+                              readOnly: readOnly,
                               hasUnsavedChanges: hasUnsavedRecordChanges,
                               hasEntryChanges: spendingVM.hasEntryChanges,
                               onSave: () => _saveAllDrafts(
@@ -400,6 +404,7 @@ class _TodayRecordPageState extends State<TodayRecordPage> {
                             )
                           : TodayRecordDiarySection(
                               vm: spendingVM,
+                              readOnly: readOnly,
                               hasUnsavedChanges: hasUnsavedRecordChanges,
                               onSave: () => _saveAllDrafts(
                                 incomeVM: incomeVM,

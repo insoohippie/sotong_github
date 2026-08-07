@@ -206,6 +206,7 @@ class _RecordPageState extends State<RecordPage> {
   Widget build(BuildContext context) {
     final spendingVM = context.watch<RecordSpendingViewModel>();
     final incomeVM = context.watch<RecordAddIncomeViewModel>();
+    final isPlanCompleted = context.watch<HomeViewModel>().isActivePlanCompleted;
 
     final spendingCatVM = context.watch<SpendingCategoryViewModel>();
     final incomeCatVM = context.watch<AddIncomeCategoryViewModel>();
@@ -234,9 +235,8 @@ class _RecordPageState extends State<RecordPage> {
     ///
     /// 수입 탭:
     ///   수입 또는 소비 입력이 있으면 활성화
-    final canPressButton = _isSpending
-        ? hasSpendingInput
-        : hasAnyInput;
+    final canPressButton = !isPlanCompleted &&
+        (_isSpending ? hasSpendingInput : hasAnyInput);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -249,6 +249,23 @@ class _RecordPageState extends State<RecordPage> {
         child: SafeArea(
           child: Column(
             children: [
+            if (isPlanCompleted)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.screenPadding,
+                  12,
+                  AppSpacing.screenPadding,
+                  0,
+                ),
+                child: Text(
+                  '플랜 목표를 달성해 더 이상 기록할 수 없어요.',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             const SizedBox(height: 12),
 
             Padding(
@@ -260,11 +277,13 @@ class _RecordPageState extends State<RecordPage> {
                   TwoOptionToggle(
                     labels: const ['수입', '소비'],
                     selected: _isSpending ? '소비' : '수입',
-                    onChanged: (v) {
-                      setState(() {
-                        _isSpending = v == '소비';
-                      });
-                    },
+                    onChanged: isPlanCompleted
+                        ? (_) {}
+                        : (v) {
+                            setState(() {
+                              _isSpending = v == '소비';
+                            });
+                          },
                     width: 106,
                     height: 30,
                   ),
@@ -278,11 +297,17 @@ class _RecordPageState extends State<RecordPage> {
                           width: 24,
                           child: Checkbox(
                             value: _noSpendingChecked,
-                            onChanged: (v) {
-                              final checked = v ?? false;
-                              setState(() => _noSpendingChecked = checked);
-                              context.read<RecordSpendingViewModel>().setNoSpending(checked);
-                            },
+                            onChanged: isPlanCompleted
+                                ? null
+                                : (v) {
+                                    final checked = v ?? false;
+                                    setState(
+                                      () => _noSpendingChecked = checked,
+                                    );
+                                    context
+                                        .read<RecordSpendingViewModel>()
+                                        .setNoSpending(checked);
+                                  },
                             materialTapTargetSize:
                             MaterialTapTargetSize.shrinkWrap,
                             activeColor: AppColors.primary,
@@ -290,11 +315,15 @@ class _RecordPageState extends State<RecordPage> {
                         ),
                         const SizedBox(width: 4),
                         GestureDetector(
-                          onTap: () {
-                            final checked = !_noSpendingChecked;
-                            setState(() => _noSpendingChecked = checked);
-                            context.read<RecordSpendingViewModel>().setNoSpending(checked);
-                          },
+                          onTap: isPlanCompleted
+                              ? null
+                              : () {
+                                  final checked = !_noSpendingChecked;
+                                  setState(() => _noSpendingChecked = checked);
+                                  context
+                                      .read<RecordSpendingViewModel>()
+                                      .setNoSpending(checked);
+                                },
                           child: Text(
                             '무지출',
                             style: TextStyle(
@@ -319,8 +348,8 @@ class _RecordPageState extends State<RecordPage> {
                       horizontal: AppSpacing.screenPadding,
                     ),
                     child: _isSpending
-                        ? _buildSpendingContent(spendingVM)
-                        : _buildIncomeContent(incomeVM),
+                        ? _buildSpendingContent(spendingVM, isPlanCompleted)
+                        : _buildIncomeContent(incomeVM, isPlanCompleted),
                   ),
 
                   if (_isSpending && _noSpendingChecked)
@@ -493,7 +522,10 @@ class _RecordPageState extends State<RecordPage> {
     );
   }
 
-  Widget _buildSpendingContent(RecordSpendingViewModel vm) {
+  Widget _buildSpendingContent(
+    RecordSpendingViewModel vm,
+    bool isPlanCompleted,
+  ) {
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
@@ -502,13 +534,14 @@ class _RecordPageState extends State<RecordPage> {
             return SpendingInputEntry(
               key: ObjectKey(entry),
               entry: entry,
-              onDelete: () => vm.removeEntryByRef(entry),
-              enableDismissible: true,
+              onDelete: isPlanCompleted ? () {} : () => vm.removeEntryByRef(entry),
+              enableDismissible: !isPlanCompleted,
             );
           }).toList(),
           const SizedBox(height: 12),
           SmallRoundedButton(
             text: '추가',
+            enabled: !isPlanCompleted,
             backgroundColor: Theme.of(context).brightness == Brightness.dark
                 ? Theme.of(context).colorScheme.surface
                 : AppColors.greyBackground,
@@ -521,7 +554,10 @@ class _RecordPageState extends State<RecordPage> {
     );
   }
 
-  Widget _buildIncomeContent(RecordAddIncomeViewModel vm) {
+  Widget _buildIncomeContent(
+    RecordAddIncomeViewModel vm,
+    bool isPlanCompleted,
+  ) {
     return SingleChildScrollView(
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       child: Column(
@@ -530,13 +566,14 @@ class _RecordPageState extends State<RecordPage> {
             return AddIncomeInputEntry(
               key: ObjectKey(entry),
               entry: entry,
-              onDelete: () => vm.removeEntryByRef(entry),
-              enableDismissible: true,
+              onDelete: isPlanCompleted ? () {} : () => vm.removeEntryByRef(entry),
+              enableDismissible: !isPlanCompleted,
             );
           }).toList(),
           const SizedBox(height: 12),
           SmallRoundedButton(
             text: '추가',
+            enabled: !isPlanCompleted,
             backgroundColor: Theme.of(context).brightness == Brightness.dark
                 ? Theme.of(context).colorScheme.surface
                 : AppColors.greyBackground,

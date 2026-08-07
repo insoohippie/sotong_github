@@ -15,204 +15,303 @@ class EmotionTop3CarouselSection extends StatefulWidget {
       _EmotionTop3CarouselSectionState();
 }
 
-class _EmotionTop3CarouselSectionState
-    extends State<EmotionTop3CarouselSection> {
-  final CarouselSliderController _carouselCtrl = CarouselSliderController();
+  class _EmotionTop3CarouselSectionState
+      extends State<EmotionTop3CarouselSection> {
+    final CarouselSliderController _carouselCtrl =
+    CarouselSliderController();
 
-  int _page = 0;
+    int _page = 0;
 
-  String _format(int v) => v.toString().replaceAllMapped(
-    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
-    (m) => '${m[1]},',
-  );
+    String _format(int v) =>
+        v.toString().replaceAllMapped(
+          RegExp(
+            r'(\d{1,3})(?=(\d{3})+(?!\d))',
+          ),
+              (m) => '${m[1]},',
+        );
 
-  String _periodLabel(String period) => period == '주간' ? '최근 7일' : '최근 30일';
+    String _periodLabel(String period) =>
+        period == '주간'
+            ? '최근 7일'
+            : '최근 30일';
 
-  @override
-  void didUpdateWidget(covariant EmotionTop3CarouselSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.vm.selectedAnalysisPeriod !=
-        widget.vm.selectedAnalysisPeriod) {
-      setState(() => _page = 0);
-      _carouselCtrl.animateToPage(
-        0,
-        duration: const Duration(milliseconds: 520),
-        curve: Curves.easeOutCubic,
+    List<_RankData> _toRankData(
+        List<Map<String, dynamic>> source,
+        ) {
+      return source.map((e) {
+        return _RankData(
+          emotion: e['emotion'] as String,
+          emoji: e['emoji'] as String,
+          count: e['count'] as int,
+          total: e['total'] as int,
+          avg: e['avg'] as int,
+        );
+      }).toList();
+    }
+
+    @override
+    Widget build(BuildContext context) {
+      final vm = widget.vm;
+      final period = vm.selectedAnalysisPeriod;
+
+      // ───────────────── 각 지표별 진짜 TOP3 ─────────────────
+
+      final countTop3 = _toRankData(
+        vm.emotionTop3Stats(
+          period,
+          sortBy: 'count',
+        ),
+      );
+
+      final totalTop3 = _toRankData(
+        vm.emotionTop3Stats(
+          period,
+          sortBy: 'total',
+        ),
+      );
+
+      final avgTop3 = _toRankData(
+        vm.emotionTop3Stats(
+          period,
+          sortBy: 'avg',
+        ),
+      );
+
+      final slides = <_SlideSpec>[
+        _SlideSpec(
+          keyId: 'count',
+          title:
+          '${_periodLabel(period)} 감정 기록',
+          top3: countTop3,
+          valueBuilder: (d) =>
+          '${d.count}일',
+          subBuilder: (d) => d.emotion,
+        ),
+        _SlideSpec(
+          keyId: 'total',
+          title:
+          '${_periodLabel(period)} 총 지출',
+          top3: totalTop3,
+          valueBuilder: (d) =>
+          '${_format(d.total)}원',
+          subBuilder: (d) => d.emotion,
+        ),
+        _SlideSpec(
+          keyId: 'avg',
+          title:
+          '${_periodLabel(period)} 일일 평균 소비',
+          top3: avgTop3,
+          valueBuilder: (d) =>
+          '${_format(d.avg)}원',
+          subBuilder: (d) => d.emotion,
+        ),
+      ];
+
+      final theme = Theme.of(context);
+
+      final viewWidth =
+          MediaQuery.sizeOf(context).width;
+
+      final toggleWidth = viewWidth <= 386
+          ? 88.0
+          : viewWidth < 412
+          ? 96.0
+          : 106.0;
+
+      final toggleHeight = viewWidth <= 386
+          ? 26.0
+          : viewWidth < 412
+          ? 28.0
+          : 30.0;
+
+      final toggleFontSize = viewWidth <= 386
+          ? 10.0
+          : viewWidth < 412
+          ? 11.0
+          : 12.0;
+
+      return Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(
+                theme.brightness == Brightness.dark
+                    ? 0.2
+                    : 0.05,
+              ),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(
+          vertical: 16,
+        ),
+        child: Column(
+          children: [
+            // ── 상단: 타이틀 + 토글 ─────────────────
+
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+              ),
+              child: Row(
+                mainAxisAlignment:
+                MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '감정별 소비',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color:
+                      theme.colorScheme.onSurface,
+                    ),
+                  ),
+                  TwoOptionToggle(
+                    labels: const [
+                      '주간',
+                      '월간',
+                    ],
+                    selected: period,
+                    width: toggleWidth,
+                    height: toggleHeight,
+                    fontSize: toggleFontSize,
+                    onChanged: (v) async {
+                      if (v ==
+                          vm.selectedAnalysisPeriod) {
+                        return;
+                      }
+
+                      // 기간 변경 시 캐러셀을
+                      // 무조건 첫 슬라이드로 초기화
+                      setState(() {
+                        _page = 0;
+                      });
+
+                      await vm.setAnalysisPeriod(v);
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── 본문: 캐러셀 ───────────────────────
+
+            if (countTop3.isEmpty)
+              Padding(
+                padding:
+                const EdgeInsets.symmetric(
+                  horizontal: 16,
+                ),
+                child: _EmptyState(
+                  periodLabel:
+                  _periodLabel(period),
+                ),
+              )
+            else
+              Column(
+                children: [
+                  CarouselSlider(
+                    // 기간이 바뀌면 새로운 캐러셀로
+                    // 인식하게 해서 0페이지부터 시작
+                    key: ValueKey(
+                      'emotion_top3_$period',
+                    ),
+                    carouselController:
+                    _carouselCtrl,
+                    options: CarouselOptions(
+                      height: 178,
+                      initialPage: 0,
+                      viewportFraction: 1,
+                      enableInfiniteScroll: true,
+                      autoPlay: true,
+                      autoPlayInterval:
+                      const Duration(
+                        seconds: 5,
+                      ),
+                      autoPlayAnimationDuration:
+                      const Duration(
+                        milliseconds: 850,
+                      ),
+                      autoPlayCurve:
+                      Curves.easeInOutCubic,
+                      onPageChanged:
+                          (index, reason) {
+                        if (!mounted) {
+                          return;
+                        }
+
+                        setState(() {
+                          _page = index;
+                        });
+                      },
+                    ),
+                    items: slides.map((spec) {
+                      return Padding(
+                        padding:
+                        const EdgeInsets.symmetric(
+                          horizontal: 16,
+                        ),
+                        child: _Top3Slide(
+                          key: ValueKey(
+                            '${period}_${spec.keyId}',
+                          ),
+                          title: spec.title,
+
+                          // 핵심:
+                          // 각 슬라이드마다 서로 다른 TOP3
+                          top3: spec.top3,
+
+                          valueBuilder:
+                          spec.valueBuilder,
+                          subBuilder:
+                          spec.subBuilder,
+                        ),
+                      );
+                    }).toList(),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  AnimatedSmoothIndicator(
+                    activeIndex:
+                    _page % slides.length,
+                    count: slides.length,
+                    effect: WormEffect(
+                      dotHeight: 7,
+                      dotWidth: 7,
+                      spacing: 8,
+                      dotColor: theme
+                          .colorScheme
+                          .onSurfaceVariant
+                          .withOpacity(0.4),
+                      activeDotColor:
+                      theme.colorScheme.primary,
+                    ),
+                    onDotClicked: (i) {
+                      _carouselCtrl.animateToPage(
+                        i,
+                        duration:
+                        const Duration(
+                          milliseconds: 520,
+                        ),
+                        curve:
+                        Curves.easeOutCubic,
+                      );
+                    },
+                  ),
+                ],
+              ),
+          ],
+        ),
       );
     }
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final vm = widget.vm;
-    final period = vm.selectedAnalysisPeriod;
-
-    final top3 = vm.emotionTop3Stats(period).map((e) {
-      return _RankData(
-        emotion: e['emotion'] as String,
-        emoji: e['emoji'] as String,
-        count: e['count'] as int,
-        total: e['total'] as int,
-        avg: e['avg'] as int,
-      );
-    }).toList();
-
-    final slides = <_SlideSpec>[
-      _SlideSpec(
-        keyId: 'count',
-        title: '${_periodLabel(period)} 감정 기록',
-        valueBuilder: (d) => '${d.count}일',
-        subBuilder: (d) => d.emotion,
-      ),
-      _SlideSpec(
-        keyId: 'total',
-        title: '${_periodLabel(period)} 총 지출',
-        valueBuilder: (d) => '${_format(d.total)}원',
-        subBuilder: (d) => d.emotion,
-      ),
-      _SlideSpec(
-        keyId: 'avg',
-        title: '${_periodLabel(period)} 일일 평균 소비',
-        valueBuilder: (d) => '${_format(d.avg)}원',
-        subBuilder: (d) => d.emotion,
-      ),
-    ];
-
-    final theme = Theme.of(context);
-    final viewWidth = MediaQuery.sizeOf(context).width;
-    final toggleWidth = viewWidth <= 386
-        ? 88.0
-        : viewWidth < 412
-        ? 96.0
-        : 106.0;
-    final toggleHeight = viewWidth <= 386
-        ? 26.0
-        : viewWidth < 412
-        ? 28.0
-        : 30.0;
-    final toggleFontSize = viewWidth <= 386
-        ? 10.0
-        : viewWidth < 412
-        ? 11.0
-        : 12.0;
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(
-              theme.brightness == Brightness.dark ? 0.2 : 0.05,
-            ),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        children: [
-          // ── 상단: 타이틀 + 토글 ─────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '감정별 소비',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                TwoOptionToggle(
-                  labels: const ['주간', '월간'],
-                  selected: period,
-                  width: toggleWidth,
-                  height: toggleHeight,
-                  fontSize: toggleFontSize,
-                  onChanged: (v) {
-                    if (v == vm.selectedAnalysisPeriod) return;
-                    vm.setAnalysisPeriod(v);
-                    // notifyListeners는 VM에서
-                  },
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // ── 본문: 캐러셀 ───────────────────────
-          if (top3.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _EmptyState(periodLabel: _periodLabel(period)),
-            )
-          else
-            Column(
-              children: [
-                CarouselSlider(
-                  carouselController: _carouselCtrl,
-                  options: CarouselOptions(
-                    height: 178,
-                    viewportFraction: 1,
-                    enableInfiniteScroll: true,
-                    autoPlay: true,
-                    autoPlayInterval: const Duration(seconds: 5),
-                    autoPlayAnimationDuration: const Duration(
-                      milliseconds: 850,
-                    ),
-                    autoPlayCurve: Curves.easeInOutCubic,
-                    onPageChanged: (index, reason) {
-                      if (!mounted) return;
-                      setState(() => _page = index);
-                    },
-                  ),
-                  items: slides.map((spec) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: _Top3Slide(
-                        key: ValueKey('${period}_${spec.keyId}'),
-                        title: spec.title,
-                        top3: top3,
-                        valueBuilder: spec.valueBuilder,
-                        subBuilder: spec.subBuilder,
-                      ),
-                    );
-                  }).toList(),
-                ),
-
-                const SizedBox(height: 10),
-
-                // ── 점 인디케이터 ───────────────────
-                AnimatedSmoothIndicator(
-                  activeIndex: _page % slides.length,
-                  count: slides.length,
-                  effect: WormEffect(
-                    dotHeight: 7,
-                    dotWidth: 7,
-                    spacing: 8,
-                    dotColor: theme.colorScheme.onSurfaceVariant.withOpacity(
-                      0.4,
-                    ),
-                    activeDotColor: theme.colorScheme.primary,
-                  ),
-                  onDotClicked: (i) {
-                    _carouselCtrl.animateToPage(
-                      i,
-                      duration: const Duration(milliseconds: 520),
-                      curve: Curves.easeOutCubic,
-                    );
-                  },
-                ),
-              ],
-            ),
-        ],
-      ),
-    );
-  }
-}
 
 /* ───────────────── Models ───────────────── */
 
@@ -232,19 +331,27 @@ class _RankData {
   });
 }
 
-class _SlideSpec {
-  final String keyId;
-  final String title;
-  final String Function(_RankData) valueBuilder;
-  final String Function(_RankData) subBuilder;
+  class _SlideSpec {
+    final String keyId;
+    final String title;
 
-  _SlideSpec({
-    required this.keyId,
-    required this.title,
-    required this.valueBuilder,
-    required this.subBuilder,
-  });
-}
+    // 각 슬라이드별 TOP3
+    final List<_RankData> top3;
+
+    final String Function(_RankData)
+    valueBuilder;
+
+    final String Function(_RankData)
+    subBuilder;
+
+    _SlideSpec({
+      required this.keyId,
+      required this.title,
+      required this.top3,
+      required this.valueBuilder,
+      required this.subBuilder,
+    });
+  }
 
 /* ───────────────── Slide ───────────────── */
 

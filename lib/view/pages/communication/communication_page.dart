@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../component/banner/sliding_banner.dart';
 import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 import '../../../view_model/communication/communication_view_model.dart';
+import '../../../view_model/home/home_view_model.dart';
 import 'comm_widgets/emotion_calendar_section.dart';
 import 'comm_widgets/emotion_top3_carousel_section.dart';
 
@@ -21,15 +22,48 @@ class _CommunicationPageState extends State<CommunicationPage> {
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      context.read<CommunicationViewModel>().loadMonth(DateTime.now());
+
+      final commVm =
+      context.read<CommunicationViewModel>();
+
+      final homeVm =
+      context.read<HomeViewModel>();
+
+      // 완료된 플랜이면 실제 완료일이 달력 상한.
+      // 진행 중이면 null이고,
+      // CommunicationViewModel 내부의 planEndDate를 사용한다.
+      final completionDate =
+          homeVm.planCompletionDate;
+
+      // 달력뿐 아니라 Top3/배너 분석에서도
+      // 실제 완료일을 사용할 수 있도록 동기화
+      commVm.setPlanCompletionDate(
+        completionDate,
+      );
+
+      final anchor =
+          completionDate ?? DateTime.now();
+
+      await commVm.loadMonth(
+        anchor,
+        endCap: completionDate,
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<CommunicationViewModel>();
+    final completionDate =
+    context.select<HomeViewModel, DateTime?>(
+          (homeVm) => homeVm.planCompletionDate,
+    );
+
+    vm.setPlanCompletionDate(
+      completionDate,
+    );
     final horizontalPadding = PaddingResponsive16_40Vw.horizontal(
       context,
       PaddingResponsive16_40Vw.fractionScreen075,

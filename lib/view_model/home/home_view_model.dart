@@ -166,6 +166,11 @@ class HomeViewModel extends ChangeNotifier {
       normalized = planEnd;
     }
 
+    final completionCap = planCompletionDate;
+    if (completionCap != null && normalized.isAfter(completionCap)) {
+      normalized = completionCap;
+    }
+
     return normalized;
   }
 
@@ -266,7 +271,9 @@ class HomeViewModel extends ChangeNotifier {
     await HomeWidgetSyncService.syncPlanData(
       planName: planTitle,
       planPercent: planProgressPercentValue,
-      dDayText: HomeWidgetSyncService.formatDDayText(liveRemaining),
+      dDayText: isActivePlanCompleted
+          ? homeDDayLabel
+          : HomeWidgetSyncService.formatDDayText(liveRemaining),
       hasPlan: hasPlan,
     );
   }
@@ -342,9 +349,15 @@ class HomeViewModel extends ChangeNotifier {
     final planId = _latestPlan?.planId;
     if (uid == null || planId == null || planId.isEmpty) return;
 
-    // 이미 완료 처리된 플랜: 재접속·재빌드 시에도 celebration 잠금 유지
+    // 이미 완료 처리된 플랜: 축하 화면을 아직 안 닫았으면 celebration 표시
     if (PlanCelebrationStorage.instance
         .isPlanCompleted(uid: uid, planId: planId)) {
+      if (PlanCelebrationStorage.instance.isCelebrationDismissed(
+        uid: uid,
+        planId: planId,
+      )) {
+        return;
+      }
       _shouldShowPlanCelebration = true;
       if (notify) notifyListeners();
       return;
@@ -385,6 +398,20 @@ class HomeViewModel extends ChangeNotifier {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return null;
     return PlanCelebrationStorage.instance.completedInfo(uid: uid);
+  }
+
+  /// 축하 화면을 닫고 홈 탭으로 진입할 때 호출한다.
+  Future<void> dismissPlanCelebration() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final planId = _latestPlan?.planId;
+    if (uid == null || planId == null || planId.isEmpty) return;
+
+    await PlanCelebrationStorage.instance.markCelebrationDismissed(
+      uid: uid,
+      planId: planId,
+    );
+    _shouldShowPlanCelebration = false;
+    notifyListeners();
   }
 
   /// 목표 달성 시점의 실데이터로 지난 플랜 스냅샷을 생성.
@@ -824,6 +851,105 @@ class HomeViewModel extends ChangeNotifier {
   bool get hasReachedSavingTarget {
     final target = effectiveTargetAmount;
     return target > 0 && actualSavedNow >= target;
+  }
+
+  /// 목표 금액 달성(실시간 또는 완료 저장) 여부
+  bool get isActivePlanCompleted {
+    if (hasReachedSavingTarget) return true;
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final planId = _latestPlan?.planId;
+    if (uid == null || planId == null || planId.isEmpty) return false;
+    return PlanCelebrationStorage.instance.isPlanCompleted(
+      uid: uid,
+      planId: planId,
+    );
+  }
+
+  /// 목표 달성일 (PlanCelebrationStorage 기록)
+  DateTime? get planReachedAt {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final planId = _latestPlan?.planId;
+    if (uid == null || planId == null || planId.isEmpty) return null;
+    final info = PlanCelebrationStorage.instance.completedInfo(uid: uid);
+    if (info == null || info['planId'] != planId) return null;
+    return DateTime.tryParse(info['completedAt'] as String? ?? '');
+  }
+
+  /// 홈 중앙 버튼·위젯용 D-day 라벨
+  String get homeDDayLabel {
+    if (isActivePlanCompleted) return '플랜 도달!';
+    final remain = liveRemaining;
+    if (remain == null) return '목표일 없음';
+    if (remain.isNegative) return 'D-Day 달성';
+    return 'D-${remain.inDays}';
+  }
+
+  /// 목표 달성일 표시 (예: 8월 3일)
+  String get planReachedDateText {
+    final reached = planReachedAt ?? (isActivePlanCompleted ? DateTime.now() : null);
+    if (reached == null) return '';
+    return '${reached.month}월 ${reached.day}일';
+  }
+
+  /// 플랜 완료일 (날짜 네비 상한)
+  DateTime? get planCompletionDate {
+    if (!isActivePlanCompleted) return null;
+    final reached = planReachedAt;
+    return _normalizeDate(reached ?? DateTime.now());
+  }
+
+  /// 목표일 대비 완료일 차이(일). 양수=빠름, 음수=늦음
+  int? get planCompletionDayDelta {
+    if (!isActivePlanCompleted) return null;
+    final plan = _latestPlan;
+    if (plan == null) return null;
+    final goalRaw =
+        _calc?.goalDateTime ?? plan.modEndDate ?? plan.endDate;
+    if (goalRaw == null) return null;
+    final goal = _normalizeDay(goalRaw);
+    final completed = planCompletionDate;
+    if (completed == null) return null;
+    return goal.difference(completed).inDays;
+  }
+
+  /// celebration 첫 화면 멘트
+  String get planCelebrationMessage {
+    final delta = planCompletionDayDelta;
+    if (delta != null && delta > 0) {
+      return '소통과 함께 목표보다\n$delta일 빠르게 도달했어요😎';
+    }
+    if (delta != null && delta < 0) {
+      return '목표했던 날보다 ${delta.abs()}일 늦춰졌지만\n플랜을 완성했어요☺️';
+    }
+    return '소통과 함께 플랜을 완성했어요! 🎉';
+  }
+
+  /// 선택일 기준 다음 날(>)로 이동 가능 여부
+  bool get canNavigateToNextDate {
+    final cap = planCompletionDate;
+    if (cap != null) {
+      return _normalizeDate(_selectedDate).isBefore(cap);
+    }
+    final planEnd = _planEndDate;
+    if (planEnd != null) {
+      return _normalizeDate(_selectedDate).isBefore(planEnd);
+    }
+    return _normalizeDate(_selectedDate).isBefore(_normalizeDate(DateTime.now()));
+  }
+
+  /// 완료 후 홈 게이지 — 사용자·플랜 모두 100%
+  double get displayGraphUserPercent =>
+      isActivePlanCompleted ? 1.0 : graphUserPercent;
+
+  double get displayGraphPlanPercent =>
+      isActivePlanCompleted ? 1.0 : graphPlanPercent;
+
+  /// 완료 후 중앙 금액 — 목표 금액 이상으로 표시하지 않음
+  double get displayGraphUserAmount {
+    if (!isActivePlanCompleted) return graphUserAmount;
+    final target = graphTargetAmount;
+    if (target <= 0) return graphUserAmount;
+    return max(graphUserAmount, target);
   }
 
   double get paceAmountDiff => actualSavedNow - plannedSavedNow;

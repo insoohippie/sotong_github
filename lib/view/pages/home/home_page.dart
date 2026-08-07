@@ -203,6 +203,8 @@ class _HomePageState extends State<HomePage> {
         ? const Color(0xFFFF5F5F)
         : AppColors.primary;
 
+    final isPlanCompleted = vm.isActivePlanCompleted;
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
@@ -287,11 +289,15 @@ class _HomePageState extends State<HomePage> {
                             HomeSavingChartWidget(
                               key: _chartKey,
                               vm: vm,
-                              userPercent: _toChartPercent(vm.graphUserPercent),
-                              planPercent: _toChartPercent(vm.graphPlanPercent),
+                              userPercent: _toChartPercent(
+                                vm.displayGraphUserPercent,
+                              ),
+                              planPercent: _toChartPercent(
+                                vm.displayGraphPlanPercent,
+                              ),
                               replayGaugeAnimation: vm.shouldShowPlanGraphIntro,
                               animationTrigger: homeChartAnimationTick,
-                              onOpenCountdown: () => _openSavingSheet(vm),
+                              onOpenCountdown: () => _onCenterGaugeTap(vm),
                             ),
                           ],
                         ),
@@ -348,11 +354,13 @@ class _HomePageState extends State<HomePage> {
                                         icon: Icons.chevron_right,
                                         iconColor:
                                         theme.colorScheme.onSurfaceVariant,
+                                        enabled: vm.canNavigateToNextDate,
                                         onTap: () => vm.changeDate(1),
                                       ),
                                       const SizedBox(width: 2),
                                       _CalendarHeaderButton(
                                         isUnrecorded: showPendingCalendarBadge,
+                                        enabled: !isPlanCompleted,
                                         onTap: () {
                                           Navigator.of(
                                             context,
@@ -378,6 +386,7 @@ class _HomePageState extends State<HomePage> {
                                 text: hasIncome
                                     ? '소비 기록하기'
                                     : '수입/소비 기록하러 가기',
+                                enabled: !isPlanCompleted,
                                 onPressed: () {
                                   Navigator.of(
                                     context,
@@ -454,6 +463,21 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  void _onCenterGaugeTap(HomeViewModel vm) {
+    if (vm.isActivePlanCompleted) {
+      final info = vm.planCompletionInfo;
+      Navigator.of(context, rootNavigator: true).pushNamed(
+        '/celebration_plan_success',
+        arguments: {
+          'planName': info?['planName'] as String? ?? vm.planTitle,
+          'daysTaken': (info?['daysTaken'] as num?)?.toInt(),
+        },
+      );
+      return;
+    }
+    _openSavingSheet(vm);
+  }
+
   void _openSavingSheet(HomeViewModel vm) {
     showModalBottomSheet(
       context: context,
@@ -505,25 +529,36 @@ class _HeaderIconButton extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final VoidCallback onTap;
+  final bool enabled;
 
   const _HeaderIconButton({
     required this.icon,
     required this.iconColor,
     required this.onTap,
+    this.enabled = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: InkResponse(
-        onTap: () {
-          AppHaptics.buttonTap();
-          onTap();
-        },
-        radius: 18,
-        child: Center(child: Icon(icon, size: 24, color: iconColor)),
+    final effectiveColor = enabled
+        ? iconColor
+        : iconColor.withValues(alpha: 0.35);
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: SizedBox(
+        width: 32,
+        height: 32,
+        child: InkResponse(
+          onTap: enabled
+              ? () {
+                  AppHaptics.buttonTap();
+                  onTap();
+                }
+              : null,
+          radius: 18,
+          child: Center(child: Icon(icon, size: 24, color: effectiveColor)),
+        ),
       ),
     );
   }
@@ -531,69 +566,79 @@ class _HeaderIconButton extends StatelessWidget {
 
 class _CalendarHeaderButton extends StatelessWidget {
   final bool isUnrecorded;
+  final bool enabled;
   final VoidCallback onTap;
 
   const _CalendarHeaderButton({
     required this.isUnrecorded,
+    this.enabled = true,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final iconColor = enabled
+        ? AppColors.primary
+        : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4);
 
-    return SizedBox(
-      width: 32,
-      height: 32,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: InkResponse(
-              onTap: () {
-                AppHaptics.buttonTap();
-                onTap();
-              },
-              radius: 18,
-              child: const Center(
-                child: Icon(
-                  Icons.calendar_month_outlined,
-                  size: 24,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ),
-          if (isUnrecorded)
-            Positioned(
-              right: -1,
-              top: -1,
-              child: IgnorePointer(
-                child: Container(
-                  width: 11,
-                  height: 11,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade600,
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: theme.colorScheme.surface,
-                      width: 1,
-                    ),
-                  ),
-                  child: const Text(
-                    '!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 6,
-                      fontWeight: FontWeight.w800,
-                      height: 1,
-                    ),
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: SizedBox(
+        width: 32,
+        height: 32,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: InkResponse(
+                onTap: enabled
+                    ? () {
+                        AppHaptics.buttonTap();
+                        onTap();
+                      }
+                    : null,
+                radius: 18,
+                child: Center(
+                  child: Icon(
+                    Icons.calendar_month_outlined,
+                    size: 24,
+                    color: iconColor,
                   ),
                 ),
               ),
             ),
-        ],
+            if (isUnrecorded && enabled)
+              Positioned(
+                right: -1,
+                top: -1,
+                child: IgnorePointer(
+                  child: Container(
+                    width: 11,
+                    height: 11,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade600,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.colorScheme.surface,
+                        width: 1,
+                      ),
+                    ),
+                    child: const Text(
+                      '!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 6,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

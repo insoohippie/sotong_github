@@ -11,6 +11,7 @@ import '../../../component/theme/app_colors.dart';
 import '../../../model/plan/plan_edit_result.dart';
 import '../../../repository/auth_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
+import '../../../view_model/home/home_view_model.dart';
 import '../../../view_model/setting/setting_view_model.dart';
 import '../../../services/local_notification_service.dart';
 import '../notification/notification_setting.dart';
@@ -21,9 +22,10 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SettingViewModel>(
-      builder: (context, settingsVM, _) {
+    return Consumer2<SettingViewModel, HomeViewModel>(
+      builder: (context, settingsVM, homeVM, _) {
         final isDark = settingsVM.isDarkMode;
+        final isPlanCompleted = homeVM.isActivePlanCompleted;
 
         return Scaffold(
           backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
@@ -54,7 +56,10 @@ class SettingsPage extends StatelessWidget {
                       context,
                       '현재 플랜 수정',
                       isDark: isDark,
-                      onTap: () async {
+                      enabled: !isPlanCompleted,
+                      onTap: isPlanCompleted
+                          ? null
+                          : () async {
                         final chatVm = context.read<ChatPlanViewModel>();
                         final navigator = Navigator.of(context);
 
@@ -258,12 +263,15 @@ Widget _settingsRow(
       Widget? trailing,
       Color? textColor,
       bool isDark = false,
+      bool enabled = true,
     }) {
   final style = TextStyle(
     fontSize: 13,
     fontWeight: FontWeight.w500,
     fontFamily: 'Pretendard Variable',
-    color: textColor ?? (isDark ? AppColors.darkText : Colors.black),
+    color: enabled
+        ? (textColor ?? (isDark ? AppColors.darkText : Colors.black))
+        : (isDark ? AppColors.darkSubText : AppColors.subText),
   );
 
   final child = Padding(
@@ -277,7 +285,7 @@ Widget _settingsRow(
     ),
   );
 
-  if (onTap != null) {
+  if (onTap != null && enabled) {
     return InkWell(
       onTap: onTap,
       splashColor: Colors.transparent,
@@ -287,7 +295,7 @@ Widget _settingsRow(
     );
   }
 
-  return child;
+  return Opacity(opacity: enabled ? 1 : 0.45, child: child);
 }
 
 Widget _settingsSwitch({

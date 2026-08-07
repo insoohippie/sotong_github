@@ -10,10 +10,16 @@ void showDateDetailModal({
   required BuildContext context,
   required CommunicationViewModel vm,
   required int day,
+  bool allowSpendingRegistration = true,
+  bool readOnly = false,
 }) {
   final hasEmotion = vm.hasEmotionRecord(day);
   final hasAmount = vm.spendingAmountForDay(day) > 0;
   final hasRecord = hasEmotion || hasAmount;
+
+  if (!hasRecord && !allowSpendingRegistration) {
+    return;
+  }
 
   // 소비 미기록 날: 플랜 챗 온보딩 모달 느낌 — 높이·패딩·라운드·그림자 통일
   const double emptyDateModalHeight = 140;
@@ -61,8 +67,16 @@ void showDateDetailModal({
                 children: [
                   if (hasRecord) const _HandleBar(),
                   hasRecord
-                      ? _RecordedDateContent(vm: vm, day: day)
-                      : _EmptyDateContent(vm: vm, day: day),
+                      ? _RecordedDateContent(
+                          vm: vm,
+                          day: day,
+                          readOnly: readOnly,
+                        )
+                      : _EmptyDateContent(
+                          vm: vm,
+                          day: day,
+                          allowSpendingRegistration: allowSpendingRegistration,
+                        ),
                 ],
               ),
             ),
@@ -97,10 +111,15 @@ class _HandleBar extends StatelessWidget {
 }
 
 class _RecordedDateContent extends StatelessWidget {
-  const _RecordedDateContent({required this.vm, required this.day});
+  const _RecordedDateContent({
+    required this.vm,
+    required this.day,
+    this.readOnly = false,
+  });
 
   final CommunicationViewModel vm;
   final int day;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +131,7 @@ class _RecordedDateContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _Header(vm: vm, day: day),
+        _Header(vm: vm, day: day, readOnly: readOnly),
         const SizedBox(height: 20),
         if (emotionLabel.trim().isNotEmpty) ...[
           _EmotionRow(emotionLabel: emotionLabel),
@@ -129,10 +148,15 @@ class _RecordedDateContent extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.vm, required this.day});
+  const _Header({
+    required this.vm,
+    required this.day,
+    this.readOnly = false,
+  });
 
   final CommunicationViewModel vm;
   final int day;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -151,23 +175,24 @@ class _Header extends StatelessWidget {
             color: theme.colorScheme.onSurface,
           ),
         ),
-        IconButton(
-          onPressed: () async {
-            Navigator.of(context).pop();
+        if (!readOnly)
+          IconButton(
+            onPressed: () async {
+              Navigator.of(context).pop();
 
-            await Future.delayed(Duration.zero);
-            if (!context.mounted) return;
+              await Future.delayed(Duration.zero);
+              if (!context.mounted) return;
 
-            Navigator.pushNamed(
-              context,
-              '/today_record',
-              arguments: targetDate,
-            );
-          },
-          icon: const Icon(Icons.edit, size: 22, color: AppColors.primary),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-        ),
+              Navigator.pushNamed(
+                context,
+                '/today_record',
+                arguments: targetDate,
+              );
+            },
+            icon: const Icon(Icons.edit, size: 22, color: AppColors.primary),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
       ],
     );
   }
@@ -465,13 +490,30 @@ class _DiaryBox extends StatelessWidget {
 }
 
 class _EmptyDateContent extends StatelessWidget {
-  const _EmptyDateContent({required this.vm, required this.day});
+  const _EmptyDateContent({
+    required this.vm,
+    required this.day,
+    this.allowSpendingRegistration = true,
+  });
 
   final CommunicationViewModel vm;
   final int day;
+  final bool allowSpendingRegistration;
 
   @override
   Widget build(BuildContext context) {
+    if (!allowSpendingRegistration) {
+      return Center(
+        child: Text(
+          '기록이 없는 날이에요',
+          style: TextStyle(
+            fontSize: 15,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
     return CustomButton(
       text: '소비 등록하기',
       onPressed: () async {

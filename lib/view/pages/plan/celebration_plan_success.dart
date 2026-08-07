@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:provider/provider.dart';
 
+import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
 import '../../../model/setting/past_plan_snapshot.dart';
 import '../../../repository/past_plan_repository.dart';
+import '../../../view_model/home/home_view_model.dart';
 
 class CelebrationPlanSuccessPage extends StatefulWidget {
   final String? planName;
@@ -38,19 +41,31 @@ class _CelebrationPlanSuccessPageState
     }
   }
 
+  Future<void> _goHome() async {
+    await context.read<HomeViewModel>().dismissPlanCelebration();
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/home_tab_navigator',
+      (_) => false,
+      arguments: 1,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final displayPlanName = widget.planName ?? '플랜';
-    final displayDays = widget.daysTaken ?? 0;
+    final celebrationMessage = context.watch<HomeViewModel>().planCelebrationMessage;
 
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _goHome();
+      },
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
+        appBar: BackOnlyAppBar(onBack: _goHome),
+        body: Column(
+          children: [
+            Expanded(
                 child: Center(
                   child: SizedBox(
                     width: 150,
@@ -81,7 +96,7 @@ class _CelebrationPlanSuccessPageState
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
-                  '성공적으로 $displayDays일 만에\n$displayPlanName 플랜을 완성했어요!',
+                  celebrationMessage,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -102,9 +117,8 @@ class _CelebrationPlanSuccessPageState
                   },
                 ),
               ),
-              const SizedBox(height: AppSpacing.bottomSpacing),
-            ],
-          ),
+            const SizedBox(height: AppSpacing.bottomSpacing),
+          ],
         ),
       ),
     );

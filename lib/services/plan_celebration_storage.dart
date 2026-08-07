@@ -37,6 +37,14 @@ class PlanCelebrationStorage {
     return info != null && info['planId'] == planId;
   }
 
+  /// 축하 화면을 닫고 홈으로 진입했는지 (플랜 완료 상태와 별개)
+  bool isCelebrationDismissed({required String uid, required String planId}) {
+    if (planId.isEmpty) return false;
+    final info = completedInfo(uid: uid);
+    if (info == null || info['planId'] != planId) return false;
+    return info['celebrationDismissed'] == true;
+  }
+
   Future<void> markCompleted({
     required String uid,
     required String planId,
@@ -51,7 +59,20 @@ class PlanCelebrationStorage {
         'planName': planName,
         'daysTaken': daysTaken,
         'completedAt': completedAt.toIso8601String(),
+        'celebrationDismissed': false,
       }),
+    );
+  }
+
+  Future<void> markCelebrationDismissed({
+    required String uid,
+    required String planId,
+  }) async {
+    final info = completedInfo(uid: uid);
+    if (info == null || info['planId'] != planId) return;
+    await _box.put(
+      _key(uid),
+      jsonEncode({...info, 'celebrationDismissed': true}),
     );
   }
 }

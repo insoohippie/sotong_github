@@ -17,6 +17,7 @@ class TodayRecordIncomeSection extends StatelessWidget {
   final void Function(RecordEntry entry) onEdit;
   final void Function(RecordEntry entry) onDelete;
   final VoidCallback onAdd;
+  final bool readOnly;
 
   const TodayRecordIncomeSection({
     super.key,
@@ -27,6 +28,7 @@ class TodayRecordIncomeSection extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onAdd,
+    this.readOnly = false,
   });
 
   String _formatAmount(int amount) {
@@ -74,8 +76,16 @@ class TodayRecordIncomeSection extends StatelessWidget {
     final entries = vm.entries;
     final totalIncome = vm.totalAmount;
 
-    final saveButtonHeight = hasUnsavedChanges ? 96.0 : 72.0;
-    final idleSummaryGap = hasEntryChanges ? 0.0 : 96.0;
+    final saveButtonHeight = readOnly
+        ? 0.0
+        : hasUnsavedChanges
+        ? 96.0
+        : 72.0;
+    final idleSummaryGap = readOnly
+        ? 0.0
+        : hasEntryChanges
+        ? 0.0
+        : 96.0;
     final saveButtonReservedHeight =
         MediaQuery.paddingOf(context).bottom +
         saveButtonHeight +
@@ -101,7 +111,7 @@ class TodayRecordIncomeSection extends StatelessWidget {
           child: SafeArea(
             top: false,
             minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: _buildSaveButton(context),
+            child: readOnly ? const SizedBox.shrink() : _buildSaveButton(context),
           ),
         ),
       ],
@@ -220,6 +230,8 @@ class TodayRecordIncomeSection extends StatelessWidget {
   }
 
   Widget _buildAddButton(BuildContext context) {
+    if (readOnly) return const SizedBox.shrink();
+
     final theme = Theme.of(context);
     final isDark = _isDark(context);
 
@@ -337,6 +349,13 @@ class TodayRecordIncomeSection extends StatelessWidget {
     required VoidCallback onEdit,
     required VoidCallback onDelete,
   }) {
+    final tile = _IncomeTile(
+      entry: entry,
+      onEdit: onEdit,
+      readOnly: readOnly,
+    );
+    if (readOnly) return tile;
+
     return Dismissible(
       key: ValueKey('income_${entry.id}'),
       direction: DismissDirection.endToStart,
@@ -354,7 +373,7 @@ class TodayRecordIncomeSection extends StatelessWidget {
         child: const Icon(Icons.delete, color: Colors.white, size: 24),
       ),
       onDismissed: (_) => onDelete(),
-      child: _IncomeTile(entry: entry, onEdit: onEdit),
+      child: tile,
     );
   }
 }
@@ -362,8 +381,13 @@ class TodayRecordIncomeSection extends StatelessWidget {
 class _IncomeTile extends StatelessWidget {
   final RecordEntry entry;
   final VoidCallback onEdit;
+  final bool readOnly;
 
-  const _IncomeTile({required this.entry, required this.onEdit});
+  const _IncomeTile({
+    required this.entry,
+    required this.onEdit,
+    this.readOnly = false,
+  });
 
   String _formatAmount(int amount) {
     return amount.toString().replaceAllMapped(
@@ -415,20 +439,21 @@ class _IncomeTile extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              GestureDetector(
-                onTap: onEdit,
-                child: Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: chipBackground,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Center(
-                    child: Icon(Icons.edit, color: editIconColor, size: 12),
+              if (!readOnly)
+                GestureDetector(
+                  onTap: onEdit,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      color: chipBackground,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(Icons.edit, color: editIconColor, size: 12),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 8),

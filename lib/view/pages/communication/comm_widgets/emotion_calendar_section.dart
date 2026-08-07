@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lottie/lottie.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../component/buttons/period_toggle.dart';
 import '../../../../component/theme/app_colors.dart';
 import '../../../../view_model/communication/communication_view_model.dart';
+import '../../../../view_model/home/home_view_model.dart';
 import 'date_detail_modal.dart';
 
 class EmotionCalendarSection extends StatefulWidget {
@@ -144,28 +146,52 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
 
   Widget _buildMonthSelector(CommunicationViewModel vm) {
     final theme = Theme.of(context);
+    final homeVm = context.watch<HomeViewModel>();
+
+    // 진행 중이면 null → CommunicationViewModel의 planEndDate 사용
+    // 완료 상태면 실제 완료일 → 이 날짜가 최종 상한
+    final completionDate = homeVm.planCompletionDate;
+
+    final canGoPrev = vm.canGoToPreviousMonth(
+      endCap: completionDate,
+    );
+
+    final canGoNext = vm.canGoToNextMonth(
+      endCap: completionDate,
+    );
+
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 이전 달
           GestureDetector(
-            onTap: () {
+            onTap: canGoPrev
+                ? () {
               setState(() {
                 _monthSlideDirection = -1;
               });
-              vm.changeMonth(-1);
-            },
+
+              vm.changeMonth(
+                -1,
+                endCap: completionDate,
+              );
+            }
+                : null,
             child: Container(
               padding: const EdgeInsets.all(4),
               child: Icon(
                 Icons.chevron_left,
-                color: theme.colorScheme.onSurfaceVariant,
+                color: canGoPrev
+                    ? theme.colorScheme.onSurfaceVariant
+                    : theme.colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.3),
                 size: 20,
               ),
             ),
           ),
+
           const SizedBox(width: 8),
+
           Text(
             '${vm.selectedMonth}월',
             style: TextStyle(
@@ -174,20 +200,30 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
               color: theme.colorScheme.onSurface,
             ),
           ),
+
           const SizedBox(width: 8),
-          // 다음 달
+
           GestureDetector(
-            onTap: () {
+            onTap: canGoNext
+                ? () {
               setState(() {
                 _monthSlideDirection = 1;
               });
-              vm.changeMonth(1);
-            },
+
+              vm.changeMonth(
+                1,
+                endCap: completionDate,
+              );
+            }
+                : null,
             child: Container(
               padding: const EdgeInsets.all(4),
               child: Icon(
                 Icons.chevron_right,
-                color: theme.colorScheme.onSurfaceVariant,
+                color: canGoNext
+                    ? theme.colorScheme.onSurfaceVariant
+                    : theme.colorScheme.onSurfaceVariant
+                    .withValues(alpha: 0.3),
                 size: 20,
               ),
             ),
@@ -407,6 +443,17 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
     required bool showEmotion,
     required double childAspectRatio,
   }) {
+    final homeVm = context.watch<HomeViewModel>();
+
+    final isPlanCompleted = homeVm.isActivePlanCompleted;
+
+    // 진행 중 → null
+    // 완료 후 → 실제 완료일
+    //
+    // null이면 CommunicationViewModel 내부의
+    // planEndDate가 상한으로 사용된다.
+    final completionDate = homeVm.planCompletionDate;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -417,22 +464,77 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
       itemCount: 42,
       itemBuilder: (context, index) {
         final day = index - firstWeekdayOffset + 1;
-        final isCurrentMonth = day > 0 && day <= daysInMonth;
+        final isCurrentMonth =
+            day > 0 && day <= daysInMonth;
 
-        if (!isCurrentMonth) return const SizedBox();
+        if (!isCurrentMonth) {
+          return const SizedBox();
+        }
 
-        final date = DateTime(vm.selectedYear, vm.selectedMonth, day);
-        final dayTextColor = _dayNumberColor(context, date);
+        final date = DateTime(
+          vm.selectedYear,
+          vm.selectedMonth,
+          day,
+        );
+
+        // 핵심:
+        //
+        // 진행 중
+        //   planStartDate ~ planEndDate
+        //
+        // 완료 후
+        //   planStartDate ~ completionDate
+        final inPlanRange = vm.isDayInPlanRange(
+          day,
+          endCap: completionDate,
+        );
+
+        final dayTextColor = inPlanRange
+            ? _dayNumberColor(context, date)
+            : Theme.of(context)
+            .colorScheme
+            .onSurfaceVariant
+            .withValues(alpha: 0.35);
 
         final hasEmotion = vm.hasEmotionRecord(day);
-        final hasAmount = vm.spendingAmountForDay(day) > 0;
+        final hasAmount =
+            vm.spendingAmountForDay(day) > 0;
+
         final amount = vm.spendingAmountForDay(day);
 
+        final hasRecord = hasEmotion || hasAmount;
+
         return GestureDetector(
-          onTap: () {
+          // 플랜 범위 밖 날짜는 완전히 클릭 불가능
+          onTap: inPlanRange
+              ? () {
             HapticFeedback.selectionClick();
-            showDateDetailModal(context: context, vm: vm, day: day);
-          },
+
+            // 완료된 플랜은 조회만 가능
+            if (isPlanCompleted) {
+              if (!hasRecord) return;
+
+              showDateDetailModal(
+                context: context,
+                vm: vm,
+                day: day,
+                allowSpendingRegistration: false,
+                readOnly: true,
+              );
+
+              return;
+            }
+
+            // 진행 중 플랜:
+            // 시작일 ~ 종료일까지 소비 등록 가능
+            showDateDetailModal(
+              context: context,
+              vm: vm,
+              day: day,
+            );
+          }
+              : null,
+
           child: Container(
             margin: const EdgeInsets.all(2),
             decoration: BoxDecoration(
@@ -442,26 +544,40 @@ class _EmotionCalendarSectionState extends State<EmotionCalendarSection>
             child: LayoutBuilder(
               builder: (context, c) {
                 final bool isOverLimit =
-                    vm.dailySpendingLimit > 0 && amount > vm.dailySpendingLimit;
+                    vm.dailySpendingLimit > 0 &&
+                        amount > vm.dailySpendingLimit;
 
                 final showDayText =
-                    (!showEmotion || (showEmotion && !hasEmotion));
+                    !showEmotion ||
+                        (showEmotion && !hasEmotion);
 
                 return Stack(
                   alignment: Alignment.center,
                   children: [
-                    // 금액 모드
-                    if (!showEmotion && hasAmount)
-                      AmountUnderlineCell(day: day, isOverLimit: isOverLimit),
-
-                    // 감정 모드: Lottie (감정별 JSON)
-                    if (showEmotion && hasEmotion)
+                    // 감정 모드:
+                    // 플랜 범위 안의 기록만 표시
+                    if (inPlanRange &&
+                        showEmotion &&
+                        hasEmotion)
                       _LottieEmotionForDay(
-                        emotionLabel: vm.emotionLabelForDay(day),
+                        emotionLabel:
+                        vm.emotionLabelForDay(day),
                         size: 28,
                       ),
 
-                    // 날짜 텍스트 (토/일/공휴일 색)
+                    // 금액 모드:
+                    // 플랜 범위 안의 기록만 표시
+                    if (inPlanRange &&
+                        !showEmotion &&
+                        hasAmount)
+                      AmountUnderlineCell(
+                        day: day,
+                        isOverLimit: isOverLimit,
+                      ),
+
+                    // 날짜 숫자
+                    //
+                    // 범위 밖이면 흐린 색으로 표시
                     if (showDayText)
                       Text(
                         '$day',

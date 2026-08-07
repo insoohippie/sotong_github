@@ -1,14 +1,22 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' show ImageByteFormat;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:sotong/view/pages/plan/plan_widgets/plan_celebration/sequential_chart_widget.dart';
+import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
+import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/communication/communication_view_model.dart';
 import '../communication/comm_widgets/date_detail_modal.dart';
 import '../../../model/setting/past_plan_snapshot.dart';
@@ -32,7 +40,11 @@ class TotalPlanPage extends StatefulWidget {
 class _TotalPlanPageState extends State<TotalPlanPage>
     with TickerProviderStateMixin {
   final NumberFormat _nf = NumberFormat.decimalPattern('ko_KR');
+  static const int _cardCount = 4;
+
   final PageController _pageController = PageController();
+  final List<GlobalKey> _cardCaptureKeys =
+      List.generate(_cardCount, (_) => GlobalKey());
   // 감정 포디움 바 애니메이션 (3위, 2위, 1위 순서)
   late AnimationController _emotionBarThirdController;
   late AnimationController _emotionBarSecondController;
@@ -229,52 +241,123 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     _emotionCounts = Map<String, int>.from(_snapshot?.emotionCounts ?? {});
     _categorySpending =
         Map<String, double>.from(_snapshot?.categorySpending ?? {});
+
+    final start = _planStartDate;
+    if (start != null) {
+      _selectedYear = start.year;
+      _selectedMonth = start.month;
+    }
+  }
+
+  DateTime? get _planStartDate {
+    final raw = _snapshot?.startDate;
+    if (raw == null) return null;
+    return DateTime(raw.year, raw.month, raw.day);
+  }
+
+  DateTime? get _planEndDate {
+    final raw = _snapshot?.endDate ?? _snapshot?.completedAt;
+    if (raw == null) return null;
+    return DateTime(raw.year, raw.month, raw.day);
+  }
+
+  DateTime _monthStart(int year, int month) => DateTime(year, month, 1);
+
+  bool get _canGoToPreviousMonth {
+    final start = _planStartDate;
+    if (start == null) return true;
+    final current = _monthStart(_selectedYear, _selectedMonth);
+    final planStartMonth = _monthStart(start.year, start.month);
+    return current.isAfter(planStartMonth);
+  }
+
+  bool get _canGoToNextMonth {
+    final end = _planEndDate;
+    if (end == null) return true;
+    final current = _monthStart(_selectedYear, _selectedMonth);
+    final planEndMonth = _monthStart(end.year, end.month);
+    return current.isBefore(planEndMonth);
+  }
+
+  bool _isDayInPlanRange(int day) {
+    final date = DateTime(_selectedYear, _selectedMonth, day);
+    final start = _planStartDate;
+    final end = _planEndDate;
+    if (start != null && date.isBefore(start)) return false;
+    if (end != null && date.isAfter(end)) return false;
+    return true;
+  }
+
+  static const double _cardVerticalPadding = 12;
+
+  Widget _buildCardPage(int pageIndex, Widget content) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenPadding,
+          ),
+          child: SizedBox(
+            height: constraints.maxHeight,
+            child: Center(
+              child: RepaintBoundary(
+                key: _cardCaptureKeys[pageIndex],
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: _cardVerticalPadding,
+                  ),
+                  decoration: _getCardDecoration(),
+                  child: content,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _goBack() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/home_tab_navigator',
+      (_) => false,
+      arguments: 1,
+    );
+  }
+
+  void _startNewPlan() {
+    context.read<ChatPlanViewModel>().resetSession();
+    Navigator.of(context).pushReplacementNamed('/plan_chat');
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
+      appBar: BackOnlyAppBar(
+        title: '나의 기록',
+        onBack: _goBack,
+      ),
       body: SafeArea(
+        top: false,
         child: Stack(
           children: [
             // 메인 콘텐츠 (플랜 정보)
             Column(
               children: [
-                // 헤더
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.screenPadding,
-                    vertical: 16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        '나의 기록',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.text,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _snapshot?.planName ?? '플랜 종합 대시보드',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: AppColors.subText,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
                 // 카드 슬라이드 영역
                 Expanded(
                   child: PageView(
                     controller: _pageController,
                     physics: const ClampingScrollPhysics(),
                     onPageChanged: (index) {
+                      setState(() {});
                       // 페이지가 변경될 때 애니메이션 재시작
                       if (index == 1) {
                         // 감정 기록 페이지 (2번 카드) - 3위 -> 2위 -> 1위 순서
@@ -349,41 +432,35 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                       }
                     },
                     children: [
-                      // 1번 카드: 플랜 요약
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.screenPadding,
-                          vertical: 16,
-                        ),
-                        child: _buildPlanSummaryCard(),
-                      ),
-                      // 2번 카드: 감정 기록 통계
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.screenPadding,
-                          vertical: 16,
-                        ),
-                        child: _buildEmotionStatsCard(),
-                      ),
-                      // 3번 카드: 소비 기록 통계
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.screenPadding,
-                          vertical: 16,
-                        ),
-                        child: _buildSpendingStatsCard(),
-                      ),
-                      // 4번 카드: 최근 일지 기록
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.screenPadding,
-                          vertical: 16,
-                        ),
-                        child: _buildRecentDiariesCard(),
-                      ),
+                      _buildCardPage(0, _buildPlanSummaryCard()),
+                      _buildCardPage(1, _buildEmotionStatsCard()),
+                      _buildCardPage(2, _buildSpendingStatsCard()),
+                      _buildCardPage(3, _buildRecentDiariesCard()),
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 8),
+                  child: SmoothPageIndicator(
+                    controller: _pageController,
+                    count: _cardCount,
+                    effect: const WormEffect(
+                      dotHeight: 8,
+                      dotWidth: 8,
+                      spacing: 8,
+                      activeDotColor: AppColors.primary,
+                      dotColor: Color(0xFFD9D9D9),
+                    ),
+                    onDotClicked: (index) {
+                      _pageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 350),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 120),
               ],
             ),
 
@@ -400,19 +477,61 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     );
   }
 
+  Future<void> _shareCurrentCard() async {
+    final pageIndex =
+        (_pageController.page ?? _pageController.initialPage.toDouble())
+            .round();
+    final boundary = _cardCaptureKeys[pageIndex].currentContext
+        ?.findRenderObject() as RenderRepaintBoundary?;
+
+    if (boundary == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('공유할 화면을 불러오지 못했어요')),
+      );
+      return;
+    }
+
+    try {
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ImageByteFormat.png);
+      if (byteData == null) return;
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/plan_record_$pageIndex.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      final planName = _snapshot?.planName ?? '플랜';
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'image/png')],
+          text: '소통 $planName 나의 기록',
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('공유하기에 실패했어요')),
+      );
+    }
+  }
+
   // 하단 고정 네비게이션 바
   Widget _buildBottomNavigationBar() {
+    final theme = Theme.of(context);
+    const shareGray = Color(0xFF9E9E9E);
+
     return Container(
-      padding: const EdgeInsets.only(top: 30, bottom: 30, left: 20, right: 20),
+      padding: const EdgeInsets.only(top: 24, bottom: 24, left: 20, right: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.scaffoldBackgroundColor,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(40),
           topRight: Radius.circular(40),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             offset: const Offset(0, -4),
             blurRadius: 6,
             spreadRadius: 0,
@@ -421,16 +540,36 @@ class _TotalPlanPageState extends State<TotalPlanPage>
       ),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
           children: [
-            CustomButton(
-              text: 'PDF로 저장하기',
-              onPressed: () {
-                // PDF 저장 기능 구현
-              },
+            Expanded(
+              flex: 3,
+              child: CustomButton(
+                text: '새로운 플랜 만들기',
+                padding: EdgeInsets.zero,
+                onPressed: _startNewPlan,
+              ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(width: 12),
+            SizedBox(
+              width: 60,
+              height: 60,
+              child: ElevatedButton(
+                onPressed: _shareCurrentCard,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: shareGray,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.zero,
+                  elevation: 0,
+                  shadowColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Icon(Icons.ios_share, size: 22),
+              ),
+            ),
           ],
         ),
       ),
@@ -461,17 +600,13 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     final averagePace = snapshot?.averagePace ?? '0.00';
     final averageDailySaving = snapshot?.averageDailySaving ?? 0;
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: _getCardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 순차적 차트 영역 (중간)
-          _buildSequentialCharts(totalDays: totalDays),
-          const SizedBox(height: 50), // 차트와 하단 정보 사이 패딩
-          // 하단 정보: 평균 페이스와 평균 하루 저축 금액
-          Row(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSequentialCharts(totalDays: totalDays),
+        const SizedBox(height: 20),
+        Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               Expanded(
@@ -517,8 +652,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             ],
           ),
         ],
-      ),
-    );
+      );
   }
 
   // 순차적 차트 빌드 (완료 스냅샷 실데이터)
@@ -562,20 +696,10 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   // 감정 기록 통계 카드
   Widget _buildEmotionStatsCard() {
     if (_emotionCounts.isEmpty) {
-      return Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(24),
-        decoration: _getCardDecoration(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Text(
-                '감정 기록이 없습니다',
-                style: TextStyle(fontSize: 14, color: AppColors.subText),
-              ),
-            ),
-          ],
+      return Center(
+        child: Text(
+          '감정 기록이 없습니다',
+          style: TextStyle(fontSize: 14, color: AppColors.subText),
         ),
       );
     }
@@ -587,13 +711,11 @@ class _TotalPlanPageState extends State<TotalPlanPage>
           (sum, count) => sum + count,
     );
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: _getCardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (sortedEmotions.length >= 3)
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (sortedEmotions.length >= 3)
             // 좁은 화면(가용 폭 < 237px)에서 포디움이 넘치지 않도록 축소
             Center(
               child: FittedBox(
@@ -748,19 +870,16 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             ),
           ],
         ],
-      ),
-    );
+      );
   }
 
   // 소비 기록 통계 카드
   Widget _buildSpendingStatsCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: _getCardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_categorySpending.isNotEmpty) ...[
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_categorySpending.isNotEmpty) ...[
             // 포디움: 상위 3개 (제일 위에 배치)
             Builder(
               builder: (context) {
@@ -952,8 +1071,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             ),
           ],
         ],
-      ),
-    );
+      );
   }
 
   // 최근 일지 기록 카드 (달력 형태) — 소통 페이지 달력·실제 기록 연동
@@ -966,11 +1084,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             vm.loadMonth(DateTime(_selectedYear, _selectedMonth, 1));
           });
         }
-        return Container(
-          padding: const EdgeInsets.all(24),
-          decoration: _getCardDecoration(),
-          child: _buildDiaryCalendar(vm),
-        );
+        return _buildDiaryCalendar(vm);
       },
     );
   }
@@ -995,30 +1109,37 @@ class _TotalPlanPageState extends State<TotalPlanPage>
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
           // 월 선택
           Padding(
-            padding: const EdgeInsets.only(top: 20),
+            padding: const EdgeInsets.only(top: 12),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (_selectedMonth == 1) {
-                        _selectedMonth = 12;
-                        _selectedYear--;
-                      } else {
-                        _selectedMonth--;
-                      }
-                    });
-                    vm.loadMonth(DateTime(_selectedYear, _selectedMonth, 1));
-                  },
+                  onTap: _canGoToPreviousMonth
+                      ? () {
+                          setState(() {
+                            if (_selectedMonth == 1) {
+                              _selectedMonth = 12;
+                              _selectedYear--;
+                            } else {
+                              _selectedMonth--;
+                            }
+                          });
+                          vm.loadMonth(
+                            DateTime(_selectedYear, _selectedMonth, 1),
+                          );
+                        }
+                      : null,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     child: Icon(
                       Icons.chevron_left,
-                      color: Colors.grey[700],
+                      color: _canGoToPreviousMonth
+                          ? Colors.grey[700]
+                          : Colors.grey[300],
                       size: 20,
                     ),
                   ),
@@ -1034,22 +1155,28 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                 ),
                 const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (_selectedMonth == 12) {
-                        _selectedMonth = 1;
-                        _selectedYear++;
-                      } else {
-                        _selectedMonth++;
-                      }
-                    });
-                    vm.loadMonth(DateTime(_selectedYear, _selectedMonth, 1));
-                  },
+                  onTap: _canGoToNextMonth
+                      ? () {
+                          setState(() {
+                            if (_selectedMonth == 12) {
+                              _selectedMonth = 1;
+                              _selectedYear++;
+                            } else {
+                              _selectedMonth++;
+                            }
+                          });
+                          vm.loadMonth(
+                            DateTime(_selectedYear, _selectedMonth, 1),
+                          );
+                        }
+                      : null,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     child: Icon(
                       Icons.chevron_right,
-                      color: Colors.grey[700],
+                      color: _canGoToNextMonth
+                          ? Colors.grey[700]
+                          : Colors.grey[300],
                       size: 20,
                     ),
                   ),
@@ -1059,8 +1186,9 @@ class _TotalPlanPageState extends State<TotalPlanPage>
           ),
           // 달력 그리드
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 // 요일 헤더
                 Row(
@@ -1105,17 +1233,24 @@ class _TotalPlanPageState extends State<TotalPlanPage>
 
                           if (!isCurrentMonth) return const SizedBox();
 
+                          final inPlanRange = _isDayInPlanRange(day);
                           final hasEmotion = vm.hasEmotionRecord(day);
                           final emotionLabel = vm.emotionLabelForDay(day);
+                          final hasRecord =
+                              hasEmotion || vm.spendingAmountForDay(day) > 0;
 
                           return GestureDetector(
-                            onTap: () {
-                              showDateDetailModal(
-                                context: context,
-                                vm: vm,
-                                day: day,
-                              );
-                            },
+                            onTap: inPlanRange && hasRecord
+                                ? () {
+                                    showDateDetailModal(
+                                      context: context,
+                                      vm: vm,
+                                      day: day,
+                                      allowSpendingRegistration: false,
+                                      readOnly: true,
+                                    );
+                                  }
+                                : null,
                             child: Container(
                               margin: const EdgeInsets.all(2),
                               decoration: BoxDecoration(
@@ -1125,7 +1260,8 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
-                                  if (hasEmotion &&
+                                  if (inPlanRange &&
+                                      hasEmotion &&
                                       emotionLabel.trim().isNotEmpty)
                                     SizedBox(
                                       width: 28,
@@ -1142,15 +1278,18 @@ class _TotalPlanPageState extends State<TotalPlanPage>
                                         ),
                                       ),
                                     ),
-                                  if (!hasEmotion ||
+                                  if (!inPlanRange ||
+                                      !hasEmotion ||
                                       emotionLabel.trim().isEmpty)
                                     Text(
                                       '$day',
                                       textAlign: TextAlign.center,
-                                      style: const TextStyle(
+                                      style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.black87,
+                                        color: inPlanRange
+                                            ? Colors.black87
+                                            : Colors.grey[300],
                                       ),
                                     ),
                                 ],

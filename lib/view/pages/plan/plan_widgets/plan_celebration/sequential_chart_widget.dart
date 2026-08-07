@@ -158,7 +158,7 @@ class _SequentialChartWidgetState extends State<SequentialChartWidget>
           height: 30,
           indicatorWidthRatio: 0.85,
         ),
-        const SizedBox(height: 50), // 토글과 차트 사이 패딩
+        const SizedBox(height: 24), // 토글과 차트 사이 패딩
         // 차트 위젯 (퍼센트에 따라 색상 결정)
         _SingleChartWidget(
           percent: percent,

@@ -7,6 +7,7 @@ class TodayRecordDiarySection extends StatelessWidget {
   final bool hasUnsavedChanges;
   final Future<void> Function() onSave;
   final VoidCallback onEdit;
+  final bool readOnly;
 
   const TodayRecordDiarySection({
     super.key,
@@ -14,6 +15,7 @@ class TodayRecordDiarySection extends StatelessWidget {
     required this.hasUnsavedChanges,
     required this.onSave,
     required this.onEdit,
+    this.readOnly = false,
   });
 
   static const Map<String, String> _emotionLottieMap = {
@@ -66,24 +68,25 @@ class TodayRecordDiarySection extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      GestureDetector(
-                        onTap: onEdit,
-                        child: Container(
-                          width: 23,
-                          height: 23,
-                          decoration: BoxDecoration(
-                            color: editButtonBackground,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Center(
-                            child: Icon(
-                              Icons.edit,
-                              color: theme.colorScheme.onSurfaceVariant,
-                              size: 10,
+                      if (!readOnly)
+                        GestureDetector(
+                          onTap: onEdit,
+                          child: Container(
+                            width: 23,
+                            height: 23,
+                            decoration: BoxDecoration(
+                              color: editButtonBackground,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Icon(
+                                Icons.edit,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                size: 10,
+                              ),
                             ),
                           ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -163,7 +166,7 @@ class TodayRecordDiarySection extends StatelessWidget {
           child: SafeArea(
             top: false,
             minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-            child: _buildSaveButton(context),
+            child: readOnly ? const SizedBox.shrink() : _buildSaveButton(context),
           ),
         ),
       ],
@@ -171,6 +174,7 @@ class TodayRecordDiarySection extends StatelessWidget {
   }
 
   double _saveButtonReservedHeight(BuildContext context) {
+    if (readOnly) return MediaQuery.paddingOf(context).bottom + 12;
     return MediaQuery.paddingOf(context).bottom +
         (hasUnsavedChanges ? 96.0 : 72.0);
   }
