@@ -88,6 +88,16 @@ class HomeViewModel extends ChangeNotifier {
   bool get shouldShowPlanCelebration => _shouldShowPlanCelebration;
   bool _completionPersistStarted = false;
 
+  // 종료일 자동 연장 — "종료일 경과 + 목표 미달" 감지 결과
+  // HomePage가 이를 읽어 ChatPlanViewModel.extendPlanEndForShortfall을 실행한다.
+  EndDateExtensionRequest? _pendingEndDateExtension;
+  EndDateExtensionRequest? get pendingEndDateExtension =>
+      _pendingEndDateExtension;
+  // 연장 결과(팝업 표시용). HomePage가 소비 후 clear한다.
+  EndDateExtensionResult? _lastEndDateExtension;
+  EndDateExtensionResult? get lastEndDateExtension => _lastEndDateExtension;
+  bool _extensionInFlight = false;
+
   // 프로필
   String _name = '회원';
   String get name => _name;
@@ -246,6 +256,7 @@ class HomeViewModel extends ChangeNotifier {
 
       await _autoFillMissingDays(); // 세은님 추가 부분
       await _rebuildDailyNetThroughToday();
+      _detectEndDateExtensionNeeded();
 
       // 4) 1초 타이머 시작
       _startTicker();
@@ -310,6 +321,14 @@ class HomeViewModel extends ChangeNotifier {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     final planId = _latestPlan?.planId;
     if (uid == null || planId == null || planId.isEmpty) {
+      _shouldShowPlanGraphIntro = false;
+      return;
+    }
+
+    // 완료된 플랜에서는 인트로를 띄우지 않는다.
+    // (인트로 완주 전에 celebration으로 전환되면 hasSeen이 기록되지 않아
+    //  완료 후 홈 복귀 시 재발동하는 문제 방지. 새 플랜은 planId가 달라 정상 표시됨)
+    if (isActivePlanCompleted) {
       _shouldShowPlanGraphIntro = false;
       return;
     }
@@ -1383,11 +1402,99 @@ class HomeViewModel extends ChangeNotifier {
         _refreshPlanForToday();
         await _autoFillMissingDays();
         await _rebuildDailyNetThroughToday();
+        _detectEndDateExtensionNeeded(notify: true);
         await loadDailySummary(_selectedDate);
       } finally {
         _dayBoundaryRefreshRunning = false;
       }
     });
+  }
+
+  // ---------- 종료일 자동 연장 감지 ----------
+  /// "종료일 경과 + 목표 미달"이면 연장 요청을 만든다.
+  /// 실행(트리 확장·저장)은 ChatPlanViewModel이 하므로 여기서는 감지와 수치 계산만 한다.
+  void _detectEndDateExtensionNeeded({bool notify = false}) {
+    if (_extensionInFlight || _pendingEndDateExtension != null) return;
+    final plan = _latestPlan;
+    if (plan == null || plan.planId.isEmpty) return;
+    if (isActivePlanCompleted) return;
+
+    final planEnd = _planEndDate;
+    if (planEnd == null) return;
+    final today = _normalizeDay(DateTime.now());
+    if (!today.isAfter(planEnd)) return; // 아직 종료일 전
+
+    final target = effectiveTargetAmount;
+    if (target <= 0) return;
+    final shortfall = target - actualSavedNow;
+    if (shortfall <= 0) return; // 도달(완료 판정이 처리)
+
+    final daily = _lastMiniDailyNetSaving();
+    if (daily <= 0) {
+      // 생성/수정 필터로 도달 불가 전제 — 크래시 방지용 방어
+      debugPrint('[EndDateExtension] assumption violated: dailyNetSaving=$daily');
+      return;
+    }
+
+    _pendingEndDateExtension = EndDateExtensionRequest(
+      planId: plan.planId,
+      shortfall: shortfall,
+      dailyNetSaving: daily,
+      previousEnd: planEnd,
+    );
+    debugPrint(
+      '[EndDateExtension] needed: shortfall=$shortfall daily=$daily prevEnd=$planEnd',
+    );
+    if (notify) notifyListeners();
+  }
+
+  /// 마지막 MiniPlan의 계획 하루저축액 (종료일 경과 후에도 0이 되지 않는 페이스 값)
+  double _lastMiniDailyNetSaving() {
+    final plan = _latestPlan;
+    if (plan == null || plan.subPlans.isEmpty) return 0;
+    final keys = plan.subPlans.keys.toList()..sort();
+    for (final key in keys.reversed) {
+      final sub = plan.subPlans[key];
+      if (sub == null) continue;
+      try {
+        final minis = sub.orderedMinis();
+        if (minis.isEmpty) continue;
+        return minis.last.toMetrics().dailyNetSaving.toDouble();
+      } catch (_) {
+        continue;
+      }
+    }
+    return 0;
+  }
+
+  /// HomePage가 연장 실행 전 호출 (중복 실행 방지)
+  EndDateExtensionRequest? takeEndDateExtensionRequest() {
+    final req = _pendingEndDateExtension;
+    if (req == null) return null;
+    _extensionInFlight = true;
+    return req;
+  }
+
+  /// HomePage가 연장 실행 후 결과를 넘긴다 (팝업 표시용).
+  /// newEnd가 null이면 연장되지 않은 것 — 요청만 정리한다.
+  void completeEndDateExtension(DateTime? newEnd) {
+    final req = _pendingEndDateExtension;
+    _pendingEndDateExtension = null;
+    _extensionInFlight = false;
+    if (req != null && newEnd != null) {
+      _lastEndDateExtension = EndDateExtensionResult(
+        planId: req.planId,
+        shortfall: req.shortfall,
+        previousEnd: req.previousEnd,
+        newEnd: _normalizeDay(newEnd),
+      );
+    }
+    notifyListeners();
+  }
+
+  /// 팝업을 표시한 뒤 결과를 소비한다.
+  void clearEndDateExtensionResult() {
+    _lastEndDateExtension = null;
   }
 
   // 세은님 추가 내용
@@ -1409,6 +1516,38 @@ class HomeViewModel extends ChangeNotifier {
     _planSavedSub?.cancel();
     super.dispose();
   }
+}
+
+/// 종료일 자동 연장 요청 (감지 시점 수치)
+class EndDateExtensionRequest {
+  const EndDateExtensionRequest({
+    required this.planId,
+    required this.shortfall,
+    required this.dailyNetSaving,
+    required this.previousEnd,
+  });
+
+  final String planId;
+  final double shortfall;
+  final double dailyNetSaving;
+  final DateTime previousEnd;
+}
+
+/// 종료일 자동 연장 결과 (팝업 표시용)
+class EndDateExtensionResult {
+  const EndDateExtensionResult({
+    required this.planId,
+    required this.shortfall,
+    required this.previousEnd,
+    required this.newEnd,
+  });
+
+  final String planId;
+  final double shortfall;
+  final DateTime previousEnd;
+  final DateTime newEnd;
+
+  int get extendedDays => newEnd.difference(previousEnd).inDays;
 }
 
 // 세은님 추가 내용

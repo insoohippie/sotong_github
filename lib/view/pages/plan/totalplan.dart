@@ -16,8 +16,8 @@ import '../../../component/appbars/back_only_app_bar.dart';
 import '../../../component/buttons/custom_button.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/app_spacing.dart';
-import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/communication/communication_view_model.dart';
+import 'start_new_plan_flow.dart';
 import '../communication/comm_widgets/date_detail_modal.dart';
 import '../../../model/setting/past_plan_snapshot.dart';
 import '../../../repository/past_plan_repository.dart';
@@ -31,7 +31,12 @@ import '../../../repository/past_plan_repository.dart';
 /// - 인사이트/분석
 /// ===========================================================================
 class TotalPlanPage extends StatefulWidget {
-  const TotalPlanPage({super.key});
+  /// [snapshot]을 넘기면 "열람 모드": 해당 지난 플랜을 보여주고
+  /// 하단 버튼이 '새로운 플랜 만들기' 대신 '뒤로가기'가 된다.
+  /// 넘기지 않으면 "완료 모드": 최신 완료 플랜을 보여준다(기존 동작).
+  const TotalPlanPage({super.key, this.snapshot});
+
+  final PastPlanSnapshot? snapshot;
 
   @override
   State<TotalPlanPage> createState() => _TotalPlanPageState();
@@ -234,10 +239,17 @@ class _TotalPlanPageState extends State<TotalPlanPage>
     super.dispose();
   }
 
-  /// 완료된 플랜 스냅샷 중 가장 최근 것을 불러와 카드 데이터를 채운다.
+  /// 열람 모드 여부 (외부에서 스냅샷이 주입된 경우)
+  bool get _isReviewMode => widget.snapshot != null;
+
+  /// 주입된 스냅샷이 있으면 그것을, 없으면 가장 최근 완료 플랜을 불러와 카드 데이터를 채운다.
   void _loadSnapshotData() {
-    final snapshots = PastPlanRepository().load();
-    _snapshot = snapshots.isNotEmpty ? snapshots.last : null;
+    if (widget.snapshot != null) {
+      _snapshot = widget.snapshot;
+    } else {
+      final snapshots = PastPlanRepository().load();
+      _snapshot = snapshots.isNotEmpty ? snapshots.last : null;
+    }
     _emotionCounts = Map<String, int>.from(_snapshot?.emotionCounts ?? {});
     _categorySpending =
         Map<String, double>.from(_snapshot?.categorySpending ?? {});
@@ -332,8 +344,7 @@ class _TotalPlanPageState extends State<TotalPlanPage>
   }
 
   void _startNewPlan() {
-    context.read<ChatPlanViewModel>().resetSession();
-    Navigator.of(context).pushReplacementNamed('/plan_chat');
+    startNewPlanFlow(context);
   }
 
   @override
@@ -545,9 +556,10 @@ class _TotalPlanPageState extends State<TotalPlanPage>
             Expanded(
               flex: 3,
               child: CustomButton(
-                text: '새로운 플랜 만들기',
+                // 열람 모드(지난 플랜 돌아보기)에서는 새 플랜 대신 뒤로가기
+                text: _isReviewMode ? '뒤로가기' : '새로운 플랜 만들기',
                 padding: EdgeInsets.zero,
-                onPressed: _startNewPlan,
+                onPressed: _isReviewMode ? _goBack : _startNewPlan,
               ),
             ),
             const SizedBox(width: 12),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../component/appbars/back_only_app_bar.dart';
@@ -9,13 +10,16 @@ import '../../../component/texts/paragraph_text.dart';
 import '../../../component/theme/app_border_radius.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../model/plan/plan_edit_result.dart';
+import '../../../model/setting/past_plan_snapshot.dart';
 import '../../../repository/auth_repository.dart';
+import '../../../repository/past_plan_repository.dart';
 import '../../../view_model/plan/chat_plan_viewmodel.dart';
 import '../../../view_model/home/home_view_model.dart';
 import '../../../view_model/setting/setting_view_model.dart';
 import '../../../services/local_notification_service.dart';
 import '../notification/notification_setting.dart';
 import '../plan/plan_edit_page.dart';
+import '../plan/start_new_plan_flow.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({Key? key}) : super(key: key);
@@ -94,18 +98,15 @@ class SettingsPage extends StatelessWidget {
                         );
                       },
                     ),
+                    // 완료 여부와 무관하게 항상 활성 (새 플랜 진행 중에도 지난 플랜 열람 가능)
                     _settingsRow(
                       context,
                       '지난 플랜 돌아보기',
                       isDark: isDark,
-                      onTap: () {
-                        showComingSoonDialog(
-                          context,
-                          title: '준비 중인 기능',
-                          message: '지난 플랜 돌아보기 기능은\n추후 업데이트 예정입니다.',
-                          isDark: isDark,
-                        );
-                      },
+                      onTap: () => showPastPlanPickerDialog(
+                        context,
+                        isDark: isDark,
+                      ),
                     ),
 
                     _sectionDivider(isDark: isDark),
@@ -172,6 +173,17 @@ class SettingsPage extends StatelessWidget {
                         }
                       },
                     ),
+
+                    // 플랜 완료 후 celebration에서 뒤로가기로 홈에 복귀한 경우를 위해,
+                    // 완료 상태에서만 새 플랜 생성 진입로를 제공한다.
+                    if (isPlanCompleted)
+                      _settingsRow(
+                        context,
+                        '새로운 플랜 만들기',
+                        isDark: isDark,
+                        textColor: AppColors.primary,
+                        onTap: () => startNewPlanFlow(context),
+                      ),
 
                     _settingsRow(
                       context,
@@ -1085,6 +1097,156 @@ void showOfflineUploadBlockedDialog(
       );
     },
   );
+}
+
+/// 지난 플랜 선택 팝업.
+/// 완료된 플랜 스냅샷을 최신순으로 나열(플랜명 · 완료일)하고,
+/// 선택 시 PlanSuccess(/total_plan)를 열람 모드로 연다.
+/// 1개여도 팝업을 거치며, 0개면 안내 다이얼로그를 띄운다.
+Future<void> showPastPlanPickerDialog(
+  BuildContext context, {
+  bool isDark = false,
+}) async {
+  final snapshots = PastPlanRepository().load()
+    ..sort((a, b) => b.completedAt.compareTo(a.completedAt));
+
+  if (snapshots.isEmpty) {
+    showComingSoonDialog(
+      context,
+      title: '지난 플랜이 없어요',
+      message: '완료한 플랜이 아직 없어요.\n플랜을 완료하면 이곳에서 돌아볼 수 있어요.',
+      isDark: isDark,
+    );
+    return;
+  }
+
+  final bgColor = isDark ? AppColors.darkSurface : Colors.white;
+  final textColor = isDark ? AppColors.darkText : Colors.black87;
+  final subColor = isDark ? AppColors.darkSubText : AppColors.subText;
+  final dateFormat = DateFormat('yyyy.MM.dd');
+
+  final selected = await showDialog<PastPlanSnapshot>(
+    context: context,
+    barrierDismissible: true,
+    barrierColor: Colors.black54,
+    builder: (dialogContext) {
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+        child: _AnimatedCenterPopup(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(24, 28, 24, 20),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '지난 플랜 돌아보기',
+                  style: TextStyle(
+                    fontFamily: 'Pretendard Variable',
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '기록을 확인할 플랜을 선택해주세요.',
+                  style: TextStyle(
+                    fontFamily: 'Pretendard Variable',
+                    fontSize: 14,
+                    color: subColor,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(dialogContext).size.height * 0.45,
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: snapshots.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      color: subColor.withValues(alpha: 0.2),
+                    ),
+                    itemBuilder: (_, index) {
+                      final s = snapshots[index];
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () => Navigator.of(dialogContext).pop(s),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                            horizontal: 8,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      s.planName.isNotEmpty ? s.planName : '플랜',
+                                      style: TextStyle(
+                                        fontFamily: 'Pretendard Variable',
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: textColor,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${dateFormat.format(s.completedAt)} 완료',
+                                      style: TextStyle(
+                                        fontFamily: 'Pretendard Variable',
+                                        fontSize: 13,
+                                        color: subColor,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 22,
+                                color: subColor,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: Text(
+                    '닫기',
+                    style: TextStyle(
+                      fontFamily: 'Pretendard Variable',
+                      fontSize: 15,
+                      color: subColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  if (selected == null || !context.mounted) return;
+  Navigator.of(context).pushNamed('/total_plan', arguments: selected);
 }
 
 void showComingSoonDialog(

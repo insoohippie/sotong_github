@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -7,11 +8,17 @@ import '../../../component/containers/rounded_info_container.dart';
 import '../../../component/theme/app_colors.dart';
 import '../../../component/theme/padding/horizontal_padding_clamped_fraction.dart';
 
+import '../../../model/plan/plan_edit_result.dart';
 import '../../../services/chart_animation_haptic.dart';
+import '../../../services/plan_extension_notice_storage.dart';
 import '../../../view_model/home/home_view_model.dart';
 import '../../../view_model/notification/notification_view_model.dart';
+import '../../../view_model/plan/chat_plan_viewmodel.dart';
+import '../../../view_model/setting/setting_view_model.dart';
 import '../../../services/tab_chart_animation_notifier.dart';
+import '../plan/plan_edit_page.dart';
 
+import 'home_widgets/home_end_date_extension_dialog.dart';
 import 'home_widgets/home_plan_intro_dialog.dart';
 import 'home_widgets/home_saving_chart_widget.dart';
 import 'home_widgets/home_saving_countdown_sheet.dart';
@@ -27,6 +34,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   bool _planIntroDialogScheduled = false;
   bool _celebrationScheduled = false;
+  bool _extensionScheduled = false;
   final GlobalKey<HomeSavingChartWidgetState> _chartKey = GlobalKey();
 
   @override
@@ -73,13 +81,19 @@ class _HomePageState extends State<HomePage> {
 
   void _schedulePlanIntroDialog(HomeViewModel vm) {
     if (_planIntroDialogScheduled || !vm.shouldShowPlanGraphIntro) return;
+    // 완료된 플랜에서는 인트로 예약 자체를 하지 않는다 (ViewModel 가드와 이중 방어)
+    if (vm.isActivePlanCompleted) return;
     _planIntroDialogScheduled = true;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await Future<void>.delayed(const Duration(seconds: 1));
       if (!mounted) return;
-      if (!context.read<HomeViewModel>().shouldShowPlanGraphIntro) return;
+      final homeVM = context.read<HomeViewModel>();
+      // 1초 대기 중 목표에 도달했을 수 있으므로 표시 직전에 다시 확인
+      if (!homeVM.shouldShowPlanGraphIntro || homeVM.isActivePlanCompleted) {
+        return;
+      }
 
       await showHomePlanIntroDialog(
         context,
@@ -126,6 +140,129 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  // ---------- 종료일 자동 연장 (종료일 경과 + 목표 미달) ----------
+  /// HomeViewModel이 감지한 연장 요청을 ChatPlanViewModel로 실행하고,
+  /// 결과가 있으면 통보 팝업을 1회 띄운다. 우선순위: celebration > 연장 > 인트로.
+  void _runEndDateExtensionIfNeeded(HomeViewModel vm) {
+    if (_extensionScheduled) return;
+    if (vm.shouldShowPlanCelebration) return; // 완료가 우선
+    final hasRequest = vm.pendingEndDateExtension != null;
+    final hasResult = vm.lastEndDateExtension != null;
+    if (!hasRequest && !hasResult) return;
+    _extensionScheduled = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        _extensionScheduled = false;
+        return;
+      }
+      final homeVM = context.read<HomeViewModel>();
+
+      // 1) 실행 단계: 요청이 있으면 연장 수행 (팝업과 무관하게 먼저 적용)
+      final req = homeVM.takeEndDateExtensionRequest();
+      if (req != null) {
+        DateTime? newEnd;
+        try {
+          newEnd = await context.read<ChatPlanViewModel>().extendPlanEndForShortfall(
+            shortfall: req.shortfall,
+            dailyNetSaving: req.dailyNetSaving,
+          );
+        } catch (e) {
+          debugPrint('[HomePage] end-date extension failed: $e');
+        }
+        homeVM.completeEndDateExtension(newEnd);
+        if (!mounted) {
+          _extensionScheduled = false;
+          return;
+        }
+
+        // 연장(및 재연장) 시 플랜 업로드 — 플랜 문서뿐 아니라 로컬 전용(localMode)으로
+        // 쌓인 소비 기록·카테고리까지 서버에 동기화한다. 실패해도 연장 자체는 유지.
+        if (newEnd != null) {
+          await _uploadPlanAfterExtension();
+          if (!mounted) {
+            _extensionScheduled = false;
+            return;
+          }
+        }
+      }
+
+      // 2) 표시 단계: 홈이 최상단일 때만, 결과당 1회
+      final result = homeVM.lastEndDateExtension;
+      if (result == null) {
+        _extensionScheduled = false;
+        return;
+      }
+      final route = ModalRoute.of(context);
+      if (route == null || !route.isCurrent) {
+        _extensionScheduled = false; // 홈으로 돌아오면 재시도
+        return;
+      }
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null &&
+          PlanExtensionNoticeStorage.instance.hasShown(
+            uid: uid,
+            planId: result.planId,
+            newEnd: result.newEnd,
+          )) {
+        homeVM.clearEndDateExtensionResult();
+        _extensionScheduled = false;
+        return;
+      }
+
+      homeVM.clearEndDateExtensionResult();
+      if (uid != null) {
+        await PlanExtensionNoticeStorage.instance.markShown(
+          uid: uid,
+          planId: result.planId,
+          newEnd: result.newEnd,
+        );
+      }
+      if (!mounted) {
+        _extensionScheduled = false;
+        return;
+      }
+      await showHomeEndDateExtensionDialog(
+        context,
+        result: result,
+        onAdjustPlan: _openPlanEditFromExtension,
+      );
+      _extensionScheduled = false;
+    });
+  }
+
+  /// 종료일 연장 후 플랜 업로드 (설정 화면의 '플랜 업로드'와 동일 동작).
+  /// 오프라인이면 건너뛴다 — 로컬에는 이미 저장되어 있고 dirty 플래그로 다음 기회에 동기화된다.
+  Future<void> _uploadPlanAfterExtension() async {
+    final settingVM = context.read<SettingViewModel>();
+    if (!settingVM.isOnline) {
+      debugPrint('[HomePage] skip upload after extension: offline');
+      return;
+    }
+    try {
+      await settingVM.uploadAllData();
+      debugPrint('[HomePage] plan uploaded after end-date extension');
+    } catch (e) {
+      debugPrint('[HomePage] upload after extension failed: $e');
+    }
+  }
+
+  /// 연장 팝업의 '계획 조정하기' → 플랜 편집 화면 (설정 화면과 동일 흐름)
+  Future<void> _openPlanEditFromExtension() async {
+    final chatVm = context.read<ChatPlanViewModel>();
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final result = await navigator.push<PlanEditResult>(
+      MaterialPageRoute(builder: (_) => PlanEditPage(useLocalDraft: false)),
+    );
+    if (!navigator.mounted || result == null) return;
+    chatVm.applyPlanEditResult(result);
+    final ok = await chatVm.savePlan();
+    if (!navigator.mounted) return;
+    ScaffoldMessenger.of(navigator.context).showSnackBar(
+      SnackBar(content: Text(ok ? '플랜이 수정되었습니다.' : '플랜 저장에 실패했어요.')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<HomeViewModel>();
@@ -154,8 +291,10 @@ class _HomePageState extends State<HomePage> {
       );
     }
 
-    _schedulePlanIntroDialog(vm);
+    // 우선순위: celebration(완료) > 종료일 연장 > 인트로
     _scheduleCelebrationIfNeeded(vm);
+    _runEndDateExtensionIfNeeded(vm);
+    _schedulePlanIntroDialog(vm);
 
     final userName = vm.name;
     final planName = vm.planTitle;

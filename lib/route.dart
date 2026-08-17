@@ -79,7 +79,13 @@ final Map<String, WidgetBuilder> appRoutes = {
       snapshot: snapshot,
     );
   },
-  '/total_plan': (_) => const TotalPlanPage(),
+  // arguments: PastPlanSnapshot? (넘기면 지난 플랜 열람 모드)
+  '/total_plan': (context) {
+    final args = ModalRoute.of(context)?.settings.arguments;
+    return TotalPlanPage(
+      snapshot: args is PastPlanSnapshot ? args : null,
+    );
+  },
 
   // 카테고리 편집 페이지
   '/category_edit': (_) => const CategoryEditPage(),

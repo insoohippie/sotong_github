@@ -23,6 +23,7 @@ import '../../repository/plan_cache_repository.dart';
 import '../../services/app_session_reset_service.dart';
 import '../../services/plan_debug_printer.dart';
 import '../../services/plan_saved_event_bus.dart';
+import '../../services/plan_transition_storage.dart';
 import '../services/category_bootstrap_service.dart';
 import '../services/ref_data_viewmodel.dart';
 import '../services/plan_preview_service.dart';
@@ -160,6 +161,19 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
     if (_initialPlanResolved) return;
     _initialPlanResolved = true;
     debugPrint('[ChatPlanViewModel] initializing plan state');
+
+    // 새 플랜 전환 중(저장 전 재시작)이면 이전 플랜을 되살리지 않는다.
+    // 이전 refData는 비활성 상태로만 품어 ID 충돌을 피한다.
+    final uid = _authRepo.cachedUid ?? _authRepo.currentUserId;
+    if (uid != null && PlanTransitionStorage.instance.isInProgress(uid: uid)) {
+      debugPrint('[ChatPlanViewModel] new plan in progress -> skip restore');
+      final carryOver = await _refDataRepo.loadAll();
+      _resetUserScopedState(carryOverRefData: carryOver);
+      _initialPlanResolved = true;
+      notifyListeners();
+      return;
+    }
+
     var loaded = false;
     if (_authRepo.cachedHasPlan) {
       debugPrint('[ChatPlanViewModel] cachedHasPlan=true -> try cache');
@@ -1223,9 +1237,11 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
   // --------------------------------------
   // 초기화
   // --------------------------------------
-  void _resetUserScopedState() {
+  /// [carryOverRefData]: 새 플랜 전환 시 이전 플랜의 비활성 refData.
+  /// 넘겨주면 ID 발급기가 이전 ID를 인지해 충돌을 피한다(계산에는 영향 없음).
+  void _resetUserScopedState({RefData? carryOverRefData}) {
     _totalPlan = TotalPlan.empty();
-    _refData = RefData(planId: '');
+    _refData = carryOverRefData ?? RefData(planId: '');
 
     _refDataVM = RefDataViewModel(_refData);
     _totalPlanVM = TotalPlanViewModel(_totalPlan);
@@ -1272,6 +1288,13 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
   void resetSession() {
     _userName = '회원';
     _resetUserScopedState();
+    notifyListeners();
+  }
+
+  /// 완료된 플랜에서 새 플랜 만들기로 진입할 때 호출.
+  /// 이름은 유지하고, 이전 플랜의 비활성 refData를 품은 채 상태를 초기화한다.
+  void startNewPlanSession({required RefData carryOverRefData}) {
+    _resetUserScopedState(carryOverRefData: carryOverRefData);
     notifyListeners();
   }
 
@@ -1364,6 +1387,11 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
       _logPlanTree('After Save');
       _needsInitialUpload = false;
       _lastPersistedGoal = _totalPlan.modEndDate ?? _totalPlan.endDate;
+      // 새 플랜 전환 중이었다면 저장 성공으로 전환 완료 → 플래그 해제
+      final savedUid = _authRepo.cachedUid ?? _authRepo.currentUserId;
+      if (savedUid != null) {
+        await PlanTransitionStorage.instance.clear(uid: savedUid);
+      }
       _planSavedBus?.notify();
       debugPrint('[savePlan] success: _hasSavedPlan $_hasSavedPlan -> true');
       _setHasSavedPlan(true);
@@ -1765,6 +1793,9 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
     required Map<String, MonthlyConsume> consumes,
     required Map<String, DailyConsume> dailyConsumes,
   }) async {
+    // 비활성 레코드도 함께 저장한다. 뮤테이션(removeMonths 등)으로 비활성화된
+    // 이전 버전은 이 경로에서만 영속화되므로 활성만 걸러내면 저장소가 오염된다.
+    // (새 플랜 전환으로 carry-over된 비활성 레코드는 동일 값 재저장이라 무해)
     final tasks = <Future<void>>[];
     for (final income in incomes.values) {
       tasks.add(_refDataRepo.saveMonthlyIncome(income));
@@ -1959,6 +1990,72 @@ class ChatPlanViewModel extends ChangeNotifier implements SessionResettable {
       unawaited(_authRepo.setHasPlan(false));
       unawaited(_planCacheRepo.clearSnapshot(uid));
     }
+  }
+
+  // --------------------------------------
+  // 종료일 자동 연장 (종료일 경과 + 목표 미달)
+  // --------------------------------------
+  /// 부족액과 하루 저축액으로 필요한 일수를 구해 modEndDate를 뒤로 민다.
+  /// 플랜 편집 화면과 같은 원리로 뮤테이션 서비스를 거치지 않고
+  /// refData 커버리지 확장 → 트리 실체화(_materializeEditedPlanTree) → 저장 순으로 처리한다.
+  ///
+  /// 반환: 새 종료일 (연장하지 않았으면 null)
+  /// 전제: 플랜 생성/수정 단계에서 dailyNetSaving <= 0 인 플랜은 저장되지 않으므로
+  ///       여기서 0 이하가 들어오면 가정 위반 — 크래시만 막고 연장하지 않는다.
+  Future<DateTime?> extendPlanEndForShortfall({
+    required double shortfall,
+    required double dailyNetSaving,
+  }) async {
+    if (!_hasSavedPlan || _totalPlan.planId.isEmpty) return null;
+    if (shortfall <= 0) return null;
+    if (dailyNetSaving <= 0) {
+      debugPrint(
+        '[extendPlanEnd] assumption violated: dailyNetSaving=$dailyNetSaving <= 0 (skip)',
+      );
+      return null;
+    }
+
+    final today = _normalizeDay(DateTime.now());
+    final currentEnd = _totalPlan.modEndDate ?? _totalPlan.endDate;
+    final base = (currentEnd != null && _normalizeDay(currentEnd).isAfter(today))
+        ? _normalizeDay(currentEnd)
+        : today;
+
+    // 필요한 일수 = ceil(부족액 / 하루저축) + 여유 1일
+    final daysNeeded = (shortfall / dailyNetSaving).ceil() + 1;
+    final newEnd = base.add(Duration(days: daysNeeded));
+    debugPrint(
+      '[extendPlanEnd] shortfall=$shortfall daily=$dailyNetSaving '
+      'days=$daysNeeded base=$base -> newEnd=$newEnd',
+    );
+
+    final start = _normalizeDay(
+      _totalPlan.startDate ?? _totalPlan.creationDate ?? today,
+    );
+
+    // 1) refData(월수입/월지출/하루한도) 범위를 새 종료일까지 확장·저장
+    await _ensureRefDataCoverage(start, newEnd);
+    await _waitForPendingRefDataWrites();
+
+    // 2) 트리 실체화: 시작월~새 종료월 SubPlan/MiniPlan 재생성 + modEndDate 반영
+    _totalPlan = _materializeEditedPlanTree(
+      plan: _totalPlan,
+      refData: _refData,
+      goalDate: newEnd,
+      monthlyCommands: const [],
+      dailyCommands: const [],
+    );
+    _totalPlanVM = TotalPlanViewModel(_totalPlan);
+    _calculationVM.updatePlan(_totalPlan);
+    _logPlanTree('After End-Date Extension');
+
+    // 3) 저장 (전체 트리 교체) + 캐시 + 종료일 추적값 동기화 (다음 저장 시 되돌림 방지)
+    await _planRepo.replacePlan(_totalPlan);
+    _lastPersistedGoal = newEnd;
+    await _cacheSnapshotIfPossible();
+    _planSavedBus?.notify();
+    notifyListeners();
+    return newEnd;
   }
 
   Future<void> _cacheSnapshotIfPossible({String? uidOverride}) async {
