@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../repository/auth_repository.dart';
 import '../../../services/home_widget_launch_handler.dart';
+import '../../../services/plan_transition_storage.dart';
 import '../../../view_model/home/home_view_model.dart';
 import 'auth/login_page.dart';
 
@@ -45,6 +46,17 @@ class _LogoSplashPageState extends State<LogoSplashPage>
     if (!mounted) return;
 
     if (next == '/home_tab_navigator') {
+      // 새 플랜 작성 중(저장 전) 재시작: 이전 플랜의 잠긴 홈 대신 플랜 챗으로 복귀
+      final uid = authRepo.cachedUid ?? authRepo.currentUserId;
+      if (uid != null &&
+          PlanTransitionStorage.instance.isInProgress(uid: uid)) {
+        await Navigator.of(context).pushNamedAndRemoveUntil(
+          '/plan_chat',
+          (_) => false,
+        );
+        return;
+      }
+
       final homeVM = context.read<HomeViewModel>();
       await homeVM.refresh();
       if (!mounted) return;

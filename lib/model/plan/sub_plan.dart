@@ -102,8 +102,12 @@ class SubPlan {
     final metrics = miniResult.miniMetrics.isNotEmpty
         ? miniResult.miniMetrics
         : ordered.map((mini) => mini.toMetrics()).toList();
-    final monthStart = DateTime(yearMonth.year, yearMonth.month, 1);
-    final monthEnd = DateTime(yearMonth.year, yearMonth.month + 1, 0);
+    // 기간은 달력 1일~말일이 아니라 이 달의 미니가 실제로 덮는 구간이어야 한다.
+    // 금액(net*)은 미니 실제 기간분 합계이므로, 기간도 같은 기준이어야
+    // dailyNetSaving(= 순저축 ÷ kDays)이 하루 페이스와 일치한다.
+    // (달력 전체로 잡으면 잘린 달(시작월/종료월)의 kDays가 부풀어 값이 왜곡됨)
+    final rangeStart = ordered.first.startDate;
+    final rangeEnd = ordered.last.endDate;
     final latestMini = ordered.isNotEmpty ? ordered.last : miniResult.miniPlanHead;
     final totalMonthlyNetIncome =
         ordered.fold<int>(0, (sum, mini) => sum + mini.monthlyNetIncome);
@@ -115,8 +119,8 @@ class SubPlan {
     final latestMonthlyConsume = latestMini.monthlyConsumeAmount;
     final latestDailyLimit = latestMini.dailyConsumeAmount;
     return PlanMetrics.fromRange(
-      startDate: monthStart,
-      endDate: monthEnd,
+      startDate: rangeStart,
+      endDate: rangeEnd,
       monthlyIncomeAmount: latestMonthlyIncome,
       monthlyConsumeAmount: latestMonthlyConsume,
       dailyConsumeAmount: latestDailyLimit,

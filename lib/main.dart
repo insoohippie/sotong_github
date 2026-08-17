@@ -33,6 +33,7 @@ import 'repository/account_delete_repository.dart';
 // EventBus
 import 'services/local_notification_service.dart';
 import 'services/plan_saved_event_bus.dart';
+import 'services/plan_transition_service.dart';
 import 'services/record_event_bus.dart';
 import 'services/app_session_reset_service.dart';
 import 'services/home_widget_sync_service.dart';
@@ -194,6 +195,12 @@ class _MyAppState extends State<MyApp> {
         Provider<CategoryBootstrapService>(
           create: (ctx) => CategoryBootstrapService(
             ctx.read<RefCategoryRepository>(),
+          ),
+        ),
+        Provider<PlanTransitionService>(
+          create: (ctx) => PlanTransitionService(
+            refDataRepo: ctx.read<RefDataRepository>(),
+            planCacheRepo: ctx.read<PlanCacheRepository>(),
           ),
         ),
 

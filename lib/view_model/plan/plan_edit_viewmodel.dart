@@ -723,10 +723,20 @@ class PlanEditViewModel extends ChangeNotifier {
 
   // Get validation error message
   String? getValidationError() {
-    if (planNameController.text.isEmpty) {
-      return '플랜 이름을 입력해주세요';
+    // 플랜 생성(챗)과 동일 기준: 이름 2글자 이상
+    if (planNameController.text.trim().length < 2) {
+      return '플랜 이름을 2글자 이상 입력해주세요';
     }
-    return _calculatorInputIssue();
+    final inputIssue = _calculatorInputIssue();
+    if (inputIssue != null) return inputIssue;
+
+    // 플랜 생성(챗)과 동일 기준: 하루 저축액이 0 이하면 목표 도달 불가 → 차단
+    // (개별 필드는 유효해도 조합 결과가 0 이하일 수 있음)
+    final calc = _calculatePreviewResult();
+    if (calc == null || calc.dailyNetSaving <= 0) {
+      return '현재 입력값으로는 하루 저축액이 0원 이하예요';
+    }
+    return null;
   }
 
   String? applyEdits() {
